@@ -12,9 +12,10 @@ type Line = {
   debit: string; // user-entered dollar string, e.g. "1,250.00"
   credit: string;
   memo: string;
+  classTag: string; // optional class/project/department tag
 };
 
-const emptyLine = (): Line => ({ accountId: "", debit: "", credit: "", memo: "" });
+const emptyLine = (): Line => ({ accountId: "", debit: "", credit: "", memo: "", classTag: "" });
 
 /** Parse a user-entered dollar string into integer cents. Returns null on invalid. */
 function dollarsToCents(value: string): bigint | null {
@@ -96,6 +97,7 @@ export function JournalEntryForm({
       debitCents: string;
       creditCents: string;
       memo?: string;
+      classTag?: string;
     }> = [];
 
     for (const [i, l] of lines.entries()) {
@@ -124,6 +126,7 @@ export function JournalEntryForm({
         debitCents: d.toString(),
         creditCents: c.toString(),
         memo: l.memo.trim() || undefined,
+        classTag: l.classTag.trim() || undefined,
       });
     }
 
@@ -187,6 +190,7 @@ export function JournalEntryForm({
               <th className="px-3 py-2 text-right font-medium">Debit</th>
               <th className="px-3 py-2 text-right font-medium">Credit</th>
               <th className="px-3 py-2 font-medium">Memo</th>
+              <th className="px-3 py-2 font-medium">Class</th>
               <th className="w-8"></th>
             </tr>
           </thead>
@@ -237,6 +241,16 @@ export function JournalEntryForm({
                     className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </td>
+                <td className="px-3 py-2">
+                  <input
+                    type="text"
+                    value={line.classTag}
+                    onChange={(e) => updateLine(i, { classTag: e.target.value })}
+                    placeholder="Project A"
+                    maxLength={100}
+                    className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </td>
                 <td className="px-3 py-2 text-center">
                   {lines.length > 2 && (
                     <button
@@ -261,7 +275,7 @@ export function JournalEntryForm({
               <td className="px-3 py-2 text-right font-mono text-sm font-semibold tabular-nums">
                 {formatCents(totalCredit)}
               </td>
-              <td className="px-3 py-2" colSpan={2}>
+              <td className="px-3 py-2" colSpan={3}>
                 {hasContent && (
                   isBalanced ? (
                     <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">

@@ -103,6 +103,12 @@ export default async function BooksPage({ params }: { params: { tenant: string }
             SaaS Metrics
           </Link>
           <Link
+            href={`/${params.tenant}/books/reports/class-pnl`}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            P&amp;L by Class
+          </Link>
+          <Link
             href={`/${params.tenant}/books/reports/ar-aging`}
             className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
