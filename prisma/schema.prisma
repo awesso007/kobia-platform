@@ -224,6 +224,7 @@ model Entity {
   bills           Bill[]
   bankAccounts    BankAccount[]
   periods         AccountingPeriod[]
+  recurringInvoices RecurringInvoice[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -369,6 +370,7 @@ model Account {
   billLines         BillLine[]
   billPayments      BillPayment[]    @relation("BillPaymentCashAccount")
   bankAccounts      BankAccount[]
+  recurringInvoiceLines RecurringInvoiceLine[]
 
   @@unique([entityId, code])
   @@index([tenantId])
@@ -503,6 +505,7 @@ model Customer {
 
   entity   Entity    @relation(fields: [entityId], references: [id], onDelete: Cascade)
   invoices Invoice[]
+  recurringInvoices RecurringInvoice[]
 
   @@unique([entityId, name])
   @@index([tenantId])
@@ -542,6 +545,7 @@ model Invoice {
   customer Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
   lines    InvoiceLine[]
   payments InvoicePayment[]
+  recurringRun RecurringInvoiceRun?
 
   @@unique([entityId, invoiceNumber])
   @@index([tenantId])
@@ -927,5 +931,98 @@ enum PendingStatus {
 // Cycle 5: Employee, PayRun, Paystub, TaxFiling, TimeEntry
 // Cycle 5/6: Embedding, AiQuery, AnomalyDetection, ClosingAssistant
 // =============================================================================
-// SHIPPED: AR Cycle 3 W1 · AP Cycle 3 W2 · Bank Rec Cycle 3 W3
+// RECURRING INVOICES — auto-generate invoices on a schedule (Cycle 3 W9)
+// =============================================================================
+model RecurringInvoice {
+  id              String                  @id @default(cuid())
+  tenantId        String
+  entityId        String
+  customerId      String
+  name            String                  // e.g. "Monthly Retainer — Acme Corp"
+  // Schedule definition
+  frequency       RecurringFrequency      @default(MONTHLY)
+  intervalCount   Int                     @default(1) // every N units (e.g. every 2 weeks)
+  dayOfMonth      Int?                    // 1-28 for MONTHLY (28 max to avoid Feb edge)
+  startDate       DateTime
+  endDate         DateTime?               // null = no end
+  // Template details for generated invoices
+  termsDays       Int                     @default(30)
+  currency        String                  @default("USD")
+  memo            String?
+  // State
+  status          RecurringStatus         @default(ACTIVE)
+  nextRunDate     DateTime                // when to generate the next invoice
+  lastRunDate     DateTime?
+  runsCompleted   Int                     @default(0)
+  maxRuns         Int?                    // null = no cap
+  // Audit
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  entity   Entity                       @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  customer Customer                     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  lines    RecurringInvoiceLine[]
+  runs     RecurringInvoiceRun[]
+
+  @@index([tenantId])
+  @@index([entityId])
+  @@index([status, nextRunDate])
+}
+
+model RecurringInvoiceLine {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  recurringInvoiceId   String
+  accountId            String
+  description          String
+  quantityMilli        BigInt   @default(1000)
+  unitPriceCents       BigInt   @default(0)
+  lineNumber           Int
+  createdAt            DateTime @default(now())
+
+  recurringInvoice RecurringInvoice @relation(fields: [recurringInvoiceId], references: [id], onDelete: Cascade)
+  account          Account          @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([recurringInvoiceId])
+}
+
+model RecurringInvoiceRun {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  recurringInvoiceId   String
+  generatedInvoiceId   String?  @unique // null if generation failed
+  scheduledFor         DateTime
+  ranAt                DateTime @default(now())
+  status               RecurringRunStatus @default(SUCCESS)
+  errorMessage         String?
+
+  recurringInvoice RecurringInvoice @relation(fields: [recurringInvoiceId], references: [id], onDelete: Cascade)
+  generatedInvoice Invoice?         @relation(fields: [generatedInvoiceId], references: [id], onDelete: SetNull)
+
+  @@index([recurringInvoiceId])
+  @@index([tenantId])
+}
+
+enum RecurringFrequency {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  ANNUALLY
+}
+
+enum RecurringStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED // hit maxRuns or endDate
+  CANCELED
+}
+
+enum RecurringRunStatus {
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+// =============================================================================
+// SHIPPED: AR Cycle 3 W1 · AP Cycle 3 W2 · Bank Rec Cycle 3 W3 · Cash Flow W4 · Period Close W5 · Fixed Assets W6 · Multi-Currency W7 · Trial Balance + GL W8 · Recurring Invoices W9
 // ==============================================================================
