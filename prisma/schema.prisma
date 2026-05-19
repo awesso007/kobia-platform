@@ -218,6 +218,7 @@ model Entity {
   invoices        Invoice[]
   vendors         Vendor[]
   bills           Bill[]
+  bankAccounts    BankAccount[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -249,6 +250,7 @@ model Account {
   invoicePayments   InvoicePayment[] @relation("InvoicePaymentCashAccount")
   billLines         BillLine[]
   billPayments      BillPayment[]    @relation("BillPaymentCashAccount")
+  bankAccounts      BankAccount[]
 
   @@unique([entityId, code])
   @@index([tenantId])
@@ -594,10 +596,177 @@ model BillPayment {
 }
 
 // =============================================================================
+// BANK RECONCILIATION — Cycle 3 W3
+// =============================================================================
+
+/// A real-world bank/credit-card account, linked to a GL cash/liability account.
+/// One GL account can have at most one BankAccount.
+model BankAccount {
+  id              String   @id @default(cuid())
+  tenantId        String
+  entityId        String
+  // The GL account this bank account posts to (must be ASSET for bank, LIABILITY for credit card)
+  glAccountId     String   @unique
+  name            String   // Display name e.g. "Chase Business Checking …4521"
+  institution     String?  // "Chase", "Bank of America"
+  accountLast4    String?  // "4521"
+  accountType     BankAccountType @default(CHECKING)
+  currency        String   @default("USD")
+  // Optional opening balance snapshot for first reconciliation
+  openingBalanceCents BigInt @default(0)
+  openingBalanceDate  DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  entity        Entity                 @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  glAccount     Account                @relation(fields: [glAccountId], references: [id], onDelete: Restrict)
+  transactions  BankTransaction[]
+  rules         BankRule[]
+  sessions      ReconciliationSession[]
+
+  @@index([tenantId])
+  @@index([entityId, isActive])
+}
+
+enum BankAccountType {
+  CHECKING
+  SAVINGS
+  CREDIT_CARD
+  MONEY_MARKET
+  LOAN
+  OTHER
+}
+
+/// A single transaction line imported from a bank feed or CSV statement.
+/// `amountCents` is signed: positive = money in (deposit), negative = money out (withdrawal).
+model BankTransaction {
+  id              String   @id @default(cuid())
+  tenantId        String
+  bankAccountId   String
+  postedDate      DateTime
+  description     String
+  amountCents     BigInt   // signed; +inflow / -outflow
+  balanceAfterCents BigInt? // optional, if statement provides running balance
+  // Stable hash for dedup: SHA-1(postedDate|amount|description) — set on import
+  dedupHash       String
+  source          BankTxnSource @default(CSV_IMPORT)
+  rawData         Json?    // original CSV row or feed payload
+  status          BankTxnStatus @default(UNMATCHED)
+  // When matched to an existing JE (e.g. invoice payment, bill payment, manual JE)
+  matchedJournalEntryId String?
+  matchedAt       DateTime?
+  matchedByUserId String?
+  // When categorized (creates a NEW JE) instead of matched
+  categorizedJournalEntryId String?
+  categorizedAt   DateTime?
+  categorizedByUserId String?
+  // Reconciliation session this txn was cleared in (set on session complete)
+  reconciliationId String?
+  clearedAt        DateTime?
+  // Optional rule that auto-categorized this
+  appliedRuleId   String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  bankAccount     BankAccount            @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  reconciliation  ReconciliationSession? @relation(fields: [reconciliationId], references: [id], onDelete: SetNull)
+  appliedRule     BankRule?              @relation(fields: [appliedRuleId], references: [id], onDelete: SetNull)
+
+  @@unique([bankAccountId, dedupHash])
+  @@index([tenantId])
+  @@index([bankAccountId, status])
+  @@index([bankAccountId, postedDate])
+  @@index([matchedJournalEntryId])
+  @@index([categorizedJournalEntryId])
+  @@index([reconciliationId])
+}
+
+enum BankTxnSource {
+  CSV_IMPORT
+  MANUAL
+  PLAID         // future
+  STRIPE_FEED   // future
+}
+
+enum BankTxnStatus {
+  UNMATCHED   // imported, not yet matched or categorized
+  MATCHED     // tied to an existing JE
+  CATEGORIZED // a new JE was created from this txn
+  CLEARED     // included in a completed reconciliation session
+  IGNORED     // user marked as not-for-books (transfer between own accts, etc.)
+}
+
+/// User-defined or AI-suggested rule for auto-categorizing future bank txns.
+/// Example: description contains "ADOBE" → debit 6600 Software & Subscriptions, credit this bank account.
+model BankRule {
+  id              String   @id @default(cuid())
+  tenantId        String
+  bankAccountId   String   // scope to a single bank account (null = entity-wide future)
+  name            String
+  // Match criteria — for MVP: simple substring match on description
+  descriptionContains String
+  // Optional: only apply if amount sign matches
+  appliesToInflow  Boolean @default(true)
+  appliesToOutflow Boolean @default(true)
+  // Categorization target
+  offsetAccountId String   // The account to debit (outflow) or credit (inflow) opposite of bank
+  memoTemplate    String?  // Optional memo to set on created JE
+  contactRefType  String?  // "Vendor", "Customer", etc.
+  contactRefId    String?
+  // Stats
+  appliedCount    Int      @default(0)
+  lastAppliedAt   DateTime?
+  priority        Int      @default(100) // lower = higher priority
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  bankAccount     BankAccount       @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  transactions    BankTransaction[]
+
+  @@index([tenantId])
+  @@index([bankAccountId, isActive, priority])
+}
+
+/// A point-in-time reconciliation: ties cleared transactions to a statement period.
+model ReconciliationSession {
+  id              String   @id @default(cuid())
+  tenantId        String
+  bankAccountId   String
+  statementStartDate DateTime
+  statementEndDate   DateTime
+  statementStartBalanceCents BigInt
+  statementEndBalanceCents   BigInt
+  // Sum of cleared txns at completion — should reconcile end-start balance
+  clearedTotalCents BigInt? @default(0)
+  status          ReconStatus @default(IN_PROGRESS)
+  completedAt     DateTime?
+  completedByUserId String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  bankAccount     BankAccount       @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  transactions    BankTransaction[]
+
+  @@index([tenantId])
+  @@index([bankAccountId, status])
+}
+
+enum ReconStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+// =============================================================================
 // MODULE STUBS — to be expanded in later cycles
 // =============================================================================
-// Cycle 2 cont.: BankAccount, BankTransaction, ReconciliationSession, BankRule
-// Cycle 4: ApprovalWorkflow, W9 (Vendor/Bill/BillPayment shipped Cycle 3 W2)
+// Cycle 4: ApprovalWorkflow, W9
 // Cycle 5: Employee, PayRun, Paystub, TaxFiling, TimeEntry
 // Cycle 5/6: Embedding, AiQuery, AnomalyDetection, ClosingAssistant
 // =============================================================================
+// SHIPPED: AR Cycle 3 W1 · AP Cycle 3 W2 · Bank Rec Cycle 3 W3
+// ==============================================================================

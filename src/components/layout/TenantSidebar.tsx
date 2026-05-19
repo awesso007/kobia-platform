@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Tenant } from "@prisma/client";
-import { BookOpen, DollarSign, FileText, Home, Receipt, Settings, BarChart3, Users } from "lucide-react";
+import { BookOpen, DollarSign, FileText, Home, Landmark, Receipt, Settings, BarChart3, Users } from "lucide-react";
 import { EntitySwitcher } from "./EntitySwitcher";
 
 type SwitcherEntity = {
@@ -31,6 +31,7 @@ export function TenantSidebar({
     { href: `${base}/ar/invoices`, label: "Invoices", icon: FileText },
     { href: `${base}/ap/vendors`, label: "Vendors", icon: Users },
     { href: `${base}/ap/bills`, label: "Bills", icon: Receipt },
+    { href: `${base}/bank`, label: "Bank & Reconcile", icon: Landmark },
     { href: `${base}/payroll`, label: "Payroll", icon: DollarSign },
     { href: `${base}/settings`, label: "Settings", icon: Settings },
   ];
