@@ -1,6 +1,8 @@
 import { ComingSoon } from "@/components/ComingSoon";
+import { requireFeature } from "@/lib/feature-gate";
 
-export default function MortgageBorrowersPage({ params }: { params: { tenant: string } }) {
+export default async function MortgageBorrowersPage({ params }: { params: { tenant: string } }) {
+  await requireFeature(params.tenant, "mortgage");
   return (
     <ComingSoon
       module="Mortgage · Origination"

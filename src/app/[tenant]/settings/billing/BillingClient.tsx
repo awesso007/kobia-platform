@@ -3,57 +3,40 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc-client";
 
-const TIERS = [
-  {
-    id: "SOLO",
-    name: "Solo Accountant",
-    price: "$149",
-    description: "1-20 client books, unlimited firm seats",
-    features: ["Full books + reconciliation", "Invoicing + AR", "AI categorization", "Up to 20 client entities"],
-  },
-  {
-    id: "FIRM",
-    name: "Firm",
-    price: "$399",
-    description: "20-100 clients, includes payroll",
-    features: ["Everything in Solo", "Payroll (up to 50 employees)", "Client portal", "E-sign"],
-  },
-  {
-    id: "FIRM_PLUS",
-    name: "Firm Plus",
-    price: "$899",
-    description: "100+ clients, multi-state, dedicated CSM",
-    features: ["Unlimited clients", "Multi-state payroll", "Advanced reporting", "Dedicated CSM"],
-  },
-] as const;
+type PlanCard = {
+  key: string;
+  label: string;
+  price: number | null;
+  priceLabel: string;
+  tagline: string;
+  highlights: string[];
+  recommended: boolean;
+};
 
 type Props = {
   tenantSlug: string;
   currentTier: string;
   hasSubscription: boolean;
-  subscriptionStatus: string | null;
-  currentPeriodEnd: string | null;
-  trialEnd: string | null;
-  cancelAtPeriodEnd: boolean;
+  plans: PlanCard[];
+  suggestedTier: string | null;
 };
+
+type PaidTier = "SOLO" | "FIRM" | "FIRM_PLUS";
 
 export function BillingClient({
   tenantSlug,
   currentTier,
   hasSubscription,
-  subscriptionStatus,
-  currentPeriodEnd,
-  trialEnd,
-  cancelAtPeriodEnd,
+  plans,
+  suggestedTier,
 }: Props) {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const checkout = trpc.billing.createCheckoutSession.useMutation({
     onSuccess: (data) => {
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
+      if (data.url) window.location.href = data.url;
+      else {
         setError("Could not start checkout. Please try again.");
         setLoading(null);
       }
@@ -66,9 +49,8 @@ export function BillingClient({
 
   const portal = trpc.billing.createPortalSession.useMutation({
     onSuccess: (data) => {
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
+      if (data.url) window.location.href = data.url;
+      else {
         setError("Could not open billing portal. Please try again.");
         setLoading(null);
       }
@@ -79,12 +61,13 @@ export function BillingClient({
     },
   });
 
-  function handleUpgrade(tier: "SOLO" | "FIRM" | "FIRM_PLUS") {
+  function handleUpgrade(tier: string) {
+    if (tier === "FREE") return; // free is signup-only path
     setError(null);
     setLoading(tier);
     const base = `${window.location.origin}/${tenantSlug}/settings/billing`;
     checkout.mutate({
-      tier,
+      tier: tier as PaidTier,
       successUrl: `${base}?checkout=success`,
       cancelUrl: `${base}?checkout=cancel`,
     });
@@ -98,81 +81,116 @@ export function BillingClient({
   }
 
   return (
-    <div className="mt-8 space-y-6">
+    <div className="space-y-6">
       {error && (
         <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
           {error}
         </div>
       )}
+
       {hasSubscription && (
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-start justify-between">
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">Current plan: {currentTier}</h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Status: <span className="font-medium">{subscriptionStatus}</span>
-                {subscriptionStatus === "TRIALING" && trialEnd && (
-                  <> · Trial ends {new Date(trialEnd).toLocaleDateString()}</>
-                )}
-                {subscriptionStatus === "ACTIVE" && currentPeriodEnd && (
-                  <> · Renews {new Date(currentPeriodEnd).toLocaleDateString()}</>
-                )}
-                {cancelAtPeriodEnd && (
-                  <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                    Cancels at period end
-                  </span>
-                )}
+              <p className="text-sm font-semibold text-slate-900">Manage subscription</p>
+              <p className="text-xs text-slate-600">
+                Update card, download invoices, change billing email, or cancel.
               </p>
             </div>
             <button
               onClick={handleManage}
               disabled={loading === "portal"}
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-50"
             >
-              {loading === "portal" ? "Opening..." : "Manage Billing"}
+              {loading === "portal" ? "Opening…" : "Open billing portal"}
             </button>
           </div>
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {TIERS.map((tier) => {
-          const isCurrent = currentTier === tier.id;
-          return (
-            <div
-              key={tier.id}
-              className={`rounded-lg border bg-white p-6 shadow-sm ${
-                isCurrent ? "border-blue-500 ring-2 ring-blue-200" : "border-slate-200"
-              }`}
-            >
-              <h3 className="text-lg font-semibold text-slate-900">{tier.name}</h3>
-              <p className="mt-2 text-3xl font-bold text-slate-900">
-                {tier.price}
-                <span className="text-sm font-normal text-slate-500">/mo</span>
-              </p>
-              <p className="mt-1 text-sm text-slate-600">{tier.description}</p>
-              <ul className="mt-4 space-y-2 text-sm text-slate-700">
-                {tier.features.map((f) => (
-                  <li key={f} className="flex gap-2">
-                    <span className="text-green-600">✓</span>
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={() => handleUpgrade(tier.id)}
-                disabled={isCurrent || loading !== null}
-                className="mt-6 w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-slate-300"
+      <div>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-500">
+          {hasSubscription ? "Change plan" : "Choose a plan"}
+        </h2>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {plans.map((p) => {
+            const isCurrent = currentTier === p.key;
+            const isSuggested = suggestedTier === p.key;
+            const isFree = p.key === "FREE";
+            return (
+              <div
+                key={p.key}
+                className={`relative flex flex-col rounded-xl border bg-white p-5 ${
+                  isSuggested
+                    ? "border-amber-400 ring-2 ring-amber-200"
+                    : p.recommended
+                      ? "border-slate-900 ring-1 ring-slate-900"
+                      : "border-slate-200"
+                }`}
               >
-                {isCurrent ? "Current plan" : loading === tier.id ? "Loading..." : `Upgrade to ${tier.name}`}
-              </button>
-            </div>
-          );
-        })}
+                {isSuggested && (
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                    Suggested
+                  </span>
+                )}
+                {p.recommended && !isSuggested && (
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-slate-900 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                    Popular
+                  </span>
+                )}
+                <h3 className="text-base font-semibold text-slate-900">{p.label}</h3>
+                <div className="mt-1 mb-2">
+                  <span className="text-2xl font-bold text-slate-900">
+                    {p.price === 0 ? "Free" : `$${p.price}`}
+                  </span>
+                  {p.price !== 0 && p.price !== null && (
+                    <span className="text-sm text-slate-500">/mo</span>
+                  )}
+                </div>
+                <p className="mb-3 text-xs text-slate-600">{p.tagline}</p>
+                <ul className="mb-4 flex-1 space-y-1.5 text-xs text-slate-600">
+                  {p.highlights.slice(0, 4).map((h) => (
+                    <li key={h} className="flex items-start gap-1.5">
+                      <span className="mt-0.5 text-emerald-600">✓</span>
+                      <span>{h}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => handleUpgrade(p.key)}
+                  disabled={isCurrent || isFree || loading !== null}
+                  className={`mt-auto w-full rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    isCurrent
+                      ? "border border-slate-200 bg-slate-50 text-slate-400"
+                      : isFree
+                        ? "border border-slate-200 bg-white text-slate-400"
+                        : isSuggested
+                          ? "bg-amber-500 text-white hover:bg-amber-600"
+                          : "bg-slate-900 text-white hover:bg-slate-800"
+                  } disabled:opacity-60`}
+                >
+                  {isCurrent
+                    ? "Current plan"
+                    : isFree
+                      ? "Free tier"
+                      : loading === p.key
+                        ? "Loading…"
+                        : hasSubscription
+                          ? `Switch to ${p.label}`
+                          : `Upgrade to ${p.label}`}
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <p className="text-xs text-slate-500">
-        Need Enterprise pricing or have 200+ clients? Contact sales (coming soon).
+        Need Enterprise pricing, SSO, or custom integrations? Email{" "}
+        <a href="mailto:hello@kobia.ai" className="underline">
+          hello@kobia.ai
+        </a>
+        .
       </p>
     </div>
   );

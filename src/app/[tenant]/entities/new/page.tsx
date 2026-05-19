@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { provisionEntity } from "@/lib/accounting/provision-entity";
 import { SUPPORTED_INDUSTRIES } from "@/lib/accounting/chart-of-accounts-templates";
 import { cookieKeyForTenant } from "@/lib/active-entity";
+import { checkLimit } from "@/lib/feature-gate";
 
 async function createEntityAction(formData: FormData) {
   "use server";
@@ -24,6 +25,13 @@ async function createEntityAction(formData: FormData) {
   if (!auth) throw new Error("Not authenticated.");
   if (!["OWNER", "ADMIN", "ACCOUNTANT"].includes(auth.role)) {
     throw new Error("Only accountants and owners can create entities.");
+  }
+
+  // Enforce multi_entity tier limit
+  const currentCount = await db.entity.count({ where: { tenantId: auth.tenant.id } });
+  const limitCheck = await checkLimit(tenantSlug, "multi_entity", currentCount);
+  if (!limitCheck.allowed) {
+    redirect(`/${tenantSlug}/settings/billing?gate=multi_entity`);
   }
 
   // Check duplicate name within tenant
@@ -60,6 +68,13 @@ export default async function NewEntityPage({ params }: { params: { tenant: stri
   if (!auth) redirect(`/${params.tenant}/login`);
   if (!["OWNER", "ADMIN", "ACCOUNTANT"].includes(auth.role)) {
     redirect(`/${params.tenant}/books`);
+  }
+
+  // Check limit before showing the form
+  const currentCount = await db.entity.count({ where: { tenantId: auth.tenant.id } });
+  const limitCheck = await checkLimit(params.tenant, "multi_entity", currentCount);
+  if (!limitCheck.allowed) {
+    redirect(`/${params.tenant}/settings/billing?gate=multi_entity`);
   }
 
   return (

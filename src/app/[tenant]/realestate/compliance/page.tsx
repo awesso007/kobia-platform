@@ -1,6 +1,8 @@
 import { ComingSoon } from "@/components/ComingSoon";
+import { requireFeature } from "@/lib/feature-gate";
 
-export default function RealEstateCompliancePage({ params }: { params: { tenant: string } }) {
+export default async function RealEstateCompliancePage({ params }: { params: { tenant: string } }) {
+  await requireFeature(params.tenant, "realestate");
   return (
     <ComingSoon
       module="Real Estate · Compliance"
