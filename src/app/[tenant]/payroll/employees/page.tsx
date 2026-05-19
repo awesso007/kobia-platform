@@ -185,16 +185,24 @@ export default async function EmployeesPage({
                     )}
                   </td>
                   <td className="px-4 py-2 text-right">
-                    <form action={toggleEmployeeAction}>
-                      <input type="hidden" name="tenantSlug" value={params.tenant} />
-                      <input type="hidden" name="id" value={e.id} />
-                      <button
-                        type="submit"
-                        className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                    <div className="flex justify-end gap-1">
+                      <Link
+                        href={`/${params.tenant}/payroll/employees/${e.id}/time`}
+                        className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                       >
-                        {e.isActive ? "Terminate" : "Reactivate"}
-                      </button>
-                    </form>
+                        Time →
+                      </Link>
+                      <form action={toggleEmployeeAction}>
+                        <input type="hidden" name="tenantSlug" value={params.tenant} />
+                        <input type="hidden" name="id" value={e.id} />
+                        <button
+                          type="submit"
+                          className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                        >
+                          {e.isActive ? "Terminate" : "Reactivate"}
+                        </button>
+                      </form>
+                    </div>
                   </td>
                 </tr>
               ))
