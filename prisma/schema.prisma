@@ -374,6 +374,7 @@ model Entity {
   items             Item[]
   recurringJEs      RecurringJournalEntry[]
   engagements       Engagement[]
+  recurringEngagements RecurringEngagement[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -1984,5 +1985,57 @@ enum PracticeTimeStatus {
 }
 
 // =============================================================================
-// SHIPPED: AR W1 · AP W2 · Bank Rec W3 · Cash Flow W4 · Period Close W5 · Fixed Assets W6 · Multi-Currency W7 · Trial Balance + GL W8 · Recurring Invoices W9 · Recurring Bills W9 · Audit Log · Budgets · Engagement Letters · Client Portal · CRM Lite · Time Tracking
+// RECURRING ENGAGEMENTS — templates that generate Engagements on a schedule
+// =============================================================================
+
+model RecurringEngagement {
+  id              String              @id @default(cuid())
+  tenantId        String
+  entityId        String              // client business
+  name            String              // e.g. "Monthly Bookkeeping"
+  type            EngagementType      @default(BOOKKEEPING)
+  // Schedule
+  frequency       RecurringFrequency  @default(MONTHLY)
+  intervalCount   Int                 @default(1)
+  dayOfMonth      Int?                // 1-28 for MONTHLY
+  startDate       DateTime
+  endDate         DateTime?           // null = no end
+  // Template details copied to each generated engagement
+  notes           String?
+  // Default tasks (newline-separated). Materialized as Task rows on each run.
+  defaultTaskTitles String?
+  // State
+  status          RecurringStatus     @default(ACTIVE)
+  nextRunDate     DateTime
+  lastRunDate     DateTime?
+  runsCompleted   Int                 @default(0)
+  maxRuns         Int?                // null = no cap
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  entity          Entity              @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  runs            RecurringEngagementRun[]
+
+  @@index([tenantId])
+  @@index([entityId])
+  @@index([status, nextRunDate])
+}
+
+model RecurringEngagementRun {
+  id                       String   @id @default(cuid())
+  tenantId                 String
+  recurringEngagementId    String
+  generatedEngagementId    String?  // set when run succeeds
+  runAt                    DateTime @default(now())
+  status                   RecurringRunStatus
+  errorMessage             String?
+
+  recurringEngagement      RecurringEngagement @relation(fields: [recurringEngagementId], references: [id], onDelete: Cascade)
+
+  @@index([recurringEngagementId])
+  @@index([tenantId, runAt])
+}
+
+// =============================================================================
+// SHIPPED: AR W1 · AP W2 · Bank Rec W3 · Cash Flow W4 · Period Close W5 · Fixed Assets W6 · Multi-Currency W7 · Trial Balance + GL W8 · Recurring Invoices W9 · Recurring Bills W9 · Audit Log · Budgets · Engagement Letters · Client Portal · CRM Lite · Time Tracking · Recurring Engagements
 // ==============================================================================

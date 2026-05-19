@@ -146,6 +146,7 @@ export const MODULES: ModuleDefinition[] = [
           {
             items: [
               { href: "/practice", label: "Engagements", icon: Briefcase },
+              { href: "/practice/recurring", label: "Recurring", icon: Briefcase },
               { href: "/practice/tasks", label: "My Tasks", icon: ClipboardList },
               { href: "/practice/letters", label: "Letters", icon: ClipboardList },
               { href: "/practice/templates", label: "Templates", icon: ClipboardList },
