@@ -68,6 +68,18 @@ export default async function VendorsPage({
             AP Aging
           </Link>
           <Link
+            href={`/${params.tenant}/tax/1099`}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            1099-NEC
+          </Link>
+          <Link
+            href={`/${params.tenant}/tax/1099-misc`}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            1099-MISC
+          </Link>
+          <Link
             href={`/${params.tenant}/ap/bills/new`}
             className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >

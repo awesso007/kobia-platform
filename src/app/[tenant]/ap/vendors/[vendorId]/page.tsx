@@ -72,7 +72,12 @@ export default async function VendorDetailPage({
             <h1 className="text-2xl font-bold text-slate-900">{vendor.name}</h1>
             {vendor.is1099Vendor && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs uppercase tracking-wide text-amber-800">
-                1099
+                1099-NEC
+              </span>
+            )}
+            {vendor.is1099MiscVendor && (
+              <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs uppercase tracking-wide text-purple-800">
+                1099-MISC
               </span>
             )}
             {!vendor.isActive && (

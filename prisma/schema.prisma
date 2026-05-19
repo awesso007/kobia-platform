@@ -364,6 +364,8 @@ model Account {
   description   String?
   isActive      Boolean     @default(true)
   isSystem      Boolean     @default(false) // protected (e.g., "Retained Earnings")
+  // Optional 1099-MISC box assignment (1=Rents, 2=Royalties, 3=Other Income, 6=Medical, 14=Gross Atty)
+  misc1099Box   Int?
   // Cached balance updated on each journal post (denormalized for speed)
   balanceCents  BigInt      @default(0)
   createdAt     DateTime    @default(now())
@@ -688,6 +690,8 @@ model Vendor {
   // For 1099 / W-9 tracking (Cycle 4 expansion)
   taxId         String?
   is1099Vendor  Boolean  @default(false)
+  // 1099-MISC tracking (Box 1 Rents, Box 2 Royalties, Box 3 Other Income).
+  is1099MiscVendor Boolean @default(false)
   notes         String?
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())

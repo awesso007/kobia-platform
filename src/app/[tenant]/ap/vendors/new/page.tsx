@@ -26,6 +26,7 @@ async function createVendor(tenantSlug: string, formData: FormData) {
   const remitToAddress = (formData.get("remitToAddress") as string | null)?.trim() || null;
   const taxId = (formData.get("taxId") as string | null)?.trim() || null;
   const is1099Vendor = formData.get("is1099Vendor") === "on";
+  const is1099MiscVendor = formData.get("is1099MiscVendor") === "on";
   const notes = (formData.get("notes") as string | null)?.trim() || null;
 
   if (!name) throw new Error("Vendor name is required.");
@@ -45,6 +46,7 @@ async function createVendor(tenantSlug: string, formData: FormData) {
         remitToAddress,
         taxId,
         is1099Vendor,
+        is1099MiscVendor,
         notes,
       },
     });
@@ -166,14 +168,24 @@ export default async function NewVendorPage({
             />
           </label>
 
-          <label className="flex items-end gap-2 pb-2">
-            <input
-              type="checkbox"
-              name="is1099Vendor"
-              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="text-sm font-medium text-slate-700">1099 vendor</span>
-          </label>
+          <div className="flex flex-col gap-2 pb-2">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="is1099Vendor"
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium text-slate-700">Issue 1099-NEC</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="is1099MiscVendor"
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium text-slate-700">Issue 1099-MISC</span>
+            </label>
+          </div>
         </div>
 
         <label className="block">
