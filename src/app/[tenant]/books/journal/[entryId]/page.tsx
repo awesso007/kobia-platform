@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { formatCents } from "@/lib/accounting/ledger";
 import { getActiveEntity } from "@/lib/active-entity";
 import { ReverseButton } from "./ReverseButton";
+import { AttachmentList } from "@/components/attachments/AttachmentList";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,17 @@ export default async function JournalEntryDetailPage({
       },
       reversalOf: {
         select: { id: true, entryNumber: true, entryDate: true, status: true },
+      },
+      attachments: {
+        select: {
+          id: true,
+          filename: true,
+          url: true,
+          contentType: true,
+          notes: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
       },
     },
   });
@@ -246,6 +258,15 @@ export default async function JournalEntryDetailPage({
             </tr>
           </tfoot>
         </table>
+      </div>
+
+      <div className="mt-6">
+        <AttachmentList
+          tenantSlug={params.tenant}
+          kind="journalEntry"
+          parentId={entry.id}
+          attachments={entry.attachments}
+        />
       </div>
 
       <div className="mt-6 text-xs text-slate-400">

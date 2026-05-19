@@ -430,12 +430,47 @@ model JournalEntry {
   lines         JournalLine[]
   reversedBy    JournalEntry? @relation("JournalReversal", fields: [reversedById], references: [id])
   reversalOf    JournalEntry? @relation("JournalReversal")
+  attachments   Attachment[]
 
   @@unique([entityId, entryNumber])
   @@index([tenantId])
   @@index([entityId, entryDate])
   @@index([entityId, status])
   @@index([source, sourceRefId])
+}
+
+/// File or URL attached to a Bill, Invoice, or JournalEntry — receipts, contracts, statements.
+/// Stores either an external URL (fastest path) or a Vercel Blob upload URL when token configured.
+model Attachment {
+  id             String   @id @default(cuid())
+  tenantId       String
+  entityId       String
+  // Exactly one of billId / invoiceId / journalEntryId is set (enforced in app layer).
+  billId         String?
+  invoiceId      String?
+  journalEntryId String?
+  filename       String
+  url            String   // external link OR vercel blob URL
+  contentType    String?  // e.g., "application/pdf", "image/jpeg"
+  sizeBytes      Int?
+  storage        AttachmentStorage @default(URL)
+  uploadedByUserId String?
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  bill           Bill?         @relation(fields: [billId], references: [id], onDelete: Cascade)
+  invoice        Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([billId])
+  @@index([invoiceId])
+  @@index([journalEntryId])
+}
+
+enum AttachmentStorage {
+  URL          // external link only — no upload
+  VERCEL_BLOB  // hosted in Vercel Blob (requires BLOB_READ_WRITE_TOKEN)
 }
 
 enum EntrySource {
@@ -567,6 +602,7 @@ model Invoice {
   lines    InvoiceLine[]
   payments InvoicePayment[]
   recurringRun RecurringInvoiceRun?
+  attachments Attachment[]
 
   @@unique([entityId, invoiceNumber])
   @@index([tenantId])
@@ -925,6 +961,7 @@ model Bill {
   payments BillPayment[]
   recurringRun RecurringBillRun?
   approvals BillApproval[]
+  attachments Attachment[]
 
   @@unique([entityId, billNumber])
   @@index([tenantId])

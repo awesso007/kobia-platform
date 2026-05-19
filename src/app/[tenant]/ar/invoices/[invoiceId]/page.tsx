@@ -8,6 +8,7 @@ import { ageBucket } from "@/lib/accounting/ar";
 import { RecordPaymentButton } from "./RecordPaymentButton";
 import { SharePortalButton } from "./SharePortalButton";
 import { sendInvoiceReminderAction } from "@/app/actions/reminder-actions";
+import { AttachmentList } from "@/components/attachments/AttachmentList";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +67,17 @@ export default async function InvoiceDetailPage({
           cashAccount: { select: { id: true, code: true, name: true } },
         },
         orderBy: { paymentDate: "desc" },
+      },
+      attachments: {
+        select: {
+          id: true,
+          filename: true,
+          url: true,
+          contentType: true,
+          notes: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
       },
     },
   });
@@ -370,6 +382,15 @@ export default async function InvoiceDetailPage({
           <div className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{invoice.memo}</div>
         </div>
       )}
+
+      <div className="mb-6">
+        <AttachmentList
+          tenantSlug={params.tenant}
+          kind="invoice"
+          parentId={invoice.id}
+          attachments={invoice.attachments}
+        />
+      </div>
     </div>
   );
 }

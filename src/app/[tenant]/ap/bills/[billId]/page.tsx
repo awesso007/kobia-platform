@@ -6,6 +6,7 @@ import { getActiveEntity } from "@/lib/active-entity";
 import { formatCents } from "@/lib/accounting/ledger";
 import { apAgeBucket } from "@/lib/accounting/ap";
 import { RecordBillPaymentButton } from "./RecordBillPaymentButton";
+import { AttachmentList } from "@/components/attachments/AttachmentList";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,17 @@ export default async function BillDetailPage({
           cashAccount: { select: { id: true, code: true, name: true } },
         },
         orderBy: { paymentDate: "desc" },
+      },
+      attachments: {
+        select: {
+          id: true,
+          filename: true,
+          url: true,
+          contentType: true,
+          notes: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
       },
     },
   });
@@ -344,6 +356,15 @@ export default async function BillDetailPage({
           <div className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{bill.memo}</div>
         </div>
       )}
+
+      <div className="mb-6">
+        <AttachmentList
+          tenantSlug={params.tenant}
+          kind="bill"
+          parentId={bill.id}
+          attachments={bill.attachments}
+        />
+      </div>
     </div>
   );
 }
