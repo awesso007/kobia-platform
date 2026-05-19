@@ -229,6 +229,7 @@ model Entity {
   budgets           Budget[]
   approvalRule      ApprovalRule?
   mileageEntries    Mileage[]
+  taxRates          TaxRate[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -684,6 +685,27 @@ enum MileageStatus {
   DRAFT
   POSTED
   VOID
+}
+
+/// A sales-tax rate the entity charges on invoices.
+/// e.g. "CA Sales Tax" 7.25%. Stored as basis points (10000 = 100%).
+model TaxRate {
+  id            String   @id @default(cuid())
+  tenantId      String
+  entityId      String
+  name          String   // "CA Sales Tax", "NY Sales Tax", etc.
+  jurisdiction  String?  // e.g. "CA", "NY", "Riverside County"
+  rateBps       Int      // basis points; 725 = 7.25%
+  isActive      Boolean  @default(true)
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  entity        Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([entityId, name])
+  @@index([tenantId])
+  @@index([entityId, isActive])
 }
 
 /// Vendor bill. Posts to ledger when status moves DRAFT -> OPEN.
