@@ -228,6 +228,7 @@ model Entity {
   recurringBills    RecurringBill[]
   budgets           Budget[]
   approvalRule      ApprovalRule?
+  mileageEntries    Mileage[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -648,6 +649,41 @@ model Vendor {
   @@unique([entityId, name])
   @@index([tenantId])
   @@index([entityId, isActive])
+}
+
+/// Business mileage log. Posts a JE at the IRS standard rate when status=POSTED.
+/// Default IRS rate for 2026 is 70¢/mile (configurable per entry).
+model Mileage {
+  id             String         @id @default(cuid())
+  tenantId       String
+  entityId       String
+  tripDate       DateTime
+  fromAddress    String?
+  toAddress      String?
+  miles          Decimal        @db.Decimal(8, 2)
+  ratePerMileCents Int          @default(70) // 2026 IRS standard mileage rate
+  businessPercent Int           @default(100) // 0-100
+  purpose         String?
+  // After posting, deductible expense in cents = round(miles * businessPercent/100 * ratePerMileCents)
+  expenseCents   BigInt         @default(0)
+  status         MileageStatus  @default(DRAFT)
+  // When posted, the JE that recorded the mileage expense
+  journalEntryId String?        @unique
+  createdByUserId String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  entity         Entity         @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([entityId, tripDate])
+  @@index([entityId, status])
+}
+
+enum MileageStatus {
+  DRAFT
+  POSTED
+  VOID
 }
 
 /// Vendor bill. Posts to ledger when status moves DRAFT -> OPEN.
