@@ -762,6 +762,38 @@ enum ReconStatus {
 }
 
 // =============================================================================
+// SIGNUP / CHECKOUT — pre-payment slug claim
+// =============================================================================
+// When a prospect picks a slug + tier, we reserve the slug here, create a Stripe
+// checkout session, then provision the real Tenant on checkout.session.completed.
+// =============================================================================
+model PendingTenant {
+  id                    String   @id @default(cuid())
+  slug                  String   @unique
+  businessName          String
+  legalName             String?
+  email                 String
+  tier                  TenantTier
+  stripeCheckoutId      String?  @unique
+  stripeCustomerId      String?
+  status                PendingStatus @default(PENDING)
+  provisionedTenantId   String?  @unique
+  expiresAt             DateTime // slug released if no payment by this time
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([status])
+  @@index([expiresAt])
+}
+
+enum PendingStatus {
+  PENDING       // checkout session created, awaiting payment
+  COMPLETED     // tenant provisioned
+  EXPIRED       // session expired without payment
+  ABANDONED     // user manually closed
+}
+
+// =============================================================================
 // MODULE STUBS — to be expanded in later cycles
 // =============================================================================
 // Cycle 4: ApprovalWorkflow, W9

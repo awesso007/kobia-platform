@@ -16,6 +16,7 @@ import type { NextRequest } from "next/server";
 import type Stripe from "stripe";
 import { stripe, tierForPriceId, mapStripeStatus } from "@/lib/stripe";
 import { db } from "@/lib/db";
+import { provisionTenantFromPending } from "@/app/actions/signup-actions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,6 +42,9 @@ export async function POST(req: NextRequest) {
 
   try {
     switch (event.type) {
+      case "checkout.session.completed":
+        await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
+        break;
       case "customer.subscription.created":
       case "customer.subscription.updated":
         await handleSubscriptionUpsert(event.data.object as Stripe.Subscription);
@@ -63,10 +67,63 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ received: true });
 }
 
+/**
+ * Self-serve signup: payment succeeded — provision the tenant from PendingTenant.
+ * Idempotent via provisionTenantFromPending (checks provisionedTenantId).
+ */
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  const pendingId = session.metadata?.pendingTenantId;
+  if (!pendingId) {
+    // Not a signup checkout (e.g. existing customer adding seat) — ignore.
+    return;
+  }
+
+  const pending = await db.pendingTenant.findUnique({ where: { id: pendingId } });
+  if (!pending) {
+    console.error(`checkout.session.completed: PendingTenant ${pendingId} not found`);
+    return;
+  }
+
+  // Attach Stripe customer ID to pending before provisioning so it carries over.
+  const customerId = typeof session.customer === "string" ? session.customer : null;
+  if (customerId && pending.stripeCustomerId !== customerId) {
+    await db.pendingTenant.update({
+      where: { id: pending.id },
+      data: { stripeCustomerId: customerId },
+    });
+  }
+
+  const tenant = await provisionTenantFromPending(pending.id);
+
+  // Paid tier — hide KOBIA brand per Lock EEEE, attach stripeCustomerId
+  await db.tenant.update({
+    where: { id: tenant.id },
+    data: {
+      stripeCustomerId: customerId ?? undefined,
+      hideKobiaBrand: pending.tier !== "FREE" && pending.tier !== "ENTRY",
+    },
+  });
+}
+
 async function handleSubscriptionUpsert(sub: Stripe.Subscription) {
-  const tenantId = sub.metadata.tenantId;
+  // Resolve tenantId from either subscription metadata (legacy) or pendingTenantId metadata (signup flow).
+  let tenantId = sub.metadata.tenantId;
+  if (!tenantId && sub.metadata.pendingTenantId) {
+    const pending = await db.pendingTenant.findUnique({
+      where: { id: sub.metadata.pendingTenantId },
+      select: { provisionedTenantId: true },
+    });
+    tenantId = pending?.provisionedTenantId ?? undefined;
+  }
+  if (!tenantId && typeof sub.customer === "string") {
+    const tenant = await db.tenant.findUnique({
+      where: { stripeCustomerId: sub.customer },
+      select: { id: true },
+    });
+    tenantId = tenant?.id;
+  }
   if (!tenantId) {
-    console.error("Subscription missing tenantId metadata:", sub.id);
+    console.error("Subscription missing tenantId / pendingTenantId / customer match:", sub.id);
     return;
   }
 

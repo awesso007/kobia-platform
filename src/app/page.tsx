@@ -6,35 +6,47 @@ export default function RootPage() {
       <div className="max-w-2xl space-y-6 text-center">
         <h1 className="text-5xl font-bold tracking-tight">KOBIA.AI</h1>
         <p className="text-xl text-muted-foreground">
-          Multi-tenant SaaS platform. Phase 1: AI-native accounting.
+          AI-native accounting, mortgage, and real estate platform. Your books, your brand.
         </p>
-        <p className="text-sm text-muted-foreground">
-          Launching February 15, 2027. Currently in pre-launch development (Cycle 1).
-        </p>
+
+        <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <Link
+            href="/signup"
+            className="rounded-lg bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            Get started
+          </Link>
+          <Link
+            href="/fig/login"
+            className="rounded-lg border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            Sign in
+          </Link>
+        </div>
 
         <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Link
-            href="/demo/login"
-            className="rounded-lg border border-border bg-card p-6 transition hover:border-primary hover:shadow-md"
+            href="/signup"
+            className="rounded-lg border border-border bg-card p-6 text-left transition hover:border-primary hover:shadow-md"
           >
-            <h3 className="font-semibold">Demo tenant</h3>
+            <h3 className="font-semibold">See pricing</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Try KOBIA at <code>/demo</code> with sample data.
+              Free, Solo, Firm, and Firm+. Start free, upgrade anytime.
             </p>
           </Link>
           <Link
             href="/fig/login"
-            className="rounded-lg border border-border bg-card p-6 transition hover:border-primary hover:shadow-md"
+            className="rounded-lg border border-border bg-card p-6 text-left transition hover:border-primary hover:shadow-md"
           >
             <h3 className="font-semibold">FIG (internal)</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Fiscal Integrity Group — first internal customer.
+              Fiscal Integrity Group — first internal customer running on KOBIA.
             </p>
           </Link>
         </div>
 
-        <p className="mt-8 text-xs text-muted-foreground">
-          Production: each tenant will live at <code>&#123;tenant&#125;.kobia.ai</code> (Lock EEEE).
+        <p className="mt-10 text-xs text-muted-foreground">
+          Public launch · February 15, 2027.
         </p>
       </div>
     </main>
