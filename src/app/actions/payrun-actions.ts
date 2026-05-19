@@ -10,19 +10,19 @@ import {
   voidPayRun,
 } from "@/lib/accounting/payroll";
 
-const PERIOD_FRACTIONS: Record<string, number> = {
-  weekly: 1 / 52,
-  biweekly: 1 / 26,
-  semimonthly: 1 / 24,
-  monthly: 1 / 12,
-};
+type Cadence = "weekly" | "biweekly" | "semimonthly" | "monthly";
+const CADENCES: readonly Cadence[] = ["weekly", "biweekly", "semimonthly", "monthly"] as const;
 
 export async function createPayRunAction(formData: FormData): Promise<void> {
   const tenantSlug = String(formData.get("tenantSlug") || "");
   const periodStart = new Date(String(formData.get("periodStart") || ""));
   const periodEnd = new Date(String(formData.get("periodEnd") || ""));
   const payDate = new Date(String(formData.get("payDate") || ""));
-  const cadence = String(formData.get("cadence") || "biweekly");
+  const cadenceRaw = String(formData.get("cadence") || "biweekly");
+  const cadence = (CADENCES as readonly string[]).includes(cadenceRaw)
+    ? (cadenceRaw as Cadence)
+    : "biweekly";
+  const defaultState = String(formData.get("defaultState") || "").trim().toUpperCase() || null;
 
   if (
     !tenantSlug ||
@@ -45,7 +45,8 @@ export async function createPayRunAction(formData: FormData): Promise<void> {
     periodStart,
     periodEnd,
     payDate,
-    periodFractionOfYear: PERIOD_FRACTIONS[cadence] ?? 1 / 26,
+    cadence,
+    defaultState,
   });
 
   revalidatePath(`/${tenantSlug}/payroll/runs`);

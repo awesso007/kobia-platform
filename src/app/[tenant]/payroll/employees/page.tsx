@@ -129,6 +129,27 @@ export default async function EmployeesPage({
               className="mt-1 block w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm"
             />
           </label>
+          <label className="md:col-span-1 text-xs text-slate-600">
+            Filing status
+            <select
+              name="taxFilingStatus"
+              defaultValue="SINGLE"
+              className="mt-1 block w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm"
+            >
+              <option value="SINGLE">Single</option>
+              <option value="MARRIED_JOINT">Married, joint</option>
+              <option value="HEAD_OF_HOUSEHOLD">Head of household</option>
+            </select>
+          </label>
+          <label className="md:col-span-3 text-xs text-slate-600">
+            Home address (state used for withholding)
+            <input
+              type="text"
+              name="homeAddress"
+              placeholder="123 Main St, Murrieta, CA 92562"
+              className="mt-1 block w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm"
+            />
+          </label>
         </div>
         <div className="mt-3 flex justify-end">
           <button

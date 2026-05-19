@@ -26,6 +26,11 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { postJournalEntry, type DraftEntry } from "./ledger";
+import {
+  computeWithholding,
+  type FilingStatus,
+  type PayCadence,
+} from "./payroll-tax";
 
 const WAGES_CODE = "6100";
 const WAGES_NAME = "Wages & Salaries Expense";
@@ -85,21 +90,41 @@ async function findCashAccount(args: { tenantId: string; entityId: string }) {
   });
 }
 
-// Default placeholder withholding rates — replaced by real engine in W3.
-const FED_RATE = 0.12;
-const STATE_RATE = 0.04;
-const SS_RATE = 0.062;
-const MEDICARE_RATE = 0.0145;
+/** Extract a 2-letter state code from the tail of an address string. */
+function parseStateFromAddress(addr?: string | null): string | null {
+  if (!addr) return null;
+  const m = addr.match(/\b([A-Z]{2})\b(?:\s+\d{5}(-\d{4})?)?\s*$/);
+  return m && m[1] ? m[1] : null;
+}
 
-function applyWithholding(grossCents: bigint) {
-  const g = Number(grossCents);
-  const fed = BigInt(Math.round(g * FED_RATE));
-  const state = BigInt(Math.round(g * STATE_RATE));
-  const ss = BigInt(Math.round(g * SS_RATE));
-  const med = BigInt(Math.round(g * MEDICARE_RATE));
-  const total = fed + state + ss + med;
-  const net = grossCents - total;
-  return { fed, state, ss, med, total, net };
+function filingStatusOrDefault(v?: string | null): FilingStatus {
+  if (v === "MARRIED_JOINT" || v === "HEAD_OF_HOUSEHOLD" || v === "SINGLE") return v;
+  return "SINGLE";
+}
+
+/**
+ * Pull this employee's YTD Social Security wages from posted paystubs.
+ * Used to apply the SS wage-base cap.
+ */
+async function getYtdSsWagesCents(args: {
+  tx: Prisma.TransactionClient;
+  tenantId: string;
+  employeeId: string;
+  yearStart: Date;
+  yearEnd: Date;
+}): Promise<bigint> {
+  const stubs = await args.tx.paystub.findMany({
+    where: {
+      tenantId: args.tenantId,
+      employeeId: args.employeeId,
+      payRun: {
+        status: "POSTED",
+        payDate: { gte: args.yearStart, lt: args.yearEnd },
+      },
+    },
+    select: { grossCents: true },
+  });
+  return stubs.reduce((s, p) => s + p.grossCents, 0n);
 }
 
 export interface CreatePayRunInput {
@@ -110,10 +135,31 @@ export interface CreatePayRunInput {
   payDate: Date;
   /** Fraction of a year this period covers, used for SALARY. Default 1/26 (biweekly). */
   periodFractionOfYear?: number;
+  /** Cadence label drives both SALARY proration AND federal withholding tables. */
+  cadence?: PayCadence;
+  /**
+   * Optional default state code for state withholding when an employee's
+   * homeAddress does not include a parseable state. Falls back to null.
+   */
+  defaultState?: string | null;
 }
 
 export async function createDraftPayRun(input: CreatePayRunInput) {
-  const periodFrac = input.periodFractionOfYear ?? 1 / 26;
+  const cadence: PayCadence = input.cadence ?? "biweekly";
+  const periodFrac =
+    input.periodFractionOfYear ??
+    (cadence === "weekly"
+      ? 1 / 52
+      : cadence === "semimonthly"
+        ? 1 / 24
+        : cadence === "monthly"
+          ? 1 / 12
+          : 1 / 26);
+
+  // YTD window for SS wage-base lookup
+  const year = input.payDate.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(year, 0, 1));
+  const yearEnd = new Date(Date.UTC(year + 1, 0, 1));
 
   return db.$transaction(async (tx) => {
     const employees = await tx.employee.findMany({
@@ -173,7 +219,23 @@ export async function createDraftPayRun(input: CreatePayRunInput) {
 
       const gross = regPay + otPay;
       if (gross === 0n) continue; // skip employees with no pay this period
-      const w = applyWithholding(gross);
+
+      const ytdSsWages = await getYtdSsWagesCents({
+        tx,
+        tenantId: input.tenantId,
+        employeeId: e.id,
+        yearStart,
+        yearEnd,
+      });
+      const state =
+        parseStateFromAddress(e.homeAddress) ?? input.defaultState ?? null;
+      const w = computeWithholding({
+        grossCents: gross,
+        filingStatus: filingStatusOrDefault(e.taxFilingStatus),
+        cadence,
+        state,
+        ytdSocialSecurityWagesCents: ytdSsWages,
+      });
 
       const paystub = await tx.paystub.create({
         data: {
@@ -185,11 +247,11 @@ export async function createDraftPayRun(input: CreatePayRunInput) {
           regularPayCents: regPay,
           overtimePayCents: otPay,
           grossCents: gross,
-          federalTaxCents: w.fed,
-          stateTaxCents: w.state,
-          socialSecurityCents: w.ss,
-          medicareCents: w.med,
-          netCents: w.net,
+          federalTaxCents: w.federalCents,
+          stateTaxCents: w.stateCents,
+          socialSecurityCents: w.socialSecurityCents,
+          medicareCents: w.medicareCents,
+          netCents: w.netCents,
         },
       });
 
@@ -207,8 +269,8 @@ export async function createDraftPayRun(input: CreatePayRunInput) {
       }
 
       totalGross += gross;
-      totalTaxes += w.total;
-      totalNet += w.net;
+      totalTaxes += w.totalCents;
+      totalNet += w.netCents;
     }
 
     return tx.payRun.update({
@@ -260,9 +322,10 @@ export async function postPayRun(args: {
   });
   const cashAcct = await findCashAccount({ tenantId: args.tenantId, entityId: args.entityId });
 
-  // Employer-side FICA match: SS 6.2% + Medicare 1.45% of gross
-  const employerSS = BigInt(Math.round(Number(pr.totalGrossCents) * SS_RATE));
-  const employerMed = BigInt(Math.round(Number(pr.totalGrossCents) * MEDICARE_RATE));
+  // Employer-side FICA match: mirrors the employee withholding so wage-base
+  // caps are honored. Sum per-paystub SS + Medicare from the stored values.
+  const employerSS = pr.paystubs.reduce((s, p) => s + p.socialSecurityCents, 0n);
+  const employerMed = pr.paystubs.reduce((s, p) => s + p.medicareCents, 0n);
   const employerTaxes = employerSS + employerMed;
 
   const totalLiab = pr.totalTaxesCents + employerTaxes;

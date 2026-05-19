@@ -97,6 +97,19 @@ export default async function PayRunsPage({
               <option value="monthly">Monthly</option>
             </select>
           </label>
+          <label className="md:col-span-1 text-xs text-slate-600">
+            Default state
+            <input
+              type="text"
+              name="defaultState"
+              maxLength={2}
+              placeholder="CA"
+              className="mt-1 block w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm uppercase"
+            />
+            <span className="mt-1 block text-[10px] text-slate-400">
+              Used when employee home address has no state
+            </span>
+          </label>
         </div>
         <div className="mt-3 flex justify-end">
           <button

@@ -22,6 +22,8 @@ export async function createEmployeeAction(formData: FormData): Promise<void> {
   const standardHours = formData.get("standardHoursPerPeriod");
   const hireDate = formData.get("hireDate") ? new Date(String(formData.get("hireDate"))) : null;
   const ssnLast4 = String(formData.get("ssnLast4") || "").trim().slice(0, 4) || null;
+  const taxFilingStatus = String(formData.get("taxFilingStatus") || "").trim() || null;
+  const homeAddress = String(formData.get("homeAddress") || "").trim() || null;
 
   if (!tenantSlug || !firstName || !lastName) {
     throw new Error("Missing tenantSlug, firstName, or lastName");
@@ -45,6 +47,8 @@ export async function createEmployeeAction(formData: FormData): Promise<void> {
       standardHoursPerPeriod: standardHours ? String(standardHours) : null,
       hireDate,
       ssnLast4,
+      taxFilingStatus,
+      homeAddress,
     },
   });
 
