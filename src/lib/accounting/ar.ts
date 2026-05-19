@@ -109,7 +109,7 @@ export async function postInvoice(
     const invoice = await tx.invoice.findUnique({
       where: { id: invoiceId },
       include: {
-        lines: { include: { account: true } },
+        lines: { include: { account: true, item: true } },
         customer: true,
       },
     });
@@ -174,6 +174,35 @@ export async function postInvoice(
       creditsByAccount.set(firstKey, (creditsByAccount.get(firstKey) ?? 0n) + diff);
     }
 
+    // COGS posting: for each line with an INVENTORY item, post Dr COGS / Cr Inventory
+    // at unitCost * qty (in base currency). Also decrement qtyOnHand.
+    const cogsLines: DraftEntry["lines"] = [];
+    for (const l of invoice.lines) {
+      const item = l.item;
+      if (!item || item.type !== "INVENTORY") continue;
+      if (!item.inventoryAccountId || !item.cogsAccountId) continue;
+      // unitCost is stored in base currency (item-level field)
+      const cogsCents = (l.quantityMilli * item.unitCostCents) / 1000n;
+      if (cogsCents <= 0n) continue;
+      cogsLines.push({
+        accountId: item.cogsAccountId,
+        debitCents: cogsCents,
+        creditCents: 0n,
+        memo: `COGS — ${item.name}`,
+      });
+      cogsLines.push({
+        accountId: item.inventoryAccountId,
+        debitCents: 0n,
+        creditCents: cogsCents,
+        memo: `Inventory — ${item.name}`,
+      });
+      // Decrement qty on hand
+      await tx.item.update({
+        where: { id: item.id },
+        data: { qtyOnHandMilli: { decrement: l.quantityMilli } },
+      });
+    }
+
     // Resolve tax payable account if tax > 0
     const taxLines: DraftEntry["lines"] = [];
     if (baseTaxCents > 0n) {
@@ -220,6 +249,7 @@ export async function postInvoice(
           contactRefId: invoice.customerId,
         })),
         ...taxLines,
+        ...cogsLines,
       ],
     };
 

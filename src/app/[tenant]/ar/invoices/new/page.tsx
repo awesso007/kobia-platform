@@ -23,7 +23,7 @@ export default async function NewInvoicePage({
   const entity = await getActiveEntity({ tenantId: auth.tenant.id, tenantSlug: params.tenant });
   if (!entity) redirect(`/${params.tenant}/books`);
 
-  const [customers, revenueAccounts, taxRates] = await Promise.all([
+  const [customers, revenueAccounts, taxRates, items] = await Promise.all([
     db.customer.findMany({
       where: { tenantId: auth.tenant.id, entityId: entity.id, isActive: true },
       select: { id: true, name: true, defaultTermsDays: true },
@@ -43,6 +43,19 @@ export default async function NewInvoicePage({
       where: { tenantId: auth.tenant.id, entityId: entity.id, isActive: true },
       select: { id: true, name: true, rateBps: true, isDefault: true },
       orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+    }),
+    db.item.findMany({
+      where: { tenantId: auth.tenant.id, entityId: entity.id, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        sku: true,
+        description: true,
+        type: true,
+        unitPriceCents: true,
+        revenueAccountId: true,
+      },
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -103,6 +116,15 @@ export default async function NewInvoicePage({
         customers={customers}
         revenueAccounts={revenueAccounts}
         taxRates={taxRates}
+        items={items.map((i) => ({
+          id: i.id,
+          name: i.name,
+          sku: i.sku,
+          description: i.description ?? null,
+          type: i.type,
+          unitPriceCents: Number(i.unitPriceCents),
+          revenueAccountId: i.revenueAccountId,
+        }))}
         preselectedCustomerId={searchParams.customerId ?? null}
       />
     </div>

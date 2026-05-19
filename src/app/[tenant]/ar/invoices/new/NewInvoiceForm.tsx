@@ -7,9 +7,19 @@ import { trpc } from "@/lib/trpc-client";
 type Customer = { id: string; name: string; defaultTermsDays: number };
 type RevenueAccount = { id: string; code: string; name: string };
 type TaxRate = { id: string; name: string; rateBps: number; isDefault: boolean };
+type CatalogItem = {
+  id: string;
+  sku: string | null;
+  name: string;
+  description: string | null;
+  type: "SERVICE" | "INVENTORY";
+  unitPriceCents: number;
+  revenueAccountId: string | null;
+};
 
 type LineDraft = {
   accountId: string;
+  itemId: string;
   description: string;
   // Strings while editing for UX; parsed on submit
   quantity: string;
@@ -19,10 +29,20 @@ type LineDraft = {
 function emptyLine(defaultAccountId: string): LineDraft {
   return {
     accountId: defaultAccountId,
+    itemId: "",
     description: "",
     quantity: "1",
     unitPriceDollars: "",
   };
+}
+
+function centsToDollarsString(cents: number | bigint): string {
+  const c = typeof cents === "bigint" ? cents : BigInt(cents);
+  const neg = c < 0n;
+  const abs = neg ? -c : c;
+  const whole = abs / 100n;
+  const frac = (abs % 100n).toString().padStart(2, "0");
+  return `${neg ? "-" : ""}${whole.toString()}.${frac}`;
 }
 
 /** Parse a dollar string ("1,234.56") to cents bigint. Throws on invalid. */
@@ -88,6 +108,7 @@ export function NewInvoiceForm({
   customers,
   revenueAccounts,
   taxRates,
+  items,
   preselectedCustomerId,
 }: {
   tenantSlug: string;
@@ -96,6 +117,7 @@ export function NewInvoiceForm({
   customers: Customer[];
   revenueAccounts: RevenueAccount[];
   taxRates: TaxRate[];
+  items: CatalogItem[];
   preselectedCustomerId: string | null;
 }) {
   const router = useRouter();
@@ -147,6 +169,22 @@ export function NewInvoiceForm({
 
   function updateLine(idx: number, patch: Partial<LineDraft>) {
     setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  }
+
+  function applyItem(idx: number, itemId: string) {
+    if (!itemId) {
+      updateLine(idx, { itemId: "" });
+      return;
+    }
+    const item = items.find((it) => it.id === itemId);
+    if (!item) return;
+    const patch: Partial<LineDraft> = { itemId };
+    if (item.revenueAccountId) patch.accountId = item.revenueAccountId;
+    patch.description = item.description || item.name;
+    if (item.unitPriceCents > 0) {
+      patch.unitPriceDollars = centsToDollarsString(item.unitPriceCents);
+    }
+    updateLine(idx, patch);
   }
 
   function addLine() {
@@ -218,6 +256,7 @@ export function NewInvoiceForm({
           if (price <= 0n) throw new Error(`Line ${i + 1}: unit price must be > 0.`);
           return {
             accountId: l.accountId,
+            itemId: l.itemId || undefined,
             description: l.description.trim(),
             quantityMilli: qty.toString(),
             unitPriceCents: price.toString(),
@@ -321,6 +360,9 @@ export function NewInvoiceForm({
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr className="text-xs uppercase tracking-wide text-slate-500">
+                {items.length > 0 && (
+                  <th className="px-3 py-2 text-left font-medium">Item</th>
+                )}
                 <th className="px-3 py-2 text-left font-medium">Description</th>
                 <th className="px-3 py-2 text-left font-medium">Revenue account</th>
                 <th className="px-3 py-2 text-right font-medium">Qty</th>
@@ -341,6 +383,22 @@ export function NewInvoiceForm({
                 }
                 return (
                   <tr key={i}>
+                    {items.length > 0 && (
+                      <td className="px-3 py-2">
+                        <select
+                          value={l.itemId || ""}
+                          onChange={(e) => applyItem(i, e.target.value)}
+                          className="block w-full rounded-md border-slate-300 px-2 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        >
+                          <option value="">— Custom —</option>
+                          {items.map((it) => (
+                            <option key={it.id} value={it.id}>
+                              {it.sku ? `${it.sku} — ` : ""}{it.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                    )}
                     <td className="px-3 py-2">
                       <input
                         type="text"
@@ -405,7 +463,7 @@ export function NewInvoiceForm({
             </tbody>
             <tfoot className="bg-slate-50">
               <tr>
-                <td colSpan={4} className="px-3 py-2 text-right text-xs uppercase tracking-wide text-slate-500">
+                <td colSpan={items.length > 0 ? 5 : 4} className="px-3 py-2 text-right text-xs uppercase tracking-wide text-slate-500">
                   Subtotal
                 </td>
                 <td className="px-3 py-2 text-right font-mono text-sm tabular-nums text-slate-900">
@@ -414,7 +472,7 @@ export function NewInvoiceForm({
                 <td />
               </tr>
               <tr>
-                <td colSpan={4} className="px-3 py-2 text-right text-xs uppercase tracking-wide text-slate-500">
+                <td colSpan={items.length > 0 ? 5 : 4} className="px-3 py-2 text-right text-xs uppercase tracking-wide text-slate-500">
                   <div className="flex items-center justify-end gap-2">
                     <span>Sales tax</span>
                     <select
@@ -438,7 +496,7 @@ export function NewInvoiceForm({
                 <td />
               </tr>
               <tr>
-                <td colSpan={4} className="px-3 py-2 text-right text-xs uppercase tracking-wide font-semibold text-slate-700">
+                <td colSpan={items.length > 0 ? 5 : 4} className="px-3 py-2 text-right text-xs uppercase tracking-wide font-semibold text-slate-700">
                   Total
                 </td>
                 <td className="px-3 py-2 text-right font-mono text-sm font-semibold tabular-nums text-slate-900">

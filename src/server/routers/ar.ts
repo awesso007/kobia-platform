@@ -93,6 +93,7 @@ export const arRouter = router({
           .array(
             z.object({
               accountId: z.string(),
+              itemId: z.string().optional(),
               description: z.string().min(1).max(500),
               quantityMilli: BIGINT_FROM_STRING.default("1000"),
               unitPriceCents: BIGINT_FROM_STRING,
@@ -159,6 +160,7 @@ export const arRouter = router({
                 return {
                   tenantId: ctx.auth.tenant.id,
                   accountId: l.accountId,
+                  itemId: l.itemId,
                   description: l.description,
                   quantityMilli: l.quantityMilli,
                   unitPriceCents: l.unitPriceCents,

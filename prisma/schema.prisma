@@ -232,6 +232,7 @@ model Entity {
   taxRates          TaxRate[]
   employees         Employee[]
   payRuns           PayRun[]
+  items             Item[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -377,6 +378,9 @@ model Account {
   billLines         BillLine[]
   billPayments      BillPayment[]    @relation("BillPaymentCashAccount")
   bankAccounts      BankAccount[]
+  itemsAsRevenue    Item[]           @relation("ItemRevenueAccount")
+  itemsAsInventory  Item[]           @relation("ItemInventoryAccount")
+  itemsAsCogs       Item[]           @relation("ItemCogsAccount")
   recurringInvoiceLines RecurringInvoiceLine[]
   recurringBillLines    RecurringBillLine[]
   budgetLines           BudgetLine[]
@@ -569,6 +573,43 @@ model Invoice {
   @@index([dueDate])
 }
 
+/// Catalog of sellable items (services + inventory).
+/// INVENTORY items track on-hand quantity and post COGS when sold via invoice.
+model Item {
+  id                    String     @id @default(cuid())
+  tenantId              String
+  entityId              String
+  sku                   String?
+  name                  String
+  description           String?
+  type                  ItemType   @default(SERVICE)
+  unitPriceCents        BigInt     @default(0)    // default sales price
+  unitCostCents         BigInt     @default(0)    // avg cost — used as COGS unit on sale
+  qtyOnHandMilli        BigInt     @default(0)    // tracked for INVENTORY only
+  // GL account links
+  revenueAccountId      String
+  inventoryAccountId    String?                    // required for INVENTORY (asset)
+  cogsAccountId         String?                    // required for INVENTORY (expense)
+  isActive              Boolean    @default(true)
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  entity            Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  revenueAccount    Account  @relation("ItemRevenueAccount",   fields: [revenueAccountId],   references: [id], onDelete: Restrict)
+  inventoryAccount  Account? @relation("ItemInventoryAccount", fields: [inventoryAccountId], references: [id], onDelete: Restrict)
+  cogsAccount       Account? @relation("ItemCogsAccount",      fields: [cogsAccountId],      references: [id], onDelete: Restrict)
+  invoiceLines      InvoiceLine[]
+
+  @@unique([entityId, sku])
+  @@index([tenantId])
+  @@index([entityId, isActive])
+}
+
+enum ItemType {
+  SERVICE
+  INVENTORY
+}
+
 /// One line on an invoice. Debits AR / credits a revenue account when posted.
 model InvoiceLine {
   id            String   @id @default(cuid())
@@ -576,6 +617,8 @@ model InvoiceLine {
   invoiceId     String
   // Revenue account this line credits when posted
   accountId     String
+  // Optional catalog item (drives COGS posting for INVENTORY items)
+  itemId        String?
   description   String
   // Quantity stored as integer thousandths (3 decimal places) to support fractional units
   quantityMilli BigInt   @default(1000)
@@ -586,6 +629,7 @@ model InvoiceLine {
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   account Account @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  item    Item?   @relation(fields: [itemId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([invoiceId])
