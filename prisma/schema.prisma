@@ -1,0 +1,159 @@
+// =============================================================================
+// KOBIA.AI — Prisma Schema
+// =============================================================================
+// Multi-tenant database schema.
+// Every business table includes `tenantId` for row-level data isolation (Lock EEEE).
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// CORE: Tenant model — the "T" in multi-tenant
+// -----------------------------------------------------------------------------
+model Tenant {
+  id              String   @id @default(cuid())
+  slug            String   @unique // subdomain: {slug}.kobia.ai
+  name            String
+  legalName       String?
+  ein             String?
+  // Billing
+  tier            TenantTier @default(FREE)
+  stripeCustomerId String?  @unique
+  // Branding (Lock EEEE — tenant-controlled UI)
+  logoUrl         String?
+  primaryColor    String?  @default("#0F172A")
+  secondaryColor  String?  @default("#3B82F6")
+  hideKobiaBrand  Boolean  @default(false) // forced true on tier > ENTRY (Lock EEEE)
+  customDomain    String?  @unique
+  // Status
+  isActive        Boolean  @default(true)
+  suspendedAt     DateTime?
+  suspendReason   String?
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  // Relations
+  memberships     Membership[]
+  apiKeys         ApiKey[]
+  auditLogs       AuditLog[]
+
+  @@index([slug])
+  @@index([tier])
+}
+
+enum TenantTier {
+  FREE         // KOBIA brand shown ("Powered by KOBIA")
+  ENTRY        // KOBIA brand shown
+  SOLO         // KOBIA brand hidden — $149/mo
+  FIRM         // KOBIA brand hidden — $399/mo
+  FIRM_PLUS    // KOBIA brand hidden — $899/mo
+  ENTERPRISE   // KOBIA brand hidden — custom pricing
+  INTERNAL     // FIG and other KOBIA-owned tenants — free
+}
+
+// -----------------------------------------------------------------------------
+// USER: One identity, can belong to multiple tenants
+// -----------------------------------------------------------------------------
+model User {
+  id            String   @id @default(cuid())
+  clerkUserId   String   @unique // Source of truth is Clerk
+  email         String   @unique
+  firstName     String?
+  lastName      String?
+  imageUrl      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  // Relations
+  memberships   Membership[]
+  auditLogs     AuditLog[]
+}
+
+// -----------------------------------------------------------------------------
+// MEMBERSHIP: User <-> Tenant join with role (Lock HHH role-aware UI)
+// -----------------------------------------------------------------------------
+model Membership {
+  id          String   @id @default(cuid())
+  userId      String
+  tenantId    String
+  role        Role
+  // Tenant-specific user details
+  title       String?
+  isActive    Boolean  @default(true)
+  invitedAt   DateTime @default(now())
+  acceptedAt  DateTime?
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+  @@index([userId])
+}
+
+enum Role {
+  OWNER         // Tenant owner — full control including billing
+  ADMIN         // Admin — manages users, settings, all modules
+  ACCOUNTANT    // Accountant role — full access to books/payroll/invoicing/AP
+  STAFF         // Staff role — limited access
+  CLIENT        // Tenant's client — limited access to their own data only (portal)
+  VIEWER        // Read-only across modules
+}
+
+// -----------------------------------------------------------------------------
+// API KEYS: For tenant integrations (Cycle 4+)
+// -----------------------------------------------------------------------------
+model ApiKey {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  keyHash     String   @unique // store hash, not raw key
+  prefix      String   // first 8 chars shown in UI
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+  // Relations
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([keyHash])
+}
+
+// -----------------------------------------------------------------------------
+// AUDIT LOG: Every action gets logged (SOC 2 prep)
+// -----------------------------------------------------------------------------
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String?
+  action      String   // e.g. "tenant.created", "user.invited", "invoice.sent"
+  entityType  String?  // e.g. "Invoice", "Bill"
+  entityId    String?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  // Relations
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([userId])
+  @@index([action])
+}
+
+// =============================================================================
+// MODULE STUBS — to be expanded in later cycles
+// =============================================================================
+// Cycle 2: Bookkeeping (ChartOfAccounts, JournalEntry, BankTransaction, Reconciliation)
+// Cycle 3: Payroll (Employee, PayRun, Paystub, TaxFiling)
+// Cycle 4: Invoicing (Customer, Invoice, Payment, Estimate) + AP (Vendor, Bill, BillPayment)
+// Cycle 5: AI layer (Embeddings, AiQuery, AnomalyDetection)
+// =============================================================================
