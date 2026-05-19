@@ -319,16 +319,24 @@ export default async function InvoiceDetailPage({
                     {formatCents(p.amountCents)}
                   </td>
                   <td className="px-4 py-2">
-                    {p.journalEntryId ? (
+                    <div className="flex items-center gap-3">
+                      {p.journalEntryId ? (
+                        <Link
+                          href={`/${params.tenant}/books/journal/${p.journalEntryId}`}
+                          className="text-xs text-blue-700 hover:underline"
+                        >
+                          JE
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
                       <Link
-                        href={`/${params.tenant}/books/journal/${p.journalEntryId}`}
+                        href={`/${params.tenant}/ar/invoices/${invoice.id}/receipt/${p.id}`}
                         className="text-xs text-blue-700 hover:underline"
                       >
-                        View
+                        Receipt
                       </Link>
-                    ) : (
-                      <span className="text-xs text-slate-400">—</span>
-                    )}
+                    </div>
                   </td>
                 </tr>
               ))}
