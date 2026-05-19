@@ -139,6 +139,12 @@ export default async function InvoiceDetailPage({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/${params.tenant}/ar/invoices/${invoice.id}/print`}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Print / PDF
+          </Link>
           {["OPEN", "PARTIAL", "PAID"].includes(invoice.status) && (
             <SharePortalButton
               tenantSlug={params.tenant}
