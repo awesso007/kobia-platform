@@ -163,23 +163,31 @@ export default async function BooksPage({ params }: { params: { tenant: string }
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 p-4">
+          <div className="flex items-center justify-between border-b border-slate-200 p-4">
             <h2 className="font-semibold text-slate-900">Recent Journal Entries</h2>
+            <Link
+              href={`/${params.tenant}/books/journal`}
+              className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
+            >
+              View all →
+            </Link>
           </div>
           <ul className="divide-y divide-slate-100">
             {recentEntries.length === 0 && (
               <li className="p-4 text-sm text-slate-500">No journal entries yet.</li>
             )}
             {recentEntries.map((e) => (
-              <li key={e.id} className="p-4 text-sm">
-                <div className="flex items-baseline justify-between">
-                  <span className="font-mono text-xs text-slate-500">JE #{e.entryNumber}</span>
-                  <span className="text-xs text-slate-400">{new Date(e.entryDate).toLocaleDateString()}</span>
-                </div>
-                <p className="mt-1 text-slate-900">{e.description}</p>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  {e.source} · {e.status} · {e._count.lines} lines
-                </p>
+              <li key={e.id} className="p-4 text-sm hover:bg-slate-50">
+                <Link href={`/${params.tenant}/books/journal`} className="block">
+                  <div className="flex items-baseline justify-between">
+                    <span className="font-mono text-xs text-slate-500">JE #{e.entryNumber}</span>
+                    <span className="text-xs text-slate-400">{new Date(e.entryDate).toLocaleDateString()}</span>
+                  </div>
+                  <p className="mt-1 text-slate-900">{e.description}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {e.source} · {e.status} · {e._count.lines} lines
+                  </p>
+                </Link>
               </li>
             ))}
           </ul>
