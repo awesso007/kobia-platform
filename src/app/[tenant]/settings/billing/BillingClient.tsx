@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { trpc } from "@/lib/trpc-client";
 
 const TIERS = [
   {
@@ -37,7 +38,7 @@ type Props = {
 };
 
 export function BillingClient({
-  tenantSlug: _tenantSlug,
+  tenantSlug,
   currentTier,
   hasSubscription,
   subscriptionStatus,
@@ -46,23 +47,63 @@ export function BillingClient({
   cancelAtPeriodEnd,
 }: Props) {
   const [loading, setLoading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // TODO: wire to billing.createCheckoutSession + createPortalSession via tRPC
-  // For now this is a UI shell — backend is ready.
-  async function handleUpgrade(tier: string) {
+  const checkout = trpc.billing.createCheckoutSession.useMutation({
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setError("Could not start checkout. Please try again.");
+        setLoading(null);
+      }
+    },
+    onError: (err) => {
+      setError(err.message);
+      setLoading(null);
+    },
+  });
+
+  const portal = trpc.billing.createPortalSession.useMutation({
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setError("Could not open billing portal. Please try again.");
+        setLoading(null);
+      }
+    },
+    onError: (err) => {
+      setError(err.message);
+      setLoading(null);
+    },
+  });
+
+  function handleUpgrade(tier: "SOLO" | "FIRM" | "FIRM_PLUS") {
+    setError(null);
     setLoading(tier);
-    alert(`TODO Tuesday: wire tRPC checkout for ${tier}. Backend route is live.`);
-    setLoading(null);
+    const base = `${window.location.origin}/${tenantSlug}/settings/billing`;
+    checkout.mutate({
+      tier,
+      successUrl: `${base}?checkout=success`,
+      cancelUrl: `${base}?checkout=cancel`,
+    });
   }
 
-  async function handleManage() {
+  function handleManage() {
+    setError(null);
     setLoading("portal");
-    alert("TODO Tuesday: wire tRPC customer portal session.");
-    setLoading(null);
+    const returnUrl = `${window.location.origin}/${tenantSlug}/settings/billing`;
+    portal.mutate({ returnUrl });
   }
 
   return (
     <div className="mt-8 space-y-6">
+      {error && (
+        <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+          {error}
+        </div>
+      )}
       {hasSubscription && (
         <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-start justify-between">
@@ -120,7 +161,7 @@ export function BillingClient({
               </ul>
               <button
                 onClick={() => handleUpgrade(tier.id)}
-                disabled={isCurrent || loading === tier.id}
+                disabled={isCurrent || loading !== null}
                 className="mt-6 w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-slate-300"
               >
                 {isCurrent ? "Current plan" : loading === tier.id ? "Loading..." : `Upgrade to ${tier.name}`}
