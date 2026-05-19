@@ -74,6 +74,7 @@ export const MODULES: ModuleDefinition[] = [
     defaultHref: "/dashboard",
     topTabs: [
       { label: "Dashboard", href: "/dashboard" },
+      { label: "Activity", href: "/inbox" },
       {
         label: "Books",
         groups: [
