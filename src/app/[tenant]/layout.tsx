@@ -1,4 +1,5 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { getTenantBySlug } from "@/lib/tenant";
 import { TenantSidebar } from "@/components/layout/TenantSidebar";
 import { TenantHeader } from "@/components/layout/TenantHeader";
@@ -16,6 +17,32 @@ export default async function TenantLayout({
 }) {
   const tenant = await getTenantBySlug(params.tenant);
   if (!tenant) notFound();
+
+  // Detect whether we're inside the /welcome flow.
+  const h = await headers();
+  const pathname = h.get("x-pathname") || "";
+  const isOnWelcome = pathname.includes(`/${tenant.slug}/welcome`);
+
+  // Route guard: send new tenants through /welcome before they hit the app shell.
+  if (!tenant.onboardingCompleted && !isOnWelcome) {
+    redirect(`/${tenant.slug}/welcome`);
+  }
+
+  // Welcome flow renders full-screen — no sidebar/header chrome.
+  if (isOnWelcome) {
+    return (
+      <div
+        style={
+          {
+            "--primary": tenant.primaryColor,
+            "--secondary": tenant.secondaryColor,
+          } as React.CSSProperties
+        }
+      >
+        <TRPCProvider>{children}</TRPCProvider>
+      </div>
+    );
+  }
 
   const [entities, activeEntity, activeModule] = await Promise.all([
     listEntitiesForSwitcher(tenant.id),

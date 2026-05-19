@@ -157,21 +157,14 @@ export async function provisionTenantFromPending(pendingId: string) {
       legalName: pending.legalName,
       tier: pending.tier,
       stripeCustomerId: pending.stripeCustomerId,
+      onboardingCompleted: false,
+      onboardingStep: "industry",
       // hideKobiaBrand is set by the webhook on paid tier confirmation
     },
   });
 
-  // Provision a default first entity so /books works out of the gate.
-  await db.entity.create({
-    data: {
-      tenantId: tenant.id,
-      name: pending.businessName,
-      legalName: pending.legalName,
-      baseCurrency: "USD",
-      fiscalYearEnd: "12-31",
-      industry: null,
-    },
-  });
+  // NOTE: We intentionally do NOT create a default Entity here.
+  // The /welcome onboarding flow creates the first entity with industry-aware COA seeding.
 
   await db.pendingTenant.update({
     where: { id: pending.id },

@@ -28,13 +28,20 @@ export default clerkMiddleware((auth, req: NextRequest) => {
     const subdomain = hostname.replace(`.${rootDomain}`, "");
     if (subdomain && subdomain !== "www") {
       url.pathname = `/${subdomain}${url.pathname}`;
-      return NextResponse.rewrite(url);
+      const res = NextResponse.rewrite(url);
+      res.headers.set("x-pathname", url.pathname);
+      return res;
     }
   }
 
   if (!isPublicRoute(req)) {
     auth().protect();
   }
+
+  // Expose pathname to RSC layouts (used by tenant layout for onboarding guard).
+  const res = NextResponse.next();
+  res.headers.set("x-pathname", url.pathname);
+  return res;
 });
 
 export const config = {

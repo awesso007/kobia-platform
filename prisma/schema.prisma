@@ -36,6 +36,10 @@ model Tenant {
   isActive        Boolean  @default(true)
   suspendedAt     DateTime?
   suspendReason   String?
+  // Onboarding
+  onboardingCompleted Boolean  @default(false)
+  onboardingStep      String?  // "industry" | "entity" | "team" | "done"
+  industry            String?  // for default COA template — applied to first entity
   // Metadata
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
