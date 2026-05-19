@@ -57,6 +57,7 @@ export const MODULES: ModuleDefinition[] = [
         items: [
           { href: "/books", label: "Chart of Accounts", icon: BookOpen },
           { href: "/books/journal", label: "Journal", icon: FileText },
+          { href: "/books/assets", label: "Fixed Assets", icon: Wallet },
           { href: "/books/close", label: "Period Close", icon: Lock },
         ],
       },
