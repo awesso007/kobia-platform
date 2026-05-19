@@ -101,6 +101,7 @@ model Engagement {
 
   entity          Entity           @relation(fields: [entityId], references: [id], onDelete: Cascade)
   tasks           Task[]
+  letters         EngagementLetter[]
 
   @@index([tenantId])
   @@index([entityId, status])
@@ -160,6 +161,61 @@ enum TaskPriority {
   MED
   HIGH
   URGENT
+}
+
+/// Reusable engagement-letter templates per tenant (firm).
+model EngagementLetterTemplate {
+  id              String         @id @default(cuid())
+  tenantId        String
+  name            String         // "2026 Tax Return Letter", "Monthly Bookkeeping"
+  engagementType  EngagementType @default(BOOKKEEPING)
+  subject         String         // shown to client
+  bodyMarkdown    String         // supports {{client_name}}, {{firm_name}}, {{engagement_name}}, {{start_date}}, {{target_date}}, {{fee_amount}}, {{today}}, {{signer_name}}
+  feeText         String?        // e.g. "$2,500 flat fee" — optional default
+  isActive        Boolean        @default(true)
+  createdByUserId String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  letters         EngagementLetter[]
+
+  @@index([tenantId, isActive])
+  @@index([tenantId, engagementType])
+}
+
+/// A specific engagement letter generated for an engagement.
+model EngagementLetter {
+  id              String       @id @default(cuid())
+  tenantId        String
+  engagementId    String
+  templateId      String?
+  subject         String
+  bodyMarkdown    String        // post-variable-substitution body
+  feeText         String?
+  status          LetterStatus  @default(DRAFT)
+  sentAt          DateTime?
+  signedAt        DateTime?
+  signerName      String?
+  signerEmail     String?
+  voidedAt        DateTime?
+  voidedReason    String?
+  shareToken      String?       @unique // for client view/sign link
+  createdByUserId String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  engagement      Engagement                 @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  template        EngagementLetterTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([engagementId, status])
+}
+
+enum LetterStatus {
+  DRAFT
+  SENT
+  SIGNED
+  VOIDED
 }
 
 // -----------------------------------------------------------------------------

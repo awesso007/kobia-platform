@@ -2,7 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getTenantBySlug } from "@/lib/tenant";
 import { TenantSidebar } from "@/components/layout/TenantSidebar";
-import { TenantHeader } from "@/components/layout/TenantHeader";
+import { TopBar } from "@/components/layout/TopBar";
+import { ModuleRail } from "@/components/layout/ModuleRail";
 import { PoweredByKobia } from "@/components/branding/PoweredByKobia";
 import { TRPCProvider } from "@/components/providers/TRPCProvider";
 import { getActiveEntity, listEntitiesForSwitcher } from "@/lib/active-entity";
@@ -52,7 +53,7 @@ export default async function TenantLayout({
 
   return (
     <div
-      className="flex min-h-screen"
+      className="flex h-screen flex-col bg-slate-50"
       style={
         {
           "--primary": tenant.primaryColor,
@@ -61,16 +62,21 @@ export default async function TenantLayout({
       }
     >
       <TRPCProvider>
-        <TenantSidebar
+        {/* Top bar — spans full width */}
+        <TopBar
           tenant={tenant}
           entities={entities}
           activeEntityId={activeEntity?.id ?? null}
-          activeModule={activeModule}
         />
-        <div className="flex flex-1 flex-col">
-          <TenantHeader tenant={tenant} />
-          <main className="flex-1 p-8">{children}</main>
-          <PoweredByKobia tenant={tenant} />
+
+        {/* Body: ModuleRail | Sidebar | Main */}
+        <div className="flex flex-1 min-h-0">
+          <ModuleRail tenantSlug={tenant.slug} activeModule={activeModule} />
+          <TenantSidebar tenantSlug={tenant.slug} activeModule={activeModule} />
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <main className="flex-1 overflow-y-auto p-6">{children}</main>
+            <PoweredByKobia tenant={tenant} />
+          </div>
         </div>
       </TRPCProvider>
     </div>
