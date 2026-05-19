@@ -2,7 +2,9 @@ import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
   BookOpen,
+  Briefcase,
   Building2,
+  CheckSquare,
   ClipboardList,
   DollarSign,
   FileText,
@@ -101,6 +103,13 @@ export const MODULES: ModuleDefinition[] = [
         label: "Tax",
         items: [
           { href: "/tax/1099", label: "1099 Prep", icon: ClipboardList, badge: "Beta" },
+        ],
+      },
+      {
+        label: "Practice",
+        items: [
+          { href: "/practice", label: "Engagements", icon: Briefcase },
+          { href: "/practice/tasks", label: "My Tasks", icon: CheckSquare },
         ],
       },
       {

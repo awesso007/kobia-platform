@@ -81,6 +81,87 @@ model User {
   auditLogs     AuditLog[]
 }
 
+/// A practice-management engagement — the unit of accounting work an accountant performs
+/// for one of their client businesses (an Entity within the firm's tenant). Engagements
+/// group together tasks, deadlines, and recurring service work.
+model Engagement {
+  id              String           @id @default(cuid())
+  tenantId        String           // firm tenant
+  entityId        String           // client business this engagement is for
+  name            String           // e.g. "2026 Tax Return", "Monthly Bookkeeping"
+  type            EngagementType   @default(BOOKKEEPING)
+  status          EngagementStatus @default(ACTIVE)
+  startDate       DateTime?
+  targetDate      DateTime?
+  completedAt     DateTime?
+  notes           String?
+  createdByUserId String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  entity          Entity           @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  tasks           Task[]
+
+  @@index([tenantId])
+  @@index([entityId, status])
+  @@index([tenantId, status])
+}
+
+/// A single task within an Engagement — the atomic unit of accountant work.
+model Task {
+  id              String       @id @default(cuid())
+  tenantId        String
+  engagementId    String
+  title           String
+  description     String?
+  status          TaskStatus   @default(TODO)
+  priority        TaskPriority @default(MED)
+  dueDate         DateTime?
+  assigneeUserId  String?      // membership.user.id
+  completedAt     DateTime?
+  sortOrder       Int          @default(0)
+  createdByUserId String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  engagement      Engagement   @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([engagementId, status, sortOrder])
+  @@index([assigneeUserId, status])
+}
+
+enum EngagementType {
+  BOOKKEEPING
+  TAX
+  PAYROLL
+  AUDIT
+  ADVISORY
+  ONBOARDING
+  OTHER
+}
+
+enum EngagementStatus {
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MED
+  HIGH
+  URGENT
+}
+
 // -----------------------------------------------------------------------------
 // MEMBERSHIP: User <-> Tenant join with role (Lock HHH role-aware UI)
 // -----------------------------------------------------------------------------
@@ -234,6 +315,7 @@ model Entity {
   payRuns           PayRun[]
   items             Item[]
   recurringJEs      RecurringJournalEntry[]
+  engagements       Engagement[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
