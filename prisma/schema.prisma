@@ -233,6 +233,7 @@ model Entity {
   employees         Employee[]
   payRuns           PayRun[]
   items             Item[]
+  recurringJEs      RecurringJournalEntry[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -386,6 +387,7 @@ model Account {
   recurringInvoiceLines RecurringInvoiceLine[]
   recurringBillLines    RecurringBillLine[]
   budgetLines           BudgetLine[]
+  recurringJELines      RecurringJournalLine[]
 
   @@unique([entityId, code])
   @@index([tenantId])
@@ -471,6 +473,54 @@ model Attachment {
 enum AttachmentStorage {
   URL          // external link only — no upload
   VERCEL_BLOB  // hosted in Vercel Blob (requires BLOB_READ_WRITE_TOKEN)
+}
+
+/// A recurring journal entry template — runs on a fixed schedule (monthly depreciation,
+/// quarterly accruals, weekly payroll accrual, etc.). Each run posts a real JournalEntry via
+/// the ledger engine and advances nextRunDate by the chosen frequency.
+model RecurringJournalEntry {
+  id            String                    @id @default(cuid())
+  tenantId      String
+  entityId      String
+  name          String                    // e.g., "Monthly depreciation — vehicles"
+  description   String?                   // copied to each posted JE.description
+  memo          String?                   // copied to each posted JE.memo
+  frequency     RecurringFrequency        @default(MONTHLY)
+  nextRunDate   DateTime                  // next entry date to post (also used as JE.entryDate)
+  lastRunDate   DateTime?
+  endDate       DateTime?                 // stop after this date; null = forever
+  isActive      Boolean                   @default(true)
+  runCount      Int                       @default(0)
+  createdByUserId String?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+
+  entity        Entity                    @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  lines         RecurringJournalLine[]
+
+  @@index([tenantId])
+  @@index([entityId, isActive, nextRunDate])
+}
+
+/// A single template line on a RecurringJournalEntry. Mirrors JournalLine fields.
+model RecurringJournalLine {
+  id              String                @id @default(cuid())
+  tenantId        String
+  recurringId     String
+  accountId       String
+  debitCents      BigInt                @default(0)
+  creditCents     BigInt                @default(0)
+  memo            String?
+  classTag        String?
+  locationTag     String?
+  departmentTag   String?
+  lineNumber      Int
+
+  recurring       RecurringJournalEntry @relation(fields: [recurringId], references: [id], onDelete: Cascade)
+  account         Account               @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([recurringId, lineNumber])
+  @@index([tenantId])
 }
 
 enum EntrySource {
