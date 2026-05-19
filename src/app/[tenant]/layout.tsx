@@ -3,6 +3,7 @@ import { getTenantBySlug } from "@/lib/tenant";
 import { TenantSidebar } from "@/components/layout/TenantSidebar";
 import { TenantHeader } from "@/components/layout/TenantHeader";
 import { PoweredByKobia } from "@/components/branding/PoweredByKobia";
+import { TRPCProvider } from "@/components/providers/TRPCProvider";
 
 export default async function TenantLayout({
   children,
@@ -24,12 +25,14 @@ export default async function TenantLayout({
         } as React.CSSProperties
       }
     >
-      <TenantSidebar tenant={tenant} />
-      <div className="flex flex-1 flex-col">
-        <TenantHeader tenant={tenant} />
-        <main className="flex-1 p-8">{children}</main>
-        <PoweredByKobia tenant={tenant} />
-      </div>
+      <TRPCProvider>
+        <TenantSidebar tenant={tenant} />
+        <div className="flex flex-1 flex-col">
+          <TenantHeader tenant={tenant} />
+          <main className="flex-1 p-8">{children}</main>
+          <PoweredByKobia tenant={tenant} />
+        </div>
+      </TRPCProvider>
     </div>
   );
 }
