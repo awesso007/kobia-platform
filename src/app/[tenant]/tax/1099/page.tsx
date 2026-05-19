@@ -110,6 +110,12 @@ export default async function Tax1099Page({
           >
             Apply
           </button>
+          <a
+            href={`/api/reports/1099-nec.csv?tenant=${params.tenant}&entityId=${entity.id}&year=${year}`}
+            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Export CSV
+          </a>
         </form>
       </div>
 
@@ -156,12 +162,22 @@ export default async function Tax1099Page({
               rows.map((r) => (
                 <tr key={r.id} className="border-t border-slate-100">
                   <td className="px-4 py-2">
-                    <Link
-                      href={`/${params.tenant}/ap/vendors/${r.id}`}
-                      className="font-medium text-slate-900 hover:underline"
-                    >
-                      {r.name}
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/${params.tenant}/ap/vendors/${r.id}`}
+                        className="font-medium text-slate-900 hover:underline"
+                      >
+                        {r.name}
+                      </Link>
+                      {r.meetsThreshold && (
+                        <Link
+                          href={`/${params.tenant}/tax/1099/${r.id}?year=${year}`}
+                          className="text-xs font-medium text-blue-700 hover:underline"
+                        >
+                          1099-NEC →
+                        </Link>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-2 text-slate-600">
                     {r.taxId ? (
