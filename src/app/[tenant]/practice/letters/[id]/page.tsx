@@ -226,6 +226,13 @@ export default async function LetterDetailPage({
           </form>
         )}
 
+        <Link
+          href={`/${params.tenant}/practice/letters/${letter.id}/print`}
+          className="rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Print / PDF
+        </Link>
+
         {(isSent || letter.status === "SIGNED") && shareUrl && (
           <div className="ml-auto rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
             <span className="font-semibold">Sign link:</span>{" "}

@@ -1,0 +1,161 @@
+import { notFound, redirect } from "next/navigation";
+import { getAuthContext } from "@/lib/auth";
+import { db } from "@/lib/db";
+import PrintButton from "./PrintButton";
+
+export const dynamic = "force-dynamic";
+
+function fmtDate(d: Date | null): string {
+  if (!d) return "";
+  return new Date(d).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+export default async function LetterPrintPage({
+  params,
+}: {
+  params: { tenant: string; id: string };
+}) {
+  const auth = await getAuthContext(params.tenant);
+  if (!auth) redirect(`/${params.tenant}/login`);
+
+  const letter = await db.engagementLetter.findFirst({
+    where: { id: params.id, tenantId: auth.tenant.id },
+    include: {
+      engagement: {
+        include: { entity: { select: { name: true } } },
+      },
+    },
+  });
+  if (!letter) notFound();
+
+  const tenant = auth.tenant;
+  const accent = tenant.primaryColor ?? "#0F172A";
+
+  return (
+    <div className="bg-white">
+      {/* Print controls — hidden on print */}
+      <div className="print:hidden sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
+        <a
+          href={`/${params.tenant}/practice/letters/${letter.id}`}
+          className="text-sm text-slate-600 hover:text-slate-900"
+        >
+          ← Back to letter
+        </a>
+        <PrintButton />
+      </div>
+
+      <div className="mx-auto max-w-3xl px-10 py-12 text-slate-900 print:px-12 print:py-10">
+        {/* Letterhead */}
+        <header
+          className="flex items-center justify-between border-b-4 pb-6"
+          style={{ borderColor: accent }}
+        >
+          <div className="flex items-center gap-4">
+            {tenant.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={tenant.logoUrl}
+                alt={tenant.name}
+                className="h-12 w-12 rounded object-contain"
+              />
+            ) : (
+              <div
+                className="flex h-12 w-12 items-center justify-center rounded text-lg font-bold text-white"
+                style={{ background: accent }}
+              >
+                {tenant.name.charAt(0)}
+              </div>
+            )}
+            <div>
+              <p className="text-lg font-semibold">{tenant.name}</p>
+              <p className="text-xs text-slate-500">Engagement letter</p>
+            </div>
+          </div>
+          <div className="text-right text-xs text-slate-500">
+            <p>{fmtDate(new Date())}</p>
+            {letter.signedAt && (
+              <p className="mt-1 font-semibold text-emerald-700">
+                Signed {fmtDate(letter.signedAt)}
+              </p>
+            )}
+          </div>
+        </header>
+
+        {/* Subject */}
+        <h1 className="mt-8 text-xl font-semibold">{letter.subject}</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          For {letter.engagement.entity.name} —{" "}
+          {letter.engagement.type.toLowerCase()}
+        </p>
+
+        {/* Body */}
+        <article className="mt-6 whitespace-pre-wrap font-serif text-[15px] leading-relaxed text-slate-800">
+          {letter.bodyMarkdown}
+        </article>
+
+        {/* Fee block */}
+        {letter.feeText && (
+          <div
+            className="mt-8 rounded-md border-l-4 bg-slate-50 px-4 py-3"
+            style={{ borderColor: accent }}
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Fee
+            </p>
+            <p className="mt-1 text-sm font-medium text-slate-900">
+              {letter.feeText}
+            </p>
+          </div>
+        )}
+
+        {/* Signature block */}
+        <section className="mt-12 grid grid-cols-2 gap-10">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Firm
+            </p>
+            <div
+              className="mt-6 border-b pb-1 text-sm font-medium"
+              style={{ borderColor: accent }}
+            >
+              {tenant.name}
+            </div>
+            <p className="mt-2 text-xs text-slate-500">{fmtDate(letter.sentAt)}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Client
+            </p>
+            <div
+              className="mt-6 border-b pb-1 text-sm font-medium"
+              style={{ borderColor: accent }}
+            >
+              {letter.signerName ?? letter.engagement.entity.name}
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              {letter.signedAt
+                ? `Signed ${fmtDate(letter.signedAt)}`
+                : letter.signerEmail ?? ""}
+            </p>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer className="mt-16 border-t border-slate-200 pt-4 text-center text-[10px] text-slate-400">
+          {tenant.name} · Generated by KOBIA
+        </footer>
+      </div>
+
+      <style>{`
+        @media print {
+          @page { margin: 0.6in; }
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+      `}</style>
+    </div>
+  );
+}
