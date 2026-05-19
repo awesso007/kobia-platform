@@ -16,6 +16,7 @@ const isPublicRoute = createRouteMatcher([
   "/:tenant/login(.*)",
   "/api/trpc(.*)",
   "/api/webhooks(.*)",
+  "/pay/(.*)",
 ]);
 
 export default clerkMiddleware((auth, req: NextRequest) => {

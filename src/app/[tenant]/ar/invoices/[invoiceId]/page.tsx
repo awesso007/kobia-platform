@@ -6,6 +6,7 @@ import { getActiveEntity } from "@/lib/active-entity";
 import { formatCents } from "@/lib/accounting/ledger";
 import { ageBucket } from "@/lib/accounting/ar";
 import { RecordPaymentButton } from "./RecordPaymentButton";
+import { SharePortalButton } from "./SharePortalButton";
 
 export const dynamic = "force-dynamic";
 
@@ -136,7 +137,14 @@ export default async function InvoiceDetailPage({
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {["OPEN", "PARTIAL", "PAID"].includes(invoice.status) && (
+            <SharePortalButton
+              tenantSlug={params.tenant}
+              invoiceId={invoice.id}
+              publicViewToken={invoice.publicViewToken}
+            />
+          )}
           {invoice.postingJournalEntryId && (
             <Link
               href={`/${params.tenant}/books/journal/${invoice.postingJournalEntryId}`}
