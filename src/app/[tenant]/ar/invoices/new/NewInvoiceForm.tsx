@@ -6,6 +6,7 @@ import { trpc } from "@/lib/trpc-client";
 
 type Customer = { id: string; name: string; defaultTermsDays: number };
 type RevenueAccount = { id: string; code: string; name: string };
+type TaxRate = { id: string; name: string; rateBps: number; isDefault: boolean };
 
 type LineDraft = {
   accountId: string;
@@ -86,6 +87,7 @@ export function NewInvoiceForm({
   baseCurrency,
   customers,
   revenueAccounts,
+  taxRates,
   preselectedCustomerId,
 }: {
   tenantSlug: string;
@@ -93,6 +95,7 @@ export function NewInvoiceForm({
   baseCurrency: string;
   customers: Customer[];
   revenueAccounts: RevenueAccount[];
+  taxRates: TaxRate[];
   preselectedCustomerId: string | null;
 }) {
   const router = useRouter();
@@ -115,6 +118,8 @@ export function NewInvoiceForm({
   });
   const [memo, setMemo] = useState("");
   const [currency, setCurrency] = useState(baseCurrency);
+  const defaultTaxRateId = taxRates.find((t) => t.isDefault)?.id ?? "";
+  const [taxRateId, setTaxRateId] = useState(defaultTaxRateId);
   const [lines, setLines] = useState<LineDraft[]>([emptyLine(defaultAccountId)]);
   const [error, setError] = useState<string | null>(null);
 
@@ -152,8 +157,8 @@ export function NewInvoiceForm({
     setLines((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev));
   }
 
-  // Live total
-  const totalCents = useMemo(() => {
+  // Live subtotal
+  const subtotalCents = useMemo(() => {
     let sum = 0n;
     for (const l of lines) {
       try {
@@ -166,6 +171,11 @@ export function NewInvoiceForm({
     }
     return sum;
   }, [lines]);
+
+  const selectedTax = taxRates.find((t) => t.id === taxRateId) ?? null;
+  const taxBps = BigInt(selectedTax?.rateBps ?? 0);
+  const taxCents = taxBps > 0n ? (subtotalCents * taxBps) / 10_000n : 0n;
+  const totalCents = subtotalCents + taxCents;
 
   const post = trpc.ar.createAndPostInvoice.useMutation({
     onSuccess: () => {
@@ -198,6 +208,7 @@ export function NewInvoiceForm({
         dueDate: new Date(dueDate).toISOString(),
         memo: memo.trim() || undefined,
         currency: currency === baseCurrency ? undefined : currency,
+        taxRateId: taxRateId || undefined,
         lines: lines.map((l, i) => {
           if (!l.accountId) throw new Error(`Line ${i + 1}: pick a revenue account.`);
           if (!l.description.trim()) throw new Error(`Line ${i + 1}: description required.`);
@@ -395,6 +406,39 @@ export function NewInvoiceForm({
             <tfoot className="bg-slate-50">
               <tr>
                 <td colSpan={4} className="px-3 py-2 text-right text-xs uppercase tracking-wide text-slate-500">
+                  Subtotal
+                </td>
+                <td className="px-3 py-2 text-right font-mono text-sm tabular-nums text-slate-900">
+                  {formatCentsForDisplay(subtotalCents)}
+                </td>
+                <td />
+              </tr>
+              <tr>
+                <td colSpan={4} className="px-3 py-2 text-right text-xs uppercase tracking-wide text-slate-500">
+                  <div className="flex items-center justify-end gap-2">
+                    <span>Sales tax</span>
+                    <select
+                      value={taxRateId}
+                      onChange={(e) => setTaxRateId(e.target.value)}
+                      className="rounded-md border-slate-300 px-2 py-1 text-xs shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    >
+                      <option value="">No tax</option>
+                      {taxRates.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} ({(t.rateBps / 100).toFixed(2)}%)
+                          {t.isDefault ? " — default" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </td>
+                <td className="px-3 py-2 text-right font-mono text-sm tabular-nums text-slate-900">
+                  {formatCentsForDisplay(taxCents)}
+                </td>
+                <td />
+              </tr>
+              <tr>
+                <td colSpan={4} className="px-3 py-2 text-right text-xs uppercase tracking-wide font-semibold text-slate-700">
                   Total
                 </td>
                 <td className="px-3 py-2 text-right font-mono text-sm font-semibold tabular-nums text-slate-900">

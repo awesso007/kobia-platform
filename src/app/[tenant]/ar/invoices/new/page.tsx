@@ -23,7 +23,7 @@ export default async function NewInvoicePage({
   const entity = await getActiveEntity({ tenantId: auth.tenant.id, tenantSlug: params.tenant });
   if (!entity) redirect(`/${params.tenant}/books`);
 
-  const [customers, revenueAccounts] = await Promise.all([
+  const [customers, revenueAccounts, taxRates] = await Promise.all([
     db.customer.findMany({
       where: { tenantId: auth.tenant.id, entityId: entity.id, isActive: true },
       select: { id: true, name: true, defaultTermsDays: true },
@@ -38,6 +38,11 @@ export default async function NewInvoicePage({
       },
       select: { id: true, code: true, name: true },
       orderBy: { code: "asc" },
+    }),
+    db.taxRate.findMany({
+      where: { tenantId: auth.tenant.id, entityId: entity.id, isActive: true },
+      select: { id: true, name: true, rateBps: true, isDefault: true },
+      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
     }),
   ]);
 
@@ -97,6 +102,7 @@ export default async function NewInvoicePage({
         baseCurrency={entity.baseCurrency ?? "USD"}
         customers={customers}
         revenueAccounts={revenueAccounts}
+        taxRates={taxRates}
         preselectedCustomerId={searchParams.customerId ?? null}
       />
     </div>

@@ -88,6 +88,7 @@ export const arRouter = router({
         dueDate: z.string().datetime().optional(),
         memo: z.string().max(2000).optional(),
         currency: z.string().length(3).optional(),
+        taxRateId: z.string().optional(),
         lines: z
           .array(
             z.object({
@@ -118,6 +119,25 @@ export const arRouter = router({
         ? new Date(input.dueDate)
         : new Date(issueDate.getTime() + customer.defaultTermsDays * 86400_000);
 
+      // Resolve tax rate snapshot if provided
+      let taxRateId: string | undefined;
+      let taxRateBps: number | undefined;
+      if (input.taxRateId) {
+        const tr = await db.taxRate.findFirst({
+          where: {
+            id: input.taxRateId,
+            tenantId: ctx.auth.tenant.id,
+            entityId: input.entityId,
+            isActive: true,
+          },
+        });
+        if (!tr) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Tax rate not found." });
+        }
+        taxRateId = tr.id;
+        taxRateBps = tr.rateBps;
+      }
+
       try {
         // Create DRAFT invoice with lines, then post
         const draft = await db.invoice.create({
@@ -131,6 +151,8 @@ export const arRouter = router({
             status: "DRAFT",
             memo: input.memo,
             currency: input.currency,
+            taxRateId,
+            taxRateBps,
             lines: {
               create: input.lines.map((l, i) => {
                 const amountCents = (l.quantityMilli * l.unitPriceCents) / 1000n;

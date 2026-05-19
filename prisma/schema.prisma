@@ -549,11 +549,15 @@ model Invoice {
   voidedAt       DateTime?
   // Public portal access — long random token; null if portal disabled
   publicViewToken String?      @unique
+  // Optional sales tax rate applied at post time. Snapshot stored in taxRateBps + taxCents.
+  taxRateId      String?
+  taxRateBps     Int?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
   entity   Entity            @relation(fields: [entityId], references: [id], onDelete: Cascade)
   customer Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  taxRate  TaxRate?          @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
   lines    InvoiceLine[]
   payments InvoicePayment[]
   recurringRun RecurringInvoiceRun?
@@ -832,6 +836,7 @@ model TaxRate {
   updatedAt     DateTime @updatedAt
 
   entity        Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  invoices      Invoice[]
 
   @@unique([entityId, name])
   @@index([tenantId])

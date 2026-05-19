@@ -34,17 +34,53 @@ export async function findArAccount(entityId: string) {
   return account;
 }
 
+/** Find or create the Sales Tax Payable liability account for an entity (code "2200"). */
+export async function findOrCreateSalesTaxPayable(
+  entityId: string,
+  tenantId: string,
+  client: Prisma.TransactionClient | typeof db = db,
+) {
+  let account = await client.account.findFirst({
+    where: {
+      entityId,
+      OR: [{ code: "2200" }, { name: { contains: "Sales Tax Payable", mode: "insensitive" } }],
+      type: "LIABILITY",
+    },
+  });
+  if (!account) {
+    account = await client.account.create({
+      data: {
+        tenantId,
+        entityId,
+        code: "2200",
+        name: "Sales Tax Payable",
+        type: "LIABILITY",
+        subtype: "Tax Liability",
+        isActive: true,
+        isSystem: false,
+      },
+    });
+  }
+  return account;
+}
+
 /** Recompute totalCents / balanceCents from current line + payment rows. */
 export async function recomputeInvoiceTotals(
   invoiceId: string,
   client: Prisma.TransactionClient | typeof db = db
 ) {
+  const invoice = await client.invoice.findUnique({
+    where: { id: invoiceId },
+    select: { taxRateBps: true },
+  });
   const lines = await client.invoiceLine.findMany({
     where: { invoiceId },
     select: { amountCents: true },
   });
   const subtotal = lines.reduce((s, l) => s + l.amountCents, 0n);
-  const total = subtotal; // tax stored separately; subtotal == total for now
+  const bps = BigInt(invoice?.taxRateBps ?? 0);
+  const tax = bps > 0n ? (subtotal * bps) / 10_000n : 0n;
+  const total = subtotal + tax;
   const paid = await client.invoicePayment.aggregate({
     where: { invoiceId },
     _sum: { amountCents: true },
@@ -56,6 +92,7 @@ export async function recomputeInvoiceTotals(
     where: { id: invoiceId },
     data: {
       subtotalCents: subtotal,
+      taxCents: tax,
       totalCents: total,
       paidCents,
       balanceCents,
@@ -92,6 +129,11 @@ export async function postInvoice(
       throw new LedgerError("ZERO_TOTAL", "Invoice total must be > 0.");
     }
 
+    // Apply sales tax (in invoice currency)
+    const taxBps = BigInt(invoice.taxRateBps ?? 0);
+    const taxCents = taxBps > 0n ? (subtotal * taxBps) / 10_000n : 0n;
+    const grandTotal = subtotal + taxCents;
+
     // FX conversion: post to GL in BASE currency.
     const entity = await tx.entity.findUnique({ where: { id: invoice.entityId } });
     const baseCurrency = entity?.baseCurrency ?? "USD";
@@ -101,11 +143,14 @@ export async function postInvoice(
       fromCurrency: invoiceCurrency,
       toCurrency: baseCurrency,
       asOf: invoice.issueDate,
-      originalCents: subtotal,
+      originalCents: grandTotal,
     });
-    const baseSubtotal = fx.baseCents;
+    const baseGrandTotal = fx.baseCents;
+    const baseTaxCents =
+      invoiceCurrency === baseCurrency ? taxCents : convert(taxCents, fx.rate);
+    const baseSubtotal = baseGrandTotal - baseTaxCents;
 
-    // Build the JE: one debit to AR, one credit per revenue account.
+    // Build the JE: one debit to AR (subtotal + tax), one credit per revenue account, plus tax credit.
     // Group lines by accountId; convert each group to base currency.
     const creditsByAccount = new Map<string, bigint>();
     for (const l of invoice.lines) {
@@ -120,13 +165,31 @@ export async function postInvoice(
       );
     }
 
-    // Reconcile rounding drift: ensure sum of credits equals baseSubtotal exactly.
+    // Reconcile rounding drift: ensure sum of revenue credits equals baseSubtotal exactly.
     let creditTotal = 0n;
     for (const v of creditsByAccount.values()) creditTotal += v;
     if (creditTotal !== baseSubtotal && creditsByAccount.size > 0) {
       const diff = baseSubtotal - creditTotal;
       const firstKey = creditsByAccount.keys().next().value as string;
       creditsByAccount.set(firstKey, (creditsByAccount.get(firstKey) ?? 0n) + diff);
+    }
+
+    // Resolve tax payable account if tax > 0
+    const taxLines: DraftEntry["lines"] = [];
+    if (baseTaxCents > 0n) {
+      const taxAccount = await findOrCreateSalesTaxPayable(
+        invoice.entityId,
+        invoice.tenantId,
+        tx,
+      );
+      taxLines.push({
+        accountId: taxAccount.id,
+        debitCents: 0n,
+        creditCents: baseTaxCents,
+        memo: `Sales tax — ${invoice.customer.name}`,
+        contactRefType: "Customer",
+        contactRefId: invoice.customerId,
+      });
     }
 
     const draft: DraftEntry = {
@@ -143,7 +206,7 @@ export async function postInvoice(
       lines: [
         {
           accountId: arAccount.id,
-          debitCents: baseSubtotal,
+          debitCents: baseGrandTotal,
           creditCents: 0n,
           memo: `AR — ${invoice.customer.name}`,
           contactRefType: "Customer",
@@ -156,6 +219,7 @@ export async function postInvoice(
           contactRefType: "Customer",
           contactRefId: invoice.customerId,
         })),
+        ...taxLines,
       ],
     };
 
@@ -179,10 +243,11 @@ export async function postInvoice(
         postingJournalEntryId: je.id,
         postedAt: new Date(),
         subtotalCents: subtotal,
-        totalCents: subtotal,
-        balanceCents: subtotal,
+        taxCents,
+        totalCents: grandTotal,
+        balanceCents: grandTotal,
         fxRate: invoiceCurrency === baseCurrency ? null : fx.rate,
-        baseTotalCents: baseSubtotal,
+        baseTotalCents: baseGrandTotal,
       },
     });
 
