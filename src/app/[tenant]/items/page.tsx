@@ -16,7 +16,13 @@ function qtyDisplay(milli: bigint): string {
   return `${neg ? "-" : ""}${whole.toString()}${frac ? "." + frac : ""}`;
 }
 
-export default async function ItemsPage({ params }: { params: { tenant: string } }) {
+export default async function ItemsPage({
+  params,
+  searchParams,
+}: {
+  params: { tenant: string };
+  searchParams?: { adj?: string };
+}) {
   const auth = await getAuthContext(params.tenant);
   if (!auth) redirect(`/${params.tenant}/login`);
 
@@ -58,6 +64,23 @@ export default async function ItemsPage({ params }: { params: { tenant: string }
         Products and services you sell. Inventory items track on-hand quantity and post COGS on
         sale.
       </p>
+
+      {searchParams?.adj === "ok" && (
+        <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+          Stock adjustment posted. The inventory asset and on-hand quantity are now in sync.
+        </div>
+      )}
+      {searchParams?.adj === "nochange" && (
+        <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+          No change — the new quantity matched the current on-hand count.
+        </div>
+      )}
+      {searchParams?.adj === "qty-only" && (
+        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          Quantity updated. No journal entry was posted because this item has a zero unit
+          cost — there’s nothing to value.
+        </div>
+      )}
 
       <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
         <div className="rounded-lg border border-slate-200 bg-white p-3">
@@ -235,22 +258,30 @@ export default async function ItemsPage({ params }: { params: { tenant: string }
                   </td>
                   <td className="px-4 py-2 text-right">
                     {it.type === "INVENTORY" && it.isActive && (
-                      <form action={adjustQty} className="inline-flex items-center gap-1">
-                        <input type="hidden" name="tenantSlug" value={params.tenant} />
-                        <input type="hidden" name="itemId" value={it.id} />
-                        <input
-                          name="delta"
-                          placeholder="qty"
-                          className="w-16 rounded border-slate-200 px-1 py-0.5 text-xs"
-                          required
-                        />
-                        <button name="sign" value="in" className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700 hover:bg-emerald-100">
-                          In
-                        </button>
-                        <button name="sign" value="out" className="rounded bg-rose-50 px-2 py-0.5 text-xs text-rose-700 hover:bg-rose-100">
-                          Out
-                        </button>
-                      </form>
+                      <>
+                        <form action={adjustQty} className="inline-flex items-center gap-1">
+                          <input type="hidden" name="tenantSlug" value={params.tenant} />
+                          <input type="hidden" name="itemId" value={it.id} />
+                          <input
+                            name="delta"
+                            placeholder="qty"
+                            className="w-16 rounded border-slate-200 px-1 py-0.5 text-xs"
+                            required
+                          />
+                          <button name="sign" value="in" className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700 hover:bg-emerald-100">
+                            In
+                          </button>
+                          <button name="sign" value="out" className="rounded bg-rose-50 px-2 py-0.5 text-xs text-rose-700 hover:bg-rose-100">
+                            Out
+                          </button>
+                        </form>
+                        <Link
+                          href={`/${params.tenant}/items/${it.id}/adjust`}
+                          className="ml-2 inline-block rounded bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700 hover:bg-indigo-100"
+                        >
+                          Adjust
+                        </Link>
+                      </>
                     )}
                     <form action={toggleItem} className="ml-2 inline">
                       <input type="hidden" name="tenantSlug" value={params.tenant} />
