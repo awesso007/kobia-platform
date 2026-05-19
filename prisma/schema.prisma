@@ -43,6 +43,7 @@ model Tenant {
   memberships     Membership[]
   apiKeys         ApiKey[]
   auditLogs       AuditLog[]
+  subscription    Subscription?
 
   @@index([slug])
   @@index([tier])
@@ -147,6 +148,45 @@ model AuditLog {
   @@index([tenantId, createdAt])
   @@index([userId])
   @@index([action])
+}
+
+// -----------------------------------------------------------------------------
+// SUBSCRIPTION: KOBIA's own billing (Cycle 1 Week 2 — Stripe)
+// -----------------------------------------------------------------------------
+model Subscription {
+  id                    String    @id @default(cuid())
+  tenantId              String    @unique
+  stripeSubscriptionId  String    @unique
+  stripePriceId         String
+  status                SubStatus
+  tier                  TenantTier
+  // Trial
+  trialStart            DateTime?
+  trialEnd              DateTime?
+  // Billing cycle
+  currentPeriodStart    DateTime
+  currentPeriodEnd      DateTime
+  cancelAtPeriodEnd     Boolean   @default(false)
+  canceledAt            DateTime?
+  // Metadata
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  // Relations
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([currentPeriodEnd])
+}
+
+enum SubStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
+  PAUSED
 }
 
 // =============================================================================
