@@ -227,6 +227,7 @@ model Entity {
   recurringInvoices RecurringInvoice[]
   recurringBills    RecurringBill[]
   budgets           Budget[]
+  approvalRule      ApprovalRule?
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -612,11 +613,13 @@ model InvoicePayment {
 // =============================================================================
 
 enum BillStatus {
-  DRAFT     // not posted to ledger, editable
-  OPEN      // posted, balance > 0
-  PARTIAL   // posted, partially paid
-  PAID      // fully paid
-  VOID      // cancelled (reverses original JE)
+  DRAFT             // not posted to ledger, editable
+  PENDING_APPROVAL  // submitted, awaiting approver
+  OPEN              // posted, balance > 0
+  PARTIAL           // posted, partially paid
+  PAID              // fully paid
+  VOID              // cancelled (reverses original JE)
+  REJECTED          // approver rejected; back to draft-like state
 }
 
 /// AP vendor record — scoped to a single entity within a tenant.
@@ -680,6 +683,7 @@ model Bill {
   lines    BillLine[]
   payments BillPayment[]
   recurringRun RecurringBillRun?
+  approvals BillApproval[]
 
   @@unique([entityId, billNumber])
   @@index([tenantId])
@@ -936,6 +940,43 @@ enum PendingStatus {
 // MODULE STUBS — to be expanded in later cycles
 // =============================================================================
 // Cycle 4: ApprovalWorkflow, W9
+
+/// Per-entity bill approval threshold. If a bill's totalCents (or baseTotalCents for FX) exceeds threshold,
+/// it cannot be posted directly — it goes to PENDING_APPROVAL and must be approved by an OWNER/ADMIN.
+model ApprovalRule {
+  id              String   @id @default(cuid())
+  tenantId        String
+  entityId        String   @unique // one rule per entity for now
+  // If totalCents > thresholdCents, bill requires approval. 0 = approve everything.
+  thresholdCents  BigInt   @default(0)
+  // If false, the rule is paused (everything posts directly).
+  isEnabled       Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  entity   Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+/// Audit trail for bill approvals/rejections.
+model BillApproval {
+  id          String   @id @default(cuid())
+  tenantId    String
+  billId      String
+  // Snapshot of submitter / approver Clerk IDs for the audit trail.
+  submittedById String
+  decidedById String?
+  decision    String?  // "APPROVED" | "REJECTED" | null while pending
+  note        String?
+  submittedAt DateTime @default(now())
+  decidedAt   DateTime?
+
+  bill        Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([billId])
+}
 // Cycle 5: Employee, PayRun, Paystub, TaxFiling, TimeEntry
 // Cycle 5/6: Embedding, AiQuery, AnomalyDetection, ClosingAssistant
 // =============================================================================

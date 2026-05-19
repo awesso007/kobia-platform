@@ -9,6 +9,10 @@ import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "@/server/trpc";
 import { db } from "@/lib/db";
 import { postBill, recordBillPayment, apAgeBucket } from "@/lib/accounting/ap";
+import {
+  checkBillApprovalRequired,
+  submitBillForApproval,
+} from "@/lib/accounting/approvals";
 import { formatCents } from "@/lib/accounting/ledger";
 
 const BIGINT_FROM_STRING = z
@@ -155,11 +159,37 @@ export const apRouter = router({
           },
         });
 
+        // Approval workflow gate: compute draft subtotal and check threshold.
+        const subtotalCents = input.lines.reduce(
+          (s, l) => s + (l.quantityMilli * l.unitPriceCents) / 1000n,
+          0n
+        );
+        const approvalCheck = await checkBillApprovalRequired({
+          tenantId: ctx.auth.tenant.id,
+          entityId: input.entityId,
+          totalCents: subtotalCents,
+        });
+
+        if (approvalCheck.required) {
+          await submitBillForApproval({
+            tenantId: ctx.auth.tenant.id,
+            billId: draft.id,
+            submittedByUserId: ctx.auth.user.id,
+          });
+          return {
+            id: draft.id,
+            billNumber: null,
+            totalCentsDisplay: formatCents(subtotalCents),
+            pendingApproval: true,
+          };
+        }
+
         const posted = await postBill(draft.id, { postedByUserId: ctx.auth.user.id });
         return {
           id: posted.id,
           billNumber: posted.billNumber,
           totalCentsDisplay: formatCents(posted.totalCents),
+          pendingApproval: false,
         };
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";

@@ -10,13 +10,23 @@ export const dynamic = "force-dynamic";
 
 const STATUS_BADGES: Record<string, string> = {
   DRAFT: "bg-slate-100 text-slate-800 ring-slate-600/20",
+  PENDING_APPROVAL: "bg-amber-100 text-amber-900 ring-amber-600/20",
   OPEN: "bg-blue-100 text-blue-800 ring-blue-600/20",
   PARTIAL: "bg-amber-100 text-amber-800 ring-amber-600/20",
   PAID: "bg-emerald-100 text-emerald-800 ring-emerald-600/20",
   VOID: "bg-rose-100 text-rose-800 ring-rose-600/20",
+  REJECTED: "bg-rose-100 text-rose-800 ring-rose-600/20",
 };
 
-const ALL_STATUSES: BillStatus[] = ["DRAFT", "OPEN", "PARTIAL", "PAID", "VOID"];
+const ALL_STATUSES: BillStatus[] = [
+  "DRAFT",
+  "PENDING_APPROVAL",
+  "OPEN",
+  "PARTIAL",
+  "PAID",
+  "VOID",
+  "REJECTED",
+];
 
 export default async function BillsPage({
   params,
@@ -79,6 +89,13 @@ export default async function BillsPage({
 
   const totalBalance = bills.reduce((s, b) => s + b.balanceCents, 0n);
   const totalBilled = bills.reduce((s, b) => s + b.totalCents, 0n);
+  const pendingApprovalCount = await db.bill.count({
+    where: {
+      tenantId: auth.tenant.id,
+      entityId: entity.id,
+      status: "PENDING_APPROVAL",
+    },
+  });
   const now = new Date();
 
   return (
@@ -99,6 +116,17 @@ export default async function BillsPage({
           </p>
         </div>
         <div className="flex gap-2">
+          <Link
+            href={`/${params.tenant}/ap/approvals`}
+            className="relative rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Approvals
+            {pendingApprovalCount > 0 && (
+              <span className="ml-2 inline-flex items-center justify-center rounded-full bg-amber-500 px-1.5 py-0.5 text-xs font-semibold text-white">
+                {pendingApprovalCount}
+              </span>
+            )}
+          </Link>
           <Link
             href={`/${params.tenant}/ap/vendors`}
             className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
