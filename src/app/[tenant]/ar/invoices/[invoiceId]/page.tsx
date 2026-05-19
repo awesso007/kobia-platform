@@ -7,6 +7,7 @@ import { formatCents } from "@/lib/accounting/ledger";
 import { ageBucket } from "@/lib/accounting/ar";
 import { RecordPaymentButton } from "./RecordPaymentButton";
 import { SharePortalButton } from "./SharePortalButton";
+import { sendInvoiceReminderAction } from "@/app/actions/reminder-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -144,6 +145,18 @@ export default async function InvoiceDetailPage({
               invoiceId={invoice.id}
               publicViewToken={invoice.publicViewToken}
             />
+          )}
+          {["OPEN", "PARTIAL"].includes(invoice.status) && invoice.balanceCents > 0n && (
+            <form action={sendInvoiceReminderAction}>
+              <input type="hidden" name="tenantSlug" value={params.tenant} />
+              <input type="hidden" name="invoiceId" value={invoice.id} />
+              <button
+                type="submit"
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Email reminder
+              </button>
+            </form>
           )}
           {invoice.postingJournalEntryId && (
             <Link

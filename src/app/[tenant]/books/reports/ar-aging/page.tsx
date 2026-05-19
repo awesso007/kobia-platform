@@ -3,8 +3,10 @@ import Link from "next/link";
 import { getAuthContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getActiveEntity } from "@/lib/active-entity";
+import { cookies } from "next/headers";
 import { ageBucket } from "@/lib/accounting/ar";
 import { formatCents } from "@/lib/accounting/ledger";
+import { sendAllOverdueRemindersAction } from "@/app/actions/reminder-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -94,6 +96,28 @@ export default async function ArAgingPage({
 
   const asOfStr = asOf.toISOString().slice(0, 10);
 
+  // Read transient reminder-result cookie (cleared by client UI via no-op next view)
+  const cookieStore = cookies();
+  const resultCookie = cookieStore.get("kobia_reminder_result")?.value;
+  let reminderBanner: {
+    sent: number;
+    failed: number;
+    total: number;
+    stubbed: boolean;
+  } | null = null;
+  if (resultCookie) {
+    try {
+      const parsed = JSON.parse(resultCookie);
+      if (Date.now() - parsed.ts < 60_000) reminderBanner = parsed;
+    } catch {
+      // ignore
+    }
+  }
+
+  const totalOverdue = invoices.filter(
+    (i) => i.dueDate < asOf && i.balanceCents > 0n
+  ).length;
+
   return (
     <div className="mx-auto max-w-7xl p-6">
       <div className="mb-4 text-sm text-slate-500">
@@ -129,6 +153,36 @@ export default async function ArAgingPage({
           </button>
         </form>
       </div>
+
+      {reminderBanner && (
+        <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+          Sent {reminderBanner.sent} reminder{reminderBanner.sent === 1 ? "" : "s"}
+          {reminderBanner.failed > 0
+            ? `, ${reminderBanner.failed} failed (likely missing customer email)`
+            : ""}
+          {reminderBanner.stubbed
+            ? " — Email service not configured; messages were logged only."
+            : "."}
+        </div>
+      )}
+
+      {totalOverdue > 0 && (
+        <div className="mb-4 flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <span>
+            {totalOverdue} invoice{totalOverdue === 1 ? " is" : "s are"} past due.
+            Send a friendly reminder to every customer with an overdue balance.
+          </span>
+          <form action={sendAllOverdueRemindersAction}>
+            <input type="hidden" name="tenantSlug" value={params.tenant} />
+            <button
+              type="submit"
+              className="rounded-md bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800"
+            >
+              Send all reminders
+            </button>
+          </form>
+        </div>
+      )}
 
       {invoices.length === 0 ? (
         <div className="rounded-lg border border-slate-200 bg-white p-12 text-center shadow-sm">
