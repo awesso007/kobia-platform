@@ -67,7 +67,7 @@ export default async function PnLReportPage({
     },
   });
 
-  type Row = { code: string; name: string; amount: bigint };
+  type Row = { id: string; code: string; name: string; amount: bigint };
   const buckets: Record<string, { rows: Row[]; total: bigint; label: string }> = {
     REVENUE: { rows: [], total: 0n, label: "Revenue" },
     OTHER_INCOME: { rows: [], total: 0n, label: "Other Income" },
@@ -82,7 +82,7 @@ export default async function PnLReportPage({
     for (const l of acc.journalLines) net += l.debitCents - l.creditCents;
     const amount = sign === 1n ? net : -net;
     if (amount === 0n) continue;
-    buckets[acc.type]!.rows.push({ code: acc.code, name: acc.name, amount });
+    buckets[acc.type]!.rows.push({ id: acc.id, code: acc.code, name: acc.name, amount });
     buckets[acc.type]!.total += amount;
   }
 
@@ -108,15 +108,26 @@ export default async function PnLReportPage({
             {b.label}
           </td>
         </tr>
-        {b.rows.map((r) => (
-          <tr key={r.code} className="hover:bg-slate-50">
-            <td className="px-4 py-1.5 font-mono text-xs text-slate-500">{r.code}</td>
-            <td className="px-4 py-1.5 text-slate-900">{r.name}</td>
-            <td className="px-4 py-1.5 text-right font-mono tabular-nums text-slate-900">
-              {formatCents(r.amount)}
-            </td>
-          </tr>
-        ))}
+        {b.rows.map((r) => {
+          const drillHref = `/${params.tenant}/books/accounts/${r.id}?start=${isoStart}&end=${isoEnd}`;
+          return (
+            <tr key={r.id} className="hover:bg-blue-50">
+              <td className="px-4 py-1.5 font-mono text-xs text-slate-500">
+                <Link href={drillHref} className="hover:text-blue-700 hover:underline">
+                  {r.code}
+                </Link>
+              </td>
+              <td className="px-4 py-1.5 text-slate-900">
+                <Link href={drillHref} className="hover:text-blue-700 hover:underline">
+                  {r.name}
+                </Link>
+              </td>
+              <td className="px-4 py-1.5 text-right font-mono tabular-nums text-slate-900">
+                {formatCents(r.amount)}
+              </td>
+            </tr>
+          );
+        })}
         <tr className="border-t border-slate-200">
           <td className="px-4 py-2" />
           <td className="px-4 py-2 text-sm font-semibold text-slate-700">Total {b.label}</td>

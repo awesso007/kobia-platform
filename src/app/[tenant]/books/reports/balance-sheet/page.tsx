@@ -42,7 +42,7 @@ export default async function BalanceSheetPage({
     orderBy: [{ type: "asc" }, { code: "asc" }],
   });
 
-  type Row = { code: string; name: string; amount: bigint };
+  type Row = { id: string; code: string; name: string; amount: bigint };
   const assets: Row[] = [];
   const liabilities: Row[] = [];
   const equityRows: Row[] = [];
@@ -52,11 +52,11 @@ export default async function BalanceSheetPage({
     const bal = acc.balanceCents;
     if (bal === 0n) continue;
     if (acc.type === "ASSET") {
-      assets.push({ code: acc.code, name: acc.name, amount: bal });
+      assets.push({ id: acc.id, code: acc.code, name: acc.name, amount: bal });
     } else if (acc.type === "LIABILITY") {
-      liabilities.push({ code: acc.code, name: acc.name, amount: bal });
+      liabilities.push({ id: acc.id, code: acc.code, name: acc.name, amount: bal });
     } else if (acc.type === "EQUITY") {
-      equityRows.push({ code: acc.code, name: acc.name, amount: bal });
+      equityRows.push({ id: acc.id, code: acc.code, name: acc.name, amount: bal });
     } else if (acc.type === "REVENUE" || acc.type === "OTHER_INCOME") {
       retainedEarnings += bal;
     } else {
@@ -98,9 +98,15 @@ export default async function BalanceSheetPage({
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Card title="Assets" rows={assets} total={totalAssets} totalLabel="Total Assets" />
+        <Card title="Assets" rows={assets} total={totalAssets} totalLabel="Total Assets" tenantSlug={params.tenant} />
         <div className="space-y-6">
-          <Card title="Liabilities" rows={liabilities} total={totalLiabilities} totalLabel="Total Liabilities" />
+          <Card
+            title="Liabilities"
+            rows={liabilities}
+            total={totalLiabilities}
+            totalLabel="Total Liabilities"
+            tenantSlug={params.tenant}
+          />
           <Card
             title="Equity"
             rows={equityRows}
@@ -108,6 +114,7 @@ export default async function BalanceSheetPage({
             totalLabel="Booked Equity"
             extraRow={{ label: "Retained Earnings (Net Income to date)", amount: retainedEarnings }}
             grandTotal={{ label: "Total Equity", amount: totalEquity }}
+            tenantSlug={params.tenant}
           />
           <div className="rounded-lg border border-slate-200 bg-slate-900 p-4 text-white">
             <div className="flex items-baseline justify-between">
@@ -135,13 +142,15 @@ function Card({
   totalLabel,
   extraRow,
   grandTotal,
+  tenantSlug,
 }: {
   title: string;
-  rows: Array<{ code: string; name: string; amount: bigint }>;
+  rows: Array<{ id: string; code: string; name: string; amount: bigint }>;
   total: bigint;
   totalLabel: string;
   extraRow?: { label: string; amount: bigint };
   grandTotal?: { label: string; amount: bigint };
+  tenantSlug: string;
 }) {
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -158,9 +167,23 @@ function Card({
             </tr>
           )}
           {rows.map((r) => (
-            <tr key={r.code} className="hover:bg-slate-50">
-              <td className="px-4 py-1.5 font-mono text-xs text-slate-500">{r.code}</td>
-              <td className="px-4 py-1.5 text-slate-900">{r.name}</td>
+            <tr key={r.id} className="hover:bg-blue-50">
+              <td className="px-4 py-1.5 font-mono text-xs text-slate-500">
+                <Link
+                  href={`/${tenantSlug}/books/accounts/${r.id}`}
+                  className="hover:text-blue-700 hover:underline"
+                >
+                  {r.code}
+                </Link>
+              </td>
+              <td className="px-4 py-1.5 text-slate-900">
+                <Link
+                  href={`/${tenantSlug}/books/accounts/${r.id}`}
+                  className="hover:text-blue-700 hover:underline"
+                >
+                  {r.name}
+                </Link>
+              </td>
               <td className="px-4 py-1.5 text-right font-mono tabular-nums text-slate-900">
                 {formatCents(r.amount)}
               </td>

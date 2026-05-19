@@ -110,9 +110,23 @@ export default async function BooksPage({ params }: { params: { tenant: string }
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rows.filter((r) => r.balanceCents !== 0n).map((r) => (
-                <tr key={r.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-2 font-mono text-xs text-slate-500">{r.code}</td>
-                  <td className="px-4 py-2 text-slate-900">{r.name}</td>
+                <tr key={r.id} className="hover:bg-blue-50">
+                  <td className="px-4 py-2 font-mono text-xs text-slate-500">
+                    <Link
+                      href={`/${params.tenant}/books/accounts/${r.id}`}
+                      className="hover:text-blue-700 hover:underline"
+                    >
+                      {r.code}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2 text-slate-900">
+                    <Link
+                      href={`/${params.tenant}/books/accounts/${r.id}`}
+                      className="hover:text-blue-700 hover:underline"
+                    >
+                      {r.name}
+                    </Link>
+                  </td>
                   <td className="px-4 py-2 text-right font-mono tabular-nums text-slate-900">
                     {r.debit > 0n ? formatCents(r.debit) : ""}
                   </td>
