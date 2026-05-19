@@ -1,9 +1,14 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { getAuthContext } from "@/lib/auth";
 import { getActiveEntity } from "@/lib/active-entity";
 import { listCustomersWithBalance } from "@/lib/accounting/customer-statements";
 import { formatCents } from "@/lib/accounting/ledger";
+import {
+  emailAllStatementsAction,
+  emailSingleStatementAction,
+} from "@/app/actions/statement-email-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +35,17 @@ export default async function StatementsIndexPage({
   });
 
   const withBalance = rows.filter((r) => r.balanceCents > 0n);
+
+  // Transient result cookie from bulk email action
+  const resultCookie = cookies().get("kobia_statement_email_result");
+  let emailResult: { sent: number; skipped: number; failed: number; stubbed: boolean } | null = null;
+  if (resultCookie) {
+    try {
+      emailResult = JSON.parse(resultCookie.value);
+    } catch {
+      emailResult = null;
+    }
+  }
   const totalOutstanding = withBalance.reduce((s, r) => s + r.balanceCents, 0n);
   const totalCustomers = withBalance.length;
   const totalInvoices = withBalance.reduce((s, r) => s + r.openInvoiceCount, 0);
@@ -67,6 +83,35 @@ export default async function StatementsIndexPage({
           </button>
         </form>
       </div>
+
+      {emailResult && (
+        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+          Sent {emailResult.sent} statement{emailResult.sent === 1 ? "" : "s"}.
+          {emailResult.skipped > 0 && ` Skipped ${emailResult.skipped} (no email or zero balance).`}
+          {emailResult.failed > 0 && ` ${emailResult.failed} failed.`}
+          {emailResult.stubbed && " Email service not configured — messages logged only."}
+        </div>
+      )}
+
+      {withBalance.length > 0 && (
+        <div className="mt-4 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+          <div>
+            <p className="font-medium">Email statements to all customers with a balance</p>
+            <p className="text-xs text-blue-700">
+              Sends a branded statement to each of the {withBalance.length} customer{withBalance.length === 1 ? "" : "s"} with an open balance.
+            </p>
+          </div>
+          <form action={emailAllStatementsAction}>
+            <input type="hidden" name="tenantSlug" value={params.tenant} />
+            <button
+              type="submit"
+              className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Email all statements
+            </button>
+          </form>
+        </div>
+      )}
 
       <div className="mt-6 grid gap-4 md:grid-cols-3">
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -121,12 +166,26 @@ export default async function StatementsIndexPage({
                     {formatCents(r.balanceCents)}
                   </td>
                   <td className="px-4 py-2 text-right">
-                    <Link
-                      href={`/${params.tenant}/ar/statements/${r.id}?asOf=${asOfStr}`}
-                      className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
-                    >
-                      View statement →
-                    </Link>
+                    <div className="flex items-center justify-end gap-2">
+                      {r.email && (
+                        <form action={emailSingleStatementAction}>
+                          <input type="hidden" name="tenantSlug" value={params.tenant} />
+                          <input type="hidden" name="customerId" value={r.id} />
+                          <button
+                            type="submit"
+                            className="rounded-md border border-blue-300 bg-white px-2 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-50"
+                          >
+                            Email
+                          </button>
+                        </form>
+                      )}
+                      <Link
+                        href={`/${params.tenant}/ar/statements/${r.id}?asOf=${asOfStr}`}
+                        className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                      >
+                        View →
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))
