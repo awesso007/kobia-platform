@@ -225,6 +225,7 @@ model Entity {
   bankAccounts    BankAccount[]
   periods         AccountingPeriod[]
   recurringInvoices RecurringInvoice[]
+  recurringBills    RecurringBill[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -371,6 +372,7 @@ model Account {
   billPayments      BillPayment[]    @relation("BillPaymentCashAccount")
   bankAccounts      BankAccount[]
   recurringInvoiceLines RecurringInvoiceLine[]
+  recurringBillLines    RecurringBillLine[]
 
   @@unique([entityId, code])
   @@index([tenantId])
@@ -634,6 +636,7 @@ model Vendor {
 
   entity Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
   bills  Bill[]
+  recurringBills RecurringBill[]
 
   @@unique([entityId, name])
   @@index([tenantId])
@@ -672,6 +675,7 @@ model Bill {
   vendor   Vendor        @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   lines    BillLine[]
   payments BillPayment[]
+  recurringRun RecurringBillRun?
 
   @@unique([entityId, billNumber])
   @@index([tenantId])
@@ -1024,5 +1028,74 @@ enum RecurringRunStatus {
 }
 
 // =============================================================================
-// SHIPPED: AR Cycle 3 W1 · AP Cycle 3 W2 · Bank Rec Cycle 3 W3 · Cash Flow W4 · Period Close W5 · Fixed Assets W6 · Multi-Currency W7 · Trial Balance + GL W8 · Recurring Invoices W9
+// RECURRING BILLS — auto-generate vendor bills on a schedule (Cycle 3 W9 part 2)
+// =============================================================================
+model RecurringBill {
+  id              String                  @id @default(cuid())
+  tenantId        String
+  entityId        String
+  vendorId        String
+  name            String
+  frequency       RecurringFrequency      @default(MONTHLY)
+  intervalCount   Int                     @default(1)
+  dayOfMonth      Int?
+  startDate       DateTime
+  endDate         DateTime?
+  termsDays       Int                     @default(30)
+  currency        String                  @default("USD")
+  memo            String?
+  status          RecurringStatus         @default(ACTIVE)
+  nextRunDate     DateTime
+  lastRunDate     DateTime?
+  runsCompleted   Int                     @default(0)
+  maxRuns         Int?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  entity Entity                 @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  vendor Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  lines  RecurringBillLine[]
+  runs   RecurringBillRun[]
+
+  @@index([tenantId])
+  @@index([entityId])
+  @@index([status, nextRunDate])
+}
+
+model RecurringBillLine {
+  id                String   @id @default(cuid())
+  tenantId          String
+  recurringBillId   String
+  accountId         String
+  description       String
+  quantityMilli     BigInt   @default(1000)
+  unitPriceCents    BigInt   @default(0)
+  lineNumber        Int
+  createdAt         DateTime @default(now())
+
+  recurringBill RecurringBill @relation(fields: [recurringBillId], references: [id], onDelete: Cascade)
+  account       Account       @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([recurringBillId])
+}
+
+model RecurringBillRun {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  recurringBillId    String
+  generatedBillId    String?  @unique
+  scheduledFor       DateTime
+  ranAt              DateTime @default(now())
+  status             RecurringRunStatus @default(SUCCESS)
+  errorMessage       String?
+
+  recurringBill RecurringBill @relation(fields: [recurringBillId], references: [id], onDelete: Cascade)
+  generatedBill Bill?         @relation(fields: [generatedBillId], references: [id], onDelete: SetNull)
+
+  @@index([recurringBillId])
+  @@index([tenantId])
+}
+
+// =============================================================================
+// SHIPPED: AR Cycle 3 W1 · AP Cycle 3 W2 · Bank Rec Cycle 3 W3 · Cash Flow W4 · Period Close W5 · Fixed Assets W6 · Multi-Currency W7 · Trial Balance + GL W8 · Recurring Invoices W9 · Recurring Bills W9
 // ==============================================================================
