@@ -18,6 +18,8 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
+    "provision:fig": "tsx scripts/provision-fig.ts",
+    "trial-balance:fig": "tsx scripts/provision-fig.ts",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "postinstall": "prisma generate"
