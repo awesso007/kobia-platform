@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getActiveEntity } from "@/lib/active-entity";
 import { JournalEntryForm } from "./JournalEntryForm";
 
 export default async function NewJournalEntryPage({
@@ -14,10 +15,7 @@ export default async function NewJournalEntryPage({
     redirect(`/${params.tenant}/books`);
   }
 
-  const entity = await db.entity.findFirst({
-    where: { tenantId: auth.tenant.id, isActive: true },
-    orderBy: { name: "asc" },
-  });
+  const entity = await getActiveEntity({ tenantId: auth.tenant.id, tenantSlug: params.tenant });
   if (!entity) redirect(`/${params.tenant}/books`);
 
   const accounts = await db.account.findMany({

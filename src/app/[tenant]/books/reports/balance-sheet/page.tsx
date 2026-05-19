@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getAuthContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatCents } from "@/lib/accounting/ledger";
+import { getActiveEntity } from "@/lib/active-entity";
 
 /**
  * Balance Sheet — point-in-time snapshot using cached Account.balanceCents.
@@ -18,11 +19,16 @@ export default async function BalanceSheetPage({
   const auth = await getAuthContext(params.tenant);
   if (!auth) redirect(`/${params.tenant}/login`);
 
-  const entities = await db.entity.findMany({
-    where: { tenantId: auth.tenant.id, isActive: true },
-    orderBy: { name: "asc" },
-  });
-  if (entities.length === 0) {
+  let entity = null;
+  if (searchParams.entity) {
+    entity = await db.entity.findFirst({
+      where: { id: searchParams.entity, tenantId: auth.tenant.id, isActive: true },
+    });
+  }
+  if (!entity) {
+    entity = await getActiveEntity({ tenantId: auth.tenant.id, tenantSlug: params.tenant });
+  }
+  if (!entity) {
     return (
       <div className="mx-auto max-w-3xl p-6">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Balance Sheet</h1>
@@ -30,10 +36,6 @@ export default async function BalanceSheetPage({
       </div>
     );
   }
-
-  const entity = searchParams.entity
-    ? entities.find((e) => e.id === searchParams.entity) ?? entities[0]!
-    : entities[0]!;
 
   const accounts = await db.account.findMany({
     where: { entityId: entity.id, tenantId: auth.tenant.id },
@@ -94,31 +96,6 @@ export default async function BalanceSheetPage({
           </Link>
         </div>
       </div>
-
-      {entities.length > 1 && (
-        <form className="mt-6 flex items-end gap-3 rounded-lg border border-slate-200 bg-white p-4">
-          <div>
-            <label className="block text-xs font-medium uppercase tracking-wider text-slate-500">Entity</label>
-            <select
-              name="entity"
-              defaultValue={entity.id}
-              className="mt-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm"
-            >
-              {entities.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button
-            type="submit"
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Switch
-          </button>
-        </form>
-      )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Card title="Assets" rows={assets} total={totalAssets} totalLabel="Total Assets" />

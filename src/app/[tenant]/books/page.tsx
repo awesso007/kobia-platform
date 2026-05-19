@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getAuthContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatCents, normalBalanceSign } from "@/lib/accounting/ledger";
+import { getActiveEntity } from "@/lib/active-entity";
 
 /**
  * Bookkeeping landing page.
@@ -13,12 +14,9 @@ export default async function BooksPage({ params }: { params: { tenant: string }
   const auth = await getAuthContext(params.tenant);
   if (!auth) redirect(`/${params.tenant}/login`);
 
-  const entities = await db.entity.findMany({
-    where: { tenantId: auth.tenant.id, isActive: true },
-    orderBy: { name: "asc" },
-  });
+  const entity = await getActiveEntity({ tenantId: auth.tenant.id, tenantSlug: params.tenant });
 
-  if (entities.length === 0) {
+  if (!entity) {
     return (
       <div className="mx-auto max-w-3xl p-6">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Bookkeeping</h1>
@@ -27,15 +25,17 @@ export default async function BooksPage({ params }: { params: { tenant: string }
           <p className="mt-2 text-sm text-slate-600">
             Create your first entity to start tracking books.
           </p>
-          <p className="mt-6 text-xs text-slate-400">
-            Provision script: <code>npm run provision:entity</code>
-          </p>
+          <Link
+            href={`/${params.tenant}/entities/new`}
+            className="mt-6 inline-flex rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            + New entity
+          </Link>
         </div>
       </div>
     );
   }
 
-  const entity = entities[0]!;
   const accounts = await db.account.findMany({
     where: { entityId: entity.id, isActive: true },
     orderBy: { code: "asc" },

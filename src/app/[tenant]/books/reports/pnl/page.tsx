@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getAuthContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatCents, normalBalanceSign } from "@/lib/accounting/ledger";
+import { getActiveEntity } from "@/lib/active-entity";
 
 /**
  * Profit & Loss report. Server-rendered.
@@ -19,11 +20,18 @@ export default async function PnLReportPage({
   const auth = await getAuthContext(params.tenant);
   if (!auth) redirect(`/${params.tenant}/login`);
 
-  const entities = await db.entity.findMany({
-    where: { tenantId: auth.tenant.id, isActive: true },
-    orderBy: { name: "asc" },
-  });
-  if (entities.length === 0) {
+  // Optional ?entity= override (useful for shareable report links).
+  // Otherwise use the active entity from the sidebar switcher.
+  let entity = null;
+  if (searchParams.entity) {
+    entity = await db.entity.findFirst({
+      where: { id: searchParams.entity, tenantId: auth.tenant.id, isActive: true },
+    });
+  }
+  if (!entity) {
+    entity = await getActiveEntity({ tenantId: auth.tenant.id, tenantSlug: params.tenant });
+  }
+  if (!entity) {
     return (
       <div className="mx-auto max-w-3xl p-6">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Profit & Loss</h1>
@@ -31,10 +39,6 @@ export default async function PnLReportPage({
       </div>
     );
   }
-
-  const entity = searchParams.entity
-    ? entities.find((e) => e.id === searchParams.entity) ?? entities[0]!
-    : entities[0]!;
 
   const now = new Date();
   const defaultStart = new Date(now.getFullYear(), 0, 1);
@@ -153,20 +157,6 @@ export default async function PnLReportPage({
       </div>
 
       <form className="mt-6 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4">
-        <div>
-          <label className="block text-xs font-medium uppercase tracking-wider text-slate-500">Entity</label>
-          <select
-            name="entity"
-            defaultValue={entity.id}
-            className="mt-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm"
-          >
-            {entities.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </select>
-        </div>
         <div>
           <label className="block text-xs font-medium uppercase tracking-wider text-slate-500">Start</label>
           <input
