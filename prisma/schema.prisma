@@ -952,6 +952,8 @@ model Bill {
   postingJournalEntryId String? @unique
   postedAt       DateTime?
   voidedAt       DateTime?
+  // Public vendor portal view token (long random) — lets vendor see status of their own bill.
+  publicViewToken String?   @unique
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 

@@ -7,6 +7,7 @@ import { formatCents } from "@/lib/accounting/ledger";
 import { apAgeBucket } from "@/lib/accounting/ap";
 import { RecordBillPaymentButton } from "./RecordBillPaymentButton";
 import { AttachmentList } from "@/components/attachments/AttachmentList";
+import { ShareVendorPortalButton } from "./ShareVendorPortalButton";
 
 export const dynamic = "force-dynamic";
 
@@ -170,6 +171,13 @@ export default async function BillDetailPage({
               balanceCents={bill.balanceCents.toString()}
               balanceDisplay={formatCents(bill.balanceCents)}
               cashAccounts={cashAccounts}
+            />
+          )}
+          {bill.status !== "DRAFT" && bill.status !== "VOID" && (
+            <ShareVendorPortalButton
+              tenantSlug={params.tenant}
+              billId={bill.id}
+              publicViewToken={bill.publicViewToken}
             />
           )}
         </div>
