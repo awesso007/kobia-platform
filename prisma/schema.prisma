@@ -324,6 +324,24 @@ enum FixedAssetStatus {
   DISPOSED
 }
 
+/// Tenant-scoped exchange rate. Latest row per (tenantId, fromCurrency, toCurrency, rateDate).
+/// Stored as Decimal for precision (e.g. 1.36500000 CAD per USD).
+model ExchangeRate {
+  id           String   @id @default(cuid())
+  tenantId     String
+  fromCurrency String   // ISO 4217
+  toCurrency   String   // ISO 4217
+  rate         Decimal  @db.Decimal(18, 8)
+  rateDate     DateTime // UTC midnight of the effective day
+  source       String?  // "manual" | "frankfurter" | "ecb" — informational
+  createdAt    DateTime @default(now())
+  createdByUserId String?
+
+  @@unique([tenantId, fromCurrency, toCurrency, rateDate])
+  @@index([tenantId, fromCurrency, toCurrency])
+  @@index([tenantId, rateDate])
+}
+
 /// Chart of Accounts node. Hierarchical via parentId.
 model Account {
   id            String      @id @default(cuid())
@@ -509,6 +527,10 @@ model Invoice {
   // Convenience: totalCents - paidCents, recomputed on payment
   balanceCents   BigInt        @default(0)
   memo           String?
+  // Currency: ISO 4217 code. If different from the entity baseCurrency, fxRate is set.
+  currency       String        @default("USD")
+  fxRate         Decimal?      @db.Decimal(18, 8) // rate: 1 invoice-currency = fxRate base-currency
+  baseTotalCents BigInt        @default(0)
   // Link to the posting JE (created when invoice goes OPEN)
   postingJournalEntryId String? @unique
   postedAt       DateTime?
@@ -633,6 +655,9 @@ model Bill {
   paidCents      BigInt     @default(0)
   balanceCents   BigInt     @default(0)
   memo           String?
+  currency       String     @default("USD")
+  fxRate         Decimal?   @db.Decimal(18, 8)
+  baseTotalCents BigInt     @default(0)
   postingJournalEntryId String? @unique
   postedAt       DateTime?
   voidedAt       DateTime?

@@ -94,6 +94,7 @@ export const apRouter = router({
         dueDate: z.string().datetime().optional(),
         vendorBillNumber: z.string().max(100).optional(),
         memo: z.string().max(2000).optional(),
+        currency: z.string().length(3).optional(),
         lines: z
           .array(
             z.object({
@@ -136,6 +137,7 @@ export const apRouter = router({
             dueDate,
             status: "DRAFT",
             memo: input.memo,
+            currency: input.currency,
             lines: {
               create: input.lines.map((l, i) => {
                 const amountCents = (l.quantityMilli * l.unitPriceCents) / 1000n;

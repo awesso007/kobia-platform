@@ -97,6 +97,7 @@ export default async function NewBillPage({
       <NewBillForm
         tenantSlug={params.tenant}
         entityId={entity.id}
+        baseCurrency={entity.baseCurrency ?? "USD"}
         vendors={vendors}
         expenseAccounts={expenseAccounts}
         preselectedVendorId={searchParams.vendorId ?? null}

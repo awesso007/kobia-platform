@@ -94,6 +94,7 @@ export default async function NewInvoicePage({
       <NewInvoiceForm
         tenantSlug={params.tenant}
         entityId={entity.id}
+        baseCurrency={entity.baseCurrency ?? "USD"}
         customers={customers}
         revenueAccounts={revenueAccounts}
         preselectedCustomerId={searchParams.customerId ?? null}

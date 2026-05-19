@@ -57,15 +57,40 @@ function formatCentsForDisplay(cents: bigint): string {
   return `${neg ? "-" : ""}$${wholeStr}.${frac}`;
 }
 
+const SUPPORTED_CURRENCIES = [
+  "USD",
+  "EUR",
+  "GBP",
+  "CAD",
+  "AUD",
+  "JPY",
+  "CHF",
+  "CNY",
+  "MXN",
+  "INR",
+  "BRL",
+  "NGN",
+  "ZAR",
+  "SGD",
+  "HKD",
+  "NZD",
+  "SEK",
+  "NOK",
+  "DKK",
+  "AED",
+] as const;
+
 export function NewInvoiceForm({
   tenantSlug,
   entityId,
+  baseCurrency,
   customers,
   revenueAccounts,
   preselectedCustomerId,
 }: {
   tenantSlug: string;
   entityId: string;
+  baseCurrency: string;
   customers: Customer[];
   revenueAccounts: RevenueAccount[];
   preselectedCustomerId: string | null;
@@ -89,6 +114,7 @@ export function NewInvoiceForm({
     return d.toISOString().slice(0, 10);
   });
   const [memo, setMemo] = useState("");
+  const [currency, setCurrency] = useState(baseCurrency);
   const [lines, setLines] = useState<LineDraft[]>([emptyLine(defaultAccountId)]);
   const [error, setError] = useState<string | null>(null);
 
@@ -171,6 +197,7 @@ export function NewInvoiceForm({
         issueDate: new Date(issueDate).toISOString(),
         dueDate: new Date(dueDate).toISOString(),
         memo: memo.trim() || undefined,
+        currency: currency === baseCurrency ? undefined : currency,
         lines: lines.map((l, i) => {
           if (!l.accountId) throw new Error(`Line ${i + 1}: pick a revenue account.`);
           if (!l.description.trim()) throw new Error(`Line ${i + 1}: description required.`);
@@ -243,6 +270,27 @@ export function NewInvoiceForm({
             onChange={(e) => setDueDate(e.target.value)}
             className="mt-1 block w-full rounded-md border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
           />
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-medium text-slate-700">Currency</span>
+          <select
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value)}
+            className="mt-1 block w-full rounded-md border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          >
+            {SUPPORTED_CURRENCIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+                {c === baseCurrency ? " (base)" : ""}
+              </option>
+            ))}
+          </select>
+          {currency !== baseCurrency ? (
+            <span className="mt-1 block text-xs text-amber-700">
+              Posted to GL in {baseCurrency} at the rate on the issue date. Add rates in Settings → Currencies.
+            </span>
+          ) : null}
         </label>
       </div>
 

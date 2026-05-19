@@ -12,6 +12,7 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { postJournalEntry, LedgerError, type DraftEntry } from "./ledger";
+import { toBaseAmount, convert } from "./fx";
 
 /** Find the canonical AP account for an entity (code "2000" by convention). */
 export async function findApAccount(entityId: string) {
@@ -90,22 +91,52 @@ export async function postBill(
       throw new LedgerError("ZERO_TOTAL", "Bill total must be > 0.");
     }
 
-    // Group debits by accountId to consolidate
+    // FX conversion: post to GL in BASE currency.
+    const entity = await tx.entity.findUnique({ where: { id: bill.entityId } });
+    const baseCurrency = entity?.baseCurrency ?? "USD";
+    const billCurrency = bill.currency || baseCurrency;
+    const fx = await toBaseAmount({
+      tenantId: bill.tenantId,
+      fromCurrency: billCurrency,
+      toCurrency: baseCurrency,
+      asOf: bill.billDate,
+      originalCents: subtotal,
+    });
+    const baseSubtotal = fx.baseCents;
+
+    // Group debits by accountId; convert each group to base currency.
     const debitsByAccount = new Map<string, bigint>();
     for (const l of bill.lines) {
+      const origCents = l.amountCents;
+      const baseLineCents =
+        billCurrency === baseCurrency
+          ? origCents
+          : convert(origCents, fx.rate);
       debitsByAccount.set(
         l.accountId,
-        (debitsByAccount.get(l.accountId) ?? 0n) + l.amountCents
+        (debitsByAccount.get(l.accountId) ?? 0n) + baseLineCents
       );
+    }
+
+    // Reconcile rounding drift: ensure sum of debits equals baseSubtotal exactly.
+    let debitTotal = 0n;
+    for (const v of debitsByAccount.values()) debitTotal += v;
+    if (debitTotal !== baseSubtotal && debitsByAccount.size > 0) {
+      const diff = baseSubtotal - debitTotal;
+      const firstKey = debitsByAccount.keys().next().value as string;
+      debitsByAccount.set(firstKey, (debitsByAccount.get(firstKey) ?? 0n) + diff);
     }
 
     const draft: DraftEntry = {
       tenantId: bill.tenantId,
       entityId: bill.entityId,
       entryDate: bill.billDate,
-      description: `Bill — ${bill.vendor.name}`,
+      description:
+        billCurrency === baseCurrency
+          ? `Bill — ${bill.vendor.name}`
+          : `Bill — ${bill.vendor.name} (${billCurrency} @ ${fx.rate.toFixed(6)})`,
       memo: bill.memo ?? undefined,
-      source: "MANUAL",
+      source: "BILL",
       sourceRefId: bill.id,
       lines: [
         ...Array.from(debitsByAccount.entries()).map(([accountId, cents]) => ({
@@ -118,7 +149,7 @@ export async function postBill(
         {
           accountId: apAccount.id,
           debitCents: 0n,
-          creditCents: subtotal,
+          creditCents: baseSubtotal,
           memo: `AP — ${bill.vendor.name}`,
           contactRefType: "Vendor",
           contactRefId: bill.vendorId,
@@ -148,6 +179,8 @@ export async function postBill(
         subtotalCents: subtotal,
         totalCents: subtotal,
         balanceCents: subtotal,
+        fxRate: billCurrency === baseCurrency ? null : fx.rate,
+        baseTotalCents: baseSubtotal,
       },
     });
 

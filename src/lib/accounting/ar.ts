@@ -12,6 +12,7 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { postJournalEntry, LedgerError, type DraftEntry } from "./ledger";
+import { toBaseAmount, convert } from "./fx";
 
 /** Find the canonical AR account for an entity (code "1100" by convention). */
 export async function findArAccount(entityId: string) {
@@ -85,34 +86,64 @@ export async function postInvoice(
 
     const arAccount = await findArAccount(invoice.entityId);
 
-    // Recompute totals from lines
+    // Recompute totals from lines (in invoice currency)
     const subtotal = invoice.lines.reduce((s, l) => s + l.amountCents, 0n);
     if (subtotal <= 0n) {
       throw new LedgerError("ZERO_TOTAL", "Invoice total must be > 0.");
     }
 
-    // Build the JE: one debit to AR, one credit per revenue account
-    // Group lines by accountId to consolidate credit rows
+    // FX conversion: post to GL in BASE currency.
+    const entity = await tx.entity.findUnique({ where: { id: invoice.entityId } });
+    const baseCurrency = entity?.baseCurrency ?? "USD";
+    const invoiceCurrency = invoice.currency || baseCurrency;
+    const fx = await toBaseAmount({
+      tenantId: invoice.tenantId,
+      fromCurrency: invoiceCurrency,
+      toCurrency: baseCurrency,
+      asOf: invoice.issueDate,
+      originalCents: subtotal,
+    });
+    const baseSubtotal = fx.baseCents;
+
+    // Build the JE: one debit to AR, one credit per revenue account.
+    // Group lines by accountId; convert each group to base currency.
     const creditsByAccount = new Map<string, bigint>();
     for (const l of invoice.lines) {
+      const origCents = l.amountCents;
+      const baseLineCents =
+        invoiceCurrency === baseCurrency
+          ? origCents
+          : convert(origCents, fx.rate);
       creditsByAccount.set(
         l.accountId,
-        (creditsByAccount.get(l.accountId) ?? 0n) + l.amountCents
+        (creditsByAccount.get(l.accountId) ?? 0n) + baseLineCents
       );
+    }
+
+    // Reconcile rounding drift: ensure sum of credits equals baseSubtotal exactly.
+    let creditTotal = 0n;
+    for (const v of creditsByAccount.values()) creditTotal += v;
+    if (creditTotal !== baseSubtotal && creditsByAccount.size > 0) {
+      const diff = baseSubtotal - creditTotal;
+      const firstKey = creditsByAccount.keys().next().value as string;
+      creditsByAccount.set(firstKey, (creditsByAccount.get(firstKey) ?? 0n) + diff);
     }
 
     const draft: DraftEntry = {
       tenantId: invoice.tenantId,
       entityId: invoice.entityId,
       entryDate: invoice.issueDate,
-      description: `Invoice — ${invoice.customer.name}`,
+      description:
+        invoiceCurrency === baseCurrency
+          ? `Invoice — ${invoice.customer.name}`
+          : `Invoice — ${invoice.customer.name} (${invoiceCurrency} @ ${fx.rate.toFixed(6)})`,
       memo: invoice.memo ?? undefined,
-      source: "MANUAL",
+      source: "INVOICE",
       sourceRefId: invoice.id,
       lines: [
         {
           accountId: arAccount.id,
-          debitCents: subtotal,
+          debitCents: baseSubtotal,
           creditCents: 0n,
           memo: `AR — ${invoice.customer.name}`,
           contactRefType: "Customer",
@@ -150,6 +181,8 @@ export async function postInvoice(
         subtotalCents: subtotal,
         totalCents: subtotal,
         balanceCents: subtotal,
+        fxRate: invoiceCurrency === baseCurrency ? null : fx.rate,
+        baseTotalCents: baseSubtotal,
       },
     });
 

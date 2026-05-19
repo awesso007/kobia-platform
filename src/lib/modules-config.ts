@@ -107,6 +107,8 @@ export const MODULES: ModuleDefinition[] = [
         label: "Settings",
         items: [
           { href: "/settings", label: "Settings", icon: Settings },
+          { href: "/settings/currencies", label: "Currencies", icon: DollarSign },
+          { href: "/settings/billing", label: "Billing", icon: Receipt },
         ],
       },
     ],
