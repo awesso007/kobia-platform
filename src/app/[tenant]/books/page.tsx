@@ -109,6 +109,18 @@ export default async function BooksPage({ params }: { params: { tenant: string }
             Audit Log
           </Link>
           <Link
+            href={`/${params.tenant}/books/budget`}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Budgets
+          </Link>
+          <Link
+            href={`/${params.tenant}/books/reports/budget-vs-actual`}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Budget vs Actual
+          </Link>
+          <Link
             href={`/${params.tenant}/books/journal/new`}
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >

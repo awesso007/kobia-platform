@@ -226,6 +226,7 @@ model Entity {
   periods         AccountingPeriod[]
   recurringInvoices RecurringInvoice[]
   recurringBills    RecurringBill[]
+  budgets           Budget[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -373,6 +374,7 @@ model Account {
   bankAccounts      BankAccount[]
   recurringInvoiceLines RecurringInvoiceLine[]
   recurringBillLines    RecurringBillLine[]
+  budgetLines           BudgetLine[]
 
   @@unique([entityId, code])
   @@index([tenantId])
@@ -1097,5 +1099,56 @@ model RecurringBillRun {
 }
 
 // =============================================================================
-// SHIPPED: AR Cycle 3 W1 · AP Cycle 3 W2 · Bank Rec Cycle 3 W3 · Cash Flow W4 · Period Close W5 · Fixed Assets W6 · Multi-Currency W7 · Trial Balance + GL W8 · Recurring Invoices W9 · Recurring Bills W9
+// BUDGETS — annual budgets per account, used for Budget vs Actual report
+// =============================================================================
+model Budget {
+  id          String       @id @default(cuid())
+  tenantId    String
+  entityId    String
+  name        String       // e.g. "FY2026 Operating Budget"
+  fiscalYear  Int          // e.g. 2026
+  currency    String       @default("USD")
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  entity Entity       @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  lines  BudgetLine[]
+
+  @@unique([entityId, fiscalYear, name])
+  @@index([tenantId])
+  @@index([entityId, isActive])
+}
+
+model BudgetLine {
+  id          String   @id @default(cuid())
+  tenantId    String
+  budgetId    String
+  accountId   String
+  // Monthly amounts in cents (positive = expected debit for expenses, credit for revenue)
+  jan         BigInt   @default(0)
+  feb         BigInt   @default(0)
+  mar         BigInt   @default(0)
+  apr         BigInt   @default(0)
+  may         BigInt   @default(0)
+  jun         BigInt   @default(0)
+  jul         BigInt   @default(0)
+  aug         BigInt   @default(0)
+  sep         BigInt   @default(0)
+  oct         BigInt   @default(0)
+  nov         BigInt   @default(0)
+  dec         BigInt   @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  budget  Budget  @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@unique([budgetId, accountId])
+  @@index([tenantId])
+  @@index([accountId])
+}
+
+// =============================================================================
+// SHIPPED: AR W1 · AP W2 · Bank Rec W3 · Cash Flow W4 · Period Close W5 · Fixed Assets W6 · Multi-Currency W7 · Trial Balance + GL W8 · Recurring Invoices W9 · Recurring Bills W9 · Audit Log · Budgets
 // ==============================================================================
