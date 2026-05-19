@@ -214,6 +214,8 @@ model Entity {
   tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   accounts        Account[]
   journalEntries  JournalEntry[]
+  customers       Customer[]
+  invoices        Invoice[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -237,10 +239,12 @@ model Account {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
-  entity        Entity        @relation(fields: [entityId], references: [id], onDelete: Cascade)
-  parent        Account?      @relation("AccountHierarchy", fields: [parentId], references: [id])
-  children      Account[]     @relation("AccountHierarchy")
-  journalLines  JournalLine[]
+  entity            Entity        @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  parent            Account?      @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children          Account[]     @relation("AccountHierarchy")
+  journalLines      JournalLine[]
+  invoiceLines      InvoiceLine[]
+  invoicePayments   InvoicePayment[] @relation("InvoicePaymentCashAccount")
 
   @@unique([entityId, code])
   @@index([tenantId])
@@ -344,10 +348,128 @@ model JournalLine {
 }
 
 // =============================================================================
+// ACCOUNTS RECEIVABLE — Cycle 3 (Customer, Invoice, InvoiceLine, InvoicePayment)
+// =============================================================================
+
+enum InvoiceStatus {
+  DRAFT     // not posted to ledger, editable
+  OPEN      // posted, balance > 0
+  PARTIAL   // posted, partially paid
+  PAID      // fully paid
+  VOID      // cancelled (reverses original JE)
+}
+
+/// AR customer record — scoped to a single entity within a tenant.
+model Customer {
+  id            String   @id @default(cuid())
+  tenantId      String
+  entityId      String
+  name          String
+  email         String?
+  phone         String?
+  // Default net-terms in days (15, 30, 60). Used to compute dueDate when not specified.
+  defaultTermsDays Int   @default(30)
+  billingAddress String?
+  notes         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  entity   Entity    @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  invoices Invoice[]
+
+  @@unique([entityId, name])
+  @@index([tenantId])
+  @@index([entityId, isActive])
+}
+
+/// Customer invoice. Posts to ledger when status moves DRAFT -> OPEN.
+model Invoice {
+  id             String        @id @default(cuid())
+  tenantId       String
+  entityId       String
+  customerId     String
+  invoiceNumber  Int           // sequential per entity, set when posted
+  issueDate      DateTime
+  dueDate        DateTime
+  status         InvoiceStatus @default(DRAFT)
+  // Money columns (cents, BigInt)
+  subtotalCents  BigInt        @default(0)
+  taxCents       BigInt        @default(0)
+  totalCents     BigInt        @default(0)
+  paidCents      BigInt        @default(0)
+  // Convenience: totalCents - paidCents, recomputed on payment
+  balanceCents   BigInt        @default(0)
+  memo           String?
+  // Link to the posting JE (created when invoice goes OPEN)
+  postingJournalEntryId String? @unique
+  postedAt       DateTime?
+  voidedAt       DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  entity   Entity            @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  customer Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  lines    InvoiceLine[]
+  payments InvoicePayment[]
+
+  @@unique([entityId, invoiceNumber])
+  @@index([tenantId])
+  @@index([entityId, status])
+  @@index([customerId, status])
+  @@index([dueDate])
+}
+
+/// One line on an invoice. Debits AR / credits a revenue account when posted.
+model InvoiceLine {
+  id            String   @id @default(cuid())
+  tenantId      String
+  invoiceId     String
+  // Revenue account this line credits when posted
+  accountId     String
+  description   String
+  // Quantity stored as integer thousandths (3 decimal places) to support fractional units
+  quantityMilli BigInt   @default(1000)
+  unitPriceCents BigInt  @default(0)
+  amountCents   BigInt   @default(0)   // quantityMilli/1000 * unitPriceCents, rounded
+  lineNumber    Int
+  createdAt     DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([invoiceId])
+  @@index([accountId])
+}
+
+/// Customer payment applied to an invoice. Debits cash / credits AR when posted.
+model InvoicePayment {
+  id            String   @id @default(cuid())
+  tenantId      String
+  invoiceId     String
+  paymentDate   DateTime
+  amountCents   BigInt
+  // Cash/bank account this payment debits
+  cashAccountId String
+  method        String?  // "check", "ach", "card", "cash"
+  reference     String?  // check #, etc.
+  // Link to the JE that recorded the payment
+  journalEntryId String? @unique
+  createdAt     DateTime @default(now())
+
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  cashAccount Account @relation("InvoicePaymentCashAccount", fields: [cashAccountId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([invoiceId])
+  @@index([paymentDate])
+}
+
+// =============================================================================
 // MODULE STUBS — to be expanded in later cycles
 // =============================================================================
 // Cycle 2 cont.: BankAccount, BankTransaction, ReconciliationSession, BankRule
-// Cycle 3: Customer, Invoice, Payment, Estimate, AR aging snapshot
 // Cycle 4: Vendor, Bill, BillPayment, ApprovalWorkflow, W9
 // Cycle 5: Employee, PayRun, Paystub, TaxFiling, TimeEntry
 // Cycle 5/6: Embedding, AiQuery, AnomalyDetection, ClosingAssistant

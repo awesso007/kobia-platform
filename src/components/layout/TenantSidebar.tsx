@@ -25,6 +25,7 @@ export function TenantSidebar({
     { href: `${base}/books`, label: "Books", icon: BookOpen },
     { href: `${base}/books/reports/pnl`, label: "P&L", icon: BarChart3 },
     { href: `${base}/books/reports/balance-sheet`, label: "Balance Sheet", icon: BarChart3 },
+    { href: `${base}/books/reports/ar-aging`, label: "AR Aging", icon: BarChart3 },
     { href: `${base}/payroll`, label: "Payroll", icon: DollarSign },
     { href: `${base}/invoicing`, label: "Invoicing", icon: FileText },
     { href: `${base}/bills`, label: "Bill Pay", icon: Receipt },
