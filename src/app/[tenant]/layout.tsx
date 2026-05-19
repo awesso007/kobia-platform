@@ -5,6 +5,7 @@ import { TenantHeader } from "@/components/layout/TenantHeader";
 import { PoweredByKobia } from "@/components/branding/PoweredByKobia";
 import { TRPCProvider } from "@/components/providers/TRPCProvider";
 import { getActiveEntity, listEntitiesForSwitcher } from "@/lib/active-entity";
+import { getActiveModule } from "@/lib/active-module";
 
 export default async function TenantLayout({
   children,
@@ -16,9 +17,10 @@ export default async function TenantLayout({
   const tenant = await getTenantBySlug(params.tenant);
   if (!tenant) notFound();
 
-  const [entities, activeEntity] = await Promise.all([
+  const [entities, activeEntity, activeModule] = await Promise.all([
     listEntitiesForSwitcher(tenant.id),
     getActiveEntity({ tenantId: tenant.id, tenantSlug: tenant.slug }),
+    getActiveModule(tenant.slug),
   ]);
 
   return (
@@ -36,6 +38,7 @@ export default async function TenantLayout({
           tenant={tenant}
           entities={entities}
           activeEntityId={activeEntity?.id ?? null}
+          activeModule={activeModule}
         />
         <div className="flex flex-1 flex-col">
           <TenantHeader tenant={tenant} />

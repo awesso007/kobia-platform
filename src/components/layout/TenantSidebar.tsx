@@ -1,7 +1,9 @@
 import Link from "next/link";
 import type { Tenant } from "@prisma/client";
-import { BookOpen, DollarSign, FileText, Home, Landmark, Receipt, Settings, BarChart3, Users } from "lucide-react";
 import { EntitySwitcher } from "./EntitySwitcher";
+import { ModuleTabs } from "./ModuleTabs";
+import { MODULES, getModuleByKey } from "@/lib/modules-config";
+import type { ModuleKey } from "@/lib/active-module";
 
 type SwitcherEntity = {
   id: string;
@@ -14,31 +16,18 @@ export function TenantSidebar({
   tenant,
   entities,
   activeEntityId,
+  activeModule,
 }: {
   tenant: Tenant;
   entities: SwitcherEntity[];
   activeEntityId: string | null;
+  activeModule: ModuleKey;
 }) {
   const base = `/${tenant.slug}`;
-  const items = [
-    { href: `${base}/dashboard`, label: "Dashboard", icon: Home },
-    { href: `${base}/books`, label: "Books", icon: BookOpen },
-    { href: `${base}/books/reports/pnl`, label: "P&L", icon: BarChart3 },
-    { href: `${base}/books/reports/balance-sheet`, label: "Balance Sheet", icon: BarChart3 },
-    { href: `${base}/books/reports/cash-flow`, label: "Cash Flow", icon: BarChart3 },
-    { href: `${base}/books/reports/ar-aging`, label: "AR Aging", icon: BarChart3 },
-    { href: `${base}/books/reports/ap-aging`, label: "AP Aging", icon: BarChart3 },
-    { href: `${base}/ar/customers`, label: "Customers", icon: Users },
-    { href: `${base}/ar/invoices`, label: "Invoices", icon: FileText },
-    { href: `${base}/ap/vendors`, label: "Vendors", icon: Users },
-    { href: `${base}/ap/bills`, label: "Bills", icon: Receipt },
-    { href: `${base}/bank`, label: "Bank & Reconcile", icon: Landmark },
-    { href: `${base}/payroll`, label: "Payroll", icon: DollarSign },
-    { href: `${base}/settings`, label: "Settings", icon: Settings },
-  ];
+  const mod = getModuleByKey(activeModule);
 
   return (
-    <aside className="flex w-60 flex-col border-r border-border bg-card">
+    <aside className="flex w-64 flex-col border-r border-border bg-card">
       <div className="border-b border-border p-6">
         {tenant.logoUrl ? (
           <img src={tenant.logoUrl} alt={tenant.name} className="h-8 w-auto" />
@@ -60,16 +49,49 @@ export function TenantSidebar({
         </div>
       )}
 
-      <nav className="flex-1 space-y-1 p-3">
-        {items.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground transition hover:bg-muted"
-          >
-            <item.icon className="h-4 w-4" />
-            {item.label}
-          </Link>
+      <div className="border-b border-border p-2">
+        <ModuleTabs
+          tenantSlug={tenant.slug}
+          modules={MODULES.map((m) => ({
+            key: m.key,
+            label: m.label,
+            shortLabel: m.shortLabel ?? m.label,
+            comingSoon: m.comingSoon ?? false,
+          }))}
+          activeModule={activeModule}
+        />
+      </div>
+
+      <nav className="flex-1 overflow-y-auto p-3">
+        {mod.groups.map((group) => (
+          <div key={group.label} className="mb-4">
+            <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              {group.label}
+            </p>
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const href = `${base}${item.href}`;
+                const isLocked = !!item.badge;
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm text-foreground transition hover:bg-muted"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <item.icon className="h-4 w-4 text-slate-500" />
+                      {item.label}
+                    </span>
+                    {isLocked && (
+                      <span className="rounded-sm bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-slate-500">
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
         ))}
       </nav>
     </aside>
