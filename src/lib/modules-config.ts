@@ -151,6 +151,8 @@ export const MODULES: ModuleDefinition[] = [
               { href: "/practice/templates", label: "Templates", icon: ClipboardList },
               { href: "/practice/clients", label: "Portal users", icon: ClipboardList },
               { href: "/practice/requests", label: "Doc requests", icon: ClipboardList },
+              { href: "/time", label: "Time tracker", icon: ClipboardList },
+              { href: "/time/rates", label: "Billing rates", icon: DollarSign },
             ],
           },
         ],

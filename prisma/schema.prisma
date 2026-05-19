@@ -102,6 +102,8 @@ model Engagement {
   entity          Entity           @relation(fields: [entityId], references: [id], onDelete: Cascade)
   tasks           Task[]
   letters         EngagementLetter[]
+  practiceTimeEntries PracticeTimeEntry[]
+  billingRates    BillingRate[]
 
   @@index([tenantId])
   @@index([entityId, status])
@@ -1921,5 +1923,66 @@ enum ActivityType {
 }
 
 // =============================================================================
-// SHIPPED: AR W1 · AP W2 · Bank Rec W3 · Cash Flow W4 · Period Close W5 · Fixed Assets W6 · Multi-Currency W7 · Trial Balance + GL W8 · Recurring Invoices W9 · Recurring Bills W9 · Audit Log · Budgets · Engagement Letters · Client Portal · CRM Lite
+// TIME TRACKING
+// =============================================================================
+
+/// Hourly billing rate, optionally scoped to user, engagement, or both.
+/// Resolution order at time of entry: user+engagement > user > engagement > tenant default.
+model BillingRate {
+  id            String   @id @default(cuid())
+  tenantId      String
+  userId        String?  // null = applies to all users
+  engagementId  String?  // null = applies to all engagements
+  rateCents     BigInt   // hourly rate in cents
+  currency      String   @default("USD")
+  isDefault     Boolean  @default(false)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  engagement    Engagement? @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, userId])
+  @@index([tenantId, engagementId])
+}
+
+/// Billable time entry on a practice-management engagement.
+/// Distinct from the payroll TimeEntry above (which tracks employee hours).
+model PracticeTimeEntry {
+  id              String        @id @default(cuid())
+  tenantId        String
+  engagementId    String
+  userId          String        // who logged the time
+  description     String
+  startedAt       DateTime      // when work began
+  endedAt         DateTime?     // null = timer running
+  durationMinutes Int           @default(0) // computed at stop; manual entries set directly
+  rateCents       BigInt        @default(0) // snapshot of resolved rate at log time
+  billableMinutes Int           @default(0) // may differ from durationMinutes (rounded/adjusted)
+  isBillable      Boolean       @default(true)
+  status          PracticeTimeStatus @default(LOGGED)
+  invoiceId       String?       // set when included in an invoice
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  engagement      Engagement    @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, startedAt])
+  @@index([tenantId, userId])
+  @@index([engagementId])
+  @@index([tenantId, status])
+}
+
+enum PracticeTimeStatus {
+  RUNNING    // timer active
+  LOGGED     // stopped, awaiting approval
+  APPROVED   // reviewed and ready to bill
+  BILLED     // attached to an invoice
+  WRITTEN_OFF // non-billable adjustment
+}
+
+// =============================================================================
+// SHIPPED: AR W1 · AP W2 · Bank Rec W3 · Cash Flow W4 · Period Close W5 · Fixed Assets W6 · Multi-Currency W7 · Trial Balance + GL W8 · Recurring Invoices W9 · Recurring Bills W9 · Audit Log · Budgets · Engagement Letters · Client Portal · CRM Lite · Time Tracking
 // ==============================================================================

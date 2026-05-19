@@ -145,8 +145,9 @@ export default async function LeadsPage({
             >
               <option value="WEBSITE">Website</option>
               <option value="REFERRAL">Referral</option>
-              <option value="COLD_OUTREACH">Cold outreach</option>
+              <option value="COLD_OUTBOUND">Cold outreach</option>
               <option value="EVENT">Event</option>
+              <option value="ADVERTISING">Advertising</option>
               <option value="PARTNER">Partner</option>
               <option value="OTHER">Other</option>
             </select>
