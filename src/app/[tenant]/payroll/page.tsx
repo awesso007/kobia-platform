@@ -17,17 +17,20 @@ export default function PayrollIndex({ params }: { params: { tenant: string } })
             Add and manage employees and contractors.
           </p>
         </Link>
+        <Link
+          href={`/${params.tenant}/payroll/runs`}
+          className="rounded-lg border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:shadow-sm"
+        >
+          <p className="font-medium text-slate-900">Pay Runs</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Generate paystubs and post payroll to the ledger.
+          </p>
+        </Link>
         <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4">
-          <p className="font-medium text-slate-500">Pay Runs</p>
-          <p className="mt-1 text-sm text-slate-500">Coming Cycle 5 W2.</p>
-        </div>
-        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4">
-          <p className="font-medium text-slate-500">Time Tracking</p>
-          <p className="mt-1 text-sm text-slate-500">Coming Cycle 5 W2.</p>
-        </div>
-        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4">
-          <p className="font-medium text-slate-500">Paystubs</p>
-          <p className="mt-1 text-sm text-slate-500">Coming Cycle 5 W3.</p>
+          <p className="font-medium text-slate-500">Tax Engine</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Real W-4 / state brackets land in Cycle 5 W3.
+          </p>
         </div>
       </div>
     </div>
