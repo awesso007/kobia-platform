@@ -17,6 +17,9 @@ const isPublicRoute = createRouteMatcher([
   "/api/trpc(.*)",
   "/api/webhooks(.*)",
   "/pay/(.*)",
+  "/bill-view/(.*)",
+  "/portal(.*)",
+  "/sign/(.*)",
 ]);
 
 export default clerkMiddleware((auth, req: NextRequest) => {

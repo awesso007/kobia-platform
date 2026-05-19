@@ -1661,5 +1661,121 @@ model BudgetLine {
 }
 
 // =============================================================================
-// SHIPPED: AR W1 · AP W2 · Bank Rec W3 · Cash Flow W4 · Period Close W5 · Fixed Assets W6 · Multi-Currency W7 · Trial Balance + GL W8 · Recurring Invoices W9 · Recurring Bills W9 · Audit Log · Budgets
+// CLIENT PORTAL
+// =============================================================================
+
+/// External (client) user who logs into the firm's portal to upload docs and sign letters.
+model ClientPortalUser {
+  id          String   @id @default(cuid())
+  tenantId    String
+  entityId    String
+  name        String
+  email       String
+  isActive    Boolean  @default(true)
+  invitedAt   DateTime @default(now())
+  lastLoginAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sessions    PortalSession[]
+  uploads     PortalUpload[]
+
+  @@unique([tenantId, entityId, email])
+  @@index([tenantId, isActive])
+  @@index([entityId])
+}
+
+/// Magic-link session token for portal users.
+model PortalSession {
+  id             String           @id @default(cuid())
+  tenantId       String
+  portalUserId   String
+  token          String           @unique
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  createdAt      DateTime         @default(now())
+
+  portalUser     ClientPortalUser @relation(fields: [portalUserId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([portalUserId])
+}
+
+/// A request from the firm asking the client to provide documents/info.
+model PortalDocumentRequest {
+  id            String                @id @default(cuid())
+  tenantId      String
+  entityId      String
+  engagementId  String?
+  title         String                // e.g. "2025 Tax Documents"
+  description   String?
+  dueDate       DateTime?
+  status        DocumentRequestStatus @default(OPEN)
+  createdByUserId String?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  completedAt   DateTime?
+
+  items         PortalRequestItem[]
+
+  @@index([tenantId, status])
+  @@index([entityId, status])
+  @@index([engagementId])
+}
+
+/// A single line item the client needs to provide.
+model PortalRequestItem {
+  id          String                @id @default(cuid())
+  tenantId    String
+  requestId   String
+  label       String                // e.g. "W-2 from primary employer"
+  notes       String?
+  status      RequestItemStatus     @default(NEEDED)
+  completedAt DateTime?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  request     PortalDocumentRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  uploads     PortalUpload[]
+
+  @@index([tenantId, status])
+  @@index([requestId])
+}
+
+/// A file uploaded by the client (via URL for MVP — Blob upload comes later).
+model PortalUpload {
+  id            String              @id @default(cuid())
+  tenantId      String
+  entityId      String
+  requestItemId String?
+  portalUserId  String?
+  fileName      String
+  fileUrl       String              // Blob URL or external URL
+  fileSizeBytes Int?
+  contentType   String?
+  note          String?
+  createdAt     DateTime            @default(now())
+
+  requestItem   PortalRequestItem?  @relation(fields: [requestItemId], references: [id], onDelete: SetNull)
+  portalUser    ClientPortalUser?   @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, entityId])
+  @@index([requestItemId])
+}
+
+enum DocumentRequestStatus {
+  OPEN
+  PARTIAL
+  COMPLETE
+  CANCELLED
+}
+
+enum RequestItemStatus {
+  NEEDED
+  RECEIVED
+  WAIVED
+}
+
+// =============================================================================
+// SHIPPED: AR W1 · AP W2 · Bank Rec W3 · Cash Flow W4 · Period Close W5 · Fixed Assets W6 · Multi-Currency W7 · Trial Balance + GL W8 · Recurring Invoices W9 · Recurring Bills W9 · Audit Log · Budgets · Engagement Letters · Client Portal
 // ==============================================================================

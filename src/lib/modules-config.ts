@@ -149,6 +149,8 @@ export const MODULES: ModuleDefinition[] = [
               { href: "/practice/tasks", label: "My Tasks", icon: ClipboardList },
               { href: "/practice/letters", label: "Letters", icon: ClipboardList },
               { href: "/practice/templates", label: "Templates", icon: ClipboardList },
+              { href: "/practice/clients", label: "Portal users", icon: ClipboardList },
+              { href: "/practice/requests", label: "Doc requests", icon: ClipboardList },
             ],
           },
         ],
