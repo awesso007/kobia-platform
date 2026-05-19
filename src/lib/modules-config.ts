@@ -156,6 +156,17 @@ export const MODULES: ModuleDefinition[] = [
         ],
       },
       {
+        label: "CRM",
+        groups: [
+          {
+            items: [
+              { href: "/crm", label: "Pipeline", icon: TrendingUp },
+              { href: "/crm/leads", label: "Leads", icon: Users },
+            ],
+          },
+        ],
+      },
+      {
         label: "Reports",
         groups: [
           {

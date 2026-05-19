@@ -1777,5 +1777,149 @@ enum RequestItemStatus {
 }
 
 // =============================================================================
-// SHIPPED: AR W1 · AP W2 · Bank Rec W3 · Cash Flow W4 · Period Close W5 · Fixed Assets W6 · Multi-Currency W7 · Trial Balance + GL W8 · Recurring Invoices W9 · Recurring Bills W9 · Audit Log · Budgets · Engagement Letters · Client Portal
+// CRM (Leads & Deals)
+// =============================================================================
+
+/// Inbound prospect — pre-qualification.
+model Lead {
+  id           String       @id @default(cuid())
+  tenantId     String
+  name         String
+  companyName  String?
+  email        String?
+  phone        String?
+  source       LeadSource   @default(WEBSITE)
+  status       LeadStatus   @default(NEW)
+  ownerUserId  String?      // assigned firm user
+  notes        String?
+  convertedDealId  String?      @unique
+  convertedAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  activities   CrmActivity[]
+  convertedDeal Deal?       @relation("LeadToDeal", fields: [convertedDealId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([tenantId, ownerUserId])
+}
+
+/// Qualified opportunity moving through pipeline stages.
+model Deal {
+  id              String        @id @default(cuid())
+  tenantId        String
+  pipelineId      String
+  stageId         String
+  name            String
+  entityId        String?       // becomes a client (entity) once won
+  ownerUserId     String?
+  amountCents     BigInt        @default(0)  // expected value in firm currency
+  probabilityPct  Int           @default(50) // 0-100
+  closeDate       DateTime?
+  status          DealStatus    @default(OPEN)
+  wonAt           DateTime?
+  lostAt          DateTime?
+  lostReason      String?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  pipeline        Pipeline      @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  stage           DealStage     @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  activities      CrmActivity[]
+  leadOrigin      Lead?         @relation("LeadToDeal")
+
+  @@index([tenantId, status])
+  @@index([tenantId, pipelineId, stageId])
+  @@index([tenantId, ownerUserId])
+}
+
+model Pipeline {
+  id        String       @id @default(cuid())
+  tenantId  String
+  name      String       // e.g. "New Client Sales"
+  isDefault Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  stages    DealStage[]
+  deals     Deal[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model DealStage {
+  id          String      @id @default(cuid())
+  tenantId    String
+  pipelineId  String
+  name        String      // "Qualified", "Proposal Sent", "Closed Won"
+  sortOrder   Int         @default(0)
+  isWon       Boolean     @default(false)
+  isLost      Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  pipeline    Pipeline    @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals       Deal[]
+
+  @@index([tenantId, pipelineId, sortOrder])
+}
+
+/// Notes, calls, emails, meetings logged against a Lead or Deal.
+model CrmActivity {
+  id          String         @id @default(cuid())
+  tenantId    String
+  leadId      String?
+  dealId      String?
+  type        ActivityType   @default(NOTE)
+  subject     String
+  body        String?
+  occurredAt  DateTime       @default(now())
+  createdByUserId String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  lead        Lead?          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  deal        Deal?          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, occurredAt])
+  @@index([leadId])
+  @@index([dealId])
+}
+
+enum LeadSource {
+  WEBSITE
+  REFERRAL
+  COLD_OUTBOUND
+  EVENT
+  ADVERTISING
+  PARTNER
+  OTHER
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  UNQUALIFIED
+  CONVERTED
+}
+
+enum DealStatus {
+  OPEN
+  WON
+  LOST
+}
+
+enum ActivityType {
+  NOTE
+  CALL
+  EMAIL
+  MEETING
+  TASK
+}
+
+// =============================================================================
+// SHIPPED: AR W1 · AP W2 · Bank Rec W3 · Cash Flow W4 · Period Close W5 · Fixed Assets W6 · Multi-Currency W7 · Trial Balance + GL W8 · Recurring Invoices W9 · Recurring Bills W9 · Audit Log · Budgets · Engagement Letters · Client Portal · CRM Lite
 // ==============================================================================
