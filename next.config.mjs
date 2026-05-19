@@ -3,7 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   experimental: {
-    typedRoutes: true,
+    // typedRoutes: true,  // re-enable in Cycle 2 once dynamic routes are wrapped in helpers
   },
   images: {
     remotePatterns: [
