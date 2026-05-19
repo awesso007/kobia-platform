@@ -215,7 +215,7 @@ model Entity {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   accounts        Account[]
   journalEntries  JournalEntry[]
   customers       Customer[]
@@ -223,9 +223,41 @@ model Entity {
   vendors         Vendor[]
   bills           Bill[]
   bankAccounts    BankAccount[]
+  periods         AccountingPeriod[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
+}
+
+/// A bookkeeping period (typically a month). Once status=CLOSED,
+/// no journal entries with entryDate inside the window can post.
+model AccountingPeriod {
+  id             String          @id @default(cuid())
+  tenantId       String          // denormalized for tenant isolation
+  entityId       String
+  startDate      DateTime        // inclusive (UTC midnight)
+  endDate        DateTime        // inclusive (UTC midnight, last day of period)
+  label          String          // e.g. "May 2026", "Q2 2026"
+  status         PeriodStatus    @default(OPEN)
+  closedAt       DateTime?
+  closedByUserId String?
+  closingNote    String?
+  reopenedAt     DateTime?
+  reopenedByUserId String?
+  reopenReason   String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  entity Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([entityId, startDate])
+  @@index([tenantId, entityId])
+  @@index([entityId, status])
+}
+
+enum PeriodStatus {
+  OPEN
+  CLOSED
 }
 
 /// Chart of Accounts node. Hierarchical via parentId.

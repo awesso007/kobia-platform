@@ -11,6 +11,7 @@
  */
 import type { AccountType, Prisma, PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
+import { assertDateNotLocked } from "./periods";
 
 export type DraftLine = {
   accountId: string;
@@ -100,7 +101,10 @@ export async function postJournalEntry(
   validateEntry(draft);
 
   const exec = async (tx: Prisma.TransactionClient | PrismaClient) => {
-    // Load all referenced accounts to verify they belong to this entity + check period locks
+    // Period lock check — reject before any DB writes.
+    await assertDateNotLocked(draft.entityId, draft.entryDate, tx);
+
+    // Load all referenced accounts to verify they belong to this entity
     const accountIds = Array.from(new Set(draft.lines.map((l) => l.accountId)));
     const accounts = await tx.account.findMany({
       where: { id: { in: accountIds }, entityId: draft.entityId, tenantId: draft.tenantId },

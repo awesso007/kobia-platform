@@ -9,6 +9,7 @@ import {
   Home,
   HomeIcon,
   Landmark,
+  Lock,
   Receipt,
   Scale,
   Settings,
@@ -56,6 +57,7 @@ export const MODULES: ModuleDefinition[] = [
         items: [
           { href: "/books", label: "Chart of Accounts", icon: BookOpen },
           { href: "/books/journal", label: "Journal", icon: FileText },
+          { href: "/books/close", label: "Period Close", icon: Lock },
         ],
       },
       {
