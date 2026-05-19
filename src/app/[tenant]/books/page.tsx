@@ -71,12 +71,26 @@ export default async function BooksPage({ params }: { params: { tenant: string }
             {entity.baseCurrency && <span className="ml-2 text-xs text-slate-500">{entity.baseCurrency}</span>}
           </p>
         </div>
-        <Link
-          href={`/${params.tenant}/books/journal/new`}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          New Journal Entry
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href={`/${params.tenant}/books/reports/pnl`}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            P&L
+          </Link>
+          <Link
+            href={`/${params.tenant}/books/reports/balance-sheet`}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Balance Sheet
+          </Link>
+          <Link
+            href={`/${params.tenant}/books/journal/new`}
+            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            New Journal Entry
+          </Link>
+        </div>
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
