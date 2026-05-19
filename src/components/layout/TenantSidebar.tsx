@@ -26,10 +26,12 @@ export function TenantSidebar({
     { href: `${base}/books/reports/pnl`, label: "P&L", icon: BarChart3 },
     { href: `${base}/books/reports/balance-sheet`, label: "Balance Sheet", icon: BarChart3 },
     { href: `${base}/books/reports/ar-aging`, label: "AR Aging", icon: BarChart3 },
+    { href: `${base}/books/reports/ap-aging`, label: "AP Aging", icon: BarChart3 },
     { href: `${base}/ar/customers`, label: "Customers", icon: Users },
     { href: `${base}/ar/invoices`, label: "Invoices", icon: FileText },
+    { href: `${base}/ap/vendors`, label: "Vendors", icon: Users },
+    { href: `${base}/ap/bills`, label: "Bills", icon: Receipt },
     { href: `${base}/payroll`, label: "Payroll", icon: DollarSign },
-    { href: `${base}/bills`, label: "Bill Pay", icon: Receipt },
     { href: `${base}/settings`, label: "Settings", icon: Settings },
   ];
 

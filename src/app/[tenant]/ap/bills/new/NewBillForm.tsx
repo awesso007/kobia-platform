@@ -1,0 +1,406 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { trpc } from "@/lib/trpc-client";
+
+type Vendor = { id: string; name: string; defaultTermsDays: number };
+type ExpenseAccount = { id: string; code: string; name: string; type: string };
+
+type LineDraft = {
+  accountId: string;
+  description: string;
+  quantity: string;
+  unitPriceDollars: string;
+};
+
+function emptyLine(defaultAccountId: string): LineDraft {
+  return {
+    accountId: defaultAccountId,
+    description: "",
+    quantity: "1",
+    unitPriceDollars: "",
+  };
+}
+
+function parseDollarsToCents(s: string): bigint {
+  const cleaned = s.trim().replace(/[$,\s]/g, "");
+  if (cleaned === "") return 0n;
+  if (!/^\d+(\.\d{0,2})?$/.test(cleaned)) {
+    throw new Error(`Invalid dollar amount: "${s}"`);
+  }
+  const [whole = "0", frac = ""] = cleaned.split(".");
+  const fracPadded = (frac + "00").slice(0, 2);
+  return BigInt(whole) * 100n + BigInt(fracPadded);
+}
+
+function parseQuantityToMilli(s: string): bigint {
+  const cleaned = s.trim().replace(/[,\s]/g, "");
+  if (cleaned === "") return 0n;
+  if (!/^\d+(\.\d{0,3})?$/.test(cleaned)) {
+    throw new Error(`Invalid quantity: "${s}"`);
+  }
+  const [whole = "0", frac = ""] = cleaned.split(".");
+  const fracPadded = (frac + "000").slice(0, 3);
+  return BigInt(whole) * 1000n + BigInt(fracPadded);
+}
+
+function formatCentsForDisplay(cents: bigint): string {
+  const neg = cents < 0n;
+  const abs = neg ? -cents : cents;
+  const whole = abs / 100n;
+  const frac = (abs % 100n).toString().padStart(2, "0");
+  const wholeStr = whole.toLocaleString("en-US");
+  return `${neg ? "-" : ""}$${wholeStr}.${frac}`;
+}
+
+export function NewBillForm({
+  tenantSlug,
+  entityId,
+  vendors,
+  expenseAccounts,
+  preselectedVendorId,
+}: {
+  tenantSlug: string;
+  entityId: string;
+  vendors: Vendor[];
+  expenseAccounts: ExpenseAccount[];
+  preselectedVendorId: string | null;
+}) {
+  const router = useRouter();
+  // Prefer EXPENSE accounts for default; fall back to first available
+  const defaultAccountId =
+    expenseAccounts.find((a) => a.type === "EXPENSE")?.id || expenseAccounts[0]?.id || "";
+
+  const initialVendorId =
+    (preselectedVendorId && vendors.find((v) => v.id === preselectedVendorId)?.id) ||
+    vendors[0]?.id ||
+    "";
+
+  const [vendorId, setVendorId] = useState(initialVendorId);
+  const [vendorBillNumber, setVendorBillNumber] = useState("");
+
+  const today = new Date().toISOString().slice(0, 10);
+  const [billDate, setBillDate] = useState(today);
+  const [dueDate, setDueDate] = useState(() => {
+    const v = vendors.find((v) => v.id === initialVendorId);
+    const d = new Date();
+    d.setDate(d.getDate() + (v?.defaultTermsDays ?? 30));
+    return d.toISOString().slice(0, 10);
+  });
+  const [memo, setMemo] = useState("");
+  const [lines, setLines] = useState<LineDraft[]>([emptyLine(defaultAccountId)]);
+  const [error, setError] = useState<string | null>(null);
+
+  function handleVendorChange(id: string) {
+    setVendorId(id);
+    const v = vendors.find((v) => v.id === id);
+    const baseDate = new Date(billDate);
+    if (!Number.isNaN(baseDate.getTime())) {
+      baseDate.setDate(baseDate.getDate() + (v?.defaultTermsDays ?? 30));
+      setDueDate(baseDate.toISOString().slice(0, 10));
+    }
+  }
+
+  function handleBillDateChange(d: string) {
+    setBillDate(d);
+    const v = vendors.find((v) => v.id === vendorId);
+    const baseDate = new Date(d);
+    if (!Number.isNaN(baseDate.getTime())) {
+      baseDate.setDate(baseDate.getDate() + (v?.defaultTermsDays ?? 30));
+      setDueDate(baseDate.toISOString().slice(0, 10));
+    }
+  }
+
+  function updateLine(idx: number, patch: Partial<LineDraft>) {
+    setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  }
+
+  function addLine() {
+    setLines((prev) => [...prev, emptyLine(defaultAccountId)]);
+  }
+
+  function removeLine(idx: number) {
+    setLines((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev));
+  }
+
+  const totalCents = useMemo(() => {
+    let sum = 0n;
+    for (const l of lines) {
+      try {
+        const qty = parseQuantityToMilli(l.quantity || "0");
+        const price = parseDollarsToCents(l.unitPriceDollars || "0");
+        sum += (qty * price) / 1000n;
+      } catch {
+        /* ignore parse errors while typing */
+      }
+    }
+    return sum;
+  }, [lines]);
+
+  const post = trpc.ap.createAndPostBill.useMutation({
+    onSuccess: () => {
+      router.push(`/${tenantSlug}/ap/bills`);
+      router.refresh();
+    },
+    onError: (err) => {
+      setError(err.message);
+    },
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    if (!vendorId) {
+      setError("Choose a vendor.");
+      return;
+    }
+    if (lines.length === 0) {
+      setError("Add at least one line.");
+      return;
+    }
+
+    try {
+      const payload = {
+        entityId,
+        vendorId,
+        billDate: new Date(billDate).toISOString(),
+        dueDate: new Date(dueDate).toISOString(),
+        vendorBillNumber: vendorBillNumber.trim() || undefined,
+        memo: memo.trim() || undefined,
+        lines: lines.map((l, i) => {
+          if (!l.accountId) throw new Error(`Line ${i + 1}: pick an expense account.`);
+          if (!l.description.trim()) throw new Error(`Line ${i + 1}: description required.`);
+          const qty = parseQuantityToMilli(l.quantity || "0");
+          const price = parseDollarsToCents(l.unitPriceDollars || "0");
+          if (qty <= 0n) throw new Error(`Line ${i + 1}: quantity must be > 0.`);
+          if (price <= 0n) throw new Error(`Line ${i + 1}: unit price must be > 0.`);
+          return {
+            accountId: l.accountId,
+            description: l.description.trim(),
+            quantityMilli: qty.toString(),
+            unitPriceCents: price.toString(),
+          };
+        }),
+      };
+      post.mutate(payload);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not validate the bill.");
+    }
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="mt-6 space-y-5 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+    >
+      <div className="grid gap-4 md:grid-cols-2">
+        <label className="block">
+          <span className="text-sm font-medium text-slate-700">Vendor *</span>
+          <select
+            required
+            value={vendorId}
+            onChange={(e) => handleVendorChange(e.target.value)}
+            className="mt-1 block w-full rounded-md border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          >
+            {vendors.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name} (Net {v.defaultTermsDays})
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-medium text-slate-700">Vendor bill # (optional)</span>
+          <input
+            type="text"
+            value={vendorBillNumber}
+            onChange={(e) => setVendorBillNumber(e.target.value)}
+            maxLength={100}
+            placeholder="e.g., INV-2026-001"
+            className="mt-1 block w-full rounded-md border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-medium text-slate-700">Bill date *</span>
+          <input
+            type="date"
+            required
+            value={billDate}
+            onChange={(e) => handleBillDateChange(e.target.value)}
+            className="mt-1 block w-full rounded-md border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-medium text-slate-700">Due date *</span>
+          <input
+            type="date"
+            required
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className="mt-1 block w-full rounded-md border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          />
+        </label>
+
+        <label className="block md:col-span-2">
+          <span className="text-sm font-medium text-slate-700">Memo</span>
+          <input
+            type="text"
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            maxLength={2000}
+            placeholder="Optional"
+            className="mt-1 block w-full rounded-md border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          />
+        </label>
+      </div>
+
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-900">Line items</h2>
+          <button
+            type="button"
+            onClick={addLine}
+            className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
+          >
+            + Add line
+          </button>
+        </div>
+
+        <div className="overflow-hidden rounded-md border border-slate-200">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-50">
+              <tr className="text-xs uppercase tracking-wide text-slate-500">
+                <th className="px-3 py-2 text-left font-medium">Description</th>
+                <th className="px-3 py-2 text-left font-medium">Expense account</th>
+                <th className="px-3 py-2 text-right font-medium">Qty</th>
+                <th className="px-3 py-2 text-right font-medium">Unit price</th>
+                <th className="px-3 py-2 text-right font-medium">Amount</th>
+                <th className="px-3 py-2"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {lines.map((l, i) => {
+                let amount = 0n;
+                try {
+                  const qty = parseQuantityToMilli(l.quantity || "0");
+                  const price = parseDollarsToCents(l.unitPriceDollars || "0");
+                  amount = (qty * price) / 1000n;
+                } catch {
+                  /* ignore */
+                }
+                return (
+                  <tr key={i}>
+                    <td className="px-3 py-2">
+                      <input
+                        type="text"
+                        value={l.description}
+                        onChange={(e) => updateLine(i, { description: e.target.value })}
+                        placeholder="What was purchased"
+                        className="block w-full rounded-md border-slate-300 px-2 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <select
+                        value={l.accountId}
+                        onChange={(e) => updateLine(i, { accountId: e.target.value })}
+                        className="block w-full rounded-md border-slate-300 px-2 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      >
+                        {expenseAccounts.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.code} — {a.name}
+                            {a.type === "ASSET" ? " (asset)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={l.quantity}
+                        onChange={(e) => updateLine(i, { quantity: e.target.value })}
+                        className="block w-20 rounded-md border-slate-300 px-2 py-1.5 text-right font-mono text-sm shadow-sm tabular-nums focus:border-indigo-500 focus:ring-indigo-500"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="relative">
+                        <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-xs text-slate-400">
+                          $
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={l.unitPriceDollars}
+                          onChange={(e) => updateLine(i, { unitPriceDollars: e.target.value })}
+                          placeholder="0.00"
+                          className="block w-28 rounded-md border-slate-300 py-1.5 pl-5 pr-2 text-right font-mono text-sm shadow-sm tabular-nums focus:border-indigo-500 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono text-sm tabular-nums text-slate-900">
+                      {formatCentsForDisplay(amount)}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <button
+                        type="button"
+                        onClick={() => removeLine(i)}
+                        disabled={lines.length === 1}
+                        className="text-xs text-slate-400 hover:text-rose-600 disabled:opacity-30"
+                        aria-label="Remove line"
+                      >
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot className="bg-slate-50">
+              <tr>
+                <td
+                  colSpan={4}
+                  className="px-3 py-2 text-right text-xs uppercase tracking-wide text-slate-500"
+                >
+                  Total
+                </td>
+                <td className="px-3 py-2 text-right font-mono text-sm font-semibold tabular-nums text-slate-900">
+                  {formatCentsForDisplay(totalCents)}
+                </td>
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+          {error}
+        </div>
+      )}
+
+      <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+        <button
+          type="button"
+          onClick={() => router.push(`/${tenantSlug}/ap/bills`)}
+          disabled={post.isPending}
+          className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={post.isPending || totalCents <= 0n}
+          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {post.isPending ? "Posting…" : `Post bill (${formatCentsForDisplay(totalCents)})`}
+        </button>
+      </div>
+    </form>
+  );
+}
