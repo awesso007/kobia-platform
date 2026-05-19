@@ -1,9 +1,14 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { getAuthContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getActiveEntity } from "@/lib/active-entity";
 import { formatCents } from "@/lib/accounting/ledger";
+import {
+  sendAllMissingW9RequestsAction,
+  sendW9RequestAction,
+} from "@/app/actions/w9-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +69,7 @@ export default async function Tax1099Page({
     return {
       id: v.id,
       name: v.name,
+      email: v.email,
       taxId: v.taxId,
       paidYTD,
       meetsThreshold: paidYTD >= THRESHOLD_CENTS,
@@ -71,6 +77,17 @@ export default async function Tax1099Page({
       paymentCount: v.bills.reduce((s, b) => s + b.payments.length, 0),
     };
   });
+
+  // Read transient W-9 send result cookie (set by server action)
+  const w9ResultCookie = cookies().get("kobia_w9_result");
+  let w9Result: { sent: number; failed: number; stubbed: boolean; total: number } | null = null;
+  if (w9ResultCookie) {
+    try {
+      w9Result = JSON.parse(w9ResultCookie.value);
+    } catch {
+      w9Result = null;
+    }
+  }
 
   const reportable = rows.filter((r) => r.meetsThreshold);
   const totalReportable = reportable.reduce((s, r) => s + r.paidYTD, 0n);
@@ -130,13 +147,35 @@ export default async function Tax1099Page({
         />
       </div>
 
-      {missingW9Count > 0 && (
-        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <p className="font-medium">Action needed: {missingW9Count} vendor(s) missing W-9 / Tax ID.</p>
-          <p className="mt-1 text-amber-700">
-            You can&apos;t file a 1099-NEC without a TIN. Request a W-9 from each vendor before
-            January 31.
+      {w9Result && (
+        <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          <p className="font-medium">
+            Sent {w9Result.sent} W-9 request{w9Result.sent === 1 ? "" : "s"}.
+            {w9Result.failed > 0 && ` ${w9Result.failed} failed (missing email or send error).`}
+            {w9Result.stubbed && " (Email stubbed — configure RESEND_API_KEY to send live.)"}
           </p>
+        </div>
+      )}
+
+      {missingW9Count > 0 && (
+        <div className="mb-6 flex items-start justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <div>
+            <p className="font-medium">Action needed: {missingW9Count} vendor(s) missing W-9 / Tax ID.</p>
+            <p className="mt-1 text-amber-700">
+              You can&apos;t file a 1099-NEC without a TIN. Request a W-9 from each vendor before
+              January 31.
+            </p>
+          </div>
+          <form action={sendAllMissingW9RequestsAction}>
+            <input type="hidden" name="tenantSlug" value={params.tenant} />
+            <input type="hidden" name="year" value={year} />
+            <button
+              type="submit"
+              className="shrink-0 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-100"
+            >
+              Request all W-9s
+            </button>
+          </form>
         </div>
       )}
 
@@ -191,15 +230,29 @@ export default async function Tax1099Page({
                     {r.paymentCount}
                   </td>
                   <td className="px-4 py-2">
-                    {r.meetsThreshold ? (
-                      <span className="inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                        Reportable
-                      </span>
-                    ) : (
-                      <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
-                        Below threshold
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {r.meetsThreshold ? (
+                        <span className="inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                          Reportable
+                        </span>
+                      ) : (
+                        <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+                          Below threshold
+                        </span>
+                      )}
+                      {r.missingW9 && r.meetsThreshold && r.email && (
+                        <form action={sendW9RequestAction}>
+                          <input type="hidden" name="tenantSlug" value={params.tenant} />
+                          <input type="hidden" name="vendorId" value={r.id} />
+                          <button
+                            type="submit"
+                            className="rounded-md border border-amber-300 bg-white px-2 py-0.5 text-xs font-medium text-amber-900 hover:bg-amber-100"
+                          >
+                            Request W-9
+                          </button>
+                        </form>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))
@@ -209,10 +262,10 @@ export default async function Tax1099Page({
       </div>
 
       <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
-        <p className="font-medium text-slate-700">Preview · 1099-NEC e-file coming Cycle 4</p>
+        <p className="font-medium text-slate-700">Preview · 1099-NEC e-file coming later in Cycle 4</p>
         <p className="mt-1">
-          Next: bulk W-9 request emails, IRS FIRE / IRIS e-file, recipient PDF generation, and
-          state-level filings (CA, NY, etc.).
+          Next: IRS FIRE / IRIS e-file submission, recipient PDF generation, and state-level
+          filings (CA, NY, etc.).
         </p>
       </div>
     </div>
