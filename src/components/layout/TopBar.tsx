@@ -1,8 +1,9 @@
-import Link from "next/link";
 import type { Tenant } from "@prisma/client";
 import { UserButton } from "@clerk/nextjs";
 import { Search, Clock } from "lucide-react";
 import { EntitySwitcher } from "./EntitySwitcher";
+import { TopTabBar } from "./TopTabBar";
+import type { TopTab } from "@/lib/modules-config";
 
 type SwitcherEntity = {
   id: string;
@@ -15,55 +16,55 @@ export function TopBar({
   tenant,
   entities,
   activeEntityId,
+  tabs,
 }: {
   tenant: Tenant;
   entities: SwitcherEntity[];
   activeEntityId: string | null;
+  tabs: TopTab[];
 }) {
   return (
-    <header className="flex h-14 items-center gap-4 border-b border-slate-800 bg-slate-900 px-4 text-slate-100">
-      {/* Brand */}
-      <Link
-        href={`/${tenant.slug}`}
-        className="flex items-center gap-2 pr-4 border-r border-slate-700/60"
-      >
-        {tenant.logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={tenant.logoUrl} alt={tenant.name} className="h-7 w-auto" />
-        ) : (
-          <>
-            <span className="text-base font-semibold tracking-tight">KOBIA</span>
-            <Clock className="h-3.5 w-3.5 text-lime-400" />
-          </>
-        )}
-        <span className="ml-2 hidden text-xs font-medium text-slate-300 sm:inline">
-          {tenant.name}
-        </span>
-      </Link>
-
-      {/* Global search */}
-      <div className="relative flex-1 max-w-2xl">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <input
-          type="search"
-          placeholder="Find clients, invoices, transactions, documents..."
-          className="h-9 w-full rounded-md border border-slate-700 bg-slate-800/70 pl-9 pr-3 text-sm text-slate-100 placeholder:text-slate-400 focus:border-lime-400 focus:outline-none focus:ring-1 focus:ring-lime-400"
-        />
+    <header className="flex h-12 items-center gap-3 border-b border-slate-800 bg-slate-900 px-3 text-slate-100">
+      {/* Top tab bar — fills remaining space */}
+      <div className="flex-1 min-w-0">
+        <TopTabBar tenantSlug={tenant.slug} tabs={tabs} />
       </div>
 
-      {/* Entity switcher */}
-      {entities.length > 0 && activeEntityId && (
-        <div className="hidden md:block min-w-[180px]">
-          <EntitySwitcher
-            tenantSlug={tenant.slug}
-            entities={entities}
-            activeEntityId={activeEntityId}
-          />
-        </div>
-      )}
+      {/* Right cluster */}
+      <div className="flex items-center gap-3 shrink-0">
+        {/* Compact search button — Bitrix opens search via icon */}
+        <button
+          type="button"
+          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-slate-300 hover:bg-slate-800 hover:text-white"
+          title="Quick search"
+          aria-label="Quick search"
+        >
+          <Search className="h-3.5 w-3.5" />
+          <span className="hidden lg:inline">Search</span>
+        </button>
 
-      {/* User menu */}
-      <div className="flex items-center gap-3">
+        {/* Tenant name pill */}
+        <div className="hidden md:flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-slate-300">
+          <span className="font-semibold text-white">{tenant.name}</span>
+        </div>
+
+        {/* Entity switcher */}
+        {entities.length > 0 && activeEntityId && (
+          <div className="hidden md:block min-w-[160px]">
+            <EntitySwitcher
+              tenantSlug={tenant.slug}
+              entities={entities}
+              activeEntityId={activeEntityId}
+            />
+          </div>
+        )}
+
+        {/* Clock placeholder (Bitrix shows work-clock here) */}
+        <div className="hidden lg:flex items-center gap-1 text-xs text-slate-400">
+          <Clock className="h-3.5 w-3.5 text-lime-400" />
+        </div>
+
+        {/* User menu */}
         <UserButton afterSignOutUrl={`/${tenant.slug}/login`} />
       </div>
     </header>
