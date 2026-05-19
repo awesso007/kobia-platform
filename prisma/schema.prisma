@@ -230,6 +230,8 @@ model Entity {
   approvalRule      ApprovalRule?
   mileageEntries    Mileage[]
   taxRates          TaxRate[]
+  employees         Employee[]
+  payRuns           PayRun[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -685,6 +687,134 @@ enum MileageStatus {
   DRAFT
   POSTED
   VOID
+}
+
+/// An employee on payroll. The minimal model for Cycle 5 — we'll add tax
+/// withholding, benefits, and direct-deposit info as the payroll engine matures.
+model Employee {
+  id                 String           @id @default(cuid())
+  tenantId           String
+  entityId           String
+  firstName          String
+  lastName           String
+  email              String?
+  // Optional: link to a KOBIA user account if the employee also has a login
+  userId             String?
+  // Compensation
+  payType            PayType
+  // For SALARY: annual amount in cents. For HOURLY: hourly rate in cents.
+  payRateCents       BigInt
+  // For HOURLY: standard hours per pay period (e.g. 80 for biweekly full-time)
+  standardHoursPerPeriod Decimal?     @db.Decimal(6, 2)
+  // Identification
+  workEmail          String?
+  homeAddress        String?
+  ssnLast4           String?         // store last 4 only; never the full SSN here
+  taxFilingStatus    String?         // "SINGLE", "MARRIED_JOINT", etc.
+  taxAllowances      Int?            @default(0)
+  // Lifecycle
+  hireDate           DateTime?
+  terminationDate    DateTime?
+  isActive           Boolean         @default(true)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  entity             Entity          @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  paystubs           Paystub[]
+  timeEntries        TimeEntry[]
+
+  @@index([tenantId])
+  @@index([entityId, isActive])
+}
+
+enum PayType {
+  SALARY
+  HOURLY
+  CONTRACTOR
+}
+
+/// A pay run — the act of cutting checks for a period. Generates Paystub rows.
+model PayRun {
+  id                 String         @id @default(cuid())
+  tenantId           String
+  entityId           String
+  periodStart        DateTime
+  periodEnd          DateTime
+  payDate            DateTime
+  status             PayRunStatus   @default(DRAFT)
+  // Aggregates (cents)
+  totalGrossCents    BigInt         @default(0)
+  totalNetCents      BigInt         @default(0)
+  totalTaxesCents    BigInt         @default(0)
+  // Posting
+  journalEntryId     String?        @unique
+  postedAt           DateTime?
+  postedByUserId     String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  entity             Entity         @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  paystubs           Paystub[]
+
+  @@index([tenantId])
+  @@index([entityId, status])
+  @@index([entityId, payDate])
+}
+
+enum PayRunStatus {
+  DRAFT
+  POSTED
+  VOID
+}
+
+/// A single employee's pay for a given pay run.
+model Paystub {
+  id                 String         @id @default(cuid())
+  tenantId           String
+  payRunId           String
+  employeeId         String
+  // Earnings (cents)
+  regularHoursMilli  BigInt         @default(0) // hours * 1000
+  overtimeHoursMilli BigInt         @default(0)
+  regularPayCents    BigInt         @default(0)
+  overtimePayCents   BigInt         @default(0)
+  bonusCents         BigInt         @default(0)
+  grossCents         BigInt         @default(0)
+  // Withholdings (cents) — placeholders; real engine lands in Cycle 5 W3
+  federalTaxCents    BigInt         @default(0)
+  stateTaxCents      BigInt         @default(0)
+  socialSecurityCents BigInt        @default(0)
+  medicareCents      BigInt         @default(0)
+  otherDeductionsCents BigInt       @default(0)
+  netCents           BigInt         @default(0)
+  createdAt          DateTime       @default(now())
+
+  payRun             PayRun         @relation(fields: [payRunId], references: [id], onDelete: Cascade)
+  employee           Employee       @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@unique([payRunId, employeeId])
+  @@index([tenantId])
+  @@index([employeeId])
+}
+
+/// A time entry — hours worked on a date, optionally with a class/department tag.
+model TimeEntry {
+  id                 String         @id @default(cuid())
+  tenantId           String
+  employeeId         String
+  workDate           DateTime
+  hoursMilli         BigInt         // hours * 1000
+  isOvertime         Boolean        @default(false)
+  notes              String?
+  // When pushed into a PayRun, gets stamped with the paystub id.
+  paystubId          String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  employee           Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([employeeId, workDate])
 }
 
 /// A sales-tax rate the entity charges on invoices.
