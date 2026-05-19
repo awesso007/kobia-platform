@@ -174,33 +174,40 @@ export default async function JournalListPage({
                 </td>
               </tr>
             )}
-            {rows.map((r) => (
-              <tr
-                key={r.id}
-                className={`hover:bg-blue-50 ${r.status === "REVERSED" ? "bg-amber-50/40" : ""}`}
-              >
-                <td className="px-4 py-2 font-mono text-xs text-slate-500">#{r.entryNumber}</td>
-                <td className="px-4 py-2 font-mono text-xs text-slate-500">
-                  {r.entryDate.toISOString().slice(0, 10)}
-                </td>
-                <td className="px-4 py-2 text-slate-900">
-                  {r.description}
-                  {r.memo && <span className="ml-2 text-xs text-slate-500">— {r.memo}</span>}
-                </td>
-                <td className="px-4 py-2 text-[10px] uppercase tracking-wider text-slate-500">
-                  {r.source}
-                </td>
-                <td className="px-4 py-2">
-                  <StatusBadge status={r.status} />
-                </td>
-                <td className="px-4 py-2 text-right font-mono tabular-nums text-xs text-slate-500">
-                  {r.lineCount}
-                </td>
-                <td className="px-4 py-2 text-right font-mono tabular-nums text-slate-900">
-                  {formatCents(r.total)}
-                </td>
-              </tr>
-            ))}
+            {rows.map((r) => {
+              const href = `/${params.tenant}/books/journal/${r.id}`;
+              return (
+                <tr
+                  key={r.id}
+                  className={`cursor-pointer hover:bg-blue-50 ${r.status === "REVERSED" ? "bg-amber-50/40" : ""}`}
+                >
+                  <td className="px-4 py-2 font-mono text-xs text-slate-500">
+                    <Link href={href} className="block">#{r.entryNumber}</Link>
+                  </td>
+                  <td className="px-4 py-2 font-mono text-xs text-slate-500">
+                    <Link href={href} className="block">{r.entryDate.toISOString().slice(0, 10)}</Link>
+                  </td>
+                  <td className="px-4 py-2 text-slate-900">
+                    <Link href={href} className="block">
+                      {r.description}
+                      {r.memo && <span className="ml-2 text-xs text-slate-500">— {r.memo}</span>}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2 text-[10px] uppercase tracking-wider text-slate-500">
+                    <Link href={href} className="block">{r.source}</Link>
+                  </td>
+                  <td className="px-4 py-2">
+                    <Link href={href} className="block"><StatusBadge status={r.status} /></Link>
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono tabular-nums text-xs text-slate-500">
+                    <Link href={href} className="block">{r.lineCount}</Link>
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono tabular-nums text-slate-900">
+                    <Link href={href} className="block">{formatCents(r.total)}</Link>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -218,7 +218,14 @@ export default async function AccountLedgerPage({
                 <td className="px-4 py-1.5 font-mono text-xs text-slate-500">
                   {r.entryDate.toISOString().slice(0, 10)}
                 </td>
-                <td className="px-4 py-1.5 font-mono text-xs text-slate-500">#{r.entryNumber}</td>
+                <td className="px-4 py-1.5 font-mono text-xs">
+                  <Link
+                    href={`/${params.tenant}/books/journal/${r.entryId}`}
+                    className="text-indigo-600 hover:text-indigo-700"
+                  >
+                    #{r.entryNumber}
+                  </Link>
+                </td>
                 <td className="px-4 py-1.5 text-slate-900">
                   {r.description}
                   {r.memo && <span className="ml-2 text-xs text-slate-500">— {r.memo}</span>}

@@ -178,7 +178,7 @@ export default async function BooksPage({ params }: { params: { tenant: string }
             )}
             {recentEntries.map((e) => (
               <li key={e.id} className="p-4 text-sm hover:bg-slate-50">
-                <Link href={`/${params.tenant}/books/journal`} className="block">
+                <Link href={`/${params.tenant}/books/journal/${e.id}`} className="block">
                   <div className="flex items-baseline justify-between">
                     <span className="font-mono text-xs text-slate-500">JE #{e.entryNumber}</span>
                     <span className="text-xs text-slate-400">{new Date(e.entryDate).toLocaleDateString()}</span>

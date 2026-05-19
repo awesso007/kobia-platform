@@ -6,7 +6,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "@/server/trpc";
 import { db } from "@/lib/db";
-import { postJournalEntry, formatCents, normalBalanceSign } from "@/lib/accounting/ledger";
+import { postJournalEntry, reverseJournalEntry, formatCents, normalBalanceSign } from "@/lib/accounting/ledger";
 
 const BIGINT_FROM_STRING = z.string().regex(/^\d+$/).transform((s) => BigInt(s));
 
@@ -356,6 +356,41 @@ export const booksRouter = router({
           { postedByUserId: ctx.auth.user.id }
         );
         return { id: entry.id, entryNumber: entry.entryNumber };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        throw new TRPCError({ code: "BAD_REQUEST", message: msg });
+      }
+    }),
+
+  /** Reverse a posted journal entry by creating an opposite-signed entry. */
+  reverseJournalEntry: protectedProcedure
+    .input(
+      z.object({
+        entryId: z.string(),
+        reason: z.string().max(500).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!["OWNER", "ADMIN", "ACCOUNTANT"].includes(ctx.auth.role)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only accountants can reverse entries." });
+      }
+
+      // Verify entry belongs to this tenant
+      const original = await db.journalEntry.findFirst({
+        where: { id: input.entryId, tenantId: ctx.auth.tenant.id },
+        select: { id: true, status: true },
+      });
+      if (!original) throw new TRPCError({ code: "NOT_FOUND", message: "Journal entry not found." });
+      if (original.status !== "POSTED") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `Only POSTED entries can be reversed (this one is ${original.status}).` });
+      }
+
+      try {
+        const reversing = await reverseJournalEntry(input.entryId, {
+          reason: input.reason,
+          postedByUserId: ctx.auth.user.id,
+        });
+        return { id: reversing.id, entryNumber: reversing.entryNumber };
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         throw new TRPCError({ code: "BAD_REQUEST", message: msg });
