@@ -129,6 +129,12 @@ export default async function EngagementDetailPage({
         </div>
 
         <div className="flex items-center gap-2">
+          <Link
+            href={`/${params.tenant}/practice/engagements/${engagement.id}/letter`}
+            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Engagement letter →
+          </Link>
           <form action={updateEngagementStatusAction}>
             <input type="hidden" name="tenantSlug" value={params.tenant} />
             <input type="hidden" name="engagementId" value={engagement.id} />
