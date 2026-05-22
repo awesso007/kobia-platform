@@ -10,6 +10,7 @@ import type {
 } from "@prisma/client";
 import { getAuthContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { fireWorkflow } from "@/lib/workflow-runner";
 
 function assertRole(role: string) {
   if (!["OWNER", "ADMIN", "ACCOUNTANT"].includes(role)) {
@@ -96,7 +97,7 @@ export async function createLeadAction(formData: FormData): Promise<void> {
   const name = ((formData.get("name") as string) || "").trim();
   if (!name) throw new Error("Name is required");
 
-  await db.lead.create({
+  const lead = await db.lead.create({
     data: {
       tenantId: auth.tenant.id,
       name,
@@ -109,6 +110,13 @@ export async function createLeadAction(formData: FormData): Promise<void> {
       notes: ((formData.get("notes") as string) || "").trim() || null,
       ownerUserId: auth.user.id,
     },
+  });
+
+  await fireWorkflow({
+    tenantId: auth.tenant.id,
+    trigger: "LEAD_CREATED",
+    subjectType: "lead",
+    subjectId: lead.id,
   });
 
   revalidatePath(`/${tenantSlug}/crm/leads`);
@@ -130,6 +138,13 @@ export async function updateLeadStatusAction(formData: FormData): Promise<void> 
   if (!existing) throw new Error("Lead not found");
 
   await db.lead.update({ where: { id }, data: { status } });
+
+  await fireWorkflow({
+    tenantId: auth.tenant.id,
+    trigger: "LEAD_STATUS_CHANGED",
+    subjectType: "lead",
+    subjectId: id,
+  });
 
   revalidatePath(`/${tenantSlug}/crm/leads`);
   revalidatePath(`/${tenantSlug}/crm/leads/${id}`);
@@ -209,7 +224,7 @@ export async function createDealAction(formData: FormData): Promise<void> {
     ((formData.get("stageId") as string) || "").trim() ||
     pipeline.stages[0]!.id;
 
-  await db.deal.create({
+  const deal = await db.deal.create({
     data: {
       tenantId: auth.tenant.id,
       pipelineId: pipeline.id,
@@ -228,6 +243,13 @@ export async function createDealAction(formData: FormData): Promise<void> {
       entityId: ((formData.get("entityId") as string) || "").trim() || null,
       notes: ((formData.get("notes") as string) || "").trim() || null,
     },
+  });
+
+  await fireWorkflow({
+    tenantId: auth.tenant.id,
+    trigger: "DEAL_CREATED",
+    subjectType: "deal",
+    subjectId: deal.id,
   });
 
   revalidatePath(`/${tenantSlug}/crm`);
@@ -264,6 +286,28 @@ export async function moveDealStageAction(formData: FormData): Promise<void> {
       lostAt: stage.isLost ? new Date() : null,
     },
   });
+
+  await fireWorkflow({
+    tenantId: auth.tenant.id,
+    trigger: "DEAL_STAGE_CHANGED",
+    subjectType: "deal",
+    subjectId: id,
+  });
+  if (stage.isWon) {
+    await fireWorkflow({
+      tenantId: auth.tenant.id,
+      trigger: "DEAL_WON",
+      subjectType: "deal",
+      subjectId: id,
+    });
+  } else if (stage.isLost) {
+    await fireWorkflow({
+      tenantId: auth.tenant.id,
+      trigger: "DEAL_LOST",
+      subjectType: "deal",
+      subjectId: id,
+    });
+  }
 
   revalidatePath(`/${tenantSlug}/crm`);
   revalidatePath(`/${tenantSlug}/crm/deals/${id}`);

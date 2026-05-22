@@ -2037,5 +2037,84 @@ model RecurringEngagementRun {
 }
 
 // =============================================================================
-// SHIPPED: AR W1 · AP W2 · Bank Rec W3 · Cash Flow W4 · Period Close W5 · Fixed Assets W6 · Multi-Currency W7 · Trial Balance + GL W8 · Recurring Invoices W9 · Recurring Bills W9 · Audit Log · Budgets · Engagement Letters · Client Portal · CRM Lite · Time Tracking · Recurring Engagements
+// WORKFLOW AUTOMATION — trigger/action rules
+// =============================================================================
+
+enum WorkflowTrigger {
+  INVOICE_CREATED
+  INVOICE_SENT
+  INVOICE_PAID
+  INVOICE_OVERDUE
+  BILL_CREATED
+  BILL_PAID
+  BILL_OVERDUE
+  LEAD_CREATED
+  LEAD_STATUS_CHANGED
+  DEAL_CREATED
+  DEAL_STAGE_CHANGED
+  DEAL_WON
+  DEAL_LOST
+  TASK_COMPLETED
+  ENGAGEMENT_LETTER_SIGNED
+  PORTAL_DOCUMENT_UPLOADED
+  CUSTOMER_CREATED
+}
+
+enum WorkflowActionType {
+  CREATE_TASK
+  LOG_ACTIVITY
+  SEND_INTERNAL_NOTE
+  CREATE_ENGAGEMENT
+  UPDATE_DEAL_STAGE
+}
+
+enum WorkflowRunStatus {
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
+model WorkflowRule {
+  id          String          @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  trigger     WorkflowTrigger
+  isActive    Boolean         @default(true)
+  // JSON blob describing the action(s). Schema validated in code.
+  // Examples:
+  //  { type: "CREATE_TASK", title: "Follow up", priority: "MEDIUM", dueInDays: 3 }
+  //  { type: "LOG_ACTIVITY", activityType: "NOTE", subject: "Auto: invoice paid" }
+  actionType  WorkflowActionType
+  actionConfig Json
+  runCount    Int             @default(0)
+  lastRunAt   DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  runs        WorkflowRun[]
+
+  @@index([tenantId, trigger, isActive])
+}
+
+model WorkflowRun {
+  id        String            @id @default(cuid())
+  tenantId  String
+  ruleId    String
+  trigger   WorkflowTrigger
+  // What entity fired the trigger (e.g., invoiceId, leadId)
+  subjectType String
+  subjectId   String
+  status    WorkflowRunStatus
+  message   String?
+  runAt     DateTime          @default(now())
+
+  rule      WorkflowRule      @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, runAt])
+  @@index([ruleId, runAt])
+}
+
+// =============================================================================
+// SHIPPED: AR W1 · AP W2 · Bank Rec W3 · Cash Flow W4 · Period Close W5 · Fixed Assets W6 · Multi-Currency W7 · Trial Balance + GL W8 · Recurring Invoices W9 · Recurring Bills W9 · Audit Log · Budgets · Engagement Letters · Client Portal · CRM Lite · Time Tracking · Recurring Engagements · Activity Feed · Workflow Automation
 // ==============================================================================

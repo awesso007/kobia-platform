@@ -22,6 +22,7 @@ import {
   TrendingUp,
   Users,
   Wallet,
+  Zap,
 } from "lucide-react";
 import type { ModuleKey } from "./active-module";
 
@@ -155,6 +156,7 @@ export const MODULES: ModuleDefinition[] = [
               { href: "/practice/requests", label: "Doc requests", icon: ClipboardList },
               { href: "/time", label: "Time tracker", icon: ClipboardList },
               { href: "/time/rates", label: "Billing rates", icon: DollarSign },
+              { href: "/workflows", label: "Workflows", icon: Zap },
             ],
           },
         ],
