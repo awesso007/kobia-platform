@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getTenantBySlug } from "@/lib/tenant";
+import { ensureMembership } from "@/lib/ensure-membership";
 import { ModuleSidebar } from "@/components/layout/ModuleSidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { RightRail } from "@/components/layout/RightRail";
@@ -19,6 +20,11 @@ export default async function TenantLayout({
 }) {
   const tenant = await getTenantBySlug(params.tenant);
   if (!tenant) notFound();
+
+  // Auto-heal: ensure the Clerk-authenticated user has a User+Membership.
+  // Idempotent, cheap (~1 query when already set up). Catches any orphan
+  // sessions where signup completed but membership never got created.
+  await ensureMembership(tenant.slug);
 
   // Detect whether we're inside the /welcome flow.
   const h = await headers();

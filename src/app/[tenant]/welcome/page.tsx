@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getTenantBySlug } from "@/lib/tenant";
+import { ensureMembership } from "@/lib/ensure-membership";
 import {
   setTenantIndustry,
   createFirstEntity,
@@ -37,6 +38,10 @@ export default async function WelcomePage({
 }) {
   const tenant = await getTenantBySlug(params.tenant);
   if (!tenant) notFound();
+
+  // Ensure the Clerk-authenticated user has a KOBIA User + Membership for
+  // this tenant. First member becomes OWNER. This is idempotent.
+  await ensureMembership(tenant.slug);
 
   // If already onboarded, send them straight to dashboard.
   if (tenant.onboardingCompleted) {

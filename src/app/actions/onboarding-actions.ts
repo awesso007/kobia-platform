@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getTenantBySlug } from "@/lib/tenant";
 import { provisionEntity } from "@/lib/accounting/provision-entity";
 import { SUPPORTED_INDUSTRIES } from "@/lib/accounting/chart-of-accounts-templates";
+import { ensureMembership } from "@/lib/ensure-membership";
 import { clerkClient } from "@clerk/nextjs/server";
 
 /** Step 1: pick industry, advance to entity step. */
@@ -99,6 +100,10 @@ export async function completeOnboarding(formData: FormData) {
   const tenant = await getTenantBySlug(slug);
   if (!tenant) throw new Error("Tenant not found");
 
+  // Safety net: make sure the user that completed onboarding has an active
+  // Membership in this tenant. Idempotent.
+  await ensureMembership(tenant.slug);
+
   await db.tenant.update({
     where: { id: tenant.id },
     data: { onboardingCompleted: true, onboardingStep: "done" },
@@ -113,6 +118,9 @@ export async function skipOnboarding(formData: FormData) {
   const slug = String(formData.get("slug") ?? "");
   const tenant = await getTenantBySlug(slug);
   if (!tenant) throw new Error("Tenant not found");
+
+  // Safety net: same as completeOnboarding.
+  await ensureMembership(tenant.slug);
 
   // Ensure at least one entity exists so /books works.
   const existing = await db.entity.count({ where: { tenantId: tenant.id } });
