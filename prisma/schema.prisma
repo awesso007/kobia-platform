@@ -2037,6 +2037,136 @@ model RecurringEngagementRun {
 }
 
 // =============================================================================
+// TAX FILING TRACKER — calendar of tax filings (941/940/1099/sales tax/etc.)
+// =============================================================================
+
+enum TaxFilingType {
+  FORM_941
+  FORM_940
+  FORM_W2
+  FORM_1099_NEC
+  FORM_1099_MISC
+  SALES_TAX
+  STATE_INCOME
+  FEDERAL_INCOME
+  STATE_PAYROLL
+  PROPERTY_TAX
+  EXCISE
+  OTHER
+}
+
+enum TaxFilingStatus {
+  UPCOMING
+  IN_PROGRESS
+  FILED
+  LATE
+  EXTENDED
+  N_A
+}
+
+model TaxFiling {
+  id           String          @id @default(cuid())
+  tenantId     String
+  entityId     String?         // which client business (firm-side)
+  filingType   TaxFilingType
+  jurisdiction String?         // e.g., "IRS", "CA-FTB", "CA-CDTFA"
+  periodLabel  String          // e.g., "Q1 2026", "FY 2025"
+  dueDate      DateTime
+  filedAt      DateTime?
+  amountCents  BigInt?         // tax due/paid in cents
+  confirmationNo String?
+  notes        String?
+  status       TaxFilingStatus @default(UPCOMING)
+  assigneeUserId String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([tenantId, dueDate])
+  @@index([tenantId, status, dueDate])
+  @@index([tenantId, entityId, dueDate])
+  @@index([tenantId, filingType])
+}
+
+// =============================================================================
+// CUSTOMER COMMUNICATIONS — log of emails/statements/invoices sent
+// =============================================================================
+
+enum CommChannel {
+  EMAIL
+  SMS
+  PORTAL
+  PHONE
+  MEETING
+  OTHER
+}
+
+enum CommDirection {
+  OUTBOUND
+  INBOUND
+}
+
+model CustomerCommunication {
+  id          String        @id @default(cuid())
+  tenantId    String
+  customerId  String?
+  entityId    String?     // if not customer-bound, may be entity-bound
+  channel     CommChannel
+  direction   CommDirection @default(OUTBOUND)
+  subject     String
+  body        String?
+  recipient   String?     // e.g., email address or phone number
+  // Optional cross-ref to documents that triggered this comm
+  invoiceId   String?
+  statementBatchId String?
+  letterId    String?
+  sentByUserId String?
+  sentAt      DateTime      @default(now())
+  createdAt   DateTime      @default(now())
+
+  @@index([tenantId, sentAt])
+  @@index([tenantId, customerId, sentAt])
+  @@index([tenantId, entityId, sentAt])
+}
+
+// =============================================================================
+// DOCUMENT VAULT — general-purpose docs attached to entity/customer/vendor
+// =============================================================================
+
+enum VaultDocCategory {
+  CONTRACT
+  TAX
+  FINANCIAL
+  LEGAL
+  HR
+  RECEIPT
+  OTHER
+}
+
+model VaultDocument {
+  id          String   @id @default(cuid())
+  tenantId    String
+  entityId    String?     // firm-side: which client business
+  customerId  String?     // optional: tie to a specific customer
+  vendorId    String?     // optional: tie to a specific vendor
+  title       String
+  url         String      // external link (Drive, Dropbox, Box) OR blob URL
+  category    VaultDocCategory @default(OTHER)
+  description String?
+  tags        String?     // comma-separated for now
+  expiresAt   DateTime?   // for contracts, licenses, etc.
+  uploadedByUserId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entityId])
+  @@index([tenantId, customerId])
+  @@index([tenantId, vendorId])
+  @@index([tenantId, category])
+  @@index([tenantId, expiresAt])
+}
+
+// =============================================================================
 // WORKFLOW AUTOMATION — trigger/action rules
 // =============================================================================
 

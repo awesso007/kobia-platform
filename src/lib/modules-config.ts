@@ -114,6 +114,7 @@ export const MODULES: ModuleDefinition[] = [
               { href: "/ap/portal", label: "Vendor Portal", icon: ShieldCheck },
               { href: "/tax/1099", label: "1099-NEC", icon: ClipboardList },
               { href: "/tax/1099-misc", label: "1099-MISC", icon: ClipboardList },
+              { href: "/tax-filings", label: "Tax Filing Tracker", icon: ClipboardList },
             ],
           },
         ],
@@ -157,6 +158,8 @@ export const MODULES: ModuleDefinition[] = [
               { href: "/time", label: "Time tracker", icon: ClipboardList },
               { href: "/time/rates", label: "Billing rates", icon: DollarSign },
               { href: "/workflows", label: "Workflows", icon: Zap },
+              { href: "/vault", label: "Document Vault", icon: FileText },
+              { href: "/communications", label: "Communications", icon: FileText },
             ],
           },
         ],
@@ -175,6 +178,11 @@ export const MODULES: ModuleDefinition[] = [
       {
         label: "Reports",
         groups: [
+          {
+            items: [
+              { href: "/reports", label: "All Reports (Hub)", icon: BarChart3 },
+            ],
+          },
           {
             label: "Financials",
             items: [
