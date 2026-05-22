@@ -24,7 +24,13 @@ export default async function TenantLayout({
   // Auto-heal: ensure the Clerk-authenticated user has a User+Membership.
   // Idempotent, cheap (~1 query when already set up). Catches any orphan
   // sessions where signup completed but membership never got created.
-  await ensureMembership(tenant.slug);
+  // Wrapped in try/catch so a bad heal call doesn't 500 the whole layout.
+  try {
+    await ensureMembership(tenant.slug);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("[layout] ensureMembership failed", err);
+  }
 
   // Detect whether we're inside the /welcome flow.
   const h = await headers();
