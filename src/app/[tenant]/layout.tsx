@@ -8,8 +8,67 @@ import { RightRail } from "@/components/layout/RightRail";
 import { PoweredByKobia } from "@/components/branding/PoweredByKobia";
 import { TRPCProvider } from "@/components/providers/TRPCProvider";
 import { getActiveEntity, listEntitiesForSwitcher } from "@/lib/active-entity";
-import { getActiveModule } from "@/lib/active-module";
+import { getActiveModule, DEFAULT_MODULE, type ModuleKey } from "@/lib/active-module";
 import { getModuleByKey } from "@/lib/modules-config";
+
+/**
+ * Defensive helpers — every external call below is wrapped so a single helper
+ * failure cannot 500 the whole tenant shell. We log to console.error for
+ * Vercel observability and return safe defaults.
+ */
+async function safeGetTenant(slug: string) {
+  try {
+    return await getTenantBySlug(slug);
+  } catch (err) {
+    console.error("[tenant-layout] getTenantBySlug failed", err);
+    return null;
+  }
+}
+
+async function safeEnsureMembership(slug: string) {
+  try {
+    await ensureMembership(slug);
+  } catch (err) {
+    console.error("[tenant-layout] ensureMembership failed", err);
+  }
+}
+
+function safeHeaderPathname(): string {
+  try {
+    const h = headers();
+    return h.get("x-pathname") || "";
+  } catch (err) {
+    console.error("[tenant-layout] headers() failed", err);
+    return "";
+  }
+}
+
+async function safeListEntities(tenantId: string) {
+  try {
+    return await listEntitiesForSwitcher(tenantId);
+  } catch (err) {
+    console.error("[tenant-layout] listEntitiesForSwitcher failed", err);
+    return [];
+  }
+}
+
+async function safeActiveEntity(opts: { tenantId: string; tenantSlug: string }) {
+  try {
+    return await getActiveEntity(opts);
+  } catch (err) {
+    console.error("[tenant-layout] getActiveEntity failed", err);
+    return null;
+  }
+}
+
+async function safeActiveModule(slug: string): Promise<ModuleKey> {
+  try {
+    return await getActiveModule(slug);
+  } catch (err) {
+    console.error("[tenant-layout] getActiveModule failed", err);
+    return DEFAULT_MODULE;
+  }
+}
 
 export default async function TenantLayout({
   children,
@@ -18,32 +77,25 @@ export default async function TenantLayout({
   children: React.ReactNode;
   params: { tenant: string };
 }) {
-  const tenant = await getTenantBySlug(params.tenant);
+  const tenant = await safeGetTenant(params.tenant);
   if (!tenant) notFound();
 
   // Auto-heal: ensure the Clerk-authenticated user has a User+Membership.
-  // Idempotent, cheap (~1 query when already set up). Catches any orphan
-  // sessions where signup completed but membership never got created.
-  // Wrapped in try/catch so a bad heal call doesn't 500 the whole layout.
-  try {
-    await ensureMembership(tenant.slug);
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error("[layout] ensureMembership failed", err);
-  }
+  // Always best-effort; never blocks rendering.
+  await safeEnsureMembership(tenant.slug);
 
-  // Detect whether we're inside the /welcome flow.
-  const h = await headers();
-  const pathname = h.get("x-pathname") || "";
+  // Detect whether we're inside the /welcome flow or /login (Clerk renders own UI).
+  const pathname = safeHeaderPathname();
   const isOnWelcome = pathname.includes(`/${tenant.slug}/welcome`);
+  const isOnLogin = pathname.includes(`/${tenant.slug}/login`);
 
   // Route guard: send new tenants through /welcome before they hit the app shell.
-  if (!tenant.onboardingCompleted && !isOnWelcome) {
+  if (!tenant.onboardingCompleted && !isOnWelcome && !isOnLogin) {
     redirect(`/${tenant.slug}/welcome`);
   }
 
-  // Welcome flow renders full-screen — no sidebar/header chrome.
-  if (isOnWelcome) {
+  // Welcome flow and login both render full-screen — no sidebar/header chrome.
+  if (isOnWelcome || isOnLogin) {
     return (
       <div
         style={
@@ -59,12 +111,13 @@ export default async function TenantLayout({
   }
 
   const [entities, activeEntity, activeModule] = await Promise.all([
-    listEntitiesForSwitcher(tenant.id),
-    getActiveEntity({ tenantId: tenant.id, tenantSlug: tenant.slug }),
-    getActiveModule(tenant.slug),
+    safeListEntities(tenant.id),
+    safeActiveEntity({ tenantId: tenant.id, tenantSlug: tenant.slug }),
+    safeActiveModule(tenant.slug),
   ]);
 
   const mod = getModuleByKey(activeModule);
+  const topTabs = mod?.topTabs ?? [];
 
   return (
     <div
@@ -86,7 +139,7 @@ export default async function TenantLayout({
             tenant={tenant}
             entities={entities}
             activeEntityId={activeEntity?.id ?? null}
-            tabs={mod.topTabs}
+            tabs={topTabs}
           />
           <main className="flex-1 overflow-y-auto p-6">{children}</main>
           <PoweredByKobia tenant={tenant} />
