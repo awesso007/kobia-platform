@@ -20,6 +20,7 @@ const isPublicRoute = createRouteMatcher([
   "/bill-view/(.*)",
   "/portal(.*)",
   "/sign/(.*)",
+  "/_debug(.*)",
 ]);
 
 export default clerkMiddleware((auth, req: NextRequest) => {
