@@ -24,6 +24,12 @@ export default function TenantError({
         {error.digest && (
           <p className="mt-3 font-mono text-xs text-slate-400">Ref: {error.digest}</p>
         )}
+        {/* DEBUG (remove before public launch) — surface error details so we can
+            actually fix bugs without needing access to Vercel runtime logs. */}
+        <pre className="mt-4 max-h-64 overflow-auto whitespace-pre-wrap rounded bg-slate-900 p-3 text-[11px] text-slate-100">
+          {error.name}: {error.message}
+          {error.stack ? `\n\n${error.stack}` : ""}
+        </pre>
         <div className="mt-6 flex gap-3">
           <button
             onClick={() => reset()}
