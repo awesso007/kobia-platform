@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, isRedirectError } from "next/dist/client/components/redirect";
 import { getAuthContext } from "@/lib/auth";
 import { db } from "@/lib/db";
 
@@ -43,6 +43,28 @@ export default async function DashboardPage({
 }: {
   params: { tenant: string };
 }) {
+  try {
+    return await renderDashboard(params);
+  } catch (err) {
+    // Let redirect() bubble — it's not a real error.
+    if (isRedirectError(err)) throw err;
+    const e = err as Error;
+    // DEBUG: surface real error in body until launch QA is complete
+    // eslint-disable-next-line no-console
+    console.error("[dashboard]", e);
+    return (
+      <div className="m-6 max-w-3xl rounded-lg border border-rose-300 bg-rose-50 p-4">
+        <h2 className="font-mono text-sm font-bold text-rose-800">DEBUG: dashboard render error</h2>
+        <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap rounded bg-slate-900 p-3 text-[11px] text-slate-100">
+          {e?.name}: {e?.message}
+          {e?.stack ? `\n\n${e.stack}` : ""}
+        </pre>
+      </div>
+    );
+  }
+}
+
+async function renderDashboard(params: { tenant: string }) {
   const auth = await getAuthContext(params.tenant);
   if (!auth) redirect(`/${params.tenant}/login`);
 

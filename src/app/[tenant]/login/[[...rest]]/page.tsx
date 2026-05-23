@@ -1,8 +1,18 @@
+/**
+ * Clerk catch-all login route. The <SignIn> widget internally navigates to
+ * /factor-one, /verify, etc. — this file makes those sub-paths resolve.
+ */
 import { SignIn } from "@clerk/nextjs";
 import { getTenantBySlug } from "@/lib/tenant";
 import { notFound } from "next/navigation";
 
-export default async function TenantLoginPage({ params }: { params: { tenant: string } }) {
+export const dynamic = "force-dynamic";
+
+export default async function TenantLoginCatchAll({
+  params,
+}: {
+  params: { tenant: string };
+}) {
   const tenant = await getTenantBySlug(params.tenant);
   if (!tenant) notFound();
 
@@ -11,6 +21,7 @@ export default async function TenantLoginPage({ params }: { params: { tenant: st
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
           {tenant.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={tenant.logoUrl}
               alt={`${tenant.name} logo`}
@@ -22,6 +33,9 @@ export default async function TenantLoginPage({ params }: { params: { tenant: st
           <p className="mt-2 text-sm text-muted-foreground">Sign in to your account</p>
         </div>
         <SignIn
+          path={`/${tenant.slug}/login`}
+          routing="path"
+          signUpUrl={`/signup`}
           appearance={{
             elements: {
               rootBox: "mx-auto",
