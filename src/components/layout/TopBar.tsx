@@ -1,6 +1,7 @@
+import Link from "next/link";
 import type { Tenant } from "@prisma/client";
 import { UserButton } from "@clerk/nextjs";
-import { Search, Clock } from "lucide-react";
+import { Search, Clock, LayoutDashboard } from "lucide-react";
 import { EntitySwitcher } from "./EntitySwitcher";
 import { TopTabBar } from "./TopTabBar";
 import type { TopTab } from "@/lib/modules-config";
@@ -25,6 +26,16 @@ export function TopBar({
 }) {
   return (
     <header className="flex h-12 items-center gap-3 border-b border-slate-800 bg-slate-900 px-3 text-slate-100">
+      {/* Home / Dashboard link — always-available escape hatch */}
+      <Link
+        href={`/${tenant.slug}/dashboard`}
+        className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-slate-200 hover:bg-slate-800 hover:text-white"
+        title="Dashboard"
+      >
+        <LayoutDashboard className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Dashboard</span>
+      </Link>
+
       {/* Top tab bar — fills remaining space */}
       <div className="flex-1 min-w-0">
         <TopTabBar tenantSlug={tenant.slug} tabs={tabs} />
@@ -43,10 +54,14 @@ export function TopBar({
           <span className="hidden lg:inline">Search</span>
         </button>
 
-        {/* Tenant name pill */}
-        <div className="hidden md:flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-slate-300">
+        {/* Tenant name pill — also a home link */}
+        <Link
+          href={`/${tenant.slug}/dashboard`}
+          className="hidden md:flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
+          title="Go to dashboard"
+        >
           <span className="font-semibold text-white">{tenant.name}</span>
-        </div>
+        </Link>
 
         {/* Entity switcher */}
         {entities.length > 0 && activeEntityId && (
