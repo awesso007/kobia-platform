@@ -2246,5 +2246,41 @@ model WorkflowRun {
 }
 
 // =============================================================================
-// SHIPPED: AR W1 · AP W2 · Bank Rec W3 · Cash Flow W4 · Period Close W5 · Fixed Assets W6 · Multi-Currency W7 · Trial Balance + GL W8 · Recurring Invoices W9 · Recurring Bills W9 · Audit Log · Budgets · Engagement Letters · Client Portal · CRM Lite · Time Tracking · Recurring Engagements · Activity Feed · Workflow Automation
+// Client Notes — threaded notes on Entity / Customer / Vendor / Lead / Engagement
+// =============================================================================
+model ClientNote {
+  id          String          @id @default(cuid())
+  tenantId    String
+  // Polymorphic subject — exactly one of these is set
+  subjectType ClientNoteSubject
+  subjectId   String
+  // Author
+  authorId    String?
+  authorName  String
+  // Content
+  body        String          @db.Text
+  isPinned    Boolean         @default(false)
+  // Threading — null = top-level note
+  parentId    String?
+  parent      ClientNote?     @relation("NoteReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     ClientNote[]    @relation("NoteReplies")
+  // Timestamps
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([tenantId, subjectType, subjectId])
+  @@index([tenantId, createdAt])
+  @@index([parentId])
+}
+
+enum ClientNoteSubject {
+  ENTITY
+  CUSTOMER
+  VENDOR
+  LEAD
+  ENGAGEMENT
+}
+
+// =============================================================================
+// SHIPPED: AR W1 · AP W2 · Bank Rec W3 · Cash Flow W4 · Period Close W5 · Fixed Assets W6 · Multi-Currency W7 · Trial Balance + GL W8 · Recurring Invoices W9 · Recurring Bills W9 · Audit Log · Budgets · Engagement Letters · Client Portal · CRM Lite · Time Tracking · Recurring Engagements · Activity Feed · Workflow Automation · Client Notes
 // ==============================================================================

@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { getActiveEntity } from "@/lib/active-entity";
 import { apAgeBucket } from "@/lib/accounting/ap";
 import { formatCents } from "@/lib/accounting/ledger";
+import { NotesPanel } from "@/components/notes/NotesPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -254,6 +255,14 @@ export default async function VendorDetailPage({
           </table>
         )}
       </div>
+
+      <NotesPanel
+        tenantId={auth.tenant.id}
+        tenantSlug={params.tenant}
+        subjectType="VENDOR"
+        subjectId={params.vendorId}
+        revalidate={`/${params.tenant}/ap/vendors/${params.vendorId}`}
+      />
     </div>
   );
 }

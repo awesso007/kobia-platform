@@ -12,6 +12,7 @@ import type { NextRequest } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
   "/",
+  "/pricing",
   "/signup(.*)",
   "/:tenant/login(.*)",
   "/api/trpc(.*)",

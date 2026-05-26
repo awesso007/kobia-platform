@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { NotesPanel } from "@/components/notes/NotesPanel";
 import {
   convertLeadToDealAction,
   logActivityAction,
@@ -270,6 +271,14 @@ export default async function LeadDetailPage({
           )}
         </div>
       </div>
+
+      <NotesPanel
+        tenantId={auth.tenant.id}
+        tenantSlug={params.tenant}
+        subjectType="LEAD"
+        subjectId={params.id}
+        revalidate={`/${params.tenant}/crm/leads/${params.id}`}
+      />
     </div>
   );
 }

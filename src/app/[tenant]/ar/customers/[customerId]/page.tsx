@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { getActiveEntity } from "@/lib/active-entity";
 import { ageBucket } from "@/lib/accounting/ar";
 import { formatCents } from "@/lib/accounting/ledger";
+import { NotesPanel } from "@/components/notes/NotesPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -231,6 +232,14 @@ export default async function CustomerDetailPage({
           </table>
         )}
       </div>
+
+      <NotesPanel
+        tenantId={auth.tenant.id}
+        tenantSlug={params.tenant}
+        subjectType="CUSTOMER"
+        subjectId={params.customerId}
+        revalidate={`/${params.tenant}/ar/customers/${params.customerId}`}
+      />
     </div>
   );
 }

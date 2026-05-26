@@ -17,7 +17,7 @@ const REPORTS: Report[] = [
     category: "Financial Statements",
     title: "Profit & Loss",
     description: "Income statement by period — CSV-exportable.",
-    href: "/books/reports/profit-loss",
+    href: "/books/reports/pnl",
   },
   {
     category: "Financial Statements",
@@ -73,7 +73,7 @@ const REPORTS: Report[] = [
     category: "Receivables & Payables",
     title: "Customer Statements",
     description: "Statement runs you can email or download.",
-    href: "/books/customer-statements",
+    href: "/ar/statements",
   },
 
   // Tax
@@ -92,20 +92,14 @@ const REPORTS: Report[] = [
   {
     category: "Tax",
     title: "W-2 / 941 / 940",
-    description: "Payroll tax reports.",
-    href: "/tax/payroll-forms",
+    description: "Payroll tax forms.",
+    href: "/payroll/forms",
   },
   {
     category: "Tax",
-    title: "Sales Tax",
-    description: "Sales tax collected by jurisdiction.",
-    href: "/tax/sales-tax",
-  },
-  {
-    category: "Tax",
-    title: "Withholding",
-    description: "Employee withholding summary.",
-    href: "/tax/withholding",
+    title: "Tax Filings Tracker",
+    description: "Track 941/940/1099/sales-tax due dates and status.",
+    href: "/tax-filings",
   },
 
   // Practice
@@ -133,7 +127,7 @@ const REPORTS: Report[] = [
     category: "Inventory",
     title: "Items Catalog",
     description: "Products & services with cost and price.",
-    href: "/books/items",
+    href: "/items",
   },
 
   // SaaS / KPI
@@ -141,7 +135,7 @@ const REPORTS: Report[] = [
     category: "Metrics",
     title: "SaaS Metrics",
     description: "MRR, ARR, churn — for subscription businesses.",
-    href: "/books/saas-metrics",
+    href: "/books/reports/saas-metrics",
   },
   {
     category: "Metrics",
