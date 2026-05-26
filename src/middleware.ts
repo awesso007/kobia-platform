@@ -41,7 +41,18 @@ export default clerkMiddleware((auth, req: NextRequest) => {
   }
 
   if (!isPublicRoute(req)) {
-    auth().protect();
+    const { userId } = auth();
+    if (!userId) {
+      // Redirect unauthed user to their tenant login page (or root if no tenant in path).
+      // Avoids Clerk's default 404-via-not-found-rewrite when no signInUrl is configured.
+      const segments = url.pathname.split("/").filter(Boolean);
+      const maybeTenant = segments[0];
+      const loginUrl = maybeTenant
+        ? new URL(`/${maybeTenant}/login`, req.url)
+        : new URL("/", req.url);
+      loginUrl.searchParams.set("redirect_url", url.pathname);
+      return NextResponse.redirect(loginUrl);
+    }
   }
 
   // Expose pathname to RSC layouts (used by tenant layout for onboarding guard).
