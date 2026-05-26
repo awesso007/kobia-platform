@@ -33,9 +33,14 @@ export function ModuleSidebar({
       <Link
         href={`/${tenantSlug}/dashboard`}
         className="flex items-center justify-start gap-2 px-4 py-3 border-b border-slate-800 hover:bg-slate-800/50"
+        title="Back to dashboard"
       >
-        <span className="text-base font-bold tracking-tight text-white">KOBIA</span>
-        <Sparkles className="h-3.5 w-3.5 text-lime-400" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo-64.png"
+          alt="KOBIA"
+          className="h-8 w-auto"
+        />
       </Link>
 
       <nav className="flex-1 overflow-y-auto py-2">

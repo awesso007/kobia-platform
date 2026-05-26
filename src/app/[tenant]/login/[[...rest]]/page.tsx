@@ -28,7 +28,10 @@ export default async function TenantLoginCatchAll({
               className="mx-auto h-16 w-auto"
             />
           ) : (
-            <h1 className="text-3xl font-bold">{tenant.name}</h1>
+            <div className="mx-auto flex h-16 items-center justify-center rounded-lg bg-slate-900 px-6">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo-64.png" alt="KOBIA" className="h-10 w-auto" />
+            </div>
           )}
           <p className="mt-2 text-sm text-muted-foreground">Sign in to your account</p>
         </div>
