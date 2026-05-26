@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { TIERS } from "@/lib/tier-config";
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-static";
 
 export default function PricingPage() {
   return (

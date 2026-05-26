@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/auth";
 import { updateTenantBranding } from "@/app/actions/tenant-settings-actions";
-import { THEME_PRESETS, ThemePreset } from "./ThemePreset";
 
 export const dynamic = "force-dynamic";
 
@@ -68,19 +67,6 @@ export default async function BrandingPage({
           ) : null}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-900">Theme preset</label>
-          <p className="mt-1 text-xs text-slate-500">
-            Pick a preset or fine-tune the colors below. Applies to the top bar, active nav,
-            and accent backgrounds across your workspace.
-          </p>
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {THEME_PRESETS.map((p) => (
-              <ThemePreset key={p.name} preset={p} />
-            ))}
-          </div>
-        </div>
-
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-900">Primary color</label>
@@ -89,7 +75,6 @@ export default async function BrandingPage({
               name="primaryColor"
               defaultValue={t.primaryColor ?? "#0F172A"}
               className="mt-1 h-10 w-full rounded-md border border-slate-200"
-              id="primaryColor"
             />
           </div>
           <div>
@@ -99,19 +84,8 @@ export default async function BrandingPage({
               name="secondaryColor"
               defaultValue={t.secondaryColor ?? "#3B82F6"}
               className="mt-1 h-10 w-full rounded-md border border-slate-200"
-              id="secondaryColor"
             />
           </div>
-        </div>
-
-        <div
-          className="rounded-lg border border-slate-200 p-4"
-          style={{
-            background: `linear-gradient(135deg, ${t.primaryColor || "#0F172A"} 0%, ${t.secondaryColor || "#3B82F6"} 100%)`,
-          }}
-        >
-          <p className="text-xs font-medium text-white/80">Preview</p>
-          <p className="mt-1 text-sm font-semibold text-white">{t.name}</p>
         </div>
 
         <div className="flex justify-end pt-2">

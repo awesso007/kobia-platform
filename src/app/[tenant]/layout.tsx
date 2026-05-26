@@ -4,6 +4,7 @@ import { getTenantBySlug } from "@/lib/tenant";
 import { ensureMembership } from "@/lib/ensure-membership";
 import { ModuleSidebar } from "@/components/layout/ModuleSidebar";
 import { TopBar } from "@/components/layout/TopBar";
+import { RightRail } from "@/components/layout/RightRail";
 import { PoweredByKobia } from "@/components/branding/PoweredByKobia";
 import { TRPCProvider } from "@/components/providers/TRPCProvider";
 import { getActiveEntity, listEntitiesForSwitcher } from "@/lib/active-entity";
@@ -93,19 +94,17 @@ export default async function TenantLayout({
     redirect(`/${tenant.slug}/welcome`);
   }
 
-  // Build theme style block from tenant brand colors.
-  const primary = tenant.primaryColor || "#0F172A";
-  const secondary = tenant.secondaryColor || "#3B82F6";
-  const themeStyle = {
-    "--kobia-primary": primary,
-    "--kobia-secondary": secondary,
-    "--kobia-primary-50": hexToTintBg(primary),
-  } as React.CSSProperties;
-
   // Welcome flow and login both render full-screen — no sidebar/header chrome.
   if (isOnWelcome || isOnLogin) {
     return (
-      <div style={themeStyle}>
+      <div
+        style={
+          {
+            "--primary": tenant.primaryColor,
+            "--secondary": tenant.secondaryColor,
+          } as React.CSSProperties
+        }
+      >
         <TRPCProvider>{children}</TRPCProvider>
       </div>
     );
@@ -121,12 +120,20 @@ export default async function TenantLayout({
   const topTabs = mod?.topTabs ?? [];
 
   return (
-    <div className="flex h-screen bg-slate-50" style={themeStyle}>
+    <div
+      className="flex h-screen bg-slate-50"
+      style={
+        {
+          "--primary": tenant.primaryColor,
+          "--secondary": tenant.secondaryColor,
+        } as React.CSSProperties
+      }
+    >
       <TRPCProvider>
-        {/* LEFT: flat sidebar */}
+        {/* LEFT: Module sidebar (220px, dark, labeled) */}
         <ModuleSidebar tenantSlug={tenant.slug} activeModule={activeModule} />
 
-        {/* CENTER: top bar + main canvas with gradient background */}
+        {/* CENTER: top bar + main canvas */}
         <div className="flex flex-1 min-w-0 flex-col">
           <TopBar
             tenant={tenant}
@@ -134,30 +141,13 @@ export default async function TenantLayout({
             activeEntityId={activeEntity?.id ?? null}
             tabs={topTabs}
           />
-          <main
-            className="flex-1 overflow-y-auto p-6"
-            style={{
-              background:
-                "linear-gradient(135deg, color-mix(in srgb, var(--kobia-primary) 6%, white) 0%, color-mix(in srgb, var(--kobia-secondary) 8%, white) 100%)",
-            }}
-          >
-            {children}
-          </main>
+          <main className="flex-1 overflow-y-auto p-6">{children}</main>
           <PoweredByKobia tenant={tenant} />
         </div>
+
+        {/* RIGHT: slim quick-tools rail */}
+        <RightRail />
       </TRPCProvider>
     </div>
   );
-}
-
-/** Convert a hex color to a very light tint (used for active nav bg). */
-function hexToTintBg(hex: string): string {
-  const h = hex.replace("#", "");
-  if (h.length !== 6) return "#eff6ff";
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  // 92% white + 8% color
-  const tint = (c: number) => Math.round(255 * 0.92 + c * 0.08);
-  return `rgb(${tint(r)}, ${tint(g)}, ${tint(b)})`;
 }

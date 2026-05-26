@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Tenant } from "@prisma/client";
 import { UserButton } from "@clerk/nextjs";
-import { Search, Bell, LayoutDashboard } from "lucide-react";
+import { Search, Clock, LayoutDashboard } from "lucide-react";
 import { EntitySwitcher } from "./EntitySwitcher";
 import { TopTabBar } from "./TopTabBar";
 import type { TopTab } from "@/lib/modules-config";
@@ -25,17 +25,11 @@ export function TopBar({
   tabs: TopTab[];
 }) {
   return (
-    <header
-      className="flex h-12 items-center gap-3 border-b border-white/10 px-3 text-white shadow-sm"
-      style={{
-        background:
-          "linear-gradient(90deg, var(--kobia-primary, #0F172A) 0%, var(--kobia-secondary, #3B82F6) 100%)",
-      }}
-    >
-      {/* Home / Dashboard link */}
+    <header className="flex h-12 items-center gap-3 border-b border-slate-800 bg-slate-900 px-3 text-slate-100">
+      {/* Home / Dashboard link — always-available escape hatch */}
       <Link
         href={`/${tenant.slug}/dashboard`}
-        className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-white/90 hover:bg-white/10 hover:text-white"
+        className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-slate-200 hover:bg-slate-800 hover:text-white"
         title="Dashboard"
       >
         <LayoutDashboard className="h-3.5 w-3.5" />
@@ -49,10 +43,21 @@ export function TopBar({
 
       {/* Right cluster */}
       <div className="flex items-center gap-3 shrink-0">
-        {/* Tenant pill */}
+        {/* Compact search button — Bitrix opens search via icon */}
+        <button
+          type="button"
+          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-slate-300 hover:bg-slate-800 hover:text-white"
+          title="Quick search"
+          aria-label="Quick search"
+        >
+          <Search className="h-3.5 w-3.5" />
+          <span className="hidden lg:inline">Search</span>
+        </button>
+
+        {/* Tenant name pill — also a home link */}
         <Link
           href={`/${tenant.slug}/dashboard`}
-          className="hidden md:flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-white/80 hover:bg-white/10"
+          className="hidden md:flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
           title="Go to dashboard"
         >
           <span className="font-semibold text-white">{tenant.name}</span>
@@ -69,25 +74,10 @@ export function TopBar({
           </div>
         )}
 
-        {/* Search */}
-        <button
-          type="button"
-          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-white/80 hover:bg-white/10 hover:text-white"
-          title="Quick search"
-          aria-label="Quick search"
-        >
-          <Search className="h-3.5 w-3.5" />
-        </button>
-
-        {/* Notifications */}
-        <button
-          type="button"
-          className="rounded-md p-1 text-white/80 hover:bg-white/10 hover:text-white"
-          title="Notifications"
-          aria-label="Notifications"
-        >
-          <Bell className="h-3.5 w-3.5" />
-        </button>
+        {/* Clock placeholder (Bitrix shows work-clock here) */}
+        <div className="hidden lg:flex items-center gap-1 text-xs text-slate-400">
+          <Clock className="h-3.5 w-3.5 text-lime-400" />
+        </div>
 
         {/* User menu */}
         <UserButton afterSignOutUrl={`/${tenant.slug}/login`} />
