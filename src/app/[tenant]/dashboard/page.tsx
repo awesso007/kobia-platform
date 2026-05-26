@@ -375,14 +375,34 @@ async function renderDashboard(params: { tenant: string }) {
           <h2 className="text-sm font-semibold text-slate-900">Quick actions</h2>
           <div className="mt-3 space-y-2">
             <QuickLink
-              href={`/${params.tenant}/ar/invoices`}
+              href={`/${params.tenant}/ar/customers/new`}
+              label="Add customer"
+              hint="Create a new client"
+            />
+            <QuickLink
+              href={`/${params.tenant}/ap/vendors/new`}
+              label="Add vendor"
+              hint="Create a new supplier"
+            />
+            <QuickLink
+              href={`/${params.tenant}/ar/invoices/new`}
               label="New invoice"
               hint="Bill a customer"
             />
             <QuickLink
-              href={`/${params.tenant}/time`}
-              label="Log time"
-              hint="Track billable hours"
+              href={`/${params.tenant}/ap/bills/new`}
+              label="New bill"
+              hint="Record a vendor expense"
+            />
+            <QuickLink
+              href={`/${params.tenant}/books/journal/new`}
+              label="New journal entry"
+              hint="Manual debit/credit"
+            />
+            <QuickLink
+              href={`/${params.tenant}/bank`}
+              label="Reconcile bank"
+              hint="Match transactions"
             />
             <QuickLink
               href={`/${params.tenant}/crm/leads`}
@@ -390,9 +410,9 @@ async function renderDashboard(params: { tenant: string }) {
               hint="Capture a prospect"
             />
             <QuickLink
-              href={`/${params.tenant}/ap/bills`}
-              label="New bill"
-              hint="Record a vendor expense"
+              href={`/${params.tenant}/time`}
+              label="Log time"
+              hint="Track billable hours"
             />
             <QuickLink
               href={`/${params.tenant}/practice`}

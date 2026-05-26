@@ -91,7 +91,7 @@ export const MODULES: ModuleDefinition[] = [
         ],
       },
       {
-        label: "Receivables",
+        label: "Customers",
         groups: [
           {
             items: [
@@ -104,7 +104,7 @@ export const MODULES: ModuleDefinition[] = [
         ],
       },
       {
-        label: "Payables",
+        label: "Vendors",
         groups: [
           {
             items: [
