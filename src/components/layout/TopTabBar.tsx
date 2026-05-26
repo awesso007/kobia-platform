@@ -62,8 +62,8 @@ export function TopTabBar({
               href={href}
               className={`rounded-md px-3 py-1.5 text-sm font-medium transition whitespace-nowrap ${
                 active
-                  ? "bg-slate-700/80 text-white"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  ? "bg-white/20 text-white"
+                  : "text-white/85 hover:bg-white/10 hover:text-white"
               }`}
             >
               {tab.label}
@@ -83,8 +83,8 @@ export function TopTabBar({
               }}
               className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium transition whitespace-nowrap ${
                 active || isOpen
-                  ? "bg-slate-700/80 text-white"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  ? "bg-white/20 text-white"
+                  : "text-white/85 hover:bg-white/10 hover:text-white"
               }`}
               aria-haspopup="menu"
               aria-expanded={isOpen}
@@ -154,7 +154,7 @@ export function TopTabBar({
       <div className="hidden lg:flex">
         <button
           type="button"
-          className="rounded-md p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+          className="rounded-md p-1.5 text-white/70 hover:bg-white/10 hover:text-white"
           aria-label="More options"
         >
           <MoreHorizontal className="h-4 w-4" />
