@@ -1,0 +1,70 @@
+/*
+ * KOBIA CRM design tokens - Bitrix24-aligned.
+ * Source: kobia_ux_reference/bitrix24/BITRIX24_UX_SPEC.md (Section 1).
+ * Scoped under .kobia-crm so the legacy accounting shell (shadcn HSL tokens in
+ * globals.css) is unaffected. Apply this class on the CRM shell root.
+ *
+ * No em-dashes in this file by project convention (use hyphens).
+ */
+
+.kobia-crm {
+  /* Color tokens (hex, straight from the UX spec) */
+  --kb-primary: #1d77bd;
+  --kb-primary-bright: #2fc6f6;
+  --kb-primary-hover: #1a6aa8;
+
+  --kb-sidebar-bg: #1a1a2e;
+  --kb-sidebar-active: rgba(255, 255, 255, 0.06);
+  --kb-sidebar-hover: rgba(255, 255, 255, 0.04);
+  --kb-sidebar-text: #c7c9d9;
+  --kb-sidebar-text-active: #ffffff;
+
+  --kb-page-bg: #f5f6f8;
+  --kb-surface: #ffffff;
+  --kb-surface-grey: #f0f0f0;
+
+  --kb-success: #5cb85c;
+  --kb-warning: #f0ad4e;
+  --kb-error: #d9534f;
+
+  --kb-text-primary: #333333;
+  --kb-text-secondary: #828282;
+  --kb-border: #e0e0e0;
+  --kb-accent-purple: #7d4aea;
+
+  /* Typography */
+  --kb-font:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  --kb-fs-h1: 21px;
+  --kb-fs-section: 16px;
+  --kb-fs-body: 14px;
+  --kb-fs-meta: 12px;
+  --kb-fs-nav: 13px;
+  --kb-fw-regular: 400;
+  --kb-fw-medium: 500;
+  --kb-fw-semibold: 600;
+  --kb-lh-body: 1.4;
+
+  /* Spacing and density */
+  --kb-sidebar-w: 240px;
+  --kb-sidebar-w-collapsed: 64px;
+  --kb-topbar-h: 56px;
+  --kb-row-h: 40px;
+  --kb-card-pad: 16px;
+  --kb-section-gap: 16px;
+  --kb-btn-pad-y: 8px;
+  --kb-btn-pad-x: 16px;
+
+  /* Radii */
+  --kb-radius: 6px;
+  --kb-radius-sm: 4px;
+
+  /* Shadows */
+  --kb-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --kb-shadow-modal: 0 8px 30px rgba(0, 0, 0, 0.18);
+  --kb-shadow-pop: 0 2px 12px rgba(0, 0, 0, 0.12);
+
+  font-family: var(--kb-font);
+  color: var(--kb-text-primary);
+}

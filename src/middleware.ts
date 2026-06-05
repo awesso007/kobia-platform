@@ -22,6 +22,10 @@ const isPublicRoute = createRouteMatcher([
   "/portal(.*)",
   "/sign/(.*)",
   "/debug2(.*)",
+  // Sprint 1: CRM shell is a stub with no tenant resolution yet (see
+  // CONFLICTS.md, Conflict 2). Kept public so the shell renders during the
+  // foundations sprint. Auth gating is added once tenant resolution is wired.
+  "/app(.*)",
 ]);
 
 export default clerkMiddleware((auth, req: NextRequest) => {
