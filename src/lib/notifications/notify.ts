@@ -14,7 +14,16 @@
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import type { PrismaClient } from "@/lib/db/generated/tenant";
 
-export type NotificationType = "MENTION" | "ASSIGNMENT" | "DUE_SOON" | "AUTOMATION_RESULT" | "SYSTEM";
+export type NotificationType =
+  | "MENTION"
+  | "ASSIGNMENT"
+  | "DUE_SOON"
+  | "AUTOMATION_RESULT"
+  | "SYSTEM"
+  | "TASK_ASSIGNED"
+  | "TASK_DUE_SOON"
+  | "TASK_MENTIONED"
+  | "TASK_COMMENTED";
 
 export type NotifyInput = {
   type: NotificationType;

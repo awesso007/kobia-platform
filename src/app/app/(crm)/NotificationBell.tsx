@@ -9,7 +9,7 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Bell, AtSign, UserCheck, Clock, Zap, Info } from "lucide-react";
+import { Bell, AtSign, UserCheck, Clock, Zap, Info, CheckSquare, MessageSquare } from "lucide-react";
 import { markNotificationRead, markAllNotificationsRead } from "./notifications-actions";
 import type { NotificationRow } from "@/lib/notifications/queries";
 
@@ -21,6 +21,10 @@ const ICON: Record<NotificationType, typeof Bell> = {
   DUE_SOON: Clock,
   AUTOMATION_RESULT: Zap,
   SYSTEM: Info,
+  TASK_ASSIGNED: CheckSquare,
+  TASK_DUE_SOON: Clock,
+  TASK_MENTIONED: AtSign,
+  TASK_COMMENTED: MessageSquare,
 };
 
 function relativeTime(iso: string): string {

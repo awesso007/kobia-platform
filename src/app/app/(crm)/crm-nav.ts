@@ -13,6 +13,8 @@ import {
   BarChart3,
   MessageSquare,
   FolderOpen,
+  FolderKanban,
+  CheckSquare,
   Settings,
 } from "lucide-react";
 
@@ -28,6 +30,8 @@ export const crmNav: CrmNavItem[] = [
   { key: "deals", label: "Deals", href: "/app/deals", icon: Handshake },
   { key: "contacts", label: "Contacts", href: "/app/contacts", icon: Contact },
   { key: "companies", label: "Companies", href: "/app/companies", icon: Building2 },
+  { key: "projects", label: "Projects", href: "/app/projects", icon: FolderKanban },
+  { key: "tasks", label: "My Tasks", href: "/app/tasks", icon: CheckSquare },
   { key: "activities", label: "Activities", href: "/app/activities", icon: Activity },
   { key: "messages", label: "Messages", href: "/app/messages", icon: MessageSquare },
   { key: "files", label: "Files", href: "/app/files", icon: FolderOpen },

@@ -129,6 +129,74 @@ export async function productPerformance(): Promise<ProductPerfRow[]> {
     .slice(0, 20);
 }
 
+export type ProjectPerfRow = { project: string; total: number; done: number; progressPct: number; loggedMinutes: number };
+
+/**
+ * Project Performance: per project, task count, tasks done, average progress,
+ * and total minutes logged (Sprint 11).
+ */
+export async function projectPerformance(): Promise<ProjectPerfRow[]> {
+  const { db } = getTenantDb();
+  const projects = await db.project.findMany({
+    include: {
+      tasks: { where: { deletedAt: null }, select: { status: true, progressPct: true } },
+    },
+  });
+  const minutesByProject = await db.timeEntry.groupBy({
+    by: ["projectId"],
+    where: { projectId: { not: null } },
+    _sum: { durationMinutes: true },
+  });
+  const loggedFor = new Map<string, number>();
+  for (const g of minutesByProject) if (g.projectId) loggedFor.set(g.projectId, g._sum.durationMinutes ?? 0);
+
+  return projects
+    .map((p) => {
+      const total = p.tasks.length;
+      const done = p.tasks.filter((t) => t.status === "DONE").length;
+      const progressPct = total
+        ? Math.round(p.tasks.reduce((s, t) => s + (t.status === "DONE" ? 100 : t.status === "CANCELED" ? 0 : t.progressPct), 0) / total)
+        : 0;
+      return { project: p.name, total, done, progressPct, loggedMinutes: loggedFor.get(p.id) ?? 0 };
+    })
+    .sort((a, b) => b.total - a.total);
+}
+
+export type WorkloadRow = { member: string; open: number; done: number; loggedMinutes: number };
+
+/**
+ * Team Workload: per assignee, open task count, done count, and minutes logged
+ * (Sprint 11). Members are resolved to display names where available.
+ */
+export async function teamWorkload(): Promise<WorkloadRow[]> {
+  const { db } = getTenantDb();
+  const [tasks, members, minutesByUser] = await Promise.all([
+    db.task.findMany({ where: { deletedAt: null }, select: { assigneeClerkUserId: true, status: true } }),
+    db.membership.findMany({ select: { clerkUserId: true, displayName: true, email: true } }),
+    db.timeEntry.groupBy({ by: ["clerkUserId"], _sum: { durationMinutes: true } }),
+  ]);
+  const nameFor = new Map(members.map((m) => [m.clerkUserId, m.displayName ?? m.email ?? m.clerkUserId]));
+  const loggedFor = new Map<string, number>();
+  for (const g of minutesByUser) loggedFor.set(g.clerkUserId, g._sum.durationMinutes ?? 0);
+
+  const byUser = new Map<string, { open: number; done: number }>();
+  for (const t of tasks) {
+    const uid = t.assigneeClerkUserId ?? "Unassigned";
+    const entry = byUser.get(uid) ?? { open: 0, done: 0 };
+    if (t.status === "DONE" || t.status === "CANCELED") entry.done += 1;
+    else entry.open += 1;
+    byUser.set(uid, entry);
+  }
+  return Array.from(byUser.entries())
+    .map(([uid, v]) => ({
+      member: uid === "Unassigned" ? "Unassigned" : (nameFor.get(uid) ?? uid),
+      open: v.open,
+      done: v.done,
+      loggedMinutes: loggedFor.get(uid) ?? 0,
+    }))
+    .sort((a, b) => b.open - a.open);
+}
+
 // ---------------------------------------------------------------------------
 // Custom report runner
 // ---------------------------------------------------------------------------
