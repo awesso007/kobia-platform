@@ -18,6 +18,8 @@ const TABS = [
   { href: "/app/settings/notifications", label: "Notifications" },
   { href: "/app/settings/forms", label: "Forms" },
   { href: "/app/settings/email", label: "Email" },
+  { href: "/app/settings/telephony", label: "Telephony" },
+  { href: "/app/settings/profile", label: "Profile" },
   { href: "/app/settings/workspace", label: "Workspace" },
 ];
 

@@ -38,6 +38,7 @@ export type Action =
   | "tag:manage"
   | "form:manage"
   | "email:manage"
+  | "telephony:manage"
   | "member:manage"
   | "billing:manage"
   | "workspace:manage"
@@ -49,19 +50,19 @@ const MATRIX: Record<Role, Set<Action>> = {
     "record:read", "record:create", "record:update", "record:delete",
     "activity:create", "report:run", "report:manage",
     "automation:manage", "customfield:manage", "tag:manage", "form:manage",
-    "email:manage",
+    "email:manage", "telephony:manage",
     "member:manage", "billing:manage", "workspace:manage", "tenant:delete",
   ]),
   ADMIN: new Set<Action>([
     "record:read", "record:create", "record:update", "record:delete",
     "activity:create", "report:run", "report:manage",
     "automation:manage", "customfield:manage", "tag:manage", "form:manage",
-    "email:manage",
+    "email:manage", "telephony:manage",
     "member:manage", "workspace:manage",
   ]),
   MEMBER: new Set<Action>([
     "record:read", "record:create", "record:update",
-    "activity:create", "report:run", "email:manage",
+    "activity:create", "report:run", "email:manage", "telephony:manage",
   ]),
   VIEWER: new Set<Action>([
     "record:read", "report:run",

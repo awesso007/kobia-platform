@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { ArrowUpDown, Plus } from "lucide-react";
 import { KbButton } from "@/components/crm/ui";
 import { RecordPane } from "@/components/crm/record-pane/RecordPane";
+import { CallButton } from "@/components/crm/calls/CallButton";
 import { TagChips } from "@/components/crm/TagChips";
 import { TagPicker } from "@/components/crm/TagPicker";
 import { CustomFieldInputs } from "@/components/crm/CustomFieldInputs";
@@ -107,7 +108,14 @@ export function ContactsTable({
                 <tr key={c.id} onClick={() => setEditing(c)} className="cursor-pointer" style={{ borderTop: "1px solid var(--kb-border)", height: "var(--kb-row-h)" }}>
                   <td className="px-3" style={{ color: "var(--kb-text-primary)", fontWeight: 500 }}>{c.name}{c.title ? <span className="ml-2 text-xs" style={{ color: "var(--kb-text-secondary)" }}>{c.title}</span> : null}</td>
                   <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.email ?? "-"}</td>
-                  <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.phone ?? "-"}</td>
+                  <td className="px-3" style={{ color: "var(--kb-text-secondary)" }} onClick={(e) => e.stopPropagation()}>
+                    {c.phone ? (
+                      <span className="inline-flex items-center gap-1">
+                        {c.phone}
+                        <CallButton target={{ toE164: c.phone, contactId: c.id }} compact />
+                      </span>
+                    ) : "-"}
+                  </td>
                   <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.companyName ?? "-"}</td>
                   <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.ownerUserId ?? "-"}</td>
                   <td className="px-3"><TagChips tags={c.tags} /></td>
@@ -136,6 +144,7 @@ export function ContactsTable({
           id={editing.id}
           title={editing.name}
           subtitle={editing.companyName ?? editing.email ?? undefined}
+          recordPhone={editing.phone ?? null}
           onClose={() => setEditing(null)}
           details={<ContactDetails contact={editing} companies={companies} allTags={allTags} customFields={customFields} />}
         />

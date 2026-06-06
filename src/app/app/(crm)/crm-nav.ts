@@ -11,6 +11,7 @@ import {
   Activity,
   Workflow,
   BarChart3,
+  MessageSquare,
   Settings,
 } from "lucide-react";
 
@@ -27,6 +28,7 @@ export const crmNav: CrmNavItem[] = [
   { key: "contacts", label: "Contacts", href: "/app/contacts", icon: Contact },
   { key: "companies", label: "Companies", href: "/app/companies", icon: Building2 },
   { key: "activities", label: "Activities", href: "/app/activities", icon: Activity },
+  { key: "messages", label: "Messages", href: "/app/messages", icon: MessageSquare },
   { key: "automations", label: "Automations", href: "/app/automations", icon: Workflow },
   { key: "reports", label: "Reports", href: "/app/reports", icon: BarChart3 },
   { key: "settings", label: "Settings", href: "/app/settings", icon: Settings },

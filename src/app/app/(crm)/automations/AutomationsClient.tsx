@@ -35,17 +35,20 @@ import { RunHistory } from "./RunHistory";
 
 export type EmailAccountOption = { id: string; address: string };
 export type EmailTemplateOption = { id: string; name: string };
+export type PhoneNumberOption = { id: string; e164: string };
 
 export function AutomationsClient({
   automations,
   allTags,
   emailAccounts,
   emailTemplates,
+  phoneNumbers,
 }: {
   automations: AutomationRow[];
   allTags: TagRow[];
   emailAccounts: EmailAccountOption[];
   emailTemplates: EmailTemplateOption[];
+  phoneNumbers: PhoneNumberOption[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState<AutomationRow | "new" | null>(null);
@@ -128,6 +131,7 @@ export function AutomationsClient({
           allTags={allTags}
           emailAccounts={emailAccounts}
           emailTemplates={emailTemplates}
+          phoneNumbers={phoneNumbers}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); router.refresh(); }}
         />
@@ -139,7 +143,7 @@ export function AutomationsClient({
 
 const emptyConditions: ConditionGroup = { combinator: "AND", rows: [] };
 
-function BuilderModal({ initial, allTags, emailAccounts, emailTemplates, onClose, onSaved }: { initial: AutomationRow | null; allTags: TagRow[]; emailAccounts: EmailAccountOption[]; emailTemplates: EmailTemplateOption[]; onClose: () => void; onSaved: () => void }) {
+function BuilderModal({ initial, allTags, emailAccounts, emailTemplates, phoneNumbers, onClose, onSaved }: { initial: AutomationRow | null; allTags: TagRow[]; emailAccounts: EmailAccountOption[]; emailTemplates: EmailTemplateOption[]; phoneNumbers: PhoneNumberOption[]; onClose: () => void; onSaved: () => void }) {
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -289,7 +293,7 @@ function BuilderModal({ initial, allTags, emailAccounts, emailTemplates, onClose
                       <button type="button" onClick={() => removeAction(i)} aria-label="Remove action" style={{ color: "var(--kb-error)" }}><X size={14} /></button>
                     </div>
                   </div>
-                  <ActionConfig action={act} fields={fields.map((f) => ({ key: f.key, label: f.label }))} allTags={allTags} emailAccounts={emailAccounts} emailTemplates={emailTemplates} onChange={(patch) => setActionConfig(i, patch)} />
+                  <ActionConfig action={act} fields={fields.map((f) => ({ key: f.key, label: f.label }))} allTags={allTags} emailAccounts={emailAccounts} emailTemplates={emailTemplates} phoneNumbers={phoneNumbers} onChange={(patch) => setActionConfig(i, patch)} />
                 </div>
               ))
             )}
@@ -309,7 +313,7 @@ function BuilderModal({ initial, allTags, emailAccounts, emailTemplates, onClose
   );
 }
 
-function ActionConfig({ action, fields, allTags, emailAccounts, emailTemplates, onChange }: { action: AutomationAction; fields: { key: string; label: string }[]; allTags: TagRow[]; emailAccounts: EmailAccountOption[]; emailTemplates: EmailTemplateOption[]; onChange: (patch: Record<string, unknown>) => void }) {
+function ActionConfig({ action, fields, allTags, emailAccounts, emailTemplates, phoneNumbers, onChange }: { action: AutomationAction; fields: { key: string; label: string }[]; allTags: TagRow[]; emailAccounts: EmailAccountOption[]; emailTemplates: EmailTemplateOption[]; phoneNumbers: PhoneNumberOption[]; onChange: (patch: Record<string, unknown>) => void }) {
   const c = action.config ?? {};
   const get = (k: string) => (c[k] === undefined ? "" : String(c[k]));
   switch (action.kind) {
@@ -368,6 +372,28 @@ function ActionConfig({ action, fields, allTags, emailAccounts, emailTemplates, 
             <option value="trigger.owner.email">Recipient: record owner</option>
           </select>
           {emailAccounts.length === 0 ? <div className="text-xs" style={{ color: "var(--kb-text-secondary)" }}>No email accounts connected yet.</div> : null}
+        </div>
+      );
+    case "SEND_SMS":
+      return (
+        <div className="space-y-1">
+          <select value={get("fromPhoneNumberId")} onChange={(e) => onChange({ fromPhoneNumberId: e.target.value })} className="w-full rounded px-2 py-1 text-xs outline-none" style={inputStyle}>
+            <option value="">From number...</option>
+            {phoneNumbers.map((p) => <option key={p.id} value={p.id}>{p.e164}</option>)}
+          </select>
+          <select value={get("to") || "trigger.contact.phone"} onChange={(e) => onChange({ to: e.target.value })} className="w-full rounded px-2 py-1 text-xs outline-none" style={inputStyle}>
+            <option value="trigger.contact.phone">Recipient: contact phone</option>
+            <option value="trigger.lead.phone">Recipient: lead phone</option>
+          </select>
+          <textarea value={get("body")} onChange={(e) => onChange({ body: e.target.value })} placeholder="Message (supports {{record.field}})" rows={2} className="w-full resize-none rounded px-2 py-1 text-xs outline-none" style={inputStyle} />
+          {phoneNumbers.length === 0 ? <div className="text-xs" style={{ color: "var(--kb-text-secondary)" }}>No phone numbers configured yet.</div> : null}
+        </div>
+      );
+    case "MAKE_CALL":
+      return (
+        <div className="space-y-1">
+          <input value={get("subject")} onChange={(e) => onChange({ subject: e.target.value })} placeholder="Reminder subject (supports {{record.field}})" className="w-full rounded px-2 py-1 text-xs outline-none" style={inputStyle} />
+          <div className="text-xs" style={{ color: "var(--kb-text-secondary)" }}>Creates a Task reminding the owner to call. Outbound dialing is coming soon.</div>
         </div>
       );
     case "WAIT":

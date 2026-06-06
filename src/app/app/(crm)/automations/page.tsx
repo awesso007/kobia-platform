@@ -12,11 +12,12 @@ export default async function AutomationsPage() {
   try {
     await requirePlan("automations");
     const { db } = getTenantDb();
-    const [automations, tags, emailAccounts, emailTemplates] = await Promise.all([
+    const [automations, tags, emailAccounts, emailTemplates, phoneNumbers] = await Promise.all([
       listAutomations(),
       listTags(),
       db.emailAccount.findMany({ orderBy: { address: "asc" }, select: { id: true, address: true } }),
       db.emailTemplate.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+      db.phoneNumber.findMany({ where: { status: "ACTIVE" }, orderBy: { e164: "asc" }, select: { id: true, e164: true } }),
     ]);
     return (
       <AutomationsClient
@@ -24,6 +25,7 @@ export default async function AutomationsPage() {
         allTags={tags}
         emailAccounts={emailAccounts}
         emailTemplates={emailTemplates}
+        phoneNumbers={phoneNumbers}
       />
     );
   } catch (err) {
