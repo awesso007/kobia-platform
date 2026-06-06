@@ -34,8 +34,38 @@ model TenantRegistry {
   // Nullable: Clerk Organizations are not wired in Sprint 1 (slug-in-URL
   // resolution). Stored now so adopting Clerk Orgs later is a drop-in.
   clerkOrgId String?  @map("clerk_org_id")
+  // Sprint 5: Stripe billing scaffolding. All nullable; populated by the
+  // billing webhook / checkout flow. Stays additive so a tenant with no
+  // subscription still resolves.
+  stripeCustomerId     String?   @map("stripe_customer_id")
+  stripeSubscriptionId String?   @map("stripe_subscription_id")
+  subscriptionStatus   String?   @map("subscription_status")
+  subscriptionRenewsAt DateTime? @map("subscription_renews_at")
+  trialEndsAt          DateTime? @map("trial_ends_at")
+  seatsPurchased       Int       @default(1) @map("seats_purchased")
+  seatsUsed            Int       @default(0) @map("seats_used")
+  billingEmail         String?   @map("billing_email")
+  // Sprint 5: per-tenant theme. Defaults injected in app code when null.
+  theme      Json?
+  // Sprint 5: human-friendly workspace name (the slug is the URL-safe id).
+  displayName String?  @map("display_name")
+  // Sprint 5: workspace defaults editable from /app/settings/workspace.
+  timezone    String?  @map("timezone")
+  logoUrl     String?  @map("logo_url")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@map("tenant_registry")
+}
+
+/// Append-only log of Stripe webhook events, for audit / debugging.
+model BillingEvent {
+  id        String   @id @default(cuid())
+  tenantId  String?  @map("tenant_id")
+  type      String
+  payload   Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@map("billing_event")
 }

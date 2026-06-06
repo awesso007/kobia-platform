@@ -287,8 +287,59 @@ async function main() {
       console.log(`[seed-tenant] saved reports already present (${reportCount}); skipping insert`);
     }
 
+    // 10. Memberships (Sprint 5 RBAC) - upsert by unique clerkUserId.
+    const MEMBERS = [
+      { clerkUserId: "user_acme_owner_seed", role: "OWNER" as const, email: "owner@acme.test", displayName: "Acme Owner" },
+      { clerkUserId: "user_acme_admin_seed", role: "ADMIN" as const, email: "admin@acme.test", displayName: "Acme Admin" },
+      { clerkUserId: "user_acme_member1_seed", role: "MEMBER" as const, email: "member1@acme.test", displayName: "Acme Member One" },
+      { clerkUserId: "user_acme_member2_seed", role: "MEMBER" as const, email: "member2@acme.test", displayName: "Acme Member Two" },
+      { clerkUserId: "user_acme_viewer_seed", role: "VIEWER" as const, email: "viewer@acme.test", displayName: "Acme Viewer" },
+    ];
+    for (const m of MEMBERS) {
+      await db.membership.upsert({
+        where: { clerkUserId: m.clerkUserId },
+        create: { ...m, status: "ACTIVE" },
+        update: { role: m.role, email: m.email, displayName: m.displayName, status: "ACTIVE" },
+      });
+    }
+    console.log(`[seed-tenant] ${MEMBERS.length} memberships ready`);
+
+    // 11. WebForm (Sprint 5 web-to-lead) - upsert by unique slug.
+    await db.webForm.upsert({
+      where: { slug: "contact" },
+      create: {
+        slug: "contact",
+        name: "Contact Us",
+        fieldsConfig: [
+          { fieldName: "name", label: "Name", type: "text", required: true },
+          { fieldName: "email", label: "Email", type: "email", required: true },
+          { fieldName: "phone", label: "Phone", type: "tel", required: false },
+          { fieldName: "message", label: "Message", type: "textarea", required: false },
+        ] as never,
+      },
+      update: {},
+    });
+    console.log(`[seed-tenant] web form "contact" ready`);
+
+    // 12. Notification (Sprint 5) - one unread notification for the OWNER.
+    const notifCount = await db.notification.count();
+    if (notifCount === 0) {
+      await db.notification.create({
+        data: {
+          clerkUserId: "user_acme_owner_seed",
+          type: "SYSTEM",
+          title: "Welcome to KOBIA CRM",
+          body: "Your workspace is ready. Invite your team from Settings -> Team.",
+          linkUrl: "/app/settings/team",
+        },
+      });
+      console.log(`[seed-tenant] inserted 1 notification`);
+    } else {
+      console.log(`[seed-tenant] notifications already present (${notifCount}); skipping insert`);
+    }
+
     // Summary
-    const [pipelines, stages, contacts, leads, deals, companies, tags, customFields, automations, automationRuns, savedReports] = await Promise.all([
+    const [pipelines, stages, contacts, leads, deals, companies, tags, customFields, automations, automationRuns, savedReports, memberships, webForms, notifications] = await Promise.all([
       db.pipeline.count(),
       db.dealStage.count(),
       db.contact.count(),
@@ -300,9 +351,12 @@ async function main() {
       db.automation.count(),
       db.automationRun.count(),
       db.savedReport.count(),
+      db.membership.count(),
+      db.webForm.count(),
+      db.notification.count(),
     ]);
     console.log(
-      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields} automations=${automations} automationRuns=${automationRuns} savedReports=${savedReports}`,
+      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields} automations=${automations} automationRuns=${automationRuns} savedReports=${savedReports} memberships=${memberships} webForms=${webForms} notifications=${notifications}`,
     );
   } finally {
     await db.$disconnect();

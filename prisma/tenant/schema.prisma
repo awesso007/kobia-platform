@@ -429,3 +429,85 @@ model SavedReport {
 
   @@index([createdAt])
 }
+
+// =============================================================================
+// Sprint 5: RBAC (Membership), in-app Notifications, and Web-to-Lead forms.
+// All tenant-scoped (they live in tenant_<slug>). Membership is keyed by the
+// Clerk user id and is distinct from the legacy row-level Membership used by
+// the hidden accounting code (prisma/schema.prisma). The four-value
+// CrmEntityType stays untouched.
+// =============================================================================
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+}
+
+model Membership {
+  id          String           @id @default(cuid())
+  clerkUserId String           @unique
+  role        MembershipRole   @default(MEMBER)
+  email       String?
+  displayName String?
+  status      MembershipStatus @default(ACTIVE)
+  joinedAt    DateTime         @default(now())
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([role])
+  @@index([status])
+}
+
+enum NotificationType {
+  MENTION
+  ASSIGNMENT
+  DUE_SOON
+  AUTOMATION_RESULT
+  SYSTEM
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  clerkUserId String
+  type        NotificationType @default(SYSTEM)
+  title       String
+  body        String?
+  linkUrl     String?
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
+
+  @@index([clerkUserId, readAt])
+  @@index([createdAt])
+}
+
+model NotificationPref {
+  id          String           @id @default(cuid())
+  clerkUserId String
+  type        NotificationType
+  inApp       Boolean          @default(true)
+  email       Boolean          @default(false)
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([clerkUserId, type])
+}
+
+model WebForm {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  fieldsConfig Json
+  thankYouUrl  String?
+  redirectUrl  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([slug])
+}

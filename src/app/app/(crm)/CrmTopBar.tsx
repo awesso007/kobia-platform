@@ -1,17 +1,16 @@
 "use client";
 
-import { Search, Bell, ChevronDown } from "lucide-react";
+import { Search } from "lucide-react";
+import { NotificationBell } from "./NotificationBell";
+import { TenantSwitcher } from "./TenantSwitcher";
+import type { NotificationRow } from "@/lib/notifications/queries";
+import type { UserTenant } from "@/lib/tenancy/user-tenants";
 
 /*
  * CRM top bar. Bitrix24 pattern: 56px tall, light surface, left = tenant
  * switcher, center = search, right = notifications bell + user menu.
- *
- * Sprint 1: tenant switcher and user menu are stubs. Final wiring depends on
- * the tenant-resolution decision (see CONFLICTS.md, Conflict 2). The Clerk
- * <UserButton> is intentionally not added here yet to avoid touching Clerk
- * wiring before that decision.
  */
-export function CrmTopBar() {
+export function CrmTopBar({ notifications = [], tenants = [] }: { notifications?: NotificationRow[]; tenants?: UserTenant[] }) {
   return (
     <header
       className="flex items-center gap-4 px-4"
@@ -21,20 +20,7 @@ export function CrmTopBar() {
         borderBottom: "1px solid var(--kb-border)",
       }}
     >
-      <button
-        type="button"
-        className="flex items-center gap-2 rounded px-2 py-1 text-sm"
-        style={{ color: "var(--kb-text-primary)" }}
-      >
-        <span
-          className="grid h-6 w-6 place-items-center rounded text-xs font-semibold text-white"
-          style={{ backgroundColor: "var(--kb-primary)" }}
-        >
-          A
-        </span>
-        <span>Select tenant</span>
-        <ChevronDown size={14} style={{ color: "var(--kb-text-secondary)" }} />
-      </button>
+      <TenantSwitcher tenants={tenants} />
 
       <div className="relative flex-1 max-w-xl">
         <Search
@@ -54,18 +40,7 @@ export function CrmTopBar() {
         />
       </div>
 
-      <button
-        type="button"
-        className="relative grid h-9 w-9 place-items-center rounded"
-        aria-label="Notifications"
-        style={{ color: "var(--kb-text-secondary)" }}
-      >
-        <Bell size={18} />
-        <span
-          className="absolute right-2 top-2 h-2 w-2 rounded-full"
-          style={{ backgroundColor: "var(--kb-success)" }}
-        />
-      </button>
+      <NotificationBell initial={notifications} />
 
       <div
         className="grid h-8 w-8 place-items-center rounded-full text-xs font-semibold text-white"

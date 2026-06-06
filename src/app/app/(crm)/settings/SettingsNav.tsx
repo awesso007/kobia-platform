@@ -13,6 +13,11 @@ const TABS = [
   { href: "/app/settings/custom-fields", label: "Custom fields" },
   { href: "/app/settings/tags", label: "Tags" },
   { href: "/app/settings/audit", label: "Audit log" },
+  { href: "/app/settings/team", label: "Team" },
+  { href: "/app/settings/billing", label: "Billing" },
+  { href: "/app/settings/notifications", label: "Notifications" },
+  { href: "/app/settings/forms", label: "Forms" },
+  { href: "/app/settings/workspace", label: "Workspace" },
 ];
 
 export function SettingsNav() {
