@@ -20,6 +20,7 @@ export const AUTOMATION_TRIGGERS = [
   "EMAIL_RECEIVED",
   "SMS_RECEIVED",
   "CALL_COMPLETED",
+  "FILE_UPLOADED",
 ] as const;
 export type AutomationTriggerKind = (typeof AUTOMATION_TRIGGERS)[number];
 
@@ -34,6 +35,7 @@ export const TRIGGER_LABELS: Record<AutomationTriggerKind, string> = {
   EMAIL_RECEIVED: "Email received",
   SMS_RECEIVED: "SMS received",
   CALL_COMPLETED: "Call completed",
+  FILE_UPLOADED: "File uploaded",
 };
 
 export const CONDITION_OPERATORS = [
@@ -69,6 +71,7 @@ export const ACTION_KINDS = [
   "SEND_EMAIL",
   "SEND_SMS",
   "MAKE_CALL",
+  "ATTACH_FILE",
   "WAIT",
 ] as const;
 export type ActionKind = (typeof ACTION_KINDS)[number];
@@ -83,6 +86,7 @@ export const ACTION_LABELS: Record<ActionKind, string> = {
   SEND_EMAIL: "Send email",
   SEND_SMS: "Send SMS",
   MAKE_CALL: "Make call",
+  ATTACH_FILE: "Attach file",
   WAIT: "Wait",
 };
 
