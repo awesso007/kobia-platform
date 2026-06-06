@@ -2,6 +2,7 @@ import "@/styles/tokens.css";
 import { headers } from "next/headers";
 import { CrmSidebar } from "./CrmSidebar";
 import { CrmTopBar } from "./CrmTopBar";
+import { KeyboardShortcuts } from "@/components/crm/KeyboardShortcuts";
 import { listNotifications } from "@/lib/notifications/queries";
 import { listUserTenants } from "@/lib/tenancy/user-tenants";
 import { getPlatformDb } from "@/lib/db/platform";
@@ -37,6 +38,7 @@ export default async function CrmLayout({ children }: { children: React.ReactNod
       style={{ backgroundColor: "var(--kb-page-bg)" }}
     >
       <style dangerouslySetInnerHTML={{ __html: themeCssVars(theme) }} />
+      <KeyboardShortcuts />
       <CrmSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <CrmTopBar notifications={notifications} tenants={tenants} />

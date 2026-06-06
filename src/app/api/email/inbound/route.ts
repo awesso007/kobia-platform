@@ -23,6 +23,7 @@ import { resolveLinkForAddress } from "@/lib/email/link";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
 import { ingestObject } from "@/lib/storage";
 import { attachFile } from "@/lib/files/files";
+import { reindex } from "@/lib/search";
 
 export const dynamic = "force-dynamic";
 
@@ -173,6 +174,7 @@ export async function POST(req: NextRequest) {
         if (linkedType && linkedId) {
           await attachFile(db, { fileId: file.id, entityType: linkedType as never, entityId: linkedId });
         }
+        await reindex(db, "FILE", file.id);
       } catch (err) {
         console.error("[email/inbound] attachment ingest failed", err);
       }
@@ -187,6 +189,8 @@ export async function POST(req: NextRequest) {
       unreadCount: { increment: 1 },
     },
   });
+
+  await reindex(db, "EMAIL_MESSAGE", message.id);
 
   // Fire EMAIL_RECEIVED automation if the thread is linked to a record.
   if (linkedType && linkedId) {

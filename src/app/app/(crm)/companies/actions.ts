@@ -14,6 +14,7 @@ import { auditWrite } from "@/lib/crm/audit";
 import { requirePermission, isOwn } from "@/lib/rbac/require-permission";
 import { notify } from "@/lib/notifications/notify";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
+import { reindex, removeFromIndex } from "@/lib/search";
 import { setEntityTags } from "../settings/tags/actions";
 import { saveCustomFieldValues } from "../settings/custom-fields/actions";
 import { COMPANY_SIZES } from "@/lib/crm/record";
@@ -65,6 +66,7 @@ export async function createCompany(input: CompanyInput) {
   if (ownerId)
     await notify(ownerId, { type: "ASSIGNMENT", title: `You were assigned a company: ${name}`, linkUrl: "/app/companies" });
   await dispatchAutomation({ type: "RECORD_CREATED", entityType: "COMPANY", entityId: company.id });
+  await reindex(db, "COMPANY", company.id);
   revalidatePath("/app/companies");
   return company.id;
 }
@@ -86,6 +88,7 @@ export async function updateCompany(id: string, input: CompanyInput) {
   if (ownerId && ownerId !== before?.ownerUserId)
     await notify(ownerId, { type: "ASSIGNMENT", title: `You were assigned a company: ${name}`, linkUrl: "/app/companies" });
   await dispatchAutomation({ type: "RECORD_UPDATED", entityType: "COMPANY", entityId: id });
+  await reindex(db, "COMPANY", id);
   revalidatePath("/app/companies");
 }
 
@@ -94,6 +97,7 @@ export async function deleteCompany(id: string) {
   const { db } = getTenantDb();
   await db.company.delete({ where: { id } });
   await auditWrite({ action: "DELETE", entityType: "COMPANY", entityId: id });
+  await removeFromIndex(db, "COMPANY", id);
   revalidatePath("/app/companies");
 }
 

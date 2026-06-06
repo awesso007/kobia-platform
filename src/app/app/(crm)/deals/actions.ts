@@ -10,6 +10,7 @@ import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { auditWrite } from "@/lib/crm/audit";
 import { requirePermission } from "@/lib/rbac/require-permission";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
+import { reindex } from "@/lib/search";
 import { setEntityTags } from "../settings/tags/actions";
 import { saveCustomFieldValues } from "../settings/custom-fields/actions";
 
@@ -28,6 +29,7 @@ export async function moveDealToStage(dealId: string, stageId: string) {
   });
   await auditWrite({ action: "UPDATE", entityType: "DEAL", entityId: dealId, diff: { stageId, status: stage.isWon ? "WON" : stage.isLost ? "LOST" : "OPEN" } });
   await dispatchAutomation({ type: "STAGE_CHANGED", entityType: "DEAL", entityId: dealId, changedFields: ["stageId", "status"] });
+  await reindex(db, "DEAL", dealId);
   revalidatePath("/app/deals");
 }
 
@@ -60,6 +62,7 @@ export async function createDeal(input: {
 
   await auditWrite({ action: "CREATE", entityType: "DEAL", entityId: deal.id, diff: { name } });
   await dispatchAutomation({ type: "RECORD_CREATED", entityType: "DEAL", entityId: deal.id });
+  await reindex(db, "DEAL", deal.id);
   revalidatePath("/app/deals");
   return deal.id;
 }

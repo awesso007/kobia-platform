@@ -10,7 +10,7 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   DndContext,
   PointerSensor,
@@ -33,11 +33,43 @@ import { createDeal, moveDealToStage, updateDealMeta, loadDealDetail } from "./a
 
 export function DealsBoard({ board, allTags, customFields }: { board: DealBoard; allTags: TagRow[]; customFields: CustomFieldDef[] }) {
   const router = useRouter();
+  const sp = useSearchParams();
   const [view, setView] = useState<"kanban" | "list">("kanban");
   const [deals, setDeals] = useState<DealCard[]>(board.deals);
   const [creatingStage, setCreatingStage] = useState<StageCol | null>(null);
   const [openDeal, setOpenDeal] = useState<DealCard | null>(null);
+  const [mobileStageId, setMobileStageId] = useState<string>(board.stages[0]?.id ?? "");
   const [, startTransition] = useTransition();
+
+  // Open a deal's pane when arriving from the command palette (?open=<id>).
+  const openId = sp.get("open");
+  useEffect(() => {
+    if (!openId) return;
+    const card = board.deals.find((d) => d.id === openId);
+    if (card) setOpenDeal(card);
+    const next = new URLSearchParams(sp.toString());
+    next.delete("open");
+    router.replace(`/app/deals${next.toString() ? `?${next.toString()}` : ""}`);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [openId]);
+
+  useEffect(() => {
+    const onNew = () => {
+      const first = board.stages[0];
+      if (first) setCreatingStage(first);
+    };
+    const onEscape = () => {
+      setCreatingStage(null);
+      setOpenDeal(null);
+    };
+    window.addEventListener("kobia:new-record", onNew);
+    window.addEventListener("kobia:escape", onEscape);
+    return () => {
+      window.removeEventListener("kobia:new-record", onNew);
+      window.removeEventListener("kobia:escape", onEscape);
+    };
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [board.stages]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -101,19 +133,77 @@ export function DealsBoard({ board, allTags, customFields }: { board: DealBoard;
       <Header board={board} view={view} onView={setView} onSwitch={switchPipeline} />
 
       {view === "kanban" ? (
-        <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-          <div className="flex gap-3 overflow-x-auto pb-3">
-            {board.stages.map((stage) => (
-              <Column
-                key={stage.id}
-                stage={stage}
-                cards={dealsByStage.get(stage.id) ?? []}
-                onNew={() => setCreatingStage(stage)}
-                onOpen={setOpenDeal}
-              />
-            ))}
+        <>
+          {/* Desktop kanban: all stage columns side by side with drag-and-drop. */}
+          <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+            <div className="hidden gap-3 overflow-x-auto pb-3 md:flex">
+              {board.stages.map((stage) => (
+                <Column
+                  key={stage.id}
+                  stage={stage}
+                  cards={dealsByStage.get(stage.id) ?? []}
+                  onNew={() => setCreatingStage(stage)}
+                  onOpen={setOpenDeal}
+                />
+              ))}
+            </div>
+          </DndContext>
+
+          {/* Mobile kanban: horizontally scrolling stage tabs + a single column. */}
+          <div className="md:hidden">
+            <div className="mb-3 flex gap-1 overflow-x-auto pb-1">
+              {board.stages.map((stage) => {
+                const active = stage.id === mobileStageId;
+                return (
+                  <button
+                    key={stage.id}
+                    type="button"
+                    onClick={() => setMobileStageId(stage.id)}
+                    className="shrink-0 px-3 py-2 text-sm"
+                    style={{
+                      color: active ? "var(--kb-primary)" : "var(--kb-text-secondary)",
+                      fontWeight: active ? 600 : 400,
+                      borderBottom: active ? "2px solid var(--kb-primary)" : "2px solid transparent",
+                    }}
+                  >
+                    {stage.name} ({(dealsByStage.get(stage.id) ?? []).length})
+                  </button>
+                );
+              })}
+            </div>
+            {(() => {
+              const stage = board.stages.find((s) => s.id === mobileStageId) ?? board.stages[0];
+              if (!stage) return null;
+              const cards = dealsByStage.get(stage.id) ?? [];
+              return (
+                <div className="space-y-2">
+                  <KbButton variant="outline" onClick={() => setCreatingStage(stage)}>
+                    <Plus size={16} /> New deal
+                  </KbButton>
+                  {cards.length === 0 ? (
+                    <p className="p-4 text-center text-sm" style={{ color: "var(--kb-text-secondary)" }}>No deals in this stage.</p>
+                  ) : (
+                    cards.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setOpenDeal(c)}
+                        className="w-full p-3 text-left"
+                        style={{ backgroundColor: "var(--kb-surface)", border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius)", boxShadow: "var(--kb-shadow-card)" }}
+                      >
+                        <div style={{ color: "var(--kb-text-primary)", fontWeight: 600 }}>{c.name}</div>
+                        <div className="mt-1 flex items-center justify-between text-xs" style={{ color: "var(--kb-text-secondary)" }}>
+                          <span>{c.contactName ?? ""}</span>
+                          <span>{formatCurrency(c.amountCents / 100)}</span>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              );
+            })()}
           </div>
-        </DndContext>
+        </>
       ) : (
         <DealList deals={deals} stages={board.stages} onOpen={setOpenDeal} />
       )}
@@ -377,10 +467,10 @@ function NewDealModal({ pipelineId, stage, allTags, customFields, onClose }: { p
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center" style={{ backgroundColor: "rgba(0,0,0,0.35)" }} onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-stretch overflow-auto sm:place-items-center sm:p-4" style={{ backgroundColor: "rgba(0,0,0,0.35)" }} onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm p-5"
+        className="h-full w-full p-5 sm:h-auto sm:max-w-sm sm:rounded"
         style={{ backgroundColor: "var(--kb-surface)", borderRadius: "var(--kb-radius)", boxShadow: "var(--kb-shadow-modal)" }}
       >
         <h2 className="mb-1" style={{ fontSize: "var(--kb-fs-section)", fontWeight: 600 }}>New deal</h2>

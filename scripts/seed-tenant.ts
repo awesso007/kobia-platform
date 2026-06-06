@@ -638,7 +638,52 @@ async function main() {
       console.log(`[seed-tenant] files already present (${fileCount}); skipping insert`);
     }
 
+    // 14. Saved views (Sprint 9) - two tenant-scoped views. "Hot Leads" filters
+    //     leads to the Hot tag; "Closing this month" filters deals to the
+    //     Proposal + Won stages. Upsert-by-(entityType,name) via find-then-write
+    //     so re-running the seed stays idempotent.
+    const hotTag = await db.tag.findFirst({ where: { name: "Hot" } });
+    const proposalStageId = stageByName.get("Proposal");
+    const wonStageId = stageByName.get("Won");
+
+    const SAVED_VIEWS = [
+      {
+        entityType: "LEAD" as const,
+        name: "Hot Leads",
+        scope: "TENANT" as const,
+        filters: { tag: hotTag?.id ?? "" },
+        columns: ["name", "source", "status", "owner", "tags", "created"],
+        sortBy: "createdAt",
+        sortDir: "DESC" as const,
+      },
+      {
+        entityType: "DEAL" as const,
+        name: "Closing this month",
+        scope: "TENANT" as const,
+        filters: { stage: [proposalStageId, wonStageId].filter(Boolean) },
+        columns: ["name", "amount", "stage", "owner", "created"],
+        sortBy: "createdAt",
+        sortDir: "DESC" as const,
+      },
+    ];
+    for (const v of SAVED_VIEWS) {
+      const existing = await db.savedView.findFirst({ where: { entityType: v.entityType, name: v.name } });
+      const data = {
+        entityType: v.entityType as never,
+        name: v.name,
+        scope: v.scope as never,
+        filters: v.filters as never,
+        columns: v.columns as never,
+        sortBy: v.sortBy,
+        sortDir: v.sortDir as never,
+      };
+      if (existing) await db.savedView.update({ where: { id: existing.id }, data });
+      else await db.savedView.create({ data });
+    }
+    console.log(`[seed-tenant] ${SAVED_VIEWS.length} saved views ready`);
+
     // Summary
+    const savedViews = await db.savedView.count();
     const [pipelines, stages, contacts, leads, deals, companies, tags, customFields, automations, automationRuns, savedReports, memberships, webForms, notifications, emailAccounts, emailTemplates, emailSignatures, emailThreads, emailMessages, phoneNumbers, calls, smsThreads, smsMessages, telephonyRules, userPreferences, files, fileFolders, fileAttachments, fileShareLinks] = await Promise.all([
       db.pipeline.count(),
       db.dealStage.count(),
@@ -671,7 +716,7 @@ async function main() {
       db.fileShareLink.count(),
     ]);
     console.log(
-      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields} automations=${automations} automationRuns=${automationRuns} savedReports=${savedReports} memberships=${memberships} webForms=${webForms} notifications=${notifications} emailAccounts=${emailAccounts} emailTemplates=${emailTemplates} emailSignatures=${emailSignatures} emailThreads=${emailThreads} emailMessages=${emailMessages} phoneNumbers=${phoneNumbers} calls=${calls} smsThreads=${smsThreads} smsMessages=${smsMessages} telephonyRules=${telephonyRules} userPreferences=${userPreferences} files=${files} fileFolders=${fileFolders} fileAttachments=${fileAttachments} fileShareLinks=${fileShareLinks}`,
+      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields} automations=${automations} automationRuns=${automationRuns} savedReports=${savedReports} memberships=${memberships} webForms=${webForms} notifications=${notifications} emailAccounts=${emailAccounts} emailTemplates=${emailTemplates} emailSignatures=${emailSignatures} emailThreads=${emailThreads} emailMessages=${emailMessages} phoneNumbers=${phoneNumbers} calls=${calls} smsThreads=${smsThreads} smsMessages=${smsMessages} telephonyRules=${telephonyRules} userPreferences=${userPreferences} files=${files} fileFolders=${fileFolders} fileAttachments=${fileAttachments} fileShareLinks=${fileShareLinks} savedViews=${savedViews}`,
     );
   } finally {
     await db.$disconnect();

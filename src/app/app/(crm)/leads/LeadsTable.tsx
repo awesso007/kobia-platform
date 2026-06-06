@@ -8,19 +8,31 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { ArrowUpDown, Plus } from "lucide-react";
 import { KbButton, StatusBadge } from "@/components/crm/ui";
 import { RecordPane } from "@/components/crm/record-pane/RecordPane";
 import { TagChips } from "@/components/crm/TagChips";
 import { TagPicker } from "@/components/crm/TagPicker";
 import { CustomFieldInputs } from "@/components/crm/CustomFieldInputs";
+import { ViewBar, type ColumnDef } from "@/components/crm/views/ViewBar";
+import { BulkActionBar } from "@/components/crm/BulkActionBar";
 import type { CustomFieldDef, CustomFieldValueMap, TagRow } from "@/lib/crm/record";
+import type { SavedViewRow } from "../views/actions";
 import type { LeadRow } from "./queries";
 import { createLead, updateLead, convertLeadToDeal, loadLeadDetail, type LeadInput } from "./actions";
 
 const SOURCES = ["WEBSITE", "REFERRAL", "CALL", "EMAIL", "EVENT", "OTHER"];
 const STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "UNQUALIFIED", "CONVERTED"];
+
+const LEAD_COLUMNS: ColumnDef[] = [
+  { key: "name", label: "Name" },
+  { key: "source", label: "Source" },
+  { key: "status", label: "Status" },
+  { key: "owner", label: "Owner" },
+  { key: "tags", label: "Tags" },
+  { key: "created", label: "Created" },
+];
 
 export function LeadsTable({
   rows,
@@ -30,6 +42,7 @@ export function LeadsTable({
   owners,
   allTags,
   customFields,
+  savedViews = [],
 }: {
   rows: LeadRow[];
   total: number;
@@ -38,11 +51,70 @@ export function LeadsTable({
   owners: string[];
   allTags: TagRow[];
   customFields: CustomFieldDef[];
+  savedViews?: SavedViewRow[];
 }) {
   const router = useRouter();
   const sp = useSearchParams();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<LeadRow | null>(null);
+  const [cols, setCols] = useState<string[]>(LEAD_COLUMNS.map((c) => c.key));
+  const showCol = (k: string) => cols.includes(k);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const searchRef = useRef<HTMLInputElement | null>(null);
+
+  const allOnPage = rows.length > 0 && rows.every((r) => selected.has(r.id));
+  const toggleRow = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toggleAll = () =>
+    setSelected((prev) => {
+      if (rows.every((r) => prev.has(r.id))) {
+        const next = new Set(prev);
+        for (const r of rows) next.delete(r.id);
+        return next;
+      }
+      const next = new Set(prev);
+      for (const r of rows) next.add(r.id);
+      return next;
+    });
+  const clearSelection = () => setSelected(new Set());
+
+  // Open a record's pane when arriving from the command palette (?open=<id>).
+  const openId = sp.get("open");
+  useEffect(() => {
+    if (!openId) return;
+    const row = rows.find((r) => r.id === openId);
+    if (row) setEditing(row);
+    const next = new URLSearchParams(sp.toString());
+    next.delete("open");
+    router.replace(`/app/leads${next.toString() ? `?${next.toString()}` : ""}`);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [openId]);
+
+  // Global keyboard shortcuts dispatch window events; wire them to this view.
+  useEffect(() => {
+    const onNew = () => setCreating(true);
+    const onFocusSearch = () => {
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    };
+    const onEscape = () => {
+      setCreating(false);
+      setEditing(null);
+    };
+    window.addEventListener("kobia:new-record", onNew);
+    window.addEventListener("kobia:focus-search", onFocusSearch);
+    window.addEventListener("kobia:escape", onEscape);
+    return () => {
+      window.removeEventListener("kobia:new-record", onNew);
+      window.removeEventListener("kobia:focus-search", onFocusSearch);
+      window.removeEventListener("kobia:escape", onEscape);
+    };
+  }, []);
 
   function setParam(updates: Record<string, string | null>) {
     const next = new URLSearchParams(sp.toString());
@@ -77,8 +149,17 @@ export function LeadsTable({
         </KbButton>
       </div>
 
+      <ViewBar
+        entityType="LEAD"
+        basePath="/app/leads"
+        views={savedViews}
+        columns={LEAD_COLUMNS}
+        onColumnsChange={setCols}
+      />
+
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input
+          ref={searchRef}
           defaultValue={sp.get("search") ?? ""}
           placeholder="Search name, email, company"
           onKeyDown={(e) => {
@@ -92,25 +173,69 @@ export function LeadsTable({
         <FilterSelect label="Owner" value={sp.get("owner") ?? ""} options={owners} onChange={(v) => setParam({ owner: v })} />
       </div>
 
+      {/* Mobile card layout (below md); the table is hidden there. */}
+      <div className="grid gap-2 md:hidden">
+        {rows.length === 0 ? (
+          <p className="p-4 text-center text-sm" style={{ color: "var(--kb-text-secondary)" }}>
+            No leads match these filters.
+          </p>
+        ) : (
+          rows.map((l) => (
+            <button
+              key={l.id}
+              type="button"
+              onClick={() => setEditing(l)}
+              className="w-full p-3 text-left"
+              style={{ backgroundColor: "var(--kb-surface)", border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius)", boxShadow: "var(--kb-shadow-card)" }}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2" style={{ color: "var(--kb-text-primary)", fontWeight: 600 }}>
+                  <input
+                    type="checkbox"
+                    checked={selected.has(l.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={() => toggleRow(l.id)}
+                    aria-label={`Select ${l.name}`}
+                  />
+                  {l.name}
+                </span>
+                <StatusBadge value={l.status} />
+              </div>
+              {l.companyName ? (
+                <div className="mt-0.5 text-xs" style={{ color: "var(--kb-text-secondary)" }}>{l.companyName}</div>
+              ) : null}
+              <div className="mt-2 flex items-center justify-between text-xs" style={{ color: "var(--kb-text-secondary)" }}>
+                <span>{l.source}</span>
+                <span>{new Date(l.createdAt).toLocaleDateString()}</span>
+              </div>
+              <div className="mt-2"><TagChips tags={l.tags} /></div>
+            </button>
+          ))
+        )}
+      </div>
+
       <div
-        className="overflow-hidden"
+        className="hidden overflow-x-auto md:block"
         style={{ backgroundColor: "var(--kb-surface)", border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius)", boxShadow: "var(--kb-shadow-card)" }}
       >
         <table className="w-full text-sm">
           <thead>
             <tr style={{ backgroundColor: "var(--kb-surface-grey)", color: "var(--kb-text-secondary)" }}>
-              <Th label="Name" field="name" onSort={toggleSort} />
-              <Th label="Source" field="source" onSort={toggleSort} />
-              <Th label="Status" field="status" onSort={toggleSort} />
-              <Th label="Owner" field="ownerUserId" onSort={toggleSort} />
-              <th className="px-3 py-2 text-left font-medium">Tags</th>
-              <Th label="Created" field="createdAt" onSort={toggleSort} />
+              <th className="px-3 py-2 text-left font-medium" style={{ width: 36 }}>
+                <input type="checkbox" checked={allOnPage} onChange={toggleAll} aria-label="Select all" />
+              </th>
+              {showCol("name") ? <Th label="Name" field="name" onSort={toggleSort} /> : null}
+              {showCol("source") ? <Th label="Source" field="source" onSort={toggleSort} /> : null}
+              {showCol("status") ? <Th label="Status" field="status" onSort={toggleSort} /> : null}
+              {showCol("owner") ? <Th label="Owner" field="ownerUserId" onSort={toggleSort} /> : null}
+              {showCol("tags") ? <th className="px-3 py-2 text-left font-medium">Tags</th> : null}
+              {showCol("created") ? <Th label="Created" field="createdAt" onSort={toggleSort} /> : null}
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="p-8 text-center" style={{ color: "var(--kb-text-secondary)" }}>
+                <td colSpan={cols.length + 1} className="p-8 text-center" style={{ color: "var(--kb-text-secondary)" }}>
                   No leads match these filters.
                 </td>
               </tr>
@@ -122,21 +247,28 @@ export function LeadsTable({
                   className="cursor-pointer"
                   style={{ borderTop: "1px solid var(--kb-border)", height: "var(--kb-row-h)" }}
                 >
-                  <td className="px-3" style={{ color: "var(--kb-text-primary)", fontWeight: 500 }}>
-                    {l.name}
-                    {l.companyName ? (
-                      <span className="ml-2 text-xs" style={{ color: "var(--kb-text-secondary)" }}>
-                        {l.companyName}
-                      </span>
-                    ) : null}
+                  <td className="px-3" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleRow(l.id)} aria-label={`Select ${l.name}`} />
                   </td>
-                  <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{l.source}</td>
-                  <td className="px-3"><StatusBadge value={l.status} /></td>
-                  <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{l.ownerUserId ?? "-"}</td>
-                  <td className="px-3"><TagChips tags={l.tags} /></td>
-                  <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>
-                    {new Date(l.createdAt).toLocaleDateString()}
-                  </td>
+                  {showCol("name") ? (
+                    <td className="px-3" style={{ color: "var(--kb-text-primary)", fontWeight: 500 }}>
+                      {l.name}
+                      {l.companyName ? (
+                        <span className="ml-2 text-xs" style={{ color: "var(--kb-text-secondary)" }}>
+                          {l.companyName}
+                        </span>
+                      ) : null}
+                    </td>
+                  ) : null}
+                  {showCol("source") ? <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{l.source}</td> : null}
+                  {showCol("status") ? <td className="px-3"><StatusBadge value={l.status} /></td> : null}
+                  {showCol("owner") ? <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{l.ownerUserId ?? "-"}</td> : null}
+                  {showCol("tags") ? <td className="px-3"><TagChips tags={l.tags} /></td> : null}
+                  {showCol("created") ? (
+                    <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>
+                      {new Date(l.createdAt).toLocaleDateString()}
+                    </td>
+                  ) : null}
                 </tr>
               ))
             )}
@@ -157,6 +289,14 @@ export function LeadsTable({
           </KbButton>
         </div>
       </div>
+
+      <BulkActionBar
+        entityType="LEAD"
+        ids={Array.from(selected)}
+        allTags={allTags}
+        owners={owners}
+        onClear={clearSelection}
+      />
 
       {creating ? <LeadModal allTags={allTags} customFields={customFields} onClose={() => setCreating(false)} /> : null}
       {editing ? (
@@ -303,10 +443,10 @@ function LeadModal({ allTags, customFields, onClose }: { allTags: TagRow[]; cust
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center" style={{ backgroundColor: "rgba(0,0,0,0.35)" }} onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-stretch overflow-auto sm:place-items-center sm:p-4" style={{ backgroundColor: "rgba(0,0,0,0.35)" }} onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md p-5"
+        className="h-full w-full p-5 sm:h-auto sm:max-w-md sm:rounded"
         style={{ backgroundColor: "var(--kb-surface)", borderRadius: "var(--kb-radius)", boxShadow: "var(--kb-shadow-modal)" }}
       >
         <h2 className="mb-4" style={{ fontSize: "var(--kb-fs-section)", fontWeight: 600, color: "var(--kb-text-primary)" }}>
