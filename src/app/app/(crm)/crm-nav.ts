@@ -16,6 +16,7 @@ import {
   FolderKanban,
   CheckSquare,
   CalendarDays,
+  Megaphone,
   Settings,
 } from "lucide-react";
 
@@ -37,6 +38,7 @@ export const crmNav: CrmNavItem[] = [
   { key: "activities", label: "Activities", href: "/app/activities", icon: Activity },
   { key: "messages", label: "Messages", href: "/app/messages", icon: MessageSquare },
   { key: "files", label: "Files", href: "/app/files", icon: FolderOpen },
+  { key: "marketing", label: "Marketing", href: "/app/marketing", icon: Megaphone },
   { key: "automations", label: "Automations", href: "/app/automations", icon: Workflow },
   { key: "reports", label: "Reports", href: "/app/reports", icon: BarChart3 },
   { key: "settings", label: "Settings", href: "/app/settings", icon: Settings },
