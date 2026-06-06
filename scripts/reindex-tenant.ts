@@ -56,7 +56,7 @@ async function main() {
     console.log(`[reindex-tenant] rebuilding SearchIndex for ${schema}`);
     await db.searchIndex.deleteMany({});
 
-    const [leads, deals, contacts, companies, activities, files, emails, tasks, projects, taskComments, events, bookingPages] = await Promise.all([
+    const [leads, deals, contacts, companies, activities, files, emails, tasks, projects, taskComments, events, bookingPages, landingPages, broadcasts] = await Promise.all([
       db.lead.findMany({ select: { id: true } }),
       db.deal.findMany({ select: { id: true } }),
       db.contact.findMany({ select: { id: true } }),
@@ -69,6 +69,8 @@ async function main() {
       db.taskComment.findMany({ select: { id: true } }),
       db.calendarEvent.findMany({ where: { status: { not: "CANCELED" } }, select: { id: true } }),
       db.bookingPage.findMany({ select: { id: true } }),
+      db.landingPage.findMany({ select: { id: true } }),
+      db.broadcast.findMany({ select: { id: true } }),
     ]);
 
     for (const r of leads) await reindex(db, "LEAD", r.id);
@@ -83,6 +85,8 @@ async function main() {
     for (const r of taskComments) await reindex(db, "TASK_COMMENT", r.id);
     for (const r of events) await reindex(db, "EVENT", r.id);
     for (const r of bookingPages) await reindex(db, "BOOKING_PAGE", r.id);
+    for (const r of landingPages) await reindex(db, "LANDING_PAGE", r.id);
+    for (const r of broadcasts) await reindex(db, "BROADCAST", r.id);
 
     const total = await db.searchIndex.count();
     console.log(
@@ -91,6 +95,7 @@ async function main() {
         `activities=${activities.length} files=${files.length} emails=${emails.length} ` +
         `tasks=${tasks.length} projects=${projects.length} taskComments=${taskComments.length} ` +
         `events=${events.length} bookingPages=${bookingPages.length} ` +
+        `landingPages=${landingPages.length} broadcasts=${broadcasts.length} ` +
         `=> searchIndex rows=${total}`,
     );
   } finally {

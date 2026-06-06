@@ -118,6 +118,8 @@ enum SearchEntityType {
   TASK_COMMENT
   EVENT
   BOOKING_PAGE
+  LANDING_PAGE
+  BROADCAST
 }
 
 enum SavedViewEntityType {
