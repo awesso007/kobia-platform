@@ -8,7 +8,7 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { ArrowUpDown, Plus } from "lucide-react";
 import { KbButton, StatusBadge } from "@/components/crm/ui";
 import { RecordPane } from "@/components/crm/record-pane/RecordPane";
@@ -43,6 +43,7 @@ export function LeadsTable({
   const sp = useSearchParams();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<LeadRow | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
 
   // Open a record's pane when arriving from the command palette (?open=<id>).
   const openId = sp.get("open");
@@ -55,6 +56,27 @@ export function LeadsTable({
     router.replace(`/app/leads${next.toString() ? `?${next.toString()}` : ""}`);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [openId]);
+
+  // Global keyboard shortcuts dispatch window events; wire them to this view.
+  useEffect(() => {
+    const onNew = () => setCreating(true);
+    const onFocusSearch = () => {
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    };
+    const onEscape = () => {
+      setCreating(false);
+      setEditing(null);
+    };
+    window.addEventListener("kobia:new-record", onNew);
+    window.addEventListener("kobia:focus-search", onFocusSearch);
+    window.addEventListener("kobia:escape", onEscape);
+    return () => {
+      window.removeEventListener("kobia:new-record", onNew);
+      window.removeEventListener("kobia:focus-search", onFocusSearch);
+      window.removeEventListener("kobia:escape", onEscape);
+    };
+  }, []);
 
   function setParam(updates: Record<string, string | null>) {
     const next = new URLSearchParams(sp.toString());
@@ -91,6 +113,7 @@ export function LeadsTable({
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input
+          ref={searchRef}
           defaultValue={sp.get("search") ?? ""}
           placeholder="Search name, email, company"
           onKeyDown={(e) => {

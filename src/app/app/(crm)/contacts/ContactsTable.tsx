@@ -10,7 +10,7 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { ArrowUpDown, Plus } from "lucide-react";
 import { KbButton } from "@/components/crm/ui";
 import { RecordPane } from "@/components/crm/record-pane/RecordPane";
@@ -48,6 +48,7 @@ export function ContactsTable({
   const sp = useSearchParams();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<ContactRow | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
 
   const openId = sp.get("open");
   useEffect(() => {
@@ -59,6 +60,26 @@ export function ContactsTable({
     router.replace(`/app/contacts${next.toString() ? `?${next.toString()}` : ""}`);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [openId]);
+
+  useEffect(() => {
+    const onNew = () => setCreating(true);
+    const onFocusSearch = () => {
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    };
+    const onEscape = () => {
+      setCreating(false);
+      setEditing(null);
+    };
+    window.addEventListener("kobia:new-record", onNew);
+    window.addEventListener("kobia:focus-search", onFocusSearch);
+    window.addEventListener("kobia:escape", onEscape);
+    return () => {
+      window.removeEventListener("kobia:new-record", onNew);
+      window.removeEventListener("kobia:focus-search", onFocusSearch);
+      window.removeEventListener("kobia:escape", onEscape);
+    };
+  }, []);
 
   function setParam(updates: Record<string, string | null>) {
     const next = new URLSearchParams(sp.toString());

@@ -52,6 +52,24 @@ export function DealsBoard({ board, allTags, customFields }: { board: DealBoard;
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [openId]);
 
+  useEffect(() => {
+    const onNew = () => {
+      const first = board.stages[0];
+      if (first) setCreatingStage(first);
+    };
+    const onEscape = () => {
+      setCreatingStage(null);
+      setOpenDeal(null);
+    };
+    window.addEventListener("kobia:new-record", onNew);
+    window.addEventListener("kobia:escape", onEscape);
+    return () => {
+      window.removeEventListener("kobia:new-record", onNew);
+      window.removeEventListener("kobia:escape", onEscape);
+    };
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [board.stages]);
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const dealsByStage = useMemo(() => {

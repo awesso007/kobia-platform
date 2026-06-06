@@ -22,6 +22,7 @@ const TABS = [
   { href: "/app/settings/files/shares", label: "File shares" },
   { href: "/app/settings/profile", label: "Profile" },
   { href: "/app/settings/workspace", label: "Workspace" },
+  { href: "/app/settings/keyboard", label: "Keyboard" },
 ];
 
 export function SettingsNav() {

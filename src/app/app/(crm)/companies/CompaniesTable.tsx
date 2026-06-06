@@ -10,7 +10,7 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { ArrowUpDown, Plus } from "lucide-react";
 import { KbButton } from "@/components/crm/ui";
 import { RecordPane } from "@/components/crm/record-pane/RecordPane";
@@ -51,6 +51,7 @@ export function CompaniesTable({
   const sp = useSearchParams();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<CompanyRow | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
 
   const openId = sp.get("open");
   useEffect(() => {
@@ -62,6 +63,26 @@ export function CompaniesTable({
     router.replace(`/app/companies${next.toString() ? `?${next.toString()}` : ""}`);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [openId]);
+
+  useEffect(() => {
+    const onNew = () => setCreating(true);
+    const onFocusSearch = () => {
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    };
+    const onEscape = () => {
+      setCreating(false);
+      setEditing(null);
+    };
+    window.addEventListener("kobia:new-record", onNew);
+    window.addEventListener("kobia:focus-search", onFocusSearch);
+    window.addEventListener("kobia:escape", onEscape);
+    return () => {
+      window.removeEventListener("kobia:new-record", onNew);
+      window.removeEventListener("kobia:focus-search", onFocusSearch);
+      window.removeEventListener("kobia:escape", onEscape);
+    };
+  }, []);
 
   function setParam(updates: Record<string, string | null>) {
     const next = new URLSearchParams(sp.toString());
@@ -90,6 +111,7 @@ export function CompaniesTable({
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input
+          ref={searchRef}
           defaultValue={sp.get("search") ?? ""}
           placeholder="Search name, domain, website"
           onKeyDown={(e) => { if (e.key === "Enter") setParam({ search: (e.target as HTMLInputElement).value }); }}
