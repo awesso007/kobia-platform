@@ -1725,3 +1725,243 @@ model Availability {
 
   @@index([clerkUserId])
 }
+
+// ===========================================================================
+// Sprint 13: Marketing - segments, broadcasts, drip campaigns, landing pages.
+// All models live in the tenant schema. No em-dashes in copy by convention.
+// ===========================================================================
+
+enum SegmentEntityType {
+  contact
+  lead
+}
+
+enum BroadcastChannel {
+  EMAIL
+  SMS
+}
+
+enum BroadcastStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  FAILED
+}
+
+enum BroadcastRecipientStatus {
+  PENDING
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  BOUNCED
+  UNSUBSCRIBED
+  FAILED
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum CampaignTriggerType {
+  MANUAL
+  SEGMENT_ENTRY
+  TAG_ADDED
+  FORM_SUBMITTED
+}
+
+enum CampaignStepType {
+  EMAIL
+  SMS
+  WAIT
+  CONDITION
+  TAG
+  WEBHOOK
+}
+
+enum CampaignEnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  PAUSED
+  FAILED
+}
+
+enum LandingPageStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum UnsubscribeSource {
+  BROADCAST
+  CAMPAIGN
+  MANUAL
+  PORTAL
+}
+
+model Segment {
+  id                  String            @id @default(cuid())
+  name                String
+  description         String?
+  filterJson          Json
+  entityType          SegmentEntityType @default(contact)
+  recipientCountCache Int               @default(0)
+  lastEvaluatedAt     DateTime?
+  createdById         String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  broadcasts Broadcast[]
+  campaigns  Campaign[]
+
+  @@index([entityType])
+}
+
+model Broadcast {
+  id          String          @id @default(cuid())
+  name        String
+  channel     BroadcastChannel @default(EMAIL)
+  subject     String?
+  fromName    String?
+  fromEmail   String?
+  fromNumber  String?
+  bodyHtml    String?
+  bodyText    String?
+  segmentId   String?
+  status      BroadcastStatus @default(DRAFT)
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  statsJson   Json?
+  createdById String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  segment    Segment?             @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+  recipients BroadcastRecipient[]
+
+  @@index([segmentId])
+  @@index([status])
+}
+
+model BroadcastRecipient {
+  id           String                   @id @default(cuid())
+  broadcastId  String
+  contactId    String?
+  leadId       String?
+  email        String?
+  phone        String?
+  status       BroadcastRecipientStatus @default(PENDING)
+  sentAt       DateTime?
+  openedAt     DateTime?
+  clickedAt    DateTime?
+  errorMessage String?
+
+  broadcast Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+
+  @@index([broadcastId])
+  @@index([status])
+}
+
+model Campaign {
+  id                String              @id @default(cuid())
+  name              String
+  description       String?
+  status            CampaignStatus      @default(DRAFT)
+  triggerType       CampaignTriggerType @default(MANUAL)
+  triggerConfigJson Json
+  segmentId         String?
+  createdById       String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  segment     Segment?             @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+  steps       CampaignStep[]
+  enrollments CampaignEnrollment[]
+
+  @@index([segmentId])
+  @@index([status])
+}
+
+model CampaignStep {
+  id         String           @id @default(cuid())
+  campaignId String
+  order      Int
+  type       CampaignStepType
+  config     Json
+  createdAt  DateTime         @default(now())
+
+  campaign    Campaign             @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  enrollments CampaignEnrollment[]
+
+  @@index([campaignId])
+}
+
+model CampaignEnrollment {
+  id            String                   @id @default(cuid())
+  campaignId    String
+  contactId     String?
+  leadId        String?
+  currentStepId String?
+  status        CampaignEnrollmentStatus @default(ACTIVE)
+  enrolledAt    DateTime                 @default(now())
+  lastStepAt    DateTime?
+  nextRunAt     DateTime?
+  dataJson      Json?
+
+  campaign    Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  currentStep CampaignStep? @relation(fields: [currentStepId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId])
+  @@index([status])
+  @@index([nextRunAt])
+}
+
+model LandingPage {
+  id                String            @id @default(cuid())
+  slug              String            @unique
+  title             String
+  status            LandingPageStatus @default(DRAFT)
+  htmlContent       String
+  cssContent        String?
+  metaTitle         String?
+  metaDescription   String?
+  ogImage           String?
+  formId            String?
+  publishedAt       DateTime?
+  viewCount         Int               @default(0)
+  conversionCount   Int               @default(0)
+  createdById       String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  views LandingPageView[]
+
+  @@index([slug])
+  @@index([status])
+}
+
+model LandingPageView {
+  id        String   @id @default(cuid())
+  pageId    String
+  visitorId String
+  referrer  String?
+  userAgent String?
+  ipHash    String?
+  viewedAt  DateTime @default(now())
+
+  page LandingPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId])
+}
+
+model Unsubscribe {
+  id        String            @id @default(cuid())
+  email     String            @unique
+  phone     String?
+  reason    String?
+  source    UnsubscribeSource @default(MANUAL)
+  createdAt DateTime          @default(now())
+}
