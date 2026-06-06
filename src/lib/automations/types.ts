@@ -1,0 +1,166 @@
+/*
+ * Client-safe automation types, constants, and the pure condition evaluator.
+ * Kept free of any server-only import (no getTenantDb / next/headers) so the
+ * builder UI and the server dispatcher can both import it.
+ *
+ * No em-dashes in copy by project convention (use hyphens).
+ */
+
+export const AUTOMATION_ENTITIES = ["LEAD", "DEAL", "CONTACT", "COMPANY", "ACTIVITY"] as const;
+export type AutomationEntityKind = (typeof AUTOMATION_ENTITIES)[number];
+
+export const AUTOMATION_TRIGGERS = [
+  "RECORD_CREATED",
+  "RECORD_UPDATED",
+  "FIELD_CHANGED",
+  "STAGE_CHANGED",
+  "ACTIVITY_DUE",
+  "SCHEDULE",
+] as const;
+export type AutomationTriggerKind = (typeof AUTOMATION_TRIGGERS)[number];
+
+export const TRIGGER_LABELS: Record<AutomationTriggerKind, string> = {
+  RECORD_CREATED: "Record created",
+  RECORD_UPDATED: "Record updated",
+  FIELD_CHANGED: "Field changed",
+  STAGE_CHANGED: "Deal stage changed",
+  ACTIVITY_DUE: "Activity due",
+  SCHEDULE: "On a schedule",
+};
+
+export const CONDITION_OPERATORS = [
+  "eq",
+  "neq",
+  "contains",
+  "gt",
+  "lt",
+  "in",
+  "is_set",
+  "is_empty",
+] as const;
+export type ConditionOperator = (typeof CONDITION_OPERATORS)[number];
+
+export const OPERATOR_LABELS: Record<ConditionOperator, string> = {
+  eq: "equals",
+  neq: "not equals",
+  contains: "contains",
+  gt: "greater than",
+  lt: "less than",
+  in: "in list",
+  is_set: "is set",
+  is_empty: "is empty",
+};
+
+export const ACTION_KINDS = [
+  "CREATE_ACTIVITY",
+  "UPDATE_FIELD",
+  "CREATE_RECORD",
+  "ADD_TAG",
+  "REMOVE_TAG",
+  "ASSIGN_OWNER",
+  "SEND_EMAIL_PLACEHOLDER",
+  "WAIT",
+] as const;
+export type ActionKind = (typeof ACTION_KINDS)[number];
+
+export const ACTION_LABELS: Record<ActionKind, string> = {
+  CREATE_ACTIVITY: "Create activity",
+  UPDATE_FIELD: "Update field",
+  CREATE_RECORD: "Create record",
+  ADD_TAG: "Add tag",
+  REMOVE_TAG: "Remove tag",
+  ASSIGN_OWNER: "Assign owner",
+  SEND_EMAIL_PLACEHOLDER: "Send email (placeholder)",
+  WAIT: "Wait",
+};
+
+export type ConditionRow = {
+  field: string;
+  operator: ConditionOperator;
+  value?: string;
+};
+
+export type ConditionGroup = {
+  combinator: "AND" | "OR";
+  rows: ConditionRow[];
+};
+
+export type AutomationAction = {
+  kind: ActionKind;
+  config: Record<string, unknown>;
+};
+
+export type TriggerConfig = {
+  watchFields?: string[];
+  field?: string;
+  offsetMinutes?: number;
+  cron?: string;
+};
+
+/** Event shape passed into dispatchAutomation by every CRUD action. */
+export type AutomationEvent = {
+  type: AutomationTriggerKind;
+  entityType: AutomationEntityKind;
+  entityId: string;
+  changedFields?: string[];
+  record?: Record<string, unknown>;
+};
+
+function asNumber(v: unknown): number | null {
+  if (typeof v === "number") return v;
+  if (typeof v === "string" && v.trim() !== "" && !Number.isNaN(Number(v))) return Number(v);
+  return null;
+}
+
+function evalRow(row: ConditionRow, record: Record<string, unknown>): boolean {
+  const actual = record[row.field];
+  const expected = row.value ?? "";
+  switch (row.operator) {
+    case "eq":
+      return String(actual ?? "") === expected;
+    case "neq":
+      return String(actual ?? "") !== expected;
+    case "contains":
+      return String(actual ?? "").toLowerCase().includes(expected.toLowerCase());
+    case "gt": {
+      const a = asNumber(actual);
+      const b = asNumber(expected);
+      return a !== null && b !== null && a > b;
+    }
+    case "lt": {
+      const a = asNumber(actual);
+      const b = asNumber(expected);
+      return a !== null && b !== null && a < b;
+    }
+    case "in":
+      return expected
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .includes(String(actual ?? ""));
+    case "is_set":
+      return actual !== null && actual !== undefined && actual !== "";
+    case "is_empty":
+      return actual === null || actual === undefined || actual === "";
+    default:
+      return false;
+  }
+}
+
+/** Evaluate a single condition group against a flat record map. Empty = pass. */
+export function evaluateConditions(
+  group: ConditionGroup | null | undefined,
+  record: Record<string, unknown>,
+): boolean {
+  if (!group || group.rows.length === 0) return true;
+  const results = group.rows.map((r) => evalRow(r, record));
+  return group.combinator === "OR" ? results.some(Boolean) : results.every(Boolean);
+}
+
+/** Resolve {{record.field}} placeholders in a template against the record map. */
+export function renderTemplate(template: string, record: Record<string, unknown>): string {
+  return template.replace(/\{\{\s*record\.([a-zA-Z0-9_]+)\s*\}\}/g, (_m, key) => {
+    const v = record[key];
+    return v === null || v === undefined ? "" : String(v);
+  });
+}

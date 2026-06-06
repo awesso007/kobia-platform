@@ -10,6 +10,7 @@
 import { revalidatePath } from "next/cache";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { auditWrite } from "@/lib/crm/audit";
+import { dispatchAutomation } from "@/lib/automations/dispatch";
 import { setEntityTags } from "../settings/tags/actions";
 import { saveCustomFieldValues } from "../settings/custom-fields/actions";
 
@@ -48,6 +49,7 @@ export async function createContact(input: ContactInput) {
     await saveCustomFieldValues({ entityType: "CONTACT", entityId: contact.id, values: input.customFields });
 
   await auditWrite({ action: "CREATE", entityType: "CONTACT", entityId: contact.id, diff: { firstName } });
+  await dispatchAutomation({ type: "RECORD_CREATED", entityType: "CONTACT", entityId: contact.id });
   revalidatePath("/app/contacts");
   return contact.id;
 }
@@ -63,6 +65,7 @@ export async function updateContact(id: string, input: ContactInput) {
     await saveCustomFieldValues({ entityType: "CONTACT", entityId: id, values: input.customFields });
 
   await auditWrite({ action: "UPDATE", entityType: "CONTACT", entityId: id, diff: dataFrom(input) });
+  await dispatchAutomation({ type: "RECORD_UPDATED", entityType: "CONTACT", entityId: id });
   revalidatePath("/app/contacts");
 }
 
