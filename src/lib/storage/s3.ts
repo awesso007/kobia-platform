@@ -94,6 +94,18 @@ export async function createPresignedUploadUrl(input: {
   return { uploadUrl, storageKey };
 }
 
+/** Server-side write of raw bytes to a known key (inbound email ingest). */
+export async function putObject(storageKey: string, data: Buffer, mimeType?: string): Promise<void> {
+  await client().send(
+    new PutObjectCommand({
+      Bucket: bucketName()!,
+      Key: storageKey,
+      Body: data,
+      ContentType: mimeType,
+    }),
+  );
+}
+
 export type HeadResult = { size: number; mimeType: string | null };
 
 export async function headObject(storageKey: string): Promise<HeadResult | null> {

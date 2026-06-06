@@ -64,12 +64,15 @@ export type ComposeInput = {
   replyToThreadId?: string;
   recordType?: RecordType;
   recordId?: string;
+  /** File ids (already uploaded via the File system) to attach to this message. */
+  attachmentFileIds?: string[];
 };
 
 export async function sendComposed(input: ComposeInput): Promise<{ ok: boolean; threadId?: string; messageId?: string; error?: string }> {
   await requirePermission("email:manage");
+  const { db } = getTenantDb();
   const recordType = input.recordType ? (ENTITY_TYPE_BY_RECORD[input.recordType] as EmailRecordType) : undefined;
-  return sendEmail({
+  const res = await sendEmail({
     accountId: input.accountId,
     to: input.to,
     cc: input.cc,
@@ -80,6 +83,25 @@ export async function sendComposed(input: ComposeInput): Promise<{ ok: boolean; 
     recordType,
     recordId: input.recordId,
   });
+
+  // Link any chosen Files to the sent message as EmailAttachment rows.
+  if (res.ok && res.messageId && input.attachmentFileIds?.length) {
+    const files = await db.file.findMany({ where: { id: { in: input.attachmentFileIds } } });
+    for (const f of files) {
+      await db.emailAttachment.create({
+        data: {
+          messageId: res.messageId,
+          filename: f.name,
+          mimeType: f.mimeType,
+          size: Number(f.size),
+          storageKey: f.storageKey,
+          fileId: f.id,
+        },
+      });
+    }
+  }
+
+  return res;
 }
 
 export type EmailThreadRow = {

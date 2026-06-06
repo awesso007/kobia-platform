@@ -8,8 +8,8 @@
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
-import { useEffect, useState, useTransition } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { ChevronDown, ChevronRight, Paperclip, X } from "lucide-react";
 import type { RecordType } from "@/lib/crm/record";
 import {
   listThreadsForRecord,
@@ -20,6 +20,42 @@ import {
   type SmsMessageRow,
   type OurNumberOption,
 } from "@/app/app/(crm)/sms-actions";
+import { uploadFile } from "@/lib/files/upload-client";
+
+type Media = { fileId: string; name: string };
+
+function MediaAttach({ media, setMedia }: { media: Media[]; setMedia: (m: Media[]) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  async function pick(files: FileList) {
+    setUploading(true);
+    const next = [...media];
+    for (const file of Array.from(files)) {
+      const res = await uploadFile(file);
+      if (res.ok && res.fileId) next.push({ fileId: res.fileId, name: file.name });
+    }
+    setMedia(next);
+    setUploading(false);
+  }
+  return (
+    <div className="mt-1">
+      <button type="button" onClick={() => ref.current?.click()} className="flex items-center gap-1 text-xs" style={{ color: "var(--kb-primary)" }}>
+        <Paperclip size={12} /> {uploading ? "Uploading..." : "Attach media"}
+      </button>
+      <input ref={ref} type="file" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) pick(e.target.files); e.target.value = ""; }} />
+      {media.length ? (
+        <ul className="mt-1 space-y-1">
+          {media.map((m) => (
+            <li key={m.fileId} className="flex items-center justify-between rounded px-2 py-0.5 text-[11px]" style={{ backgroundColor: "var(--kb-surface-grey)", borderRadius: "var(--kb-radius-sm)" }}>
+              <span className="truncate">{m.name}</span>
+              <button type="button" onClick={() => setMedia(media.filter((x) => x.fileId !== m.fileId))} aria-label="Remove"><X size={11} /></button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
 
 export function SmsTab({
   type,
@@ -98,6 +134,7 @@ function ThreadItem({
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<SmsMessageRow[] | null>(null);
   const [draft, setDraft] = useState("");
+  const [media, setMedia] = useState<Media[]>([]);
   const [pending, startTransition] = useTransition();
   const [, loadTransition] = useTransition();
 
@@ -111,7 +148,7 @@ function ThreadItem({
 
   function send() {
     const body = draft.trim();
-    if (!body) return;
+    if (!body && media.length === 0) return;
     startTransition(async () => {
       const res = await sendSms({
         fromE164: thread.ourNumberE164,
@@ -119,9 +156,11 @@ function ThreadItem({
         body,
         contactId,
         leadId,
+        mediaFileIds: media.map((m) => m.fileId),
       });
       if (res.ok) {
         setDraft("");
+        setMedia([]);
         setMessages(await openThread(thread.id));
         onSent();
       }
@@ -163,13 +202,14 @@ function ThreadItem({
             <button
               type="button"
               onClick={send}
-              disabled={pending || !draft.trim()}
+              disabled={pending || (!draft.trim() && media.length === 0)}
               className="rounded px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
               style={{ backgroundColor: "var(--kb-primary)", borderRadius: "var(--kb-radius-sm)" }}
             >
               {pending ? "..." : "Send"}
             </button>
           </div>
+          <MediaAttach media={media} setMedia={setMedia} />
         </div>
       ) : null}
     </li>
@@ -213,16 +253,18 @@ function NewConversation({
 }) {
   const [from, setFrom] = useState(fromOptions[0]?.e164 ?? "");
   const [draft, setDraft] = useState("");
+  const [media, setMedia] = useState<Media[]>([]);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   function send() {
     const body = draft.trim();
-    if (!body || !from) return;
+    if ((!body && media.length === 0) || !from) return;
     startTransition(async () => {
-      const res = await sendSms({ fromE164: from, toE164, body, contactId, leadId });
+      const res = await sendSms({ fromE164: from, toE164, body, contactId, leadId, mediaFileIds: media.map((m) => m.fileId) });
       if (res.ok) {
         setDraft("");
+        setMedia([]);
         setError(null);
         onSent();
       } else {
@@ -259,13 +301,14 @@ function NewConversation({
         <button
           type="button"
           onClick={send}
-          disabled={pending || !draft.trim()}
+          disabled={pending || (!draft.trim() && media.length === 0)}
           className="rounded px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
           style={{ backgroundColor: "var(--kb-primary)", borderRadius: "var(--kb-radius-sm)" }}
         >
           {pending ? "..." : "Send"}
         </button>
       </div>
+      <MediaAttach media={media} setMedia={setMedia} />
       {error ? <p className="mt-1 text-xs" style={{ color: "var(--kb-danger, #dc2626)" }}>{error}</p> : null}
     </div>
   );

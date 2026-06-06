@@ -56,6 +56,28 @@ export async function prepareUpload(input: {
   };
 }
 
+/**
+ * Server-side ingest of raw bytes (inbound email attachments, etc). Builds a
+ * storage key, writes the bytes with the active provider, and returns the
+ * provider + key + bucket so the caller can create a READY File row directly
+ * (no presigned PUT round-trip).
+ */
+export async function ingestObject(input: {
+  tenantSlug: string;
+  fileName: string;
+  mimeType: string;
+  data: Buffer;
+}): Promise<{ provider: StorageProvider; storageKey: string; storageBucket: string | null }> {
+  if (s3.isConfigured()) {
+    const storageKey = s3.buildStorageKey(input.tenantSlug, input.fileName);
+    await s3.putObject(storageKey, input.data, input.mimeType);
+    return { provider: "S3", storageKey, storageBucket: s3.bucketName() };
+  }
+  const storageKey = local.buildLocalStorageKey(input.tenantSlug, input.fileName);
+  await local.writeLocalObject(storageKey, input.data);
+  return { provider: "LOCAL", storageKey, storageBucket: null };
+}
+
 export async function headStored(
   provider: StorageProvider,
   storageKey: string,

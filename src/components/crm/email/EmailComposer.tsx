@@ -13,8 +13,8 @@
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
-import { useEffect, useState, useTransition } from "react";
-import { X } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { X, Paperclip } from "lucide-react";
 import { KbButton } from "@/components/crm/ui";
 import type { RecordType } from "@/lib/crm/record";
 import {
@@ -24,6 +24,7 @@ import {
   type ComposerData,
   type ContactSuggestion,
 } from "@/app/app/(crm)/email-actions";
+import { uploadFile } from "@/lib/files/upload-client";
 
 export type ComposerContext = {
   recordType?: RecordType;
@@ -51,8 +52,20 @@ export function EmailComposer({ context, onClose, onSent }: { context: ComposerC
   const [subject, setSubject] = useState(context.prefill?.subject ?? "");
   const [body, setBody] = useState(context.prefill?.html ?? "");
   const [suggestions, setSuggestions] = useState<ContactSuggestion[]>([]);
+  const [attachments, setAttachments] = useState<{ fileId: string; name: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function onPickFiles(files: FileList) {
+    setUploading(true);
+    for (const file of Array.from(files)) {
+      const res = await uploadFile(file);
+      if (res.ok && res.fileId) setAttachments((a) => [...a, { fileId: res.fileId!, name: file.name }]);
+    }
+    setUploading(false);
+  }
 
   useEffect(() => {
     getComposerData().then((d) => {
@@ -110,6 +123,7 @@ export function EmailComposer({ context, onClose, onSent }: { context: ComposerC
         replyToThreadId: context.replyToThreadId,
         recordType: context.recordType,
         recordId: context.recordId,
+        attachmentFileIds: attachments.map((a) => a.fileId),
       });
       if (!r.ok) setError(r.error ?? "Could not send.");
       else { onSent?.(r.threadId); onClose(); }
@@ -172,6 +186,23 @@ export function EmailComposer({ context, onClose, onSent }: { context: ComposerC
           </div>
 
           <label className="block"><span className="mb-1 block text-xs" style={{ color: "var(--kb-text-secondary)" }}>Body (HTML)</span><textarea value={body} onChange={(e) => setBody(e.target.value)} rows={12} className="w-full rounded px-2 py-1 text-sm outline-none font-mono" style={inputStyle} /></label>
+
+          <div>
+            <button type="button" onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 rounded px-2 py-1 text-xs" style={{ border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius-sm)", color: "var(--kb-text-primary)" }}>
+              <Paperclip size={13} /> {uploading ? "Uploading..." : "Attach files"}
+            </button>
+            <input ref={fileRef} type="file" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) onPickFiles(e.target.files); e.target.value = ""; }} />
+            {attachments.length ? (
+              <ul className="mt-2 space-y-1">
+                {attachments.map((a) => (
+                  <li key={a.fileId} className="flex items-center justify-between rounded px-2 py-1 text-xs" style={{ backgroundColor: "var(--kb-surface-grey)", borderRadius: "var(--kb-radius-sm)", color: "var(--kb-text-primary)" }}>
+                    <span className="truncate">{a.name}</span>
+                    <button type="button" onClick={() => setAttachments((list) => list.filter((x) => x.fileId !== a.fileId))} aria-label="Remove attachment" style={{ color: "var(--kb-text-secondary)" }}><X size={12} /></button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 px-5 py-4" style={{ borderTop: "1px solid var(--kb-border)" }}>
