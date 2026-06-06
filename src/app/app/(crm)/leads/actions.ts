@@ -10,6 +10,8 @@
 import { revalidatePath } from "next/cache";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { auditWrite } from "@/lib/crm/audit";
+import { requirePermission, isOwn } from "@/lib/rbac/require-permission";
+import { notify } from "@/lib/notifications/notify";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
 import { setEntityTags } from "../settings/tags/actions";
 import { saveCustomFieldValues } from "../settings/custom-fields/actions";
@@ -40,9 +42,11 @@ export type LeadInput = {
 };
 
 export async function createLead(input: LeadInput) {
+  await requirePermission("record:create");
   const name = input.name?.trim();
   if (!name) throw new Error("Lead name is required.");
   const { db } = getTenantDb();
+  const ownerUserId = input.ownerUserId?.trim() || null;
   const lead = await db.lead.create({
     data: {
       name,
@@ -51,7 +55,7 @@ export async function createLead(input: LeadInput) {
       companyName: input.companyName?.trim() || null,
       source: asSource(input.source),
       status: asStatus(input.status),
-      ownerUserId: input.ownerUserId?.trim() || null,
+      ownerUserId,
       notes: input.notes?.trim() || null,
     },
   });
@@ -61,15 +65,20 @@ export async function createLead(input: LeadInput) {
     await saveCustomFieldValues({ entityType: "LEAD", entityId: lead.id, values: input.customFields });
 
   await auditWrite({ action: "CREATE", entityType: "LEAD", entityId: lead.id, diff: { name } });
+  if (ownerUserId)
+    await notify(ownerUserId, { type: "ASSIGNMENT", title: `You were assigned a lead: ${name}`, linkUrl: "/app/leads" });
   await dispatchAutomation({ type: "RECORD_CREATED", entityType: "LEAD", entityId: lead.id });
   revalidatePath("/app/leads");
   return lead.id;
 }
 
 export async function updateLead(id: string, input: LeadInput) {
+  const { db } = getTenantDb();
+  const before = await db.lead.findUnique({ where: { id }, select: { ownerUserId: true } });
+  await requirePermission("record:update", { ownsRecord: await isOwn(before?.ownerUserId) });
   const name = input.name?.trim();
   if (!name) throw new Error("Lead name is required.");
-  const { db } = getTenantDb();
+  const ownerUserId = input.ownerUserId?.trim() || null;
   await db.lead.update({
     where: { id },
     data: {
@@ -79,7 +88,7 @@ export async function updateLead(id: string, input: LeadInput) {
       companyName: input.companyName?.trim() || null,
       source: asSource(input.source),
       status: asStatus(input.status),
-      ownerUserId: input.ownerUserId?.trim() || null,
+      ownerUserId,
       notes: input.notes?.trim() || null,
     },
   });
@@ -89,6 +98,8 @@ export async function updateLead(id: string, input: LeadInput) {
     await saveCustomFieldValues({ entityType: "LEAD", entityId: id, values: input.customFields });
 
   await auditWrite({ action: "UPDATE", entityType: "LEAD", entityId: id, diff: { name, status: asStatus(input.status) } });
+  if (ownerUserId && ownerUserId !== before?.ownerUserId)
+    await notify(ownerUserId, { type: "ASSIGNMENT", title: `You were assigned a lead: ${name}`, linkUrl: "/app/leads" });
   await dispatchAutomation({ type: "RECORD_UPDATED", entityType: "LEAD", entityId: id });
   revalidatePath("/app/leads");
 }
@@ -102,6 +113,7 @@ export async function convertLeadToDeal(
   leadId: string,
   opts?: { dealName?: string; amountCents?: number },
 ): Promise<string> {
+  await requirePermission("record:create");
   const { db } = getTenantDb();
   const lead = await db.lead.findUniqueOrThrow({ where: { id: leadId } });
 

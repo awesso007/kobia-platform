@@ -10,6 +10,8 @@
 import { revalidatePath } from "next/cache";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { auditWrite } from "@/lib/crm/audit";
+import { requirePermission, isOwn } from "@/lib/rbac/require-permission";
+import { notify } from "@/lib/notifications/notify";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
 import { setEntityTags } from "../settings/tags/actions";
 import { saveCustomFieldValues } from "../settings/custom-fields/actions";
@@ -39,6 +41,7 @@ function dataFrom(input: ContactInput) {
 }
 
 export async function createContact(input: ContactInput) {
+  await requirePermission("record:create");
   const firstName = input.firstName?.trim();
   if (!firstName) throw new Error("Contact first name is required.");
   const { db } = getTenantDb();
@@ -49,15 +52,20 @@ export async function createContact(input: ContactInput) {
     await saveCustomFieldValues({ entityType: "CONTACT", entityId: contact.id, values: input.customFields });
 
   await auditWrite({ action: "CREATE", entityType: "CONTACT", entityId: contact.id, diff: { firstName } });
+  const ownerId = input.ownerUserId?.trim();
+  if (ownerId)
+    await notify(ownerId, { type: "ASSIGNMENT", title: `You were assigned a contact: ${firstName}`, linkUrl: "/app/contacts" });
   await dispatchAutomation({ type: "RECORD_CREATED", entityType: "CONTACT", entityId: contact.id });
   revalidatePath("/app/contacts");
   return contact.id;
 }
 
 export async function updateContact(id: string, input: ContactInput) {
+  const { db } = getTenantDb();
+  const before = await db.contact.findUnique({ where: { id }, select: { ownerUserId: true } });
+  await requirePermission("record:update", { ownsRecord: await isOwn(before?.ownerUserId) });
   const firstName = input.firstName?.trim();
   if (!firstName) throw new Error("Contact first name is required.");
-  const { db } = getTenantDb();
   await db.contact.update({ where: { id }, data: dataFrom(input) });
 
   if (input.tagIds) await setEntityTags({ entityType: "CONTACT", entityId: id, tagIds: input.tagIds });
@@ -65,11 +73,15 @@ export async function updateContact(id: string, input: ContactInput) {
     await saveCustomFieldValues({ entityType: "CONTACT", entityId: id, values: input.customFields });
 
   await auditWrite({ action: "UPDATE", entityType: "CONTACT", entityId: id, diff: dataFrom(input) });
+  const ownerId = input.ownerUserId?.trim();
+  if (ownerId && ownerId !== before?.ownerUserId)
+    await notify(ownerId, { type: "ASSIGNMENT", title: `You were assigned a contact: ${firstName}`, linkUrl: "/app/contacts" });
   await dispatchAutomation({ type: "RECORD_UPDATED", entityType: "CONTACT", entityId: id });
   revalidatePath("/app/contacts");
 }
 
 export async function deleteContact(id: string) {
+  await requirePermission("record:delete");
   const { db } = getTenantDb();
   await db.contact.delete({ where: { id } });
   await auditWrite({ action: "DELETE", entityType: "CONTACT", entityId: id });

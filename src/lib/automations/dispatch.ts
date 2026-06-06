@@ -15,6 +15,7 @@
  */
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { setEntityTags } from "@/app/app/(crm)/settings/tags/actions";
+import { notifyOn } from "@/lib/notifications/notify";
 import {
   evaluateConditions,
   renderTemplate,
@@ -202,9 +203,9 @@ async function executeSequence(
  * Match and run all enabled automations for an event. Safe to call from any
  * CRUD action; swallows its own errors.
  */
-export async function dispatchAutomation(event: AutomationEvent): Promise<void> {
+export async function dispatchAutomation(event: AutomationEvent, injectedDb?: Db): Promise<void> {
   try {
-    const { db } = getTenantDb();
+    const db = injectedDb ?? getTenantDb().db;
     const automations = await db.automation.findMany({
       where: {
         enabled: true,
@@ -264,6 +265,14 @@ export async function dispatchAutomation(event: AutomationEvent): Promise<void> 
           where: { id: run.id },
           data: { status: "FAILED", finishedAt: new Date(), error: String(err instanceof Error ? err.message : err) },
         });
+        if (automation.createdByClerkUserId) {
+          await notifyOn(db, automation.createdByClerkUserId, {
+            type: "AUTOMATION_RESULT",
+            title: `Automation "${automation.name}" failed`,
+            body: String(err instanceof Error ? err.message : err),
+            linkUrl: "/app/automations",
+          });
+        }
       }
     }
   } catch (err) {

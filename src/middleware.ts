@@ -17,6 +17,11 @@ const isPublicRoute = createRouteMatcher([
   "/:tenant/login(.*)",
   "/api/trpc(.*)",
   "/api/webhooks(.*)",
+  // Public web-to-lead forms (Sprint 5): the hosted form page and its submit
+  // endpoint are intentionally unauthenticated. Tenant is resolved from a
+  // validated `?t=<slug>` query param, not from the session.
+  "/forms(.*)",
+  "/api/forms(.*)",
   "/pay/(.*)",
   "/bill-view/(.*)",
   "/portal(.*)",
@@ -104,6 +109,8 @@ function sanitizeSlug(slug: string | null | undefined): string | null {
 const NON_TENANT_SEGMENTS = new Set([
   "app",
   "api",
+  "forms",
+  "onboarding",
   "pricing",
   "signup",
   "pay",

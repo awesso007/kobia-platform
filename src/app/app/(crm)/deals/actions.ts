@@ -8,11 +8,13 @@
 import { revalidatePath } from "next/cache";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { auditWrite } from "@/lib/crm/audit";
+import { requirePermission } from "@/lib/rbac/require-permission";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
 import { setEntityTags } from "../settings/tags/actions";
 import { saveCustomFieldValues } from "../settings/custom-fields/actions";
 
 export async function moveDealToStage(dealId: string, stageId: string) {
+  await requirePermission("record:update");
   const { db } = getTenantDb();
   const stage = await db.dealStage.findUniqueOrThrow({ where: { id: stageId } });
   await db.deal.update({
@@ -38,6 +40,7 @@ export async function createDeal(input: {
   tagIds?: string[];
   customFields?: Record<string, unknown>;
 }) {
+  await requirePermission("record:create");
   const name = input.name?.trim();
   if (!name) throw new Error("Deal name is required.");
   const { db } = getTenantDb();
@@ -66,6 +69,7 @@ export async function updateDealMeta(
   id: string,
   input: { tagIds?: string[]; customFields?: Record<string, unknown> },
 ) {
+  await requirePermission("record:update");
   if (input.tagIds) await setEntityTags({ entityType: "DEAL", entityId: id, tagIds: input.tagIds });
   if (input.customFields)
     await saveCustomFieldValues({ entityType: "DEAL", entityId: id, values: input.customFields });
