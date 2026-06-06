@@ -9,7 +9,7 @@
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -24,10 +24,14 @@ import { Plus } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { KbButton, StatusBadge } from "@/components/crm/ui";
 import { RecordPane } from "@/components/crm/record-pane/RecordPane";
+import { TagChips } from "@/components/crm/TagChips";
+import { TagPicker } from "@/components/crm/TagPicker";
+import { CustomFieldInputs } from "@/components/crm/CustomFieldInputs";
+import type { CustomFieldDef, CustomFieldValueMap, TagRow } from "@/lib/crm/record";
 import type { DealBoard, DealCard, StageCol } from "./queries";
-import { createDeal, moveDealToStage } from "./actions";
+import { createDeal, moveDealToStage, updateDealMeta, loadDealDetail } from "./actions";
 
-export function DealsBoard({ board }: { board: DealBoard }) {
+export function DealsBoard({ board, allTags, customFields }: { board: DealBoard; allTags: TagRow[]; customFields: CustomFieldDef[] }) {
   const router = useRouter();
   const [view, setView] = useState<"kanban" | "list">("kanban");
   const [deals, setDeals] = useState<DealCard[]>(board.deals);
@@ -118,6 +122,8 @@ export function DealsBoard({ board }: { board: DealBoard }) {
         <NewDealModal
           pipelineId={board.activePipelineId}
           stage={creatingStage}
+          allTags={allTags}
+          customFields={customFields}
           onClose={() => setCreatingStage(null)}
         />
       ) : null}
@@ -128,7 +134,7 @@ export function DealsBoard({ board }: { board: DealBoard }) {
           title={openDeal.name}
           subtitle={openDeal.contactName ?? undefined}
           onClose={() => setOpenDeal(null)}
-          details={<DealDetails deal={openDeal} />}
+          details={<DealDetails deal={openDeal} allTags={allTags} customFields={customFields} />}
         />
       ) : null}
     </div>
@@ -251,6 +257,7 @@ function Card({ deal, onOpen }: { deal: DealCard; onOpen: () => void }) {
           <span>{deal.contactName ?? "No contact"}</span>
           <span>{deal.daysInStage}d in stage</span>
         </div>
+        {deal.tags.length > 0 ? <div className="mt-2"><TagChips tags={deal.tags} /></div> : null}
       </button>
     </div>
   );
@@ -293,14 +300,52 @@ function DealList({ deals, stages, onOpen }: { deals: DealCard[]; stages: StageC
   );
 }
 
-function DealDetails({ deal }: { deal: DealCard }) {
+function DealDetails({ deal, allTags, customFields }: { deal: DealCard; allTags: TagRow[]; customFields: CustomFieldDef[] }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [tagIds, setTagIds] = useState<string[]>([]);
+  const [cfValues, setCfValues] = useState<CustomFieldValueMap>({});
+
+  useEffect(() => {
+    let active = true;
+    loadDealDetail(deal.id).then((d) => {
+      if (!active) return;
+      setTagIds(d.tagIds);
+      setCfValues(d.customValues);
+    });
+    return () => { active = false; };
+  }, [deal.id]);
+
+  function save() {
+    startTransition(async () => {
+      await updateDealMeta(deal.id, { tagIds, customFields: cfValues });
+      router.refresh();
+    });
+  }
+
   return (
-    <dl className="space-y-3 text-sm">
-      <Row label="Amount" value={formatCurrency(deal.amountCents / 100)} />
-      <Row label="Contact" value={deal.contactName ?? "-"} />
-      <Row label="Days in stage" value={`${deal.daysInStage}`} />
-      <Row label="Status" value={deal.status} />
-    </dl>
+    <div className="space-y-3">
+      <dl className="space-y-3 text-sm">
+        <Row label="Amount" value={formatCurrency(deal.amountCents / 100)} />
+        <Row label="Contact" value={deal.contactName ?? "-"} />
+        <Row label="Days in stage" value={`${deal.daysInStage}`} />
+        <Row label="Status" value={deal.status} />
+      </dl>
+      <Field label="Tags"><TagPicker all={allTags} selected={tagIds} onChange={setTagIds} /></Field>
+      <CustomFieldInputs fields={customFields} values={cfValues} onChange={(id, v) => setCfValues((p) => ({ ...p, [id]: v }))} />
+      <div className="flex gap-2 pt-2">
+        <KbButton onClick={save} disabled={pending}>{pending ? "Saving..." : "Save"}</KbButton>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs" style={{ color: "var(--kb-text-secondary)" }}>{label}</span>
+      {children}
+    </label>
   );
 }
 
@@ -313,17 +358,19 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-function NewDealModal({ pipelineId, stage, onClose }: { pipelineId: string; stage: StageCol; onClose: () => void }) {
+function NewDealModal({ pipelineId, stage, allTags, customFields, onClose }: { pipelineId: string; stage: StageCol; allTags: TagRow[]; customFields: CustomFieldDef[]; onClose: () => void }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
+  const [tagIds, setTagIds] = useState<string[]>([]);
+  const [cfValues, setCfValues] = useState<CustomFieldValueMap>({});
 
   function submit() {
     if (!name.trim()) return;
     const cents = Math.round((Number(amount) || 0) * 100);
     startTransition(async () => {
-      await createDeal({ name, pipelineId, stageId: stage.id, amountCents: cents });
+      await createDeal({ name, pipelineId, stageId: stage.id, amountCents: cents, tagIds, customFields: cfValues });
       onClose();
       router.refresh();
     });
@@ -358,6 +405,13 @@ function NewDealModal({ pipelineId, stage, onClose }: { pipelineId: string; stag
             style={{ border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius-sm)" }}
           />
         </label>
+        <div className="mt-3 space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-xs" style={{ color: "var(--kb-text-secondary)" }}>Tags</span>
+            <TagPicker all={allTags} selected={tagIds} onChange={setTagIds} />
+          </label>
+          <CustomFieldInputs fields={customFields} values={cfValues} onChange={(id, v) => setCfValues((p) => ({ ...p, [id]: v }))} />
+        </div>
         <div className="mt-5 flex justify-end gap-2">
           <KbButton variant="outline" onClick={onClose}>Cancel</KbButton>
           <KbButton onClick={submit} disabled={pending || !name.trim()}>{pending ? "Creating..." : "Create deal"}</KbButton>

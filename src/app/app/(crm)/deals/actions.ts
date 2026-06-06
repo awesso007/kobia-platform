@@ -7,6 +7,9 @@
  */
 import { revalidatePath } from "next/cache";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
+import { auditWrite } from "@/lib/crm/audit";
+import { setEntityTags } from "../settings/tags/actions";
+import { saveCustomFieldValues } from "../settings/custom-fields/actions";
 
 export async function moveDealToStage(dealId: string, stageId: string) {
   const { db } = getTenantDb();
@@ -20,6 +23,7 @@ export async function moveDealToStage(dealId: string, stageId: string) {
       lostAt: stage.isLost ? new Date() : null,
     },
   });
+  await auditWrite({ action: "UPDATE", entityType: "DEAL", entityId: dealId, diff: { stageId, status: stage.isWon ? "WON" : stage.isLost ? "LOST" : "OPEN" } });
   revalidatePath("/app/deals");
 }
 
@@ -29,6 +33,8 @@ export async function createDeal(input: {
   stageId: string;
   amountCents?: number;
   contactId?: string;
+  tagIds?: string[];
+  customFields?: Record<string, unknown>;
 }) {
   const name = input.name?.trim();
   if (!name) throw new Error("Deal name is required.");
@@ -42,6 +48,35 @@ export async function createDeal(input: {
       contactId: input.contactId || null,
     },
   });
+
+  if (input.tagIds) await setEntityTags({ entityType: "DEAL", entityId: deal.id, tagIds: input.tagIds });
+  if (input.customFields)
+    await saveCustomFieldValues({ entityType: "DEAL", entityId: deal.id, values: input.customFields });
+
+  await auditWrite({ action: "CREATE", entityType: "DEAL", entityId: deal.id, diff: { name } });
   revalidatePath("/app/deals");
   return deal.id;
+}
+
+/** Persist tag + custom-field edits made in the Deal RecordPane Details tab. */
+export async function updateDealMeta(
+  id: string,
+  input: { tagIds?: string[]; customFields?: Record<string, unknown> },
+) {
+  if (input.tagIds) await setEntityTags({ entityType: "DEAL", entityId: id, tagIds: input.tagIds });
+  if (input.customFields)
+    await saveCustomFieldValues({ entityType: "DEAL", entityId: id, values: input.customFields });
+  await auditWrite({ action: "UPDATE", entityType: "DEAL", entityId: id, diff: { meta: true } });
+  revalidatePath("/app/deals");
+}
+
+/** Load tag ids + custom-field values for the Deal RecordPane Details tab. */
+export async function loadDealDetail(id: string) {
+  const { getTagsForEntity } = await import("@/lib/crm/tags");
+  const { getCustomFieldValuesFor } = await import("@/lib/crm/custom-fields");
+  const [tags, customValues] = await Promise.all([
+    getTagsForEntity("DEAL", id),
+    getCustomFieldValuesFor("DEAL", id),
+  ]);
+  return { tagIds: tags.map((t) => t.id), customValues };
 }

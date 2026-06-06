@@ -73,6 +73,31 @@ const LEADS = [
   { name: "Summit Labs", companyName: "Summit Labs", email: "founder@summitlabs.example", phone: "+1-555-0203", source: "EVENT" as const, status: "QUALIFIED" as const, notes: "Met at SaaS Connect; budget confirmed." },
 ];
 
+const COMPANIES = [
+  { name: "Northwind Trading", domain: "northwind.example", industry: "Wholesale", size: "SIZE_51_200" as const, website: "https://northwind.example", phone: "+1-555-0301" },
+  { name: "Brightpath Logistics", domain: "brightpath.example", industry: "Logistics", size: "SIZE_201_1000" as const, website: "https://brightpath.example", phone: "+1-555-0302" },
+  { name: "Summit Labs", domain: "summitlabs.example", industry: "Biotech", size: "SIZE_11_50" as const, website: "https://summitlabs.example", phone: "+1-555-0303" },
+  { name: "Cedar Financial", domain: "cedarfin.example", industry: "Finance", size: "SIZE_1000_PLUS" as const, website: "https://cedarfin.example", phone: "+1-555-0304" },
+  { name: "Acme Manufacturing", domain: "acme-mfg.example", industry: "Manufacturing", size: "SIZE_1_10" as const, website: "https://acme-mfg.example", phone: "+1-555-0305" },
+];
+
+const TAGS = [
+  { name: "Hot", color: "#e5484d" },
+  { name: "Warm", color: "#f5a623" },
+  { name: "Cold", color: "#1d77bd" },
+];
+
+const CUSTOM_FIELDS = [
+  { entityType: "LEAD" as const, key: "lead_score", label: "Lead Score", type: "NUMBER" as const, order: 0 },
+  { entityType: "LEAD" as const, key: "source_campaign", label: "Source Campaign", type: "TEXT" as const, order: 1 },
+  { entityType: "DEAL" as const, key: "contract_term", label: "Contract Term", type: "SELECT" as const, order: 0, options: ["Monthly", "Annual", "Multi-year"] },
+  { entityType: "DEAL" as const, key: "renewal_date", label: "Renewal Date", type: "DATE" as const, order: 1 },
+  { entityType: "CONTACT" as const, key: "linkedin_url", label: "LinkedIn", type: "URL" as const, order: 0 },
+  { entityType: "CONTACT" as const, key: "preferred_channel", label: "Preferred Channel", type: "SELECT" as const, order: 1, options: ["Email", "Phone", "SMS"] },
+  { entityType: "COMPANY" as const, key: "annual_revenue", label: "Annual Revenue", type: "NUMBER" as const, order: 0 },
+  { entityType: "COMPANY" as const, key: "is_strategic", label: "Strategic Account", type: "BOOLEAN" as const, order: 1 },
+];
+
 async function main() {
   const { slug } = parseArgs(process.argv.slice(2));
   const schema = schemaNameForSlug(slug);
@@ -152,16 +177,60 @@ async function main() {
       console.log(`[seed-tenant] deals already present (${dealCount}); skipping insert`);
     }
 
+    // 5. Companies - upsert by unique name (idempotent), then link the seeded
+    //    contacts to the matching company by domain.
+    const companyByDomain = new Map<string, string>();
+    for (const c of COMPANIES) {
+      const existing = await db.company.findFirst({ where: { name: c.name } });
+      const company = existing
+        ? await db.company.update({ where: { id: existing.id }, data: c })
+        : await db.company.create({ data: c });
+      if (company.domain) companyByDomain.set(company.domain, company.id);
+    }
+    console.log(`[seed-tenant] ${COMPANIES.length} companies ready`);
+
+    const unlinkedContacts = await db.contact.findMany({ where: { companyId: null } });
+    let linked = 0;
+    for (const contact of unlinkedContacts) {
+      const domain = contact.email?.split("@")[1];
+      const companyId = domain ? companyByDomain.get(domain) : undefined;
+      if (companyId) {
+        await db.contact.update({ where: { id: contact.id }, data: { companyId } });
+        linked++;
+      }
+    }
+    console.log(`[seed-tenant] linked ${linked} contacts to companies`);
+
+    // 6. Tags - upsert by unique name.
+    for (const t of TAGS) {
+      await db.tag.upsert({ where: { name: t.name }, create: t, update: { color: t.color } });
+    }
+    console.log(`[seed-tenant] ${TAGS.length} tags ready`);
+
+    // 7. Custom fields - upsert by unique (entityType, key).
+    for (const f of CUSTOM_FIELDS) {
+      const { entityType, key, options, ...rest } = f;
+      await db.customField.upsert({
+        where: { entityType_key: { entityType, key } },
+        create: { entityType, key, ...rest, required: false, options: (options ?? undefined) as never },
+        update: { ...rest, options: (options ?? undefined) as never },
+      });
+    }
+    console.log(`[seed-tenant] ${CUSTOM_FIELDS.length} custom fields ready`);
+
     // Summary
-    const [pipelines, stages, contacts, leads, deals] = await Promise.all([
+    const [pipelines, stages, contacts, leads, deals, companies, tags, customFields] = await Promise.all([
       db.pipeline.count(),
       db.dealStage.count(),
       db.contact.count(),
       db.lead.count(),
       db.deal.count(),
+      db.company.count(),
+      db.tag.count(),
+      db.customField.count(),
     ]);
     console.log(
-      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals}`,
+      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields}`,
     );
   } finally {
     await db.$disconnect();
