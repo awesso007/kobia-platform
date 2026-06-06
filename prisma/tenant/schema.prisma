@@ -352,6 +352,8 @@ enum AutomationTrigger {
   STAGE_CHANGED
   ACTIVITY_DUE
   SCHEDULE
+  EMAIL_SENT
+  EMAIL_RECEIVED
 }
 
 enum AutomationRunStatus {
@@ -510,4 +512,166 @@ model WebForm {
   updatedAt    DateTime @updatedAt
 
   @@index([slug])
+}
+
+// =============================================================================
+// Sprint 6: Email integration. Per-user mail accounts (SMTP/IMAP + OAuth
+// stubs), threads/messages auto-linked to CRM records, templates, signatures.
+// Secrets are stored encrypted (see src/lib/crypto/secrets.ts); when the
+// encryption key is unset they fall back to plaintext with a UI warning.
+// =============================================================================
+
+enum EmailProvider {
+  SMTP_IMAP
+  GMAIL_OAUTH
+  OUTLOOK_OAUTH
+}
+
+enum EmailAccountStatus {
+  ACTIVE
+  PAUSED
+  ERROR
+}
+
+enum EmailDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum EmailMessageStatus {
+  DRAFT
+  QUEUED
+  SENT
+  DELIVERED
+  BOUNCED
+  FAILED
+}
+
+enum EmailRecordType {
+  LEAD
+  DEAL
+  CONTACT
+  COMPANY
+}
+
+enum EmailTemplateScope {
+  PERSONAL
+  TENANT
+}
+
+model EmailAccount {
+  id                         String             @id @default(cuid())
+  ownerClerkUserId           String
+  address                    String
+  provider                   EmailProvider      @default(SMTP_IMAP)
+  displayName                String?
+  smtpHost                   String?
+  smtpPort                   Int?
+  smtpUser                   String?
+  smtpPassEncrypted          String?
+  imapHost                   String?
+  imapPort                   Int?
+  imapUser                   String?
+  imapPassEncrypted          String?
+  oauthRefreshTokenEncrypted String?
+  status                     EmailAccountStatus @default(ACTIVE)
+  lastSyncedAt               DateTime?
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
+
+  threads  EmailThread[]
+  messages EmailMessage[]
+
+  @@unique([ownerClerkUserId, address])
+  @@index([status])
+}
+
+model EmailThread {
+  id               String           @id @default(cuid())
+  subject          String?
+  lastMessageAt    DateTime?
+  participantsJson Json?
+  recordType       EmailRecordType?
+  recordId         String?
+  accountId        String
+  messageCount     Int              @default(0)
+  unreadCount      Int              @default(0)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  account  EmailAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  messages EmailMessage[]
+
+  @@index([recordType, recordId])
+  @@index([accountId, lastMessageAt])
+}
+
+model EmailMessage {
+  id           String             @id @default(cuid())
+  threadId     String
+  accountId    String
+  externalId   String?
+  direction    EmailDirection
+  fromAddress  String
+  toAddresses  Json
+  ccAddresses  Json?
+  bccAddresses Json?
+  subject      String?
+  bodyHtml     String?
+  bodyText     String?
+  snippet      String?
+  sentAt       DateTime?
+  receivedAt   DateTime?
+  readAt       DateTime?
+  status       EmailMessageStatus @default(SENT)
+  errorMessage String?
+  repliedTo    String?
+  createdAt    DateTime           @default(now())
+
+  thread      EmailThread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  account     EmailAccount      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  attachments EmailAttachment[]
+
+  @@index([threadId])
+  @@index([externalId])
+  @@index([status])
+}
+
+model EmailAttachment {
+  id         String   @id @default(cuid())
+  messageId  String
+  filename   String
+  mimeType   String
+  size       Int
+  storageKey String
+  createdAt  DateTime @default(now())
+
+  message EmailMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+}
+
+model EmailTemplate {
+  id               String             @id @default(cuid())
+  name             String
+  subject          String
+  bodyHtml         String
+  variables        Json?
+  scope            EmailTemplateScope @default(PERSONAL)
+  ownerClerkUserId String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([scope])
+}
+
+model EmailSignature {
+  id               String   @id @default(cuid())
+  ownerClerkUserId String
+  html             String
+  isDefault        Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([ownerClerkUserId])
 }

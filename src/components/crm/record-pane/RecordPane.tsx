@@ -17,8 +17,12 @@ import { X } from "lucide-react";
 import type { ActivityKind, ActivityRow, RecordType } from "@/lib/crm/record";
 import { ACTIVITY_TYPES } from "@/lib/crm/record";
 import { addActivity, listActivities } from "@/app/app/(crm)/activity-actions";
+import { countUnreadForRecord } from "@/app/app/(crm)/email-actions";
+import { EmailTab } from "@/components/crm/email/EmailTab";
 
-type Tab = "details" | "activity" | "notes";
+type Tab = "details" | "activity" | "email" | "notes";
+
+const TABS: Tab[] = ["details", "activity", "email", "notes"];
 
 export function RecordPane({
   type,
@@ -26,6 +30,7 @@ export function RecordPane({
   title,
   subtitle,
   details,
+  vars,
   initialTab = "details",
   onClose,
 }: {
@@ -34,10 +39,18 @@ export function RecordPane({
   title: string;
   subtitle?: string;
   details?: React.ReactNode;
+  vars?: Record<string, string>;
   initialTab?: Tab;
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<Tab>(initialTab);
+  const [unread, setUnread] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    countUnreadForRecord(type, id).then((n) => { if (active) setUnread(n > 0); }).catch(() => {});
+    return () => { active = false; };
+  }, [type, id]);
 
   return (
     <>
@@ -87,12 +100,12 @@ export function RecordPane({
         </header>
 
         <nav className="flex gap-1 px-3 pt-2" style={{ borderBottom: "1px solid var(--kb-border)" }}>
-          {(["details", "activity", "notes"] as Tab[]).map((t) => (
+          {TABS.map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => setTab(t)}
-              className="px-3 py-2 text-sm capitalize"
+              className="flex items-center gap-1 px-3 py-2 text-sm capitalize"
               style={{
                 fontWeight: tab === t ? 600 : 400,
                 color: tab === t ? "var(--kb-primary)" : "var(--kb-text-secondary)",
@@ -100,6 +113,9 @@ export function RecordPane({
               }}
             >
               {t}
+              {t === "email" && unread ? (
+                <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "var(--kb-primary)" }} />
+              ) : null}
             </button>
           ))}
         </nav>
@@ -107,6 +123,8 @@ export function RecordPane({
         <div className="flex-1 overflow-auto">
           {tab === "details" ? (
             <div className="p-5">{details ?? <EmptyNote text="No details to show." />}</div>
+          ) : tab === "email" ? (
+            <EmailTab type={type} id={id} vars={vars} />
           ) : (
             <ActivityFeed key={tab} type={type} id={id} notesOnly={tab === "notes"} />
           )}

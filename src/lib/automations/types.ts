@@ -16,6 +16,8 @@ export const AUTOMATION_TRIGGERS = [
   "STAGE_CHANGED",
   "ACTIVITY_DUE",
   "SCHEDULE",
+  "EMAIL_SENT",
+  "EMAIL_RECEIVED",
 ] as const;
 export type AutomationTriggerKind = (typeof AUTOMATION_TRIGGERS)[number];
 
@@ -26,6 +28,8 @@ export const TRIGGER_LABELS: Record<AutomationTriggerKind, string> = {
   STAGE_CHANGED: "Deal stage changed",
   ACTIVITY_DUE: "Activity due",
   SCHEDULE: "On a schedule",
+  EMAIL_SENT: "Email sent",
+  EMAIL_RECEIVED: "Email received",
 };
 
 export const CONDITION_OPERATORS = [
@@ -58,7 +62,7 @@ export const ACTION_KINDS = [
   "ADD_TAG",
   "REMOVE_TAG",
   "ASSIGN_OWNER",
-  "SEND_EMAIL_PLACEHOLDER",
+  "SEND_EMAIL",
   "WAIT",
 ] as const;
 export type ActionKind = (typeof ACTION_KINDS)[number];
@@ -70,7 +74,7 @@ export const ACTION_LABELS: Record<ActionKind, string> = {
   ADD_TAG: "Add tag",
   REMOVE_TAG: "Remove tag",
   ASSIGN_OWNER: "Assign owner",
-  SEND_EMAIL_PLACEHOLDER: "Send email (placeholder)",
+  SEND_EMAIL: "Send email",
   WAIT: "Wait",
 };
 
@@ -104,6 +108,7 @@ export type AutomationEvent = {
   entityId: string;
   changedFields?: string[];
   record?: Record<string, unknown>;
+  payload?: Record<string, unknown>;
 };
 
 function asNumber(v: unknown): number | null {

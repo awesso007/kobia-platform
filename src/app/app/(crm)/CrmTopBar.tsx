@@ -1,16 +1,20 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { useState } from "react";
+import { Mail, Search } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
 import { TenantSwitcher } from "./TenantSwitcher";
+import { EmailComposer } from "@/components/crm/email/EmailComposer";
 import type { NotificationRow } from "@/lib/notifications/queries";
 import type { UserTenant } from "@/lib/tenancy/user-tenants";
 
 /*
  * CRM top bar. Bitrix24 pattern: 56px tall, light surface, left = tenant
- * switcher, center = search, right = notifications bell + user menu.
+ * switcher, center = search, right = compose-email + notifications bell + user
+ * menu.
  */
 export function CrmTopBar({ notifications = [], tenants = [] }: { notifications?: NotificationRow[]; tenants?: UserTenant[] }) {
+  const [composing, setComposing] = useState(false);
   return (
     <header
       className="flex items-center gap-4 px-4"
@@ -40,6 +44,15 @@ export function CrmTopBar({ notifications = [], tenants = [] }: { notifications?
         />
       </div>
 
+      <button
+        type="button"
+        onClick={() => setComposing(true)}
+        className="flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium text-white"
+        style={{ backgroundColor: "var(--kb-primary)", borderRadius: "var(--kb-radius-sm)" }}
+      >
+        <Mail size={14} /> Email
+      </button>
+
       <NotificationBell initial={notifications} />
 
       <div
@@ -49,6 +62,8 @@ export function CrmTopBar({ notifications = [], tenants = [] }: { notifications?
       >
         U
       </div>
+
+      {composing ? <EmailComposer context={{}} onClose={() => setComposing(false)} onSent={() => setComposing(false)} /> : null}
     </header>
   );
 }

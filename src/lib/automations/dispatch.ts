@@ -16,6 +16,8 @@
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { setEntityTags } from "@/app/app/(crm)/settings/tags/actions";
 import { notifyOn } from "@/lib/notifications/notify";
+import { sendEmail } from "@/lib/email/send";
+import type { EmailRecordType } from "@/lib/email/link";
 import {
   evaluateConditions,
   renderTemplate,
@@ -135,10 +137,53 @@ async function runAction(
       await model.update({ where: { id: ctx.entityId }, data: { ownerUserId: owner } });
       return { result: { kind: action.kind, status: "done", detail: owner } };
     }
-    case "SEND_EMAIL_PLACEHOLDER": {
-      const to = renderTemplate(String(cfg.to ?? ""), ctx.record);
-      const subject = renderTemplate(String(cfg.subject ?? ""), ctx.record);
-      return { result: { kind: action.kind, status: "done", detail: `Sent (stub) to ${to || "?"}: ${subject}` } };
+    case "SEND_EMAIL": {
+      const accountId = String(cfg.accountId ?? "");
+      if (!accountId) return { result: { kind: action.kind, status: "skipped", detail: "no account" } };
+
+      // Recipient: a token (trigger.contact.email / trigger.owner.email) or a
+      // literal/template address resolved against the trigger record.
+      const toRaw = String(cfg.to ?? "");
+      let to = "";
+      if (toRaw === "trigger.contact.email") {
+        to = String(ctx.record.email ?? "");
+      } else if (toRaw === "trigger.owner.email") {
+        const ownerId = String(ctx.record.ownerUserId ?? ctx.record.ownerClerkUserId ?? "");
+        if (ownerId) {
+          const member = await db.membership.findUnique({ where: { clerkUserId: ownerId } });
+          to = member?.email ?? "";
+        }
+      } else {
+        to = renderTemplate(toRaw, ctx.record).trim();
+      }
+      if (!to) return { result: { kind: action.kind, status: "skipped", detail: "no recipient" } };
+
+      let subject = "";
+      let html = "";
+      const templateId = String(cfg.templateId ?? "");
+      if (templateId) {
+        const tpl = await db.emailTemplate.findUnique({ where: { id: templateId } });
+        if (!tpl) return { result: { kind: action.kind, status: "skipped", detail: "template not found" } };
+        subject = renderTemplate(tpl.subject, ctx.record);
+        html = renderTemplate(tpl.bodyHtml, ctx.record);
+      } else {
+        subject = renderTemplate(String(cfg.subject ?? ""), ctx.record);
+        html = renderTemplate(String(cfg.html ?? cfg.body ?? ""), ctx.record);
+      }
+
+      const res = await sendEmail(
+        {
+          accountId,
+          to: [to],
+          subject,
+          html,
+          recordType: ctx.entityType as EmailRecordType,
+          recordId: ctx.entityId,
+        },
+        db,
+      );
+      if (!res.ok) return { result: { kind: action.kind, status: "skipped", detail: res.error ?? "send failed" } };
+      return { result: { kind: action.kind, status: "done", detail: `Sent to ${to}: ${subject}` } };
     }
     case "WAIT": {
       const minutes = Number(cfg.minutes ?? 0);
