@@ -18,12 +18,24 @@ import { CallButton } from "@/components/crm/calls/CallButton";
 import { TagChips } from "@/components/crm/TagChips";
 import { TagPicker } from "@/components/crm/TagPicker";
 import { CustomFieldInputs } from "@/components/crm/CustomFieldInputs";
+import { ViewBar, type ColumnDef } from "@/components/crm/views/ViewBar";
 import { formatCurrency } from "@/lib/utils";
 import type { CustomFieldDef, CustomFieldValueMap, TagRow } from "@/lib/crm/record";
+import type { SavedViewRow } from "../views/actions";
 import type { ContactRow, LinkedCompany, LinkedDeal } from "./queries";
 import { createContact, updateContact, loadContactDetail, type ContactInput } from "./actions";
 
 type CompanyOption = { id: string; name: string };
+
+const CONTACT_COLUMNS: ColumnDef[] = [
+  { key: "name", label: "Name" },
+  { key: "email", label: "Email" },
+  { key: "phone", label: "Phone" },
+  { key: "company", label: "Company" },
+  { key: "owner", label: "Owner" },
+  { key: "tags", label: "Tags" },
+  { key: "created", label: "Created" },
+];
 
 export function ContactsTable({
   rows,
@@ -34,6 +46,7 @@ export function ContactsTable({
   companies,
   allTags,
   customFields,
+  savedViews = [],
 }: {
   rows: ContactRow[];
   total: number;
@@ -43,11 +56,14 @@ export function ContactsTable({
   companies: CompanyOption[];
   allTags: TagRow[];
   customFields: CustomFieldDef[];
+  savedViews?: SavedViewRow[];
 }) {
   const router = useRouter();
   const sp = useSearchParams();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<ContactRow | null>(null);
+  const [cols, setCols] = useState<string[]>(CONTACT_COLUMNS.map((c) => c.key));
+  const showCol = (k: string) => cols.includes(k);
   const searchRef = useRef<HTMLInputElement | null>(null);
 
   const openId = sp.get("open");
@@ -106,8 +122,17 @@ export function ContactsTable({
         <KbButton onClick={() => setCreating(true)}><Plus size={16} /> New contact</KbButton>
       </div>
 
+      <ViewBar
+        entityType="CONTACT"
+        basePath="/app/contacts"
+        views={savedViews}
+        columns={CONTACT_COLUMNS}
+        onColumnsChange={setCols}
+      />
+
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input
+          ref={searchRef}
           defaultValue={sp.get("search") ?? ""}
           placeholder="Search name, email"
           onKeyDown={(e) => { if (e.key === "Enter") setParam({ search: (e.target as HTMLInputElement).value }); }}
@@ -147,35 +172,37 @@ export function ContactsTable({
         <table className="w-full text-sm">
           <thead>
             <tr style={{ backgroundColor: "var(--kb-surface-grey)", color: "var(--kb-text-secondary)" }}>
-              <Th label="Name" field="lastName" onSort={toggleSort} />
-              <Th label="Email" field="email" onSort={toggleSort} />
-              <th className="px-3 py-2 text-left font-medium">Phone</th>
-              <th className="px-3 py-2 text-left font-medium">Company</th>
-              <th className="px-3 py-2 text-left font-medium">Owner</th>
-              <th className="px-3 py-2 text-left font-medium">Tags</th>
-              <Th label="Created" field="createdAt" onSort={toggleSort} />
+              {showCol("name") ? <Th label="Name" field="lastName" onSort={toggleSort} /> : null}
+              {showCol("email") ? <Th label="Email" field="email" onSort={toggleSort} /> : null}
+              {showCol("phone") ? <th className="px-3 py-2 text-left font-medium">Phone</th> : null}
+              {showCol("company") ? <th className="px-3 py-2 text-left font-medium">Company</th> : null}
+              {showCol("owner") ? <th className="px-3 py-2 text-left font-medium">Owner</th> : null}
+              {showCol("tags") ? <th className="px-3 py-2 text-left font-medium">Tags</th> : null}
+              {showCol("created") ? <Th label="Created" field="createdAt" onSort={toggleSort} /> : null}
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={7} className="p-8 text-center" style={{ color: "var(--kb-text-secondary)" }}>No contacts match these filters.</td></tr>
+              <tr><td colSpan={cols.length} className="p-8 text-center" style={{ color: "var(--kb-text-secondary)" }}>No contacts match these filters.</td></tr>
             ) : (
               rows.map((c) => (
                 <tr key={c.id} onClick={() => setEditing(c)} className="cursor-pointer" style={{ borderTop: "1px solid var(--kb-border)", height: "var(--kb-row-h)" }}>
-                  <td className="px-3" style={{ color: "var(--kb-text-primary)", fontWeight: 500 }}>{c.name}{c.title ? <span className="ml-2 text-xs" style={{ color: "var(--kb-text-secondary)" }}>{c.title}</span> : null}</td>
-                  <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.email ?? "-"}</td>
-                  <td className="px-3" style={{ color: "var(--kb-text-secondary)" }} onClick={(e) => e.stopPropagation()}>
-                    {c.phone ? (
-                      <span className="inline-flex items-center gap-1">
-                        {c.phone}
-                        <CallButton target={{ toE164: c.phone, contactId: c.id }} compact />
-                      </span>
-                    ) : "-"}
-                  </td>
-                  <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.companyName ?? "-"}</td>
-                  <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.ownerUserId ?? "-"}</td>
-                  <td className="px-3"><TagChips tags={c.tags} /></td>
-                  <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{new Date(c.createdAt).toLocaleDateString()}</td>
+                  {showCol("name") ? <td className="px-3" style={{ color: "var(--kb-text-primary)", fontWeight: 500 }}>{c.name}{c.title ? <span className="ml-2 text-xs" style={{ color: "var(--kb-text-secondary)" }}>{c.title}</span> : null}</td> : null}
+                  {showCol("email") ? <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.email ?? "-"}</td> : null}
+                  {showCol("phone") ? (
+                    <td className="px-3" style={{ color: "var(--kb-text-secondary)" }} onClick={(e) => e.stopPropagation()}>
+                      {c.phone ? (
+                        <span className="inline-flex items-center gap-1">
+                          {c.phone}
+                          <CallButton target={{ toE164: c.phone, contactId: c.id }} compact />
+                        </span>
+                      ) : "-"}
+                    </td>
+                  ) : null}
+                  {showCol("company") ? <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.companyName ?? "-"}</td> : null}
+                  {showCol("owner") ? <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.ownerUserId ?? "-"}</td> : null}
+                  {showCol("tags") ? <td className="px-3"><TagChips tags={c.tags} /></td> : null}
+                  {showCol("created") ? <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{new Date(c.createdAt).toLocaleDateString()}</td> : null}
                 </tr>
               ))
             )}

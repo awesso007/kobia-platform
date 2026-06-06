@@ -2,6 +2,7 @@ import { listCompanies } from "./queries";
 import { CompaniesTable } from "./CompaniesTable";
 import { getCustomFieldsFor } from "@/lib/crm/custom-fields";
 import { listTags } from "@/lib/crm/tags";
+import { listSavedViews } from "../views/actions";
 import { NoTenantError } from "@/lib/db/get-tenant-db";
 import { CrmError } from "../CrmError";
 
@@ -14,7 +15,7 @@ export default async function CompaniesPage({
 }) {
   const get = (k: string) => (Array.isArray(searchParams[k]) ? searchParams[k]?.[0] : searchParams[k]) as string | undefined;
   try {
-    const [data, customFields, tags] = await Promise.all([
+    const [data, customFields, tags, savedViews] = await Promise.all([
       listCompanies({
         industry: get("industry"),
         owner: get("owner"),
@@ -26,6 +27,7 @@ export default async function CompaniesPage({
       }),
       getCustomFieldsFor("COMPANY"),
       listTags(),
+      listSavedViews("COMPANY"),
     ]);
     return (
       <CompaniesTable
@@ -37,6 +39,7 @@ export default async function CompaniesPage({
         industries={data.industries}
         allTags={tags}
         customFields={customFields}
+        savedViews={savedViews}
       />
     );
   } catch (err) {

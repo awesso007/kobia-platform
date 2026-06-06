@@ -17,6 +17,7 @@ import { RecordPane } from "@/components/crm/record-pane/RecordPane";
 import { TagChips } from "@/components/crm/TagChips";
 import { TagPicker } from "@/components/crm/TagPicker";
 import { CustomFieldInputs } from "@/components/crm/CustomFieldInputs";
+import { ViewBar, type ColumnDef } from "@/components/crm/views/ViewBar";
 import { formatCurrency } from "@/lib/utils";
 import {
   COMPANY_SIZES,
@@ -25,8 +26,19 @@ import {
   type CustomFieldValueMap,
   type TagRow,
 } from "@/lib/crm/record";
+import type { SavedViewRow } from "../views/actions";
 import type { CompanyRow, RelatedContact, RelatedDeal } from "./queries";
 import { createCompany, updateCompany, loadCompanyDetail, type CompanyInput } from "./actions";
+
+const COMPANY_COLUMNS: ColumnDef[] = [
+  { key: "name", label: "Name" },
+  { key: "domain", label: "Domain" },
+  { key: "industry", label: "Industry" },
+  { key: "size", label: "Size" },
+  { key: "owner", label: "Owner" },
+  { key: "tags", label: "Tags" },
+  { key: "created", label: "Created" },
+];
 
 export function CompaniesTable({
   rows,
@@ -37,6 +49,7 @@ export function CompaniesTable({
   industries,
   allTags,
   customFields,
+  savedViews = [],
 }: {
   rows: CompanyRow[];
   total: number;
@@ -46,11 +59,14 @@ export function CompaniesTable({
   industries: string[];
   allTags: TagRow[];
   customFields: CustomFieldDef[];
+  savedViews?: SavedViewRow[];
 }) {
   const router = useRouter();
   const sp = useSearchParams();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<CompanyRow | null>(null);
+  const [cols, setCols] = useState<string[]>(COMPANY_COLUMNS.map((c) => c.key));
+  const showCol = (k: string) => cols.includes(k);
   const searchRef = useRef<HTMLInputElement | null>(null);
 
   const openId = sp.get("open");
@@ -109,6 +125,14 @@ export function CompaniesTable({
         <KbButton onClick={() => setCreating(true)}><Plus size={16} /> New company</KbButton>
       </div>
 
+      <ViewBar
+        entityType="COMPANY"
+        basePath="/app/companies"
+        views={savedViews}
+        columns={COMPANY_COLUMNS}
+        onColumnsChange={setCols}
+      />
+
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input
           ref={searchRef}
@@ -151,28 +175,28 @@ export function CompaniesTable({
         <table className="w-full text-sm">
           <thead>
             <tr style={{ backgroundColor: "var(--kb-surface-grey)", color: "var(--kb-text-secondary)" }}>
-              <Th label="Name" field="name" onSort={toggleSort} />
-              <Th label="Domain" field="domain" onSort={toggleSort} />
-              <Th label="Industry" field="industry" onSort={toggleSort} />
-              <Th label="Size" field="size" onSort={toggleSort} />
-              <Th label="Owner" field="ownerUserId" onSort={toggleSort} />
-              <th className="px-3 py-2 text-left font-medium">Tags</th>
-              <Th label="Created" field="createdAt" onSort={toggleSort} />
+              {showCol("name") ? <Th label="Name" field="name" onSort={toggleSort} /> : null}
+              {showCol("domain") ? <Th label="Domain" field="domain" onSort={toggleSort} /> : null}
+              {showCol("industry") ? <Th label="Industry" field="industry" onSort={toggleSort} /> : null}
+              {showCol("size") ? <Th label="Size" field="size" onSort={toggleSort} /> : null}
+              {showCol("owner") ? <Th label="Owner" field="ownerUserId" onSort={toggleSort} /> : null}
+              {showCol("tags") ? <th className="px-3 py-2 text-left font-medium">Tags</th> : null}
+              {showCol("created") ? <Th label="Created" field="createdAt" onSort={toggleSort} /> : null}
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={7} className="p-8 text-center" style={{ color: "var(--kb-text-secondary)" }}>No companies match these filters.</td></tr>
+              <tr><td colSpan={cols.length} className="p-8 text-center" style={{ color: "var(--kb-text-secondary)" }}>No companies match these filters.</td></tr>
             ) : (
               rows.map((c) => (
                 <tr key={c.id} onClick={() => setEditing(c)} className="cursor-pointer" style={{ borderTop: "1px solid var(--kb-border)", height: "var(--kb-row-h)" }}>
-                  <td className="px-3" style={{ color: "var(--kb-text-primary)", fontWeight: 500 }}>{c.name}</td>
-                  <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.domain ?? "-"}</td>
-                  <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.industry ?? "-"}</td>
-                  <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{companySizeLabel(c.size)}</td>
-                  <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.ownerUserId ?? "-"}</td>
-                  <td className="px-3"><TagChips tags={c.tags} /></td>
-                  <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{new Date(c.createdAt).toLocaleDateString()}</td>
+                  {showCol("name") ? <td className="px-3" style={{ color: "var(--kb-text-primary)", fontWeight: 500 }}>{c.name}</td> : null}
+                  {showCol("domain") ? <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.domain ?? "-"}</td> : null}
+                  {showCol("industry") ? <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.industry ?? "-"}</td> : null}
+                  {showCol("size") ? <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{companySizeLabel(c.size)}</td> : null}
+                  {showCol("owner") ? <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.ownerUserId ?? "-"}</td> : null}
+                  {showCol("tags") ? <td className="px-3"><TagChips tags={c.tags} /></td> : null}
+                  {showCol("created") ? <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{new Date(c.createdAt).toLocaleDateString()}</td> : null}
                 </tr>
               ))
             )}

@@ -2,6 +2,7 @@ import { listLeads } from "./queries";
 import { LeadsTable } from "./LeadsTable";
 import { getCustomFieldsFor } from "@/lib/crm/custom-fields";
 import { listTags } from "@/lib/crm/tags";
+import { listSavedViews } from "../views/actions";
 import { NoTenantError } from "@/lib/db/get-tenant-db";
 import { CrmError } from "../CrmError";
 
@@ -14,7 +15,7 @@ export default async function LeadsPage({
 }) {
   const get = (k: string) => (Array.isArray(searchParams[k]) ? searchParams[k]?.[0] : searchParams[k]) as string | undefined;
   try {
-    const [data, customFields, tags] = await Promise.all([
+    const [data, customFields, tags, savedViews] = await Promise.all([
       listLeads({
         status: get("status"),
         source: get("source"),
@@ -26,6 +27,7 @@ export default async function LeadsPage({
       }),
       getCustomFieldsFor("LEAD"),
       listTags(),
+      listSavedViews("LEAD"),
     ]);
     return (
       <LeadsTable
@@ -36,6 +38,7 @@ export default async function LeadsPage({
         owners={data.owners}
         allTags={tags}
         customFields={customFields}
+        savedViews={savedViews}
       />
     );
   } catch (err) {
