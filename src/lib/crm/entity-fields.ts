@@ -62,4 +62,22 @@ export const ENTITY_FIELDS: Record<AutomationEntityKind, EntityField[]> = {
     { key: "ownerClerkUserId", label: "Owner", kind: "text" },
     { key: "createdAt", label: "Created", kind: "date" },
   ],
+  TASK: [
+    { key: "title", label: "Title", kind: "text" },
+    { key: "status", label: "Status", kind: "enum", options: ["TODO", "IN_PROGRESS", "IN_REVIEW", "DONE", "BLOCKED", "CANCELED"] },
+    { key: "priority", label: "Priority", kind: "enum", options: ["LOW", "NORMAL", "HIGH", "URGENT"] },
+    { key: "assigneeClerkUserId", label: "Assignee", kind: "text" },
+    { key: "dueAt", label: "Due", kind: "date" },
+    { key: "progressPct", label: "Progress %", kind: "number" },
+    { key: "createdAt", label: "Created", kind: "date" },
+  ],
+  PROJECT: [
+    { key: "name", label: "Name", kind: "text" },
+    { key: "key", label: "Key", kind: "text" },
+    { key: "status", label: "Status", kind: "enum", options: ["PLANNING", "ACTIVE", "ON_HOLD", "COMPLETED", "ARCHIVED"] },
+    { key: "ownerClerkUserId", label: "Owner", kind: "text" },
+    { key: "startDate", label: "Start", kind: "date" },
+    { key: "endDate", label: "End", kind: "date" },
+    { key: "createdAt", label: "Created", kind: "date" },
+  ],
 };

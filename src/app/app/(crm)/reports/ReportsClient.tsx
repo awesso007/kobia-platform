@@ -26,8 +26,14 @@ import {
 } from "recharts";
 import { KbButton } from "@/components/crm/ui";
 import { formatCurrency } from "@/lib/utils";
-import type { FunnelRow, VelocityRow, LeaderboardRow, QuotePerfRow, ProductPerfRow, SavedReportRow } from "./queries";
+import type { FunnelRow, VelocityRow, LeaderboardRow, QuotePerfRow, ProductPerfRow, ProjectPerfRow, WorkloadRow, SavedReportRow } from "./queries";
 import { deleteReport } from "./actions";
+
+function fmtMinutes(m: number): string {
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  return h > 0 ? `${h}h ${min}m` : `${min}m`;
+}
 
 const CHART_COLORS = ["#1d77bd", "#2fc6f6", "#5cb85c", "#7d4aea", "#f0ad4e", "#d9534f"];
 
@@ -37,6 +43,8 @@ export function ReportsClient({
   leaderboard,
   quotes,
   products,
+  projects,
+  workload,
   saved,
 }: {
   funnel: FunnelRow[];
@@ -44,6 +52,8 @@ export function ReportsClient({
   leaderboard: LeaderboardRow[];
   quotes: QuotePerfRow[];
   products: ProductPerfRow[];
+  projects: ProjectPerfRow[];
+  workload: WorkloadRow[];
   saved: SavedReportRow[];
 }) {
   return (
@@ -151,6 +161,48 @@ export function ReportsClient({
               <SimpleTable
                 head={["Product", "Units", "Revenue"]}
                 rows={products.map((p) => [p.product, String(p.quantity), formatCurrency(p.revenueCents / 100)])}
+              />
+            </>
+          )}
+        </Card>
+
+        <Card title="Project Performance" subtitle="Tasks and progress by project">
+          {projects.length === 0 ? <Empty /> : (
+            <>
+              <ChartFrame>
+                <BarChart data={projects}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--kb-border)" />
+                  <XAxis dataKey="project" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="total" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="done" fill={CHART_COLORS[2]} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ChartFrame>
+              <SimpleTable
+                head={["Project", "Tasks", "Done", "Progress", "Logged"]}
+                rows={projects.map((p) => [p.project, String(p.total), String(p.done), `${p.progressPct}%`, fmtMinutes(p.loggedMinutes)])}
+              />
+            </>
+          )}
+        </Card>
+
+        <Card title="Team Workload" subtitle="Open and done tasks by member">
+          {workload.length === 0 ? <Empty /> : (
+            <>
+              <ChartFrame>
+                <BarChart data={workload}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--kb-border)" />
+                  <XAxis dataKey="member" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="open" fill={CHART_COLORS[4]} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="done" fill={CHART_COLORS[2]} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ChartFrame>
+              <SimpleTable
+                head={["Member", "Open", "Done", "Logged"]}
+                rows={workload.map((w) => [w.member, String(w.open), String(w.done), fmtMinutes(w.loggedMinutes)])}
               />
             </>
           )}

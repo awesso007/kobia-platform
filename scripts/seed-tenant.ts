@@ -860,8 +860,175 @@ async function main() {
     }
     console.log(`[seed-tenant] lead pipeline "Lead Qualification" + ${LEAD_STAGES.length} stages ready`);
 
+    // 21. Projects + Tasks (Sprint 11). Two projects, four members, three lists,
+    //     twelve+ tasks (with subtasks, dependencies, a checklist), time entries,
+    //     comments with @mentions, and one personal task. Idempotent: skip the
+    //     whole block if any Project already exists.
+    const OWNER_ID = "user_acme_owner_seed";
+    const ADMIN_ID = "user_acme_admin_seed";
+    const M1_ID = "user_acme_member1_seed";
+    const M2_ID = "user_acme_member2_seed";
+    const existingProjects = await db.project.count();
+    if (existingProjects === 0) {
+      const website = await db.project.create({
+        data: {
+          key: "WEBSITE",
+          name: "Website Redesign",
+          description: "Rebuild the marketing site with the new brand system.",
+          status: "ACTIVE",
+          visibility: "TEAM",
+          ownerClerkUserId: OWNER_ID,
+          startDate: new Date("2026-05-01"),
+          endDate: new Date("2026-07-31"),
+          budget: "25000.00",
+          color: "#1d77bd",
+        },
+      });
+      const q3 = await db.project.create({
+        data: {
+          key: "Q3MKT",
+          name: "Q3 Marketing Push",
+          description: "Coordinated content and ads campaign for Q3.",
+          status: "PLANNING",
+          visibility: "TEAM",
+          ownerClerkUserId: ADMIN_ID,
+          startDate: new Date("2026-07-01"),
+          endDate: new Date("2026-09-30"),
+          budget: "15000.00",
+          color: "#7d4aea",
+        },
+      });
+
+      await db.projectMember.createMany({
+        data: [
+          { projectId: website.id, clerkUserId: OWNER_ID, role: "OWNER" },
+          { projectId: website.id, clerkUserId: M1_ID, role: "MEMBER" },
+          { projectId: website.id, clerkUserId: M2_ID, role: "MEMBER" },
+          { projectId: q3.id, clerkUserId: ADMIN_ID, role: "OWNER" },
+        ],
+        skipDuplicates: true,
+      });
+
+      const wsBacklog = await db.taskList.create({ data: { projectId: website.id, name: "Backlog", isDefault: true, sortOrder: 0 } });
+      const wsSprint = await db.taskList.create({ data: { projectId: website.id, name: "Current Sprint", sortOrder: 1 } });
+      const q3Backlog = await db.taskList.create({ data: { projectId: q3.id, name: "Backlog", isDefault: true, sortOrder: 0 } });
+
+      const day = (n: number) => new Date(Date.now() + n * 86_400_000);
+      type TaskSpec = {
+        ref: string;
+        title: string;
+        projectId: string;
+        listId: string;
+        status?: string;
+        priority?: string;
+        assignee?: string | null;
+        startAt?: Date | null;
+        dueAt?: Date | null;
+        estimatedMinutes?: number | null;
+        progressPct?: number;
+        parentRef?: string;
+      };
+      const specs: TaskSpec[] = [
+        { ref: "audit", title: "Audit current site content", projectId: website.id, listId: wsBacklog.id, status: "DONE", priority: "NORMAL", assignee: M1_ID, startAt: day(-20), dueAt: day(-14), estimatedMinutes: 480, progressPct: 100 },
+        { ref: "ia", title: "Define information architecture", projectId: website.id, listId: wsSprint.id, status: "IN_PROGRESS", priority: "HIGH", assignee: OWNER_ID, startAt: day(-7), dueAt: day(3), estimatedMinutes: 600, progressPct: 50 },
+        { ref: "wireframes", title: "Wireframe key pages", projectId: website.id, listId: wsSprint.id, status: "TODO", priority: "HIGH", assignee: M2_ID, startAt: day(2), dueAt: day(9), estimatedMinutes: 720, progressPct: 0 },
+        { ref: "wf-home", title: "Wireframe: Home", projectId: website.id, listId: wsSprint.id, status: "TODO", priority: "NORMAL", assignee: M2_ID, parentRef: "wireframes" },
+        { ref: "wf-pricing", title: "Wireframe: Pricing", projectId: website.id, listId: wsSprint.id, status: "TODO", priority: "NORMAL", assignee: M2_ID, parentRef: "wireframes" },
+        { ref: "design", title: "High-fidelity visual design", projectId: website.id, listId: wsBacklog.id, status: "TODO", priority: "NORMAL", assignee: M2_ID, startAt: day(10), dueAt: day(24), estimatedMinutes: 1200, progressPct: 0 },
+        { ref: "build", title: "Build component library", projectId: website.id, listId: wsBacklog.id, status: "TODO", priority: "NORMAL", assignee: M1_ID, startAt: day(25), dueAt: day(45), estimatedMinutes: 2400, progressPct: 0 },
+        { ref: "content", title: "Migrate and rewrite copy", projectId: website.id, listId: wsBacklog.id, status: "BLOCKED", priority: "LOW", assignee: M1_ID, dueAt: day(40), estimatedMinutes: 900, progressPct: 0 },
+        { ref: "launch", title: "Launch and DNS cutover", projectId: website.id, listId: wsBacklog.id, status: "TODO", priority: "URGENT", assignee: OWNER_ID, startAt: day(46), dueAt: day(50), estimatedMinutes: 240, progressPct: 0 },
+        { ref: "calendar", title: "Build content calendar", projectId: q3.id, listId: q3Backlog.id, status: "IN_PROGRESS", priority: "HIGH", assignee: ADMIN_ID, startAt: day(-3), dueAt: day(5), estimatedMinutes: 480, progressPct: 40 },
+        { ref: "ads", title: "Draft ad creative briefs", projectId: q3.id, listId: q3Backlog.id, status: "TODO", priority: "NORMAL", assignee: ADMIN_ID, dueAt: day(12), estimatedMinutes: 360, progressPct: 0 },
+        { ref: "budget", title: "Approve campaign budget", projectId: q3.id, listId: q3Backlog.id, status: "TODO", priority: "HIGH", assignee: OWNER_ID, dueAt: day(8), estimatedMinutes: 60, progressPct: 0 },
+      ];
+
+      const idByRef = new Map<string, string>();
+      for (const s of specs) {
+        const t = await db.task.create({
+          data: {
+            title: s.title,
+            projectId: s.projectId,
+            listId: s.listId,
+            parentTaskId: s.parentRef ? idByRef.get(s.parentRef) ?? null : null,
+            status: (s.status ?? "TODO") as never,
+            priority: (s.priority ?? "NORMAL") as never,
+            assigneeClerkUserId: s.assignee ?? null,
+            reporterClerkUserId: OWNER_ID,
+            startAt: s.startAt ?? null,
+            dueAt: s.dueAt ?? null,
+            estimatedMinutes: s.estimatedMinutes ?? null,
+            progressPct: s.progressPct ?? 0,
+            completedAt: s.status === "DONE" ? day(-14) : null,
+          },
+        });
+        idByRef.set(s.ref, t.id);
+      }
+
+      // Dependencies: IA -> wireframes, wireframes -> design.
+      await db.taskDependency.createMany({
+        data: [
+          { predecessorTaskId: idByRef.get("ia")!, successorTaskId: idByRef.get("wireframes")!, type: "FINISH_TO_START" },
+          { predecessorTaskId: idByRef.get("wireframes")!, successorTaskId: idByRef.get("design")!, type: "FINISH_TO_START" },
+        ],
+        skipDuplicates: true,
+      });
+
+      // Checklist of four on the IA task.
+      const checklist = await db.checklist.create({ data: { taskId: idByRef.get("ia")!, title: "IA deliverables", sortOrder: 0 } });
+      const CHECK_ITEMS = ["Sitemap drafted", "Navigation labels agreed", "URL scheme defined", "Redirect map started"];
+      for (let i = 0; i < CHECK_ITEMS.length; i++) {
+        await db.checklistItem.create({ data: { checklistId: checklist.id, title: CHECK_ITEMS[i]!, done: i < 2, sortOrder: i, completedAt: i < 2 ? day(-2) : null, completedByClerkUserId: i < 2 ? OWNER_ID : null } });
+      }
+
+      // Time entries (3).
+      await db.timeEntry.createMany({
+        data: [
+          { taskId: idByRef.get("audit")!, projectId: website.id, clerkUserId: M1_ID, description: "Content inventory", startedAt: day(-18), endedAt: new Date(day(-18).getTime() + 180 * 60_000), durationMinutes: 180, billable: true },
+          { taskId: idByRef.get("ia")!, projectId: website.id, clerkUserId: OWNER_ID, description: "Sitemap workshop", startedAt: day(-5), endedAt: new Date(day(-5).getTime() + 120 * 60_000), durationMinutes: 120, billable: true },
+          { taskId: idByRef.get("calendar")!, projectId: q3.id, clerkUserId: ADMIN_ID, description: "Calendar setup", startedAt: day(-2), endedAt: new Date(day(-2).getTime() + 90 * 60_000), durationMinutes: 90, billable: false },
+        ],
+      });
+      // Keep actualMinutes in sync on the timed tasks.
+      for (const ref of ["audit", "ia", "calendar"]) {
+        const agg = await db.timeEntry.aggregate({ where: { taskId: idByRef.get(ref)! }, _sum: { durationMinutes: true } });
+        await db.task.update({ where: { id: idByRef.get(ref)! }, data: { actualMinutes: agg._sum.durationMinutes ?? 0 } });
+      }
+
+      // Comments with @mentions (2).
+      await db.taskComment.create({ data: { taskId: idByRef.get("ia")!, clerkUserId: OWNER_ID, body: "@AcmeMemberTwo can you start wireframes once the sitemap is locked?", mentions: [M2_ID] as never } });
+      await db.taskComment.create({ data: { taskId: idByRef.get("content")!, clerkUserId: ADMIN_ID, body: "Blocked until @AcmeMemberOne finishes the component library.", mentions: [M1_ID] as never } });
+
+      // One personal task (no project).
+      await db.task.create({
+        data: {
+          title: "Prepare weekly status update",
+          projectId: null,
+          status: "TODO",
+          priority: "NORMAL",
+          assigneeClerkUserId: OWNER_ID,
+          reporterClerkUserId: OWNER_ID,
+          dueAt: day(1),
+          progressPct: 0,
+        },
+      });
+
+      console.log(`[seed-tenant] seeded 2 projects, 4 members, 3 lists, ${specs.length + 1} tasks, 2 deps, 1 checklist, 3 time entries, 2 comments`);
+    } else {
+      console.log(`[seed-tenant] projects already present (${existingProjects}); skipping Sprint 11 seed`);
+    }
+
     // Summary
     const savedViews = await db.savedView.count();
+    const [projects, projectMembers, taskLists, tasks, taskDependencies, timeEntries, taskComments] = await Promise.all([
+      db.project.count(),
+      db.projectMember.count(),
+      db.taskList.count(),
+      db.task.count(),
+      db.taskDependency.count(),
+      db.timeEntry.count(),
+      db.taskComment.count(),
+    ]);
     const [pipelines, stages, contacts, leads, deals, companies, tags, customFields, automations, automationRuns, savedReports, memberships, webForms, notifications, emailAccounts, emailTemplates, emailSignatures, emailThreads, emailMessages, phoneNumbers, calls, smsThreads, smsMessages, telephonyRules, userPreferences, files, fileFolders, fileAttachments, fileShareLinks, productCategories, products, dealLineItems, quoteTemplates, quotes, quoteLineItems, leadPipelines] = await Promise.all([
       db.pipeline.count(),
       db.dealStage.count(),
@@ -901,7 +1068,7 @@ async function main() {
       db.pipeline.count({ where: { entityType: "LEAD" } }),
     ]);
     console.log(
-      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields} automations=${automations} automationRuns=${automationRuns} savedReports=${savedReports} memberships=${memberships} webForms=${webForms} notifications=${notifications} emailAccounts=${emailAccounts} emailTemplates=${emailTemplates} emailSignatures=${emailSignatures} emailThreads=${emailThreads} emailMessages=${emailMessages} phoneNumbers=${phoneNumbers} calls=${calls} smsThreads=${smsThreads} smsMessages=${smsMessages} telephonyRules=${telephonyRules} userPreferences=${userPreferences} files=${files} fileFolders=${fileFolders} fileAttachments=${fileAttachments} fileShareLinks=${fileShareLinks} savedViews=${savedViews} productCategories=${productCategories} products=${products} dealLineItems=${dealLineItems} quoteTemplates=${quoteTemplates} quotes=${quotes} quoteLineItems=${quoteLineItems} leadPipelines=${leadPipelines}`,
+      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields} automations=${automations} automationRuns=${automationRuns} savedReports=${savedReports} memberships=${memberships} webForms=${webForms} notifications=${notifications} emailAccounts=${emailAccounts} emailTemplates=${emailTemplates} emailSignatures=${emailSignatures} emailThreads=${emailThreads} emailMessages=${emailMessages} phoneNumbers=${phoneNumbers} calls=${calls} smsThreads=${smsThreads} smsMessages=${smsMessages} telephonyRules=${telephonyRules} userPreferences=${userPreferences} files=${files} fileFolders=${fileFolders} fileAttachments=${fileAttachments} fileShareLinks=${fileShareLinks} savedViews=${savedViews} productCategories=${productCategories} products=${products} dealLineItems=${dealLineItems} quoteTemplates=${quoteTemplates} quotes=${quotes} quoteLineItems=${quoteLineItems} leadPipelines=${leadPipelines} projects=${projects} projectMembers=${projectMembers} taskLists=${taskLists} tasks=${tasks} taskDependencies=${taskDependencies} timeEntries=${timeEntries} taskComments=${taskComments}`,
     );
   } finally {
     await db.$disconnect();

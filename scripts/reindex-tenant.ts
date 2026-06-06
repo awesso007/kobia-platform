@@ -56,7 +56,7 @@ async function main() {
     console.log(`[reindex-tenant] rebuilding SearchIndex for ${schema}`);
     await db.searchIndex.deleteMany({});
 
-    const [leads, deals, contacts, companies, activities, files, emails] = await Promise.all([
+    const [leads, deals, contacts, companies, activities, files, emails, tasks, projects, taskComments] = await Promise.all([
       db.lead.findMany({ select: { id: true } }),
       db.deal.findMany({ select: { id: true } }),
       db.contact.findMany({ select: { id: true } }),
@@ -64,6 +64,9 @@ async function main() {
       db.crmActivity.findMany({ select: { id: true } }),
       db.file.findMany({ where: { status: { not: "DELETED" } }, select: { id: true } }),
       db.emailMessage.findMany({ select: { id: true } }),
+      db.task.findMany({ where: { deletedAt: null }, select: { id: true } }),
+      db.project.findMany({ select: { id: true } }),
+      db.taskComment.findMany({ select: { id: true } }),
     ]);
 
     for (const r of leads) await reindex(db, "LEAD", r.id);
@@ -73,12 +76,16 @@ async function main() {
     for (const r of activities) await reindex(db, "ACTIVITY", r.id);
     for (const r of files) await reindex(db, "FILE", r.id);
     for (const r of emails) await reindex(db, "EMAIL_MESSAGE", r.id);
+    for (const r of tasks) await reindex(db, "TASK", r.id);
+    for (const r of projects) await reindex(db, "PROJECT", r.id);
+    for (const r of taskComments) await reindex(db, "TASK_COMMENT", r.id);
 
     const total = await db.searchIndex.count();
     console.log(
       `[reindex-tenant] done. leads=${leads.length} deals=${deals.length} ` +
         `contacts=${contacts.length} companies=${companies.length} ` +
         `activities=${activities.length} files=${files.length} emails=${emails.length} ` +
+        `tasks=${tasks.length} projects=${projects.length} taskComments=${taskComments.length} ` +
         `=> searchIndex rows=${total}`,
     );
   } finally {

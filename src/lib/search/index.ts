@@ -21,7 +21,10 @@ export type IndexEntityType =
   | "ACTIVITY"
   | "FILE"
   | "EMAIL_MESSAGE"
-  | "NOTE";
+  | "NOTE"
+  | "TASK"
+  | "PROJECT"
+  | "TASK_COMMENT";
 
 type IndexDoc = {
   title: string;
@@ -117,6 +120,36 @@ async function buildDoc(
         subtitle: r.fromAddress,
         body: r.snippet ?? r.bodyText ?? null,
         ownerClerkUserId: null,
+      };
+    }
+    case "TASK": {
+      const r = await db.task.findUnique({ where: { id: entityId } });
+      if (!r) return null;
+      return {
+        title: r.title,
+        subtitle: r.status,
+        body: r.description ?? null,
+        ownerClerkUserId: r.assigneeClerkUserId ?? r.reporterClerkUserId ?? null,
+      };
+    }
+    case "PROJECT": {
+      const r = await db.project.findUnique({ where: { id: entityId } });
+      if (!r) return null;
+      return {
+        title: r.name,
+        subtitle: r.key,
+        body: r.description ?? null,
+        ownerClerkUserId: r.ownerClerkUserId ?? null,
+      };
+    }
+    case "TASK_COMMENT": {
+      const r = await db.taskComment.findUnique({ where: { id: entityId } });
+      if (!r) return null;
+      return {
+        title: r.body.slice(0, 80),
+        subtitle: null,
+        body: r.body,
+        ownerClerkUserId: r.clerkUserId ?? null,
       };
     }
     default:

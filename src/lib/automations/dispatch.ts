@@ -37,6 +37,8 @@ const FK_BY_ENTITY: Record<string, "leadId" | "dealId" | "contactId" | "companyI
   CONTACT: "contactId",
   COMPANY: "companyId",
   ACTIVITY: null,
+  TASK: null,
+  PROJECT: null,
 };
 
 /** Build a flat string-keyed snapshot of a record for condition + template use. */
@@ -58,6 +60,12 @@ async function loadRecordSnapshot(
       return (await db.company.findUnique({ where: { id: entityId } })) as Record<string, unknown> | null;
     case "ACTIVITY":
       return (await db.crmActivity.findUnique({ where: { id: entityId } })) as Record<string, unknown> | null;
+    case "TASK":
+      return (await db.task.findUnique({ where: { id: entityId } })) as Record<string, unknown> | null;
+    case "PROJECT": {
+      const p = await db.project.findUnique({ where: { id: entityId } });
+      return p ? { ...p, budget: p.budget == null ? null : Number(p.budget) } : null;
+    }
     default:
       return null;
   }
@@ -268,6 +276,51 @@ async function runAction(
       if (!quoteId) return { result: { kind: action.kind, status: "skipped", detail: "deal not found" } };
       return { result: { kind: action.kind, status: "done", detail: `sent ${quoteId}` } };
     }
+    case "CREATE_TASK": {
+      const title = renderTemplate(String(cfg.title ?? "Automated task"), ctx.record).trim() || "Automated task";
+      const projectId =
+        cfg.projectId && cfg.projectId !== "trigger.project"
+          ? String(cfg.projectId)
+          : ctx.entityType === "PROJECT"
+            ? ctx.entityId
+            : ctx.entityType === "TASK"
+              ? (ctx.record.projectId as string | null) ?? null
+              : null;
+      const task = await db.task.create({
+        data: {
+          title,
+          description: cfg.description ? renderTemplate(String(cfg.description), ctx.record) : null,
+          projectId,
+          assigneeClerkUserId: cfg.assigneeClerkUserId ? String(cfg.assigneeClerkUserId) : null,
+          priority: (cfg.priority ? String(cfg.priority) : "NORMAL") as never,
+        },
+      });
+      return { result: { kind: action.kind, status: "done", detail: task.id } };
+    }
+    case "ASSIGN_TASK": {
+      if (ctx.entityType !== "TASK") return { result: { kind: action.kind, status: "skipped", detail: "task trigger required" } };
+      const assignee = String(cfg.assigneeClerkUserId ?? "");
+      if (!assignee) return { result: { kind: action.kind, status: "skipped", detail: "no assignee" } };
+      await db.task.update({ where: { id: ctx.entityId }, data: { assigneeClerkUserId: assignee } });
+      return { result: { kind: action.kind, status: "done", detail: assignee } };
+    }
+    case "UPDATE_TASK_STATUS": {
+      if (ctx.entityType !== "TASK") return { result: { kind: action.kind, status: "skipped", detail: "task trigger required" } };
+      const status = String(cfg.status ?? "");
+      if (!status) return { result: { kind: action.kind, status: "skipped", detail: "no status" } };
+      await db.task.update({
+        where: { id: ctx.entityId },
+        data: { status: status as never, ...(status === "DONE" ? { completedAt: new Date(), progressPct: 100 } : {}) },
+      });
+      return { result: { kind: action.kind, status: "done", detail: status } };
+    }
+    case "ADD_TASK_TO_PROJECT": {
+      if (ctx.entityType !== "TASK") return { result: { kind: action.kind, status: "skipped", detail: "task trigger required" } };
+      const projectId = String(cfg.projectId ?? "");
+      if (!projectId) return { result: { kind: action.kind, status: "skipped", detail: "no project" } };
+      await db.task.update({ where: { id: ctx.entityId }, data: { projectId } });
+      return { result: { kind: action.kind, status: "done", detail: projectId } };
+    }
     case "WAIT": {
       const minutes = Number(cfg.minutes ?? 0);
       return { result: { kind: action.kind, status: "done", detail: `wait ${minutes}m` }, pause: { resumeMinutes: minutes } };
@@ -393,6 +446,10 @@ function modelFor(db: Db, entityType: string): UpdatableModel | null {
       return db.contact as unknown as UpdatableModel;
     case "COMPANY":
       return db.company as unknown as UpdatableModel;
+    case "TASK":
+      return db.task as unknown as UpdatableModel;
+    case "PROJECT":
+      return db.project as unknown as UpdatableModel;
     default:
       return null;
   }
