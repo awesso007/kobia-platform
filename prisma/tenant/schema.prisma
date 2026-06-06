@@ -72,6 +72,39 @@ enum CrmEntityType {
   COMPANY
 }
 
+// Sprint 9: global search index + saved views. SearchEntityType is broader than
+// CrmEntityType because the index also covers activities, files, emails, notes.
+
+enum SearchEntityType {
+  LEAD
+  DEAL
+  CONTACT
+  COMPANY
+  ACTIVITY
+  FILE
+  EMAIL_MESSAGE
+  NOTE
+}
+
+enum SavedViewEntityType {
+  LEAD
+  DEAL
+  CONTACT
+  COMPANY
+  ACTIVITY
+  FILE
+}
+
+enum SavedViewScope {
+  PERSONAL
+  TENANT
+}
+
+enum SavedViewSortDir {
+  ASC
+  DESC
+}
+
 enum CustomFieldType {
   TEXT
   NUMBER
@@ -960,4 +993,47 @@ model FileShareLink {
   file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
   @@index([fileId])
+}
+
+// Sprint 9: global full-text search index. One row per indexable entity. The
+// `tsv` column is a GENERATED tsvector (built in SQL by migration 0009_search)
+// over title/subtitle/body; it is queried with websearch_to_tsquery + ts_rank_cd.
+// Prisma cannot express the generated expression, so `tsv` is Unsupported and is
+// never written from app code - only read implicitly via raw queries.
+
+model SearchIndex {
+  id               String           @id @default(cuid())
+  entityType       SearchEntityType
+  entityId         String
+  title            String
+  subtitle         String?
+  body             String?
+  tsv              Unsupported("tsvector")?
+  ownerClerkUserId String?
+  updatedAt        DateTime         @updatedAt
+
+  @@unique([entityType, entityId])
+  @@index([entityType])
+}
+
+// Sprint 9: saved views / filters for list pages. `filters`, `columns` are JSON
+// blobs interpreted per entity by the list UI. PERSONAL scope is owner-only;
+// TENANT scope is shared. For Deals kanban, filters may also carry pipelineId.
+
+model SavedView {
+  id               String              @id @default(cuid())
+  entityType       SavedViewEntityType
+  name             String
+  ownerClerkUserId String?
+  scope            SavedViewScope      @default(PERSONAL)
+  filters          Json
+  sortBy           String?
+  sortDir          SavedViewSortDir    @default(DESC)
+  columns          Json
+  groupBy          String?
+  isDefault        Boolean             @default(false)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([entityType, ownerClerkUserId])
 }
