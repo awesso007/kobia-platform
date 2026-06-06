@@ -24,6 +24,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 
 const TENANT_SCHEMA_PATH = path.join("prisma", "tenant", "schema.prisma");
+const PLATFORM_SCHEMA_PATH = path.join("prisma", "platform", "schema.prisma");
 
 type Args = { slug: string; clerkOrg?: string; plan: string };
 
@@ -85,6 +86,24 @@ async function createSchema(directUrl: string, schema: string): Promise<void> {
   }
 }
 
+function runPlatformMigrations(directUrl: string): void {
+  if (!existsSync(PLATFORM_SCHEMA_PATH)) {
+    fail(
+      [
+        `Platform Prisma schema not found at ${PLATFORM_SCHEMA_PATH}.`,
+        "It defines public.tenant_registry. Re-run after the schema split lands.",
+      ].join("\n"),
+    );
+  }
+  // Platform tables live in public; deploy with the direct connection as-is.
+  console.log("[provision-tenant] running platform migrations (public) ...");
+  execFileSync(
+    "npx",
+    ["prisma", "migrate", "deploy", "--schema", PLATFORM_SCHEMA_PATH],
+    { stdio: "inherit", env: { ...process.env, DIRECT_URL: directUrl, DATABASE_URL: directUrl } },
+  );
+}
+
 function runTenantMigrations(directUrl: string, schema: string): void {
   if (!existsSync(TENANT_SCHEMA_PATH)) {
     fail(
@@ -112,30 +131,23 @@ function appendSchema(connStr: string, schema: string): string {
   return u.toString();
 }
 
-async function upsertRegistry(slug: string, schema: string, clerkOrg: string | undefined, plan: string): Promise<void> {
-  const { PrismaClient } = await import("@prisma/client");
-  // The registry lives in public. Prefer a dedicated platform client once the
-  // split lands; for now use the default client (public schema).
-  const client = new PrismaClient();
+async function upsertRegistry(
+  directUrl: string,
+  slug: string,
+  schema: string,
+  clerkOrg: string | undefined,
+  plan: string,
+): Promise<void> {
+  // Use the generated platform client (bound to public) for the registry row.
+  const { PrismaClient } = await import("../src/lib/db/generated/platform");
+  const client = new PrismaClient({ datasources: { db: { url: directUrl } } });
   try {
-    // Registry table is created by the platform schema (Decision 1a). Until
-    // then, this raw upsert targets the expected shape and will error clearly
-    // if the table is absent.
-    await client.$executeRawUnsafe(
-      `INSERT INTO public.tenant_registry (id, slug, schema_name, status, plan, clerk_org_id, created_at)
-       VALUES (gen_random_uuid()::text, $1, $2, 'ACTIVE', $3, $4, now())
-       ON CONFLICT (slug) DO UPDATE SET schema_name = EXCLUDED.schema_name, plan = EXCLUDED.plan, clerk_org_id = EXCLUDED.clerk_org_id`,
-      slug,
-      schema,
-      plan,
-      clerkOrg ?? null,
-    );
+    await client.tenantRegistry.upsert({
+      where: { slug },
+      create: { slug, schemaName: schema, status: "ACTIVE", plan, clerkOrgId: clerkOrg ?? null },
+      update: { schemaName: schema, plan, clerkOrgId: clerkOrg ?? null },
+    });
     console.log(`[provision-tenant] registry row upserted for slug=${slug}`);
-  } catch (err) {
-    console.error(
-      "[provision-tenant] registry upsert failed. The public.tenant_registry table likely does not exist yet (pending platform schema, Decision 1a).",
-    );
-    throw err;
   } finally {
     await client.$disconnect();
   }
@@ -147,9 +159,10 @@ async function main() {
   const schema = schemaName(args.slug);
 
   console.log(`[provision-tenant] provisioning tenant "${args.slug}" -> schema "${schema}"`);
+  runPlatformMigrations(directUrl);
   await createSchema(directUrl, schema);
   runTenantMigrations(directUrl, schema);
-  await upsertRegistry(args.slug, schema, args.clerkOrg, args.plan);
+  await upsertRegistry(directUrl, args.slug, schema, args.clerkOrg, args.plan);
   console.log(`[provision-tenant] done. Tenant "${args.slug}" is provisioned.`);
 }
 

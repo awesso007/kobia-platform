@@ -9,7 +9,39 @@ import { PoweredByKobia } from "@/components/branding/PoweredByKobia";
 import { TRPCProvider } from "@/components/providers/TRPCProvider";
 import { getActiveEntity, listEntitiesForSwitcher } from "@/lib/active-entity";
 import { getActiveModule, DEFAULT_MODULE, type ModuleKey } from "@/lib/active-module";
-import { getModuleByKey } from "@/lib/modules-config";
+import { getModuleByKey, visibleModules } from "@/lib/modules-config";
+import { accountingEnabled } from "@/lib/feature-flags";
+
+// Path prefixes (after the tenant slug) that belong to the legacy accounting
+// surface. When ENABLE_ACCOUNTING is off (v0.1 CRM alpha) these are hidden:
+// the layout redirects them to the CRM shell rather than rendering accounting
+// chrome. We do NOT delete or physically relocate the route files (see
+// CONFLICTS.md) - the flag gates them so they can be turned back on.
+const ACCOUNTING_PREFIXES = [
+  "/dashboard",
+  "/inbox",
+  "/books",
+  "/ar",
+  "/ap",
+  "/bank",
+  "/items",
+  "/payroll",
+  "/practice",
+  "/time",
+  "/workflows",
+  "/vault",
+  "/communications",
+  "/tax",
+  "/tax-filings",
+  "/invoicing",
+  "/entities",
+  "/diag",
+];
+
+function isAccountingPath(pathAfterTenant: string): boolean {
+  const p = pathAfterTenant.startsWith("/") ? pathAfterTenant : `/${pathAfterTenant}`;
+  return ACCOUNTING_PREFIXES.some((pre) => p === pre || p.startsWith(`${pre}/`));
+}
 
 /**
  * Defensive helpers — every external call below is wrapped so a single helper
@@ -89,6 +121,16 @@ export default async function TenantLayout({
   const isOnWelcome = pathname.includes(`/${tenant.slug}/welcome`);
   const isOnLogin = pathname.includes(`/${tenant.slug}/login`);
 
+  // Feature flag gate: hide the legacy accounting surface in v0.1 (CRM alpha).
+  // The route files still exist; we just refuse to render them and send the
+  // user to the CRM shell. Flip ENABLE_ACCOUNTING=true to restore access.
+  if (!accountingEnabled()) {
+    const afterTenant = pathname.replace(new RegExp(`^/${tenant.slug}`), "");
+    if (isAccountingPath(afterTenant)) {
+      redirect("/app/deals");
+    }
+  }
+
   // Route guard: send new tenants through /welcome before they hit the app shell.
   if (!tenant.onboardingCompleted && !isOnWelcome && !isOnLogin) {
     redirect(`/${tenant.slug}/welcome`);
@@ -131,7 +173,11 @@ export default async function TenantLayout({
     >
       <TRPCProvider>
         {/* LEFT: Module sidebar (220px, dark, labeled) */}
-        <ModuleSidebar tenantSlug={tenant.slug} activeModule={activeModule} />
+        <ModuleSidebar
+          tenantSlug={tenant.slug}
+          activeModule={activeModule}
+          modules={visibleModules({ accountingEnabled: accountingEnabled() })}
+        />
 
         {/* CENTER: top bar + main canvas */}
         <div className="flex flex-1 min-w-0 flex-col">

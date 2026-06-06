@@ -6,14 +6,13 @@
  * schema for the lifetime of the server process (Neon pooled connection at
  * runtime; provisioning/migrations use DIRECT_URL separately).
  *
- * NOTE: the generated tenant client is produced by the schema split (Decision
- * 1a, see CONFLICTS.md). Until prisma/tenant generates its client, this module
- * falls back to the default @prisma/client so the app still compiles. Swap the
- * import to the generated tenant client once the split lands.
+ * Uses the dedicated tenant client generated from prisma/tenant/schema.prisma
+ * (output: node_modules/.prisma/tenant-client), kept separate from the default
+ * @prisma/client used by legacy accounting code.
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@/lib/db/generated/tenant";
 
 const clientCache = new Map<string, PrismaClient>();
 

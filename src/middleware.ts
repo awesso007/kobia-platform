@@ -62,8 +62,47 @@ export default clerkMiddleware((auth, req: NextRequest) => {
   // Expose pathname to RSC layouts (used by tenant layout for onboarding guard).
   const res = NextResponse.next();
   res.headers.set("x-pathname", url.pathname);
+
+  // Sprint 1 tenant resolution (slug-in-URL, see CONFLICTS.md Conflict 2).
+  // We resolve the active tenant from the first path segment and attach
+  // x-tenant-id (slug) + x-tenant-schema (tenant_<slug>) so getTenantDb() can
+  // bind the per-tenant Prisma client. We deliberately do NOT do a DB lookup
+  // here (Edge runtime has no Prisma); the schema name is derived from the
+  // slug. Clerk Organizations are intentionally not wired this sprint.
+  const tenantSlug = resolveTenantSlug(url.pathname);
+  if (tenantSlug) {
+    res.headers.set("x-tenant-id", tenantSlug);
+    res.headers.set("x-tenant-schema", schemaNameForSlug(tenantSlug));
+  }
   return res;
 });
+
+// Path segments that are NOT tenant slugs (platform-level or shared routes).
+const NON_TENANT_SEGMENTS = new Set([
+  "app",
+  "api",
+  "pricing",
+  "signup",
+  "pay",
+  "bill-view",
+  "portal",
+  "sign",
+  "debug2",
+  "_next",
+]);
+
+/** First path segment, treated as a tenant slug unless it is a reserved route. */
+function resolveTenantSlug(pathname: string): string | null {
+  const seg = pathname.split("/").filter(Boolean)[0];
+  if (!seg) return null;
+  if (NON_TENANT_SEGMENTS.has(seg)) return null;
+  return seg;
+}
+
+/** Map a tenant slug to its Postgres schema name (kept in sync with tenant-prisma.ts). */
+function schemaNameForSlug(slug: string): string {
+  return `tenant_${slug.replace(/-/g, "_")}`;
+}
 
 export const config = {
   matcher: ["/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)", "/(api|trpc)(.*)"],

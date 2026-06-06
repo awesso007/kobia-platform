@@ -1,0 +1,41 @@
+// =============================================================================
+// KOBIA Platform schema (public) - schema-per-tenant model, Sprint 1.
+// =============================================================================
+// Holds platform-level tables that live in `public` and span all tenants:
+// the tenant registry. Users / memberships / billing remain on the legacy
+// row-level client for now (Decision 1a: do not rewrite the 2,286-line
+// schema this sprint; hidden accounting stays on src/lib/db.ts).
+//
+// Generated to a dedicated client output so it does NOT collide with the
+// default @prisma/client used by legacy accounting code.
+//
+// No em-dashes in comments by project convention (use hyphens).
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../src/lib/db/generated/platform"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// Registry of all tenants. One row per tenant; the source of truth that maps a
+/// slug to its dedicated Postgres schema (tenant_<slug>).
+model TenantRegistry {
+  id         String   @id @default(cuid())
+  slug       String   @unique
+  schemaName String   @unique @map("schema_name")
+  status     String   @default("ACTIVE") // ACTIVE | SUSPENDED | PROVISIONING
+  plan       String   @default("FREE")
+  // Nullable: Clerk Organizations are not wired in Sprint 1 (slug-in-URL
+  // resolution). Stored now so adopting Clerk Orgs later is a drop-in.
+  clerkOrgId String?  @map("clerk_org_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("tenant_registry")
+}

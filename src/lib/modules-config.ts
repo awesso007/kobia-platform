@@ -326,6 +326,16 @@ export function getModuleByKey(key: ModuleKey): ModuleDefinition {
 }
 
 /**
+ * Modules visible in the nav, respecting the accounting feature flag. In v0.1
+ * (CRM alpha) accounting is hidden, so it is filtered out of the sidebar. The
+ * module definition stays in MODULES so flipping ENABLE_ACCOUNTING restores it.
+ */
+export function visibleModules(opts: { accountingEnabled: boolean }): ModuleDefinition[] {
+  if (opts.accountingEnabled) return MODULES;
+  return MODULES.filter((m) => m.key !== "accounting");
+}
+
+/**
  * Infer which module a given path belongs to. Path is the part AFTER the tenant slug,
  * e.g. "/ar/invoices" or "/books/reports/pnl".
  */

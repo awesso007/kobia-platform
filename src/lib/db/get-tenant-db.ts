@@ -12,7 +12,7 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { headers } from "next/headers";
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@/lib/db/generated/tenant";
 import { getTenantPrisma } from "./tenant-prisma";
 
 export class NoTenantError extends Error {
