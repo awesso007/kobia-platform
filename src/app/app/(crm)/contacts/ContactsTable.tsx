@@ -19,6 +19,7 @@ import { TagChips } from "@/components/crm/TagChips";
 import { TagPicker } from "@/components/crm/TagPicker";
 import { CustomFieldInputs } from "@/components/crm/CustomFieldInputs";
 import { ViewBar, type ColumnDef } from "@/components/crm/views/ViewBar";
+import { BulkActionBar } from "@/components/crm/BulkActionBar";
 import { formatCurrency } from "@/lib/utils";
 import type { CustomFieldDef, CustomFieldValueMap, TagRow } from "@/lib/crm/record";
 import type { SavedViewRow } from "../views/actions";
@@ -64,7 +65,29 @@ export function ContactsTable({
   const [editing, setEditing] = useState<ContactRow | null>(null);
   const [cols, setCols] = useState<string[]>(CONTACT_COLUMNS.map((c) => c.key));
   const showCol = (k: string) => cols.includes(k);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const searchRef = useRef<HTMLInputElement | null>(null);
+
+  const allOnPage = rows.length > 0 && rows.every((r) => selected.has(r.id));
+  const toggleRow = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toggleAll = () =>
+    setSelected((prev) => {
+      if (rows.every((r) => prev.has(r.id))) {
+        const next = new Set(prev);
+        for (const r of rows) next.delete(r.id);
+        return next;
+      }
+      const next = new Set(prev);
+      for (const r of rows) next.add(r.id);
+      return next;
+    });
+  const clearSelection = () => setSelected(new Set());
 
   const openId = sp.get("open");
   useEffect(() => {
@@ -156,7 +179,16 @@ export function ContactsTable({
               className="w-full p-3 text-left"
               style={{ backgroundColor: "var(--kb-surface)", border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius)", boxShadow: "var(--kb-shadow-card)" }}
             >
-              <div style={{ color: "var(--kb-text-primary)", fontWeight: 600 }}>{c.name}{c.title ? <span className="ml-2 text-xs" style={{ color: "var(--kb-text-secondary)" }}>{c.title}</span> : null}</div>
+              <div className="flex items-center gap-2" style={{ color: "var(--kb-text-primary)", fontWeight: 600 }}>
+                <input
+                  type="checkbox"
+                  checked={selected.has(c.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={() => toggleRow(c.id)}
+                  aria-label={`Select ${c.name}`}
+                />
+                {c.name}{c.title ? <span className="ml-2 text-xs" style={{ color: "var(--kb-text-secondary)" }}>{c.title}</span> : null}
+              </div>
               {c.email ? <div className="mt-0.5 text-xs" style={{ color: "var(--kb-text-secondary)" }}>{c.email}</div> : null}
               <div className="mt-2 flex items-center justify-between text-xs" style={{ color: "var(--kb-text-secondary)" }}>
                 <span>{c.companyName ?? "-"}</span>
@@ -172,6 +204,9 @@ export function ContactsTable({
         <table className="w-full text-sm">
           <thead>
             <tr style={{ backgroundColor: "var(--kb-surface-grey)", color: "var(--kb-text-secondary)" }}>
+              <th className="px-3 py-2 text-left font-medium" style={{ width: 36 }}>
+                <input type="checkbox" checked={allOnPage} onChange={toggleAll} aria-label="Select all" />
+              </th>
               {showCol("name") ? <Th label="Name" field="lastName" onSort={toggleSort} /> : null}
               {showCol("email") ? <Th label="Email" field="email" onSort={toggleSort} /> : null}
               {showCol("phone") ? <th className="px-3 py-2 text-left font-medium">Phone</th> : null}
@@ -183,10 +218,13 @@ export function ContactsTable({
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={cols.length} className="p-8 text-center" style={{ color: "var(--kb-text-secondary)" }}>No contacts match these filters.</td></tr>
+              <tr><td colSpan={cols.length + 1} className="p-8 text-center" style={{ color: "var(--kb-text-secondary)" }}>No contacts match these filters.</td></tr>
             ) : (
               rows.map((c) => (
                 <tr key={c.id} onClick={() => setEditing(c)} className="cursor-pointer" style={{ borderTop: "1px solid var(--kb-border)", height: "var(--kb-row-h)" }}>
+                  <td className="px-3" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleRow(c.id)} aria-label={`Select ${c.name}`} />
+                  </td>
                   {showCol("name") ? <td className="px-3" style={{ color: "var(--kb-text-primary)", fontWeight: 500 }}>{c.name}{c.title ? <span className="ml-2 text-xs" style={{ color: "var(--kb-text-secondary)" }}>{c.title}</span> : null}</td> : null}
                   {showCol("email") ? <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.email ?? "-"}</td> : null}
                   {showCol("phone") ? (
@@ -217,6 +255,14 @@ export function ContactsTable({
           <KbButton variant="outline" disabled={page >= pageCount} onClick={() => setParam({ page: String(page + 1) })}>Next</KbButton>
         </div>
       </div>
+
+      <BulkActionBar
+        entityType="CONTACT"
+        ids={Array.from(selected)}
+        allTags={allTags}
+        owners={owners}
+        onClear={clearSelection}
+      />
 
       {creating ? (
         <ContactModal companies={companies} allTags={allTags} customFields={customFields} onClose={() => setCreating(false)} />

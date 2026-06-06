@@ -18,6 +18,7 @@ import { TagChips } from "@/components/crm/TagChips";
 import { TagPicker } from "@/components/crm/TagPicker";
 import { CustomFieldInputs } from "@/components/crm/CustomFieldInputs";
 import { ViewBar, type ColumnDef } from "@/components/crm/views/ViewBar";
+import { BulkActionBar } from "@/components/crm/BulkActionBar";
 import { formatCurrency } from "@/lib/utils";
 import {
   COMPANY_SIZES,
@@ -67,7 +68,29 @@ export function CompaniesTable({
   const [editing, setEditing] = useState<CompanyRow | null>(null);
   const [cols, setCols] = useState<string[]>(COMPANY_COLUMNS.map((c) => c.key));
   const showCol = (k: string) => cols.includes(k);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const searchRef = useRef<HTMLInputElement | null>(null);
+
+  const allOnPage = rows.length > 0 && rows.every((r) => selected.has(r.id));
+  const toggleRow = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toggleAll = () =>
+    setSelected((prev) => {
+      if (rows.every((r) => prev.has(r.id))) {
+        const next = new Set(prev);
+        for (const r of rows) next.delete(r.id);
+        return next;
+      }
+      const next = new Set(prev);
+      for (const r of rows) next.add(r.id);
+      return next;
+    });
+  const clearSelection = () => setSelected(new Set());
 
   const openId = sp.get("open");
   useEffect(() => {
@@ -159,7 +182,16 @@ export function CompaniesTable({
               className="w-full p-3 text-left"
               style={{ backgroundColor: "var(--kb-surface)", border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius)", boxShadow: "var(--kb-shadow-card)" }}
             >
-              <div style={{ color: "var(--kb-text-primary)", fontWeight: 600 }}>{c.name}</div>
+              <div className="flex items-center gap-2" style={{ color: "var(--kb-text-primary)", fontWeight: 600 }}>
+                <input
+                  type="checkbox"
+                  checked={selected.has(c.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={() => toggleRow(c.id)}
+                  aria-label={`Select ${c.name}`}
+                />
+                {c.name}
+              </div>
               {c.domain ? <div className="mt-0.5 text-xs" style={{ color: "var(--kb-text-secondary)" }}>{c.domain}</div> : null}
               <div className="mt-2 flex items-center justify-between text-xs" style={{ color: "var(--kb-text-secondary)" }}>
                 <span>{c.industry ?? "-"}</span>
@@ -175,6 +207,9 @@ export function CompaniesTable({
         <table className="w-full text-sm">
           <thead>
             <tr style={{ backgroundColor: "var(--kb-surface-grey)", color: "var(--kb-text-secondary)" }}>
+              <th className="px-3 py-2 text-left font-medium" style={{ width: 36 }}>
+                <input type="checkbox" checked={allOnPage} onChange={toggleAll} aria-label="Select all" />
+              </th>
               {showCol("name") ? <Th label="Name" field="name" onSort={toggleSort} /> : null}
               {showCol("domain") ? <Th label="Domain" field="domain" onSort={toggleSort} /> : null}
               {showCol("industry") ? <Th label="Industry" field="industry" onSort={toggleSort} /> : null}
@@ -186,10 +221,13 @@ export function CompaniesTable({
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={cols.length} className="p-8 text-center" style={{ color: "var(--kb-text-secondary)" }}>No companies match these filters.</td></tr>
+              <tr><td colSpan={cols.length + 1} className="p-8 text-center" style={{ color: "var(--kb-text-secondary)" }}>No companies match these filters.</td></tr>
             ) : (
               rows.map((c) => (
                 <tr key={c.id} onClick={() => setEditing(c)} className="cursor-pointer" style={{ borderTop: "1px solid var(--kb-border)", height: "var(--kb-row-h)" }}>
+                  <td className="px-3" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleRow(c.id)} aria-label={`Select ${c.name}`} />
+                  </td>
                   {showCol("name") ? <td className="px-3" style={{ color: "var(--kb-text-primary)", fontWeight: 500 }}>{c.name}</td> : null}
                   {showCol("domain") ? <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.domain ?? "-"}</td> : null}
                   {showCol("industry") ? <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{c.industry ?? "-"}</td> : null}
@@ -211,6 +249,14 @@ export function CompaniesTable({
           <KbButton variant="outline" disabled={page >= pageCount} onClick={() => setParam({ page: String(page + 1) })}>Next</KbButton>
         </div>
       </div>
+
+      <BulkActionBar
+        entityType="COMPANY"
+        ids={Array.from(selected)}
+        allTags={allTags}
+        owners={owners}
+        onClear={clearSelection}
+      />
 
       {creating ? (
         <CompanyModal allTags={allTags} customFields={customFields} onClose={() => setCreating(false)} />

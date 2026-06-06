@@ -16,6 +16,7 @@ import { TagChips } from "@/components/crm/TagChips";
 import { TagPicker } from "@/components/crm/TagPicker";
 import { CustomFieldInputs } from "@/components/crm/CustomFieldInputs";
 import { ViewBar, type ColumnDef } from "@/components/crm/views/ViewBar";
+import { BulkActionBar } from "@/components/crm/BulkActionBar";
 import type { CustomFieldDef, CustomFieldValueMap, TagRow } from "@/lib/crm/record";
 import type { SavedViewRow } from "../views/actions";
 import type { LeadRow } from "./queries";
@@ -58,7 +59,29 @@ export function LeadsTable({
   const [editing, setEditing] = useState<LeadRow | null>(null);
   const [cols, setCols] = useState<string[]>(LEAD_COLUMNS.map((c) => c.key));
   const showCol = (k: string) => cols.includes(k);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const searchRef = useRef<HTMLInputElement | null>(null);
+
+  const allOnPage = rows.length > 0 && rows.every((r) => selected.has(r.id));
+  const toggleRow = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toggleAll = () =>
+    setSelected((prev) => {
+      if (rows.every((r) => prev.has(r.id))) {
+        const next = new Set(prev);
+        for (const r of rows) next.delete(r.id);
+        return next;
+      }
+      const next = new Set(prev);
+      for (const r of rows) next.add(r.id);
+      return next;
+    });
+  const clearSelection = () => setSelected(new Set());
 
   // Open a record's pane when arriving from the command palette (?open=<id>).
   const openId = sp.get("open");
@@ -166,7 +189,16 @@ export function LeadsTable({
               style={{ backgroundColor: "var(--kb-surface)", border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius)", boxShadow: "var(--kb-shadow-card)" }}
             >
               <div className="flex items-center justify-between gap-2">
-                <span style={{ color: "var(--kb-text-primary)", fontWeight: 600 }}>{l.name}</span>
+                <span className="flex items-center gap-2" style={{ color: "var(--kb-text-primary)", fontWeight: 600 }}>
+                  <input
+                    type="checkbox"
+                    checked={selected.has(l.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={() => toggleRow(l.id)}
+                    aria-label={`Select ${l.name}`}
+                  />
+                  {l.name}
+                </span>
                 <StatusBadge value={l.status} />
               </div>
               {l.companyName ? (
@@ -189,6 +221,9 @@ export function LeadsTable({
         <table className="w-full text-sm">
           <thead>
             <tr style={{ backgroundColor: "var(--kb-surface-grey)", color: "var(--kb-text-secondary)" }}>
+              <th className="px-3 py-2 text-left font-medium" style={{ width: 36 }}>
+                <input type="checkbox" checked={allOnPage} onChange={toggleAll} aria-label="Select all" />
+              </th>
               {showCol("name") ? <Th label="Name" field="name" onSort={toggleSort} /> : null}
               {showCol("source") ? <Th label="Source" field="source" onSort={toggleSort} /> : null}
               {showCol("status") ? <Th label="Status" field="status" onSort={toggleSort} /> : null}
@@ -200,7 +235,7 @@ export function LeadsTable({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={cols.length} className="p-8 text-center" style={{ color: "var(--kb-text-secondary)" }}>
+                <td colSpan={cols.length + 1} className="p-8 text-center" style={{ color: "var(--kb-text-secondary)" }}>
                   No leads match these filters.
                 </td>
               </tr>
@@ -212,6 +247,9 @@ export function LeadsTable({
                   className="cursor-pointer"
                   style={{ borderTop: "1px solid var(--kb-border)", height: "var(--kb-row-h)" }}
                 >
+                  <td className="px-3" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleRow(l.id)} aria-label={`Select ${l.name}`} />
+                  </td>
                   {showCol("name") ? (
                     <td className="px-3" style={{ color: "var(--kb-text-primary)", fontWeight: 500 }}>
                       {l.name}
@@ -251,6 +289,14 @@ export function LeadsTable({
           </KbButton>
         </div>
       </div>
+
+      <BulkActionBar
+        entityType="LEAD"
+        ids={Array.from(selected)}
+        allTags={allTags}
+        owners={owners}
+        onClear={clearSelection}
+      />
 
       {creating ? <LeadModal allTags={allTags} customFields={customFields} onClose={() => setCreating(false)} /> : null}
       {editing ? (
