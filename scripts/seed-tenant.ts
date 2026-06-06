@@ -338,8 +338,107 @@ async function main() {
       console.log(`[seed-tenant] notifications already present (${notifCount}); skipping insert`);
     }
 
+    // 13. Email (Sprint 6) - one paused SMTP/IMAP account, two templates, one
+    //     default signature, and one thread with two messages on a seeded deal.
+    const OWNER = "user_acme_owner_seed";
+    const emailAccountCount = await db.emailAccount.count();
+    if (emailAccountCount === 0) {
+      const account = await db.emailAccount.create({
+        data: {
+          ownerClerkUserId: OWNER,
+          address: "owner@acme.test",
+          displayName: "Acme Owner",
+          provider: "SMTP_IMAP",
+          status: "PAUSED",
+          smtpHost: "smtp.example.test",
+          smtpPort: 587,
+          smtpUser: "owner@acme.test",
+          imapHost: "imap.example.test",
+          imapPort: 993,
+          imapUser: "owner@acme.test",
+        },
+      });
+      console.log(`[seed-tenant] inserted 1 email account`);
+
+      await db.emailTemplate.create({
+        data: {
+          name: "Welcome",
+          subject: "Welcome to Acme, {{contact.firstName}}",
+          bodyHtml: "<p>Hi {{contact.firstName}},</p><p>Thanks for getting in touch. We are glad to have you.</p>",
+          scope: "TENANT",
+        },
+      });
+      await db.emailTemplate.create({
+        data: {
+          name: "Follow-up",
+          subject: "Following up on {{deal.name}}",
+          bodyHtml: "<p>Hi {{contact.firstName}},</p><p>Just following up on {{deal.name}}. Let me know your thoughts.</p>",
+          scope: "TENANT",
+        },
+      });
+      console.log(`[seed-tenant] inserted 2 email templates`);
+
+      await db.emailSignature.create({
+        data: {
+          ownerClerkUserId: OWNER,
+          html: "<p>--<br/>Acme Owner<br/>Acme Inc.</p>",
+          isDefault: true,
+        },
+      });
+      console.log(`[seed-tenant] inserted 1 email signature`);
+
+      const seededDeal = await db.deal.findFirst({ orderBy: { createdAt: "asc" }, include: { contact: true } });
+      if (seededDeal) {
+        const counterparty = seededDeal.contact?.email ?? "client@example.test";
+        const now = new Date();
+        const earlier = new Date(now.getTime() - 60 * 60 * 1000);
+        const thread = await db.emailThread.create({
+          data: {
+            subject: `Re: ${seededDeal.name}`,
+            lastMessageAt: now,
+            recordType: "DEAL",
+            recordId: seededDeal.id,
+            accountId: account.id,
+            messageCount: 2,
+            unreadCount: 1,
+          },
+        });
+        await db.emailMessage.create({
+          data: {
+            threadId: thread.id,
+            accountId: account.id,
+            direction: "OUTBOUND",
+            fromAddress: "owner@acme.test",
+            toAddresses: [counterparty],
+            subject: `Re: ${seededDeal.name}`,
+            bodyHtml: "<p>Hi, sharing a quick proposal for your review. Let me know if the pricing works.</p>",
+            snippet: "Hi, sharing a quick proposal for your review.",
+            sentAt: earlier,
+            status: "SENT",
+          },
+        });
+        await db.emailMessage.create({
+          data: {
+            threadId: thread.id,
+            accountId: account.id,
+            direction: "INBOUND",
+            fromAddress: counterparty,
+            toAddresses: ["owner@acme.test"],
+            subject: `Re: ${seededDeal.name}`,
+            bodyHtml: "<p>Thanks, this looks great. Can we hop on a call next week?</p>",
+            snippet: "Thanks, this looks great. Can we hop on a call next week?",
+            receivedAt: now,
+            status: "DELIVERED",
+          },
+        });
+        console.log(`[seed-tenant] inserted 1 email thread + 2 messages on deal "${seededDeal.name}"`);
+      }
+    } else {
+      console.log(`[seed-tenant] email accounts already present (${emailAccountCount}); skipping insert`);
+    }
+
     // Summary
-    const [pipelines, stages, contacts, leads, deals, companies, tags, customFields, automations, automationRuns, savedReports, memberships, webForms, notifications] = await Promise.all([
+    const [pipelines, stages, contacts, leads, deals, companies, tags, customFields, automations, automationRuns, savedReports, memberships, webForms, notifications, emailAccounts, emailTemplates, emailSignatures, emailThreads, emailMessages] = await Promise.all([
       db.pipeline.count(),
       db.dealStage.count(),
       db.contact.count(),
@@ -354,9 +453,14 @@ async function main() {
       db.membership.count(),
       db.webForm.count(),
       db.notification.count(),
+      db.emailAccount.count(),
+      db.emailTemplate.count(),
+      db.emailSignature.count(),
+      db.emailThread.count(),
+      db.emailMessage.count(),
     ]);
     console.log(
-      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields} automations=${automations} automationRuns=${automationRuns} savedReports=${savedReports} memberships=${memberships} webForms=${webForms} notifications=${notifications}`,
+      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields} automations=${automations} automationRuns=${automationRuns} savedReports=${savedReports} memberships=${memberships} webForms=${webForms} notifications=${notifications} emailAccounts=${emailAccounts} emailTemplates=${emailTemplates} emailSignatures=${emailSignatures} emailThreads=${emailThreads} emailMessages=${emailMessages}`,
     );
   } finally {
     await db.$disconnect();
