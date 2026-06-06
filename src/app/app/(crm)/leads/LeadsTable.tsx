@@ -44,6 +44,18 @@ export function LeadsTable({
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<LeadRow | null>(null);
 
+  // Open a record's pane when arriving from the command palette (?open=<id>).
+  const openId = sp.get("open");
+  useEffect(() => {
+    if (!openId) return;
+    const row = rows.find((r) => r.id === openId);
+    if (row) setEditing(row);
+    const next = new URLSearchParams(sp.toString());
+    next.delete("open");
+    router.replace(`/app/leads${next.toString() ? `?${next.toString()}` : ""}`);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [openId]);
+
   function setParam(updates: Record<string, string | null>) {
     const next = new URLSearchParams(sp.toString());
     for (const [k, v] of Object.entries(updates)) {

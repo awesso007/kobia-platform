@@ -10,7 +10,7 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   DndContext,
   PointerSensor,
@@ -33,11 +33,24 @@ import { createDeal, moveDealToStage, updateDealMeta, loadDealDetail } from "./a
 
 export function DealsBoard({ board, allTags, customFields }: { board: DealBoard; allTags: TagRow[]; customFields: CustomFieldDef[] }) {
   const router = useRouter();
+  const sp = useSearchParams();
   const [view, setView] = useState<"kanban" | "list">("kanban");
   const [deals, setDeals] = useState<DealCard[]>(board.deals);
   const [creatingStage, setCreatingStage] = useState<StageCol | null>(null);
   const [openDeal, setOpenDeal] = useState<DealCard | null>(null);
   const [, startTransition] = useTransition();
+
+  // Open a deal's pane when arriving from the command palette (?open=<id>).
+  const openId = sp.get("open");
+  useEffect(() => {
+    if (!openId) return;
+    const card = board.deals.find((d) => d.id === openId);
+    if (card) setOpenDeal(card);
+    const next = new URLSearchParams(sp.toString());
+    next.delete("open");
+    router.replace(`/app/deals${next.toString() ? `?${next.toString()}` : ""}`);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [openId]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 

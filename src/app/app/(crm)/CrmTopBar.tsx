@@ -6,6 +6,7 @@ import { Mail, MessageSquare, Search } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
 import { TenantSwitcher } from "./TenantSwitcher";
 import { EmailComposer } from "@/components/crm/email/EmailComposer";
+import { CommandPalette } from "@/components/crm/search/CommandPalette";
 import type { NotificationRow } from "@/lib/notifications/queries";
 import type { UserTenant } from "@/lib/tenancy/user-tenants";
 
@@ -27,23 +28,26 @@ export function CrmTopBar({ notifications = [], tenants = [] }: { notifications?
     >
       <TenantSwitcher tenants={tenants} />
 
-      <div className="relative flex-1 max-w-xl">
-        <Search
-          size={16}
-          className="absolute left-3 top-1/2 -translate-y-1/2"
-          style={{ color: "var(--kb-text-secondary)" }}
-        />
-        <input
-          type="search"
-          placeholder="Search"
-          className="w-full rounded py-1.5 pl-9 pr-3 text-sm outline-none"
-          style={{
-            backgroundColor: "var(--kb-surface-grey)",
-            border: "1px solid var(--kb-border)",
-            borderRadius: "var(--kb-radius-sm)",
-          }}
-        />
-      </div>
+      <button
+        type="button"
+        onClick={() => window.dispatchEvent(new Event("kobia:open-search"))}
+        className="relative flex flex-1 max-w-xl items-center gap-2 rounded py-1.5 pl-9 pr-3 text-sm"
+        style={{
+          backgroundColor: "var(--kb-surface-grey)",
+          border: "1px solid var(--kb-border)",
+          borderRadius: "var(--kb-radius-sm)",
+          color: "var(--kb-text-secondary)",
+        }}
+      >
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" />
+        <span className="flex-1 text-left">Search</span>
+        <kbd
+          className="rounded px-1.5 py-0.5 text-[10px]"
+          style={{ backgroundColor: "var(--kb-surface)", border: "1px solid var(--kb-border)" }}
+        >
+          Cmd K
+        </kbd>
+      </button>
 
       <Link
         href="/app/messages"
@@ -74,6 +78,7 @@ export function CrmTopBar({ notifications = [], tenants = [] }: { notifications?
       </div>
 
       {composing ? <EmailComposer context={{}} onClose={() => setComposing(false)} onSent={() => setComposing(false)} /> : null}
+      <CommandPalette />
     </header>
   );
 }
