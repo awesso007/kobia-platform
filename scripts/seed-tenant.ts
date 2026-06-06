@@ -1018,6 +1018,156 @@ async function main() {
       console.log(`[seed-tenant] projects already present (${existingProjects}); skipping Sprint 11 seed`);
     }
 
+    // 22. Calendar + Scheduling (Sprint 12). Two calendars, two meeting rooms,
+    //     5+ events with 3+ attendees, one booking page ("30 min intro",
+    //     VIDEO_LINK, Mon-Fri 9-5) with 5 availability windows, and one
+    //     confirmed booking with its CalendarEvent. Idempotent: skip the whole
+    //     block if a Calendar already exists.
+    const CAL_OWNER = "user_acme_owner_seed";
+    const existingCalendars = await db.calendar.count();
+    if (existingCalendars === 0) {
+      const team = await db.calendar.create({
+        data: { name: "Acme Team", color: "#1d77bd", type: "TEAM", visibility: "TENANT", isDefault: true, ownerClerkUserId: CAL_OWNER },
+      });
+      const personal = await db.calendar.create({
+        data: { name: "Owner Personal", color: "#7c3aed", type: "PERSONAL", visibility: "PRIVATE", isDefault: false, ownerClerkUserId: CAL_OWNER },
+      });
+
+      const roomA = await db.meetingRoom.create({
+        data: { name: "Conference Room A", location: "Floor 2", capacity: 8, color: "#16a34a", active: true },
+      });
+      const roomB = await db.meetingRoom.create({
+        data: { name: "Huddle Room", location: "Floor 1", capacity: 4, color: "#ea580c", active: true },
+      });
+
+      // Working-hours Availability for the owner (Mon-Fri 9-5), so the booking
+      // engine and "Find a time" have something to compute against.
+      for (const dow of [1, 2, 3, 4, 5]) {
+        await db.availability.create({ data: { clerkUserId: CAL_OWNER, dayOfWeek: dow, startMinutes: 540, endMinutes: 1020 } });
+      }
+
+      const dayMs = 86_400_000;
+      const baseDay = new Date();
+      baseDay.setUTCHours(0, 0, 0, 0);
+      const at = (dayOffset: number, hour: number, min = 0) => new Date(baseDay.getTime() + dayOffset * dayMs + (hour * 60 + min) * 60_000);
+
+      const firstContact = await db.contact.findFirst({ orderBy: { createdAt: "asc" }, select: { id: true, email: true, firstName: true, lastName: true } });
+
+      const eventSpecs = [
+        { calendarId: team.id, title: "Weekly team standup", start: at(1, 9, 0), end: at(1, 9, 30), status: "CONFIRMED" as const, visibility: "PUBLIC" as const, recurrenceRule: "FREQ=WEEKLY", roomIds: [roomA.id] },
+        { calendarId: team.id, title: "Sprint planning", start: at(2, 13, 0), end: at(2, 14, 30), status: "CONFIRMED" as const, visibility: "PUBLIC" as const, roomIds: [roomA.id] },
+        { calendarId: team.id, title: "Product demo", start: at(3, 15, 0), end: at(3, 16, 0), status: "TENTATIVE" as const, visibility: "PUBLIC" as const, roomIds: [roomB.id] },
+        { calendarId: personal.id, title: "1:1 with manager", start: at(4, 11, 0), end: at(4, 11, 30), status: "CONFIRMED" as const, visibility: "PRIVATE" as const, roomIds: [] as string[] },
+        { calendarId: personal.id, title: "Focus block", start: at(5, 9, 0), end: at(5, 12, 0), status: "CONFIRMED" as const, visibility: "PRIVATE" as const, roomIds: [] as string[] },
+      ];
+
+      let attendeeCount = 0;
+      for (const [i, spec] of eventSpecs.entries()) {
+        const ev = await db.calendarEvent.create({
+          data: {
+            calendarId: spec.calendarId,
+            title: spec.title,
+            startAt: spec.start,
+            endAt: spec.end,
+            allDay: false,
+            timezone: "UTC",
+            status: spec.status,
+            visibility: spec.visibility,
+            organizerClerkUserId: CAL_OWNER,
+            recurrenceRule: spec.recurrenceRule ?? null,
+            source: "MANUAL",
+            reminders: [{ minutesBefore: 15, channel: "INAPP" }],
+          },
+        });
+        // Organizer always attends; first two events also get an internal + external attendee.
+        await db.eventAttendee.create({
+          data: { eventId: ev.id, clerkUserId: CAL_OWNER, email: "owner@acme.test", name: "Acme Owner", response: "ACCEPTED", isOrganizer: true, isOptional: false },
+        });
+        attendeeCount++;
+        if (i < 2) {
+          await db.eventAttendee.create({
+            data: { eventId: ev.id, clerkUserId: "user_acme_member1_seed", email: "member1@acme.test", name: "Acme Member One", response: "NEEDS_ACTION", isOrganizer: false, isOptional: false },
+          });
+          attendeeCount++;
+          if (firstContact) {
+            await db.eventAttendee.create({
+              data: { eventId: ev.id, clerkUserId: null, contactId: firstContact.id, email: firstContact.email ?? "guest@example.com", name: [firstContact.firstName, firstContact.lastName].filter(Boolean).join(" ") || "Guest", response: "NEEDS_ACTION", isOrganizer: false, isOptional: true },
+            });
+            attendeeCount++;
+          }
+        }
+        for (const roomId of spec.roomIds) {
+          await db.roomBooking.create({ data: { roomId, eventId: ev.id } });
+        }
+      }
+
+      // Booking page "30 min intro" (VIDEO_LINK) with Mon-Fri 9-5 availability.
+      const bookingPage = await db.bookingPage.create({
+        data: {
+          slug: "30-min-intro",
+          name: "30 min intro",
+          description: "A quick introductory call to see how Acme can help.",
+          durationMinutes: 30,
+          bufferBeforeMinutes: 0,
+          bufferAfterMinutes: 10,
+          minNoticeMinutes: 60,
+          maxAdvanceDays: 30,
+          timezone: "UTC",
+          active: true,
+          color: "#1d77bd",
+          locationType: "VIDEO_LINK",
+          locationDetails: "https://meet.acme.test/intro",
+          requireApproval: false,
+          ownerClerkUserId: CAL_OWNER,
+        },
+      });
+      for (const dow of [1, 2, 3, 4, 5]) {
+        await db.bookingAvailability.create({ data: { bookingPageId: bookingPage.id, dayOfWeek: dow, startMinutes: 540, endMinutes: 1020 } });
+      }
+
+      // One confirmed booking with its backing CalendarEvent on the team calendar.
+      const bookStart = at(7, 10, 0);
+      const bookEnd = at(7, 10, 30);
+      const bookingEvent = await db.calendarEvent.create({
+        data: {
+          calendarId: team.id,
+          title: "30 min intro with Jordan Rivera",
+          description: "Email: jordan@example.com\nPhone: +1 555 0142",
+          locationUrl: "https://meet.acme.test/intro",
+          startAt: bookStart,
+          endAt: bookEnd,
+          allDay: false,
+          timezone: "UTC",
+          status: "CONFIRMED",
+          visibility: "PRIVATE",
+          organizerClerkUserId: CAL_OWNER,
+          source: "BOOKING",
+        },
+      });
+      await db.eventAttendee.create({
+        data: { eventId: bookingEvent.id, clerkUserId: null, contactId: null, email: "jordan@example.com", name: "Jordan Rivera", response: "ACCEPTED", isOrganizer: false, isOptional: false },
+      });
+      attendeeCount++;
+      await db.booking.create({
+        data: {
+          bookingPageId: bookingPage.id,
+          eventId: bookingEvent.id,
+          inviteeName: "Jordan Rivera",
+          inviteeEmail: "jordan@example.com",
+          inviteePhone: "+1 555 0142",
+          inviteeTimezone: "UTC",
+          startAt: bookStart,
+          endAt: bookEnd,
+          status: "CONFIRMED",
+          rescheduleToken: "seedtoken0000000000000000000000000000",
+        },
+      });
+
+      console.log(`[seed-tenant] seeded 2 calendars, 2 rooms, ${eventSpecs.length + 1} events, ${attendeeCount} attendees, 5 availability windows, 1 booking page, 5 booking-availability windows, 1 confirmed booking`);
+    } else {
+      console.log(`[seed-tenant] calendars already present (${existingCalendars}); skipping Sprint 12 seed`);
+    }
+
     // Summary
     const savedViews = await db.savedView.count();
     const [projects, projectMembers, taskLists, tasks, taskDependencies, timeEntries, taskComments] = await Promise.all([
@@ -1067,8 +1217,19 @@ async function main() {
       db.quoteLineItem.count(),
       db.pipeline.count({ where: { entityType: "LEAD" } }),
     ]);
+    const [calendars, calendarEvents, eventAttendees, meetingRooms, roomBookings, bookingPages, bookingAvailabilities, bookings, availabilities] = await Promise.all([
+      db.calendar.count(),
+      db.calendarEvent.count(),
+      db.eventAttendee.count(),
+      db.meetingRoom.count(),
+      db.roomBooking.count(),
+      db.bookingPage.count(),
+      db.bookingAvailability.count(),
+      db.booking.count(),
+      db.availability.count(),
+    ]);
     console.log(
-      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields} automations=${automations} automationRuns=${automationRuns} savedReports=${savedReports} memberships=${memberships} webForms=${webForms} notifications=${notifications} emailAccounts=${emailAccounts} emailTemplates=${emailTemplates} emailSignatures=${emailSignatures} emailThreads=${emailThreads} emailMessages=${emailMessages} phoneNumbers=${phoneNumbers} calls=${calls} smsThreads=${smsThreads} smsMessages=${smsMessages} telephonyRules=${telephonyRules} userPreferences=${userPreferences} files=${files} fileFolders=${fileFolders} fileAttachments=${fileAttachments} fileShareLinks=${fileShareLinks} savedViews=${savedViews} productCategories=${productCategories} products=${products} dealLineItems=${dealLineItems} quoteTemplates=${quoteTemplates} quotes=${quotes} quoteLineItems=${quoteLineItems} leadPipelines=${leadPipelines} projects=${projects} projectMembers=${projectMembers} taskLists=${taskLists} tasks=${tasks} taskDependencies=${taskDependencies} timeEntries=${timeEntries} taskComments=${taskComments}`,
+      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields} automations=${automations} automationRuns=${automationRuns} savedReports=${savedReports} memberships=${memberships} webForms=${webForms} notifications=${notifications} emailAccounts=${emailAccounts} emailTemplates=${emailTemplates} emailSignatures=${emailSignatures} emailThreads=${emailThreads} emailMessages=${emailMessages} phoneNumbers=${phoneNumbers} calls=${calls} smsThreads=${smsThreads} smsMessages=${smsMessages} telephonyRules=${telephonyRules} userPreferences=${userPreferences} files=${files} fileFolders=${fileFolders} fileAttachments=${fileAttachments} fileShareLinks=${fileShareLinks} savedViews=${savedViews} productCategories=${productCategories} products=${products} dealLineItems=${dealLineItems} quoteTemplates=${quoteTemplates} quotes=${quotes} quoteLineItems=${quoteLineItems} leadPipelines=${leadPipelines} projects=${projects} projectMembers=${projectMembers} taskLists=${taskLists} tasks=${tasks} taskDependencies=${taskDependencies} timeEntries=${timeEntries} taskComments=${taskComments} calendars=${calendars} calendarEvents=${calendarEvents} eventAttendees=${eventAttendees} meetingRooms=${meetingRooms} roomBookings=${roomBookings} bookingPages=${bookingPages} bookingAvailabilities=${bookingAvailabilities} bookings=${bookings} availabilities=${availabilities}`,
     );
   } finally {
     await db.$disconnect();

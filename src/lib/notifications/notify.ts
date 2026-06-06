@@ -23,7 +23,10 @@ export type NotificationType =
   | "TASK_ASSIGNED"
   | "TASK_DUE_SOON"
   | "TASK_MENTIONED"
-  | "TASK_COMMENTED";
+  | "TASK_COMMENTED"
+  | "EVENT_INVITE"
+  | "EVENT_REMINDER"
+  | "BOOKING_CREATED";
 
 export type NotifyInput = {
   type: NotificationType;

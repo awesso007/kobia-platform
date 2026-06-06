@@ -6,7 +6,7 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 
-export const AUTOMATION_ENTITIES = ["LEAD", "DEAL", "CONTACT", "COMPANY", "ACTIVITY", "TASK", "PROJECT"] as const;
+export const AUTOMATION_ENTITIES = ["LEAD", "DEAL", "CONTACT", "COMPANY", "ACTIVITY", "TASK", "PROJECT", "EVENT", "BOOKING"] as const;
 export type AutomationEntityKind = (typeof AUTOMATION_ENTITIES)[number];
 
 export const AUTOMATION_TRIGGERS = [
@@ -31,6 +31,9 @@ export const AUTOMATION_TRIGGERS = [
   "TASK_DUE_SOON",
   "TASK_OVERDUE",
   "PROJECT_STATUS_CHANGED",
+  "EVENT_CREATED",
+  "EVENT_STARTING_SOON",
+  "BOOKING_CONFIRMED",
 ] as const;
 export type AutomationTriggerKind = (typeof AUTOMATION_TRIGGERS)[number];
 
@@ -56,6 +59,9 @@ export const TRIGGER_LABELS: Record<AutomationTriggerKind, string> = {
   TASK_DUE_SOON: "Task due soon",
   TASK_OVERDUE: "Task overdue",
   PROJECT_STATUS_CHANGED: "Project status changed",
+  EVENT_CREATED: "Event created",
+  EVENT_STARTING_SOON: "Event starting soon",
+  BOOKING_CONFIRMED: "Booking confirmed",
 };
 
 export const CONDITION_OPERATORS = [
@@ -99,6 +105,9 @@ export const ACTION_KINDS = [
   "ASSIGN_TASK",
   "UPDATE_TASK_STATUS",
   "ADD_TASK_TO_PROJECT",
+  "CREATE_EVENT",
+  "ATTACH_EVENT_TO_RECORD",
+  "SEND_BOOKING_LINK",
 ] as const;
 export type ActionKind = (typeof ACTION_KINDS)[number];
 
@@ -120,6 +129,9 @@ export const ACTION_LABELS: Record<ActionKind, string> = {
   ASSIGN_TASK: "Assign task",
   UPDATE_TASK_STATUS: "Update task status",
   ADD_TASK_TO_PROJECT: "Add task to project",
+  CREATE_EVENT: "Create calendar event",
+  ATTACH_EVENT_TO_RECORD: "Attach event to record",
+  SEND_BOOKING_LINK: "Send booking link",
 };
 
 export type ConditionRow = {
