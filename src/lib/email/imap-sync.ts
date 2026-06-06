@@ -16,6 +16,7 @@ import { ImapFlow } from "imapflow";
 import type { PrismaClient } from "@/lib/db/generated/tenant";
 import { decrypt } from "@/lib/crypto/secrets";
 import { resolveLinkForAddress } from "./link";
+import { reindex } from "@/lib/search";
 
 type Db = PrismaClient;
 type Account = Awaited<ReturnType<Db["emailAccount"]["findFirst"]>>;
@@ -90,7 +91,7 @@ export async function syncAccount(db: Db, account: NonNullable<Account>): Promis
           threadId = thread.id;
         }
 
-        await db.emailMessage.create({
+        const created = await db.emailMessage.create({
           data: {
             threadId,
             accountId: account.id,
@@ -109,6 +110,7 @@ export async function syncAccount(db: Db, account: NonNullable<Account>): Promis
           where: { id: threadId },
           data: { lastMessageAt: env?.date ?? new Date(), messageCount: { increment: 1 }, unreadCount: { increment: 1 } },
         });
+        await reindex(db, "EMAIL_MESSAGE", created.id);
         fetched++;
       }
     } finally {

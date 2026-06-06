@@ -5,6 +5,7 @@ import { auditWrite } from "@/lib/crm/audit";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
 import { completeUpload, dispatchEntityFor, type FileEntity } from "@/lib/files/files";
 import { readLocalObject } from "@/lib/storage/local";
+import { reindex } from "@/lib/search";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (!result.ok) return NextResponse.json(result, { status: 400 });
 
     await auditWrite({ action: "CREATE", entityType: "COMPANY", entityId: params.id, diff: { file: result.file?.name } });
+    await reindex(db, "FILE", params.id);
 
     // Fire FILE_UPLOADED. If the upload was attached to a CRM record, target
     // that record so automations can react (e.g. attach a welcome brochure).

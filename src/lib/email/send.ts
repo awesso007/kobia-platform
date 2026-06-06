@@ -22,6 +22,7 @@ import type { PrismaClient } from "@/lib/db/generated/tenant";
 import { decrypt } from "@/lib/crypto/secrets";
 import { notifyOn } from "@/lib/notifications/notify";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
+import { reindex } from "@/lib/search";
 import type { EmailRecordType } from "./link";
 
 type Db = PrismaClient;
@@ -143,6 +144,8 @@ export async function sendEmail(input: SendEmailInput, injectedDb?: Db): Promise
     where: { id: threadId },
     data: { lastMessageAt: new Date(), messageCount: { increment: 1 } },
   });
+
+  await reindex(db, "EMAIL_MESSAGE", message.id);
 
   if (sendError) return { ok: false, error: sendError, messageId: message.id, threadId };
 

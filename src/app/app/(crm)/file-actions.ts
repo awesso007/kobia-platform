@@ -17,6 +17,7 @@
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { auditWrite } from "@/lib/crm/audit";
 import { requirePermission, getCurrentMembership } from "@/lib/rbac/require-permission";
+import { reindex, removeFromIndex } from "@/lib/search";
 import { s3Configured } from "@/lib/storage";
 import {
   toFileRow,
@@ -129,6 +130,7 @@ export async function renameFile(id: string, name: string): Promise<void> {
   const { db } = getTenantDb();
   await db.file.update({ where: { id }, data: { name: name.trim() || "file" } });
   await auditWrite({ action: "UPDATE", entityType: "COMPANY", entityId: id, diff: { name } });
+  await reindex(db, "FILE", id);
 }
 
 export async function moveFile(id: string, folderId: string | null): Promise<void> {
@@ -143,6 +145,7 @@ export async function deleteFile(id: string): Promise<void> {
   const { db } = getTenantDb();
   await softDeleteFile(db, id);
   await auditWrite({ action: "DELETE", entityType: "COMPANY", entityId: id });
+  await removeFromIndex(db, "FILE", id);
 }
 
 export async function detachFile(input: { fileId: string; entityType: FileEntity; entityId: string }): Promise<void> {

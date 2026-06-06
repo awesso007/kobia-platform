@@ -13,6 +13,7 @@ import { auditWrite } from "@/lib/crm/audit";
 import { requirePermission, isOwn } from "@/lib/rbac/require-permission";
 import { notify } from "@/lib/notifications/notify";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
+import { reindex } from "@/lib/search";
 import { setEntityTags } from "../settings/tags/actions";
 import { saveCustomFieldValues } from "../settings/custom-fields/actions";
 
@@ -68,6 +69,7 @@ export async function createLead(input: LeadInput) {
   if (ownerUserId)
     await notify(ownerUserId, { type: "ASSIGNMENT", title: `You were assigned a lead: ${name}`, linkUrl: "/app/leads" });
   await dispatchAutomation({ type: "RECORD_CREATED", entityType: "LEAD", entityId: lead.id });
+  await reindex(db, "LEAD", lead.id);
   revalidatePath("/app/leads");
   return lead.id;
 }
@@ -101,6 +103,7 @@ export async function updateLead(id: string, input: LeadInput) {
   if (ownerUserId && ownerUserId !== before?.ownerUserId)
     await notify(ownerUserId, { type: "ASSIGNMENT", title: `You were assigned a lead: ${name}`, linkUrl: "/app/leads" });
   await dispatchAutomation({ type: "RECORD_UPDATED", entityType: "LEAD", entityId: id });
+  await reindex(db, "LEAD", id);
   revalidatePath("/app/leads");
 }
 
@@ -169,6 +172,10 @@ export async function convertLeadToDeal(
   });
 
   await auditWrite({ action: "UPDATE", entityType: "LEAD", entityId: lead.id, diff: { converted: true, dealId: deal.id } });
+
+  await reindex(db, "LEAD", lead.id);
+  await reindex(db, "CONTACT", contact.id);
+  await reindex(db, "DEAL", deal.id);
 
   revalidatePath("/app/leads");
   revalidatePath("/app/deals");

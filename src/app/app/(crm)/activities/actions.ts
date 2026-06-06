@@ -17,6 +17,7 @@ import { revalidatePath } from "next/cache";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { auditWrite } from "@/lib/crm/audit";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
+import { reindex, removeFromIndex } from "@/lib/search";
 import {
   ACTIVITY_FK_BY_TYPE,
   ACTIVITY_TYPES,
@@ -79,6 +80,7 @@ export async function createActivity(input: ActivityInput) {
 
   await auditAgainstRelated("CREATE", ref, { activityId: activity.id, subject });
   await dispatchAutomation({ type: "RECORD_CREATED", entityType: "ACTIVITY", entityId: activity.id });
+  await reindex(db, "ACTIVITY", activity.id);
   revalidatePath("/app/activities");
   return activity.id;
 }
@@ -102,6 +104,7 @@ export async function updateActivity(id: string, input: ActivityInput) {
 
   await auditAgainstRelated("UPDATE", ref, { activityId: id, subject });
   await dispatchAutomation({ type: "RECORD_UPDATED", entityType: "ACTIVITY", entityId: id });
+  await reindex(db, "ACTIVITY", id);
   revalidatePath("/app/activities");
 }
 
@@ -131,6 +134,7 @@ export async function deleteActivity(id: string) {
   const activity = await db.crmActivity.findUnique({ where: { id } });
   await db.crmActivity.delete({ where: { id } });
   await auditAgainstRelated("DELETE", relatedRefFromRow(activity), { activityId: id });
+  await removeFromIndex(db, "ACTIVITY", id);
   revalidatePath("/app/activities");
 }
 

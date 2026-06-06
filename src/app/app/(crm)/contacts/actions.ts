@@ -13,6 +13,7 @@ import { auditWrite } from "@/lib/crm/audit";
 import { requirePermission, isOwn } from "@/lib/rbac/require-permission";
 import { notify } from "@/lib/notifications/notify";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
+import { reindex, removeFromIndex } from "@/lib/search";
 import { setEntityTags } from "../settings/tags/actions";
 import { saveCustomFieldValues } from "../settings/custom-fields/actions";
 
@@ -56,6 +57,7 @@ export async function createContact(input: ContactInput) {
   if (ownerId)
     await notify(ownerId, { type: "ASSIGNMENT", title: `You were assigned a contact: ${firstName}`, linkUrl: "/app/contacts" });
   await dispatchAutomation({ type: "RECORD_CREATED", entityType: "CONTACT", entityId: contact.id });
+  await reindex(db, "CONTACT", contact.id);
   revalidatePath("/app/contacts");
   return contact.id;
 }
@@ -77,6 +79,7 @@ export async function updateContact(id: string, input: ContactInput) {
   if (ownerId && ownerId !== before?.ownerUserId)
     await notify(ownerId, { type: "ASSIGNMENT", title: `You were assigned a contact: ${firstName}`, linkUrl: "/app/contacts" });
   await dispatchAutomation({ type: "RECORD_UPDATED", entityType: "CONTACT", entityId: id });
+  await reindex(db, "CONTACT", id);
   revalidatePath("/app/contacts");
 }
 
@@ -85,6 +88,7 @@ export async function deleteContact(id: string) {
   const { db } = getTenantDb();
   await db.contact.delete({ where: { id } });
   await auditWrite({ action: "DELETE", entityType: "CONTACT", entityId: id });
+  await removeFromIndex(db, "CONTACT", id);
   revalidatePath("/app/contacts");
 }
 
