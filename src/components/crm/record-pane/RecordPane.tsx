@@ -21,11 +21,12 @@ import { countUnreadForRecord } from "@/app/app/(crm)/email-actions";
 import { countUnreadForRecord as countUnreadSmsForRecord } from "@/app/app/(crm)/sms-actions";
 import { EmailTab } from "@/components/crm/email/EmailTab";
 import { SmsTab } from "@/components/crm/sms/SmsTab";
+import { FilesTab } from "@/components/crm/files/FilesTab";
 import { CallButton } from "@/components/crm/calls/CallButton";
 
-type Tab = "details" | "activity" | "email" | "sms" | "notes";
+type Tab = "details" | "activity" | "email" | "sms" | "files" | "notes";
 
-const TABS: Tab[] = ["details", "activity", "email", "sms", "notes"];
+const TABS: Tab[] = ["details", "activity", "email", "sms", "files", "notes"];
 
 export function RecordPane({
   type,
@@ -145,6 +146,8 @@ export function RecordPane({
             <EmailTab type={type} id={id} vars={vars} />
           ) : tab === "sms" ? (
             <SmsTab type={type} id={id} recordPhone={recordPhone} />
+          ) : tab === "files" ? (
+            <FilesTab type={type} id={id} />
           ) : (
             <ActivityFeed key={tab} type={type} id={id} notesOnly={tab === "notes"} />
           )}
