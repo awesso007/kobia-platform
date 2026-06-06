@@ -10,6 +10,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
+  { href: "/app/settings/pipelines", label: "Pipelines" },
+  { href: "/app/settings/products", label: "Products" },
   { href: "/app/settings/custom-fields", label: "Custom fields" },
   { href: "/app/settings/tags", label: "Tags" },
   { href: "/app/settings/audit", label: "Audit log" },

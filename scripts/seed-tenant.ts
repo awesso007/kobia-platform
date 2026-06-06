@@ -105,6 +105,9 @@ async function main() {
 
   const db = new PrismaClient({ datasources: { db: { url: connectionForSchema(schema) } } });
   try {
+    // Raw queries below ($executeRawUnsafe for GENERATED-column inserts) do not
+    // honor the ?schema= connection param, so pin the search_path explicitly.
+    await db.$executeRawUnsafe(`SET search_path TO "${schema}"`);
     // 1. Pipeline (upsert by unique name) + stages (idempotent by pipeline+name).
     const pipeline = await db.pipeline.upsert({
       where: { name: "Default Sales Pipeline" },
@@ -682,9 +685,184 @@ async function main() {
     }
     console.log(`[seed-tenant] ${SAVED_VIEWS.length} saved views ready`);
 
+    // 17. Products + categories (Sprint 10) - 2 categories, 5 products. Upsert
+    //     categories by unique name and products by unique sku so re-runs do not
+    //     duplicate.
+    const PRODUCT_CATEGORIES = [
+      { name: "Software", sortOrder: 0 },
+      { name: "Services", sortOrder: 1 },
+    ];
+    for (const c of PRODUCT_CATEGORIES) {
+      await db.productCategory.upsert({ where: { name: c.name }, create: c, update: { sortOrder: c.sortOrder } });
+    }
+    const PRODUCTS = [
+      { sku: "SW-PRO", name: "KOBIA Pro License", type: "RECURRING_MONTHLY" as const, unitPriceCents: 9900, category: "Software", description: "Per-seat monthly license." },
+      { sku: "SW-ENT", name: "KOBIA Enterprise License", type: "RECURRING_YEARLY" as const, unitPriceCents: 990000, category: "Software", description: "Annual enterprise license." },
+      { sku: "SVC-ONB", name: "Onboarding Package", type: "ONE_TIME" as const, unitPriceCents: 250000, category: "Services", description: "Guided onboarding and data import." },
+      { sku: "SVC-TRN", name: "Training Day", type: "SERVICE" as const, unitPriceCents: 120000, category: "Services", description: "One day of on-site training." },
+      { sku: "SVC-SUP", name: "Priority Support", type: "RECURRING_MONTHLY" as const, unitPriceCents: 49900, category: "Services", description: "Priority support retainer." },
+    ];
+    const productBySku = new Map<string, { id: string; name: string; unitPriceCents: number }>();
+    for (const p of PRODUCTS) {
+      const product = await db.product.upsert({
+        where: { sku: p.sku },
+        create: p,
+        update: { name: p.name, type: p.type, unitPriceCents: p.unitPriceCents, category: p.category, description: p.description },
+      });
+      productBySku.set(product.sku, { id: product.id, name: product.name, unitPriceCents: product.unitPriceCents });
+    }
+    console.log(`[seed-tenant] ${PRODUCT_CATEGORIES.length} product categories + ${PRODUCTS.length} products ready`);
+
+    // 18. Deal line items (Sprint 10) - attach line items to the two seeded
+    //     deals. lineTotalCents is a GENERATED column and must NOT be written,
+    //     so we insert via raw SQL listing only the input columns. Seeded only
+    //     when no deal line item exists.
+    const dealLineItemCount = await db.dealLineItem.count();
+    if (dealLineItemCount === 0) {
+      const seededDeals = await db.deal.findMany({ orderBy: { createdAt: "asc" }, take: 2 });
+      const pro = productBySku.get("SW-PRO")!;
+      const onb = productBySku.get("SVC-ONB")!;
+      const sup = productBySku.get("SVC-SUP")!;
+      const trn = productBySku.get("SVC-TRN")!;
+      const lineSpecs: Array<{ dealId: string; productId: string; name: string; quantity: number; unitPriceCents: number; sortOrder: number }> = [];
+      if (seededDeals[0]) {
+        lineSpecs.push({ dealId: seededDeals[0].id, productId: pro.id, name: pro.name, quantity: 10, unitPriceCents: pro.unitPriceCents, sortOrder: 0 });
+        lineSpecs.push({ dealId: seededDeals[0].id, productId: onb.id, name: onb.name, quantity: 1, unitPriceCents: onb.unitPriceCents, sortOrder: 1 });
+      }
+      if (seededDeals[1]) {
+        lineSpecs.push({ dealId: seededDeals[1].id, productId: sup.id, name: sup.name, quantity: 1, unitPriceCents: sup.unitPriceCents, sortOrder: 0 });
+        lineSpecs.push({ dealId: seededDeals[1].id, productId: trn.id, name: trn.name, quantity: 2, unitPriceCents: trn.unitPriceCents, sortOrder: 1 });
+      }
+      for (const l of lineSpecs) {
+        const id = `seedli_${l.dealId.slice(-6)}_${l.sortOrder}`;
+        await db.$executeRawUnsafe(
+          `INSERT INTO "DealLineItem" ("id","dealId","productId","name","quantity","unitPriceCents","discountPct","taxRatePct","sortOrder","createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,0,0,$7, now(), now())`,
+          id, l.dealId, l.productId, l.name, l.quantity, l.unitPriceCents, l.sortOrder,
+        );
+      }
+      console.log(`[seed-tenant] inserted ${lineSpecs.length} deal line items`);
+    } else {
+      console.log(`[seed-tenant] deal line items already present (${dealLineItemCount}); skipping insert`);
+    }
+
+    // 19. Quote template + quotes (Sprint 10) - one template, two quotes (one
+    //     SENT, one ACCEPTED) with line items. lineTotalCents on QuoteLineItem
+    //     is also GENERATED, so line items go in via raw SQL. Parent quote
+    //     subtotal/tax/total are recomputed in app code. Seeded only when no
+    //     quote exists.
+    const quoteTemplateCount = await db.quoteTemplate.count();
+    let templateId: string;
+    if (quoteTemplateCount === 0) {
+      const template = await db.quoteTemplate.create({
+        data: {
+          name: "Standard Quote",
+          htmlTemplate: "<div>{{quote.title}}</div>",
+          defaultTerms: "Payment due within 30 days of acceptance.",
+          defaultNotes: "Thank you for your business.",
+          primaryColor: "#1d77bd",
+        },
+      });
+      templateId = template.id;
+      console.log(`[seed-tenant] inserted 1 quote template`);
+    } else {
+      const t = await db.quoteTemplate.findFirst({ orderBy: { createdAt: "asc" } });
+      templateId = t!.id;
+      console.log(`[seed-tenant] quote templates already present (${quoteTemplateCount}); skipping insert`);
+    }
+
+    const quoteCount = await db.quote.count();
+    if (quoteCount === 0) {
+      const seededDeals = await db.deal.findMany({ orderBy: { createdAt: "asc" }, take: 2, include: { contact: true } });
+      const pro = productBySku.get("SW-PRO")!;
+      const ent = productBySku.get("SW-ENT")!;
+      const onb = productBySku.get("SVC-ONB")!;
+      const now = new Date();
+
+      const quoteSpecs = [
+        {
+          number: "Q-202606-0001",
+          publicSlug: "acme-quote-0001",
+          title: "Northwind annual proposal",
+          status: "SENT" as const,
+          sentAt: now,
+          deal: seededDeals[0],
+          taxRatePct: 0,
+          lines: [
+            { product: pro, quantity: 10, sortOrder: 0 },
+            { product: onb, quantity: 1, sortOrder: 1 },
+          ],
+        },
+        {
+          number: "Q-202606-0002",
+          publicSlug: "acme-quote-0002",
+          title: "Brightpath enterprise proposal",
+          status: "ACCEPTED" as const,
+          sentAt: new Date(now.getTime() - 3 * 86_400_000),
+          acceptedAt: now,
+          deal: seededDeals[1],
+          taxRatePct: 0,
+          lines: [
+            { product: ent, quantity: 1, sortOrder: 0 },
+          ],
+        },
+      ];
+
+      for (const q of quoteSpecs) {
+        const subtotalCents = q.lines.reduce((sum, l) => sum + l.product.unitPriceCents * l.quantity, 0);
+        const quote = await db.quote.create({
+          data: {
+            number: q.number,
+            publicSlug: q.publicSlug,
+            title: q.title,
+            status: q.status,
+            sentAt: q.sentAt ?? null,
+            acceptedAt: (q as { acceptedAt?: Date }).acceptedAt ?? null,
+            templateId,
+            dealId: q.deal?.id ?? null,
+            contactId: q.deal?.contactId ?? null,
+            subtotalCents,
+            discountCents: 0,
+            taxCents: 0,
+            totalCents: subtotalCents,
+            notes: "Thank you for your business.",
+            termsAndConditions: "Payment due within 30 days of acceptance.",
+          },
+        });
+        for (const l of q.lines) {
+          const id = `seedqli_${quote.id.slice(-6)}_${l.sortOrder}`;
+          await db.$executeRawUnsafe(
+            `INSERT INTO "QuoteLineItem" ("id","quoteId","productId","name","quantity","unitPriceCents","discountPct","taxRatePct","sortOrder") VALUES ($1,$2,$3,$4,$5,$6,0,0,$7)`,
+            id, quote.id, l.product.id, l.product.name, l.quantity, l.product.unitPriceCents, l.sortOrder,
+          );
+        }
+      }
+      console.log(`[seed-tenant] inserted ${quoteSpecs.length} quotes + line items`);
+    } else {
+      console.log(`[seed-tenant] quotes already present (${quoteCount}); skipping insert`);
+    }
+
+    // 20. Lead pipeline (Sprint 10) - a LEAD-type pipeline with three stages so
+    //     the Leads kanban has a board. Upsert by unique name.
+    const leadPipeline = await db.pipeline.upsert({
+      where: { name: "Lead Qualification" },
+      create: { name: "Lead Qualification", entityType: "LEAD", isDefault: false, order: 1 },
+      update: { entityType: "LEAD" },
+    });
+    const LEAD_STAGES = [
+      { name: "Inbox", sortOrder: 0, wonOrLost: "OPEN" as const, probability: 0 },
+      { name: "Working", sortOrder: 1, wonOrLost: "OPEN" as const, probability: 30 },
+      { name: "Qualified", sortOrder: 2, wonOrLost: "WON" as const, probability: 100 },
+    ];
+    for (const s of LEAD_STAGES) {
+      const existing = await db.dealStage.findFirst({ where: { pipelineId: leadPipeline.id, name: s.name } });
+      if (existing) await db.dealStage.update({ where: { id: existing.id }, data: s });
+      else await db.dealStage.create({ data: { ...s, pipelineId: leadPipeline.id } });
+    }
+    console.log(`[seed-tenant] lead pipeline "Lead Qualification" + ${LEAD_STAGES.length} stages ready`);
+
     // Summary
     const savedViews = await db.savedView.count();
-    const [pipelines, stages, contacts, leads, deals, companies, tags, customFields, automations, automationRuns, savedReports, memberships, webForms, notifications, emailAccounts, emailTemplates, emailSignatures, emailThreads, emailMessages, phoneNumbers, calls, smsThreads, smsMessages, telephonyRules, userPreferences, files, fileFolders, fileAttachments, fileShareLinks] = await Promise.all([
+    const [pipelines, stages, contacts, leads, deals, companies, tags, customFields, automations, automationRuns, savedReports, memberships, webForms, notifications, emailAccounts, emailTemplates, emailSignatures, emailThreads, emailMessages, phoneNumbers, calls, smsThreads, smsMessages, telephonyRules, userPreferences, files, fileFolders, fileAttachments, fileShareLinks, productCategories, products, dealLineItems, quoteTemplates, quotes, quoteLineItems, leadPipelines] = await Promise.all([
       db.pipeline.count(),
       db.dealStage.count(),
       db.contact.count(),
@@ -714,9 +892,16 @@ async function main() {
       db.fileFolder.count(),
       db.fileAttachment.count(),
       db.fileShareLink.count(),
+      db.productCategory.count(),
+      db.product.count(),
+      db.dealLineItem.count(),
+      db.quoteTemplate.count(),
+      db.quote.count(),
+      db.quoteLineItem.count(),
+      db.pipeline.count({ where: { entityType: "LEAD" } }),
     ]);
     console.log(
-      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields} automations=${automations} automationRuns=${automationRuns} savedReports=${savedReports} memberships=${memberships} webForms=${webForms} notifications=${notifications} emailAccounts=${emailAccounts} emailTemplates=${emailTemplates} emailSignatures=${emailSignatures} emailThreads=${emailThreads} emailMessages=${emailMessages} phoneNumbers=${phoneNumbers} calls=${calls} smsThreads=${smsThreads} smsMessages=${smsMessages} telephonyRules=${telephonyRules} userPreferences=${userPreferences} files=${files} fileFolders=${fileFolders} fileAttachments=${fileAttachments} fileShareLinks=${fileShareLinks} savedViews=${savedViews}`,
+      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields} automations=${automations} automationRuns=${automationRuns} savedReports=${savedReports} memberships=${memberships} webForms=${webForms} notifications=${notifications} emailAccounts=${emailAccounts} emailTemplates=${emailTemplates} emailSignatures=${emailSignatures} emailThreads=${emailThreads} emailMessages=${emailMessages} phoneNumbers=${phoneNumbers} calls=${calls} smsThreads=${smsThreads} smsMessages=${smsMessages} telephonyRules=${telephonyRules} userPreferences=${userPreferences} files=${files} fileFolders=${fileFolders} fileAttachments=${fileAttachments} fileShareLinks=${fileShareLinks} savedViews=${savedViews} productCategories=${productCategories} products=${products} dealLineItems=${dealLineItems} quoteTemplates=${quoteTemplates} quotes=${quotes} quoteLineItems=${quoteLineItems} leadPipelines=${leadPipelines}`,
     );
   } finally {
     await db.$disconnect();

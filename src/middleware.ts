@@ -22,6 +22,9 @@ const isPublicRoute = createRouteMatcher([
   // validated `?t=<slug>` query param, not from the session.
   "/forms(.*)",
   "/api/forms(.*)",
+  // Public quote view (Sprint 10): slug-gated, unauthenticated. Tenant resolved
+  // from a validated `?t=<slug>` query param, not from the session.
+  "/quote(.*)",
   "/pay/(.*)",
   "/bill-view/(.*)",
   "/portal(.*)",
@@ -110,6 +113,7 @@ const NON_TENANT_SEGMENTS = new Set([
   "app",
   "api",
   "forms",
+  "quote",
   "onboarding",
   "pricing",
   "signup",

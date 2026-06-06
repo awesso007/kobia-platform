@@ -144,9 +144,15 @@ export function LeadsTable({
             Leads
           </h1>
         </div>
-        <KbButton onClick={() => setCreating(true)}>
-          <Plus size={16} /> New lead
-        </KbButton>
+        <div className="flex items-center gap-2">
+          <div className="flex overflow-hidden rounded" style={{ border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius-sm)" }}>
+            <span className="px-3 py-1.5 text-sm" style={{ backgroundColor: "var(--kb-primary)", color: "#fff" }}>List</span>
+            <a href="/app/leads/kanban" className="px-3 py-1.5 text-sm" style={{ backgroundColor: "var(--kb-surface)", color: "var(--kb-text-secondary)" }}>Kanban</a>
+          </div>
+          <KbButton onClick={() => setCreating(true)}>
+            <Plus size={16} /> New lead
+          </KbButton>
+        </div>
       </div>
 
       <ViewBar

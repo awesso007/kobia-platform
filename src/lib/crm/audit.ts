@@ -15,6 +15,8 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import type { EntityType } from "@/lib/crm/record";
 
+type Db = ReturnType<typeof getTenantDb>["db"];
+
 type AuditActionKind = "CREATE" | "UPDATE" | "DELETE" | "VIEW";
 
 export type AuditInput = {
@@ -28,9 +30,9 @@ export type AuditInput = {
  * Write one audit entry. Never throws: auditing must not break the user-facing
  * action it wraps, so failures are swallowed (logged to the server console).
  */
-export async function auditWrite(input: AuditInput): Promise<void> {
+export async function auditWrite(input: AuditInput, injectedDb?: Db): Promise<void> {
   try {
-    const { db } = getTenantDb();
+    const db = injectedDb ?? getTenantDb().db;
 
     let actorClerkUserId: string | null = null;
     let actorEmail: string | null = null;

@@ -26,7 +26,7 @@ import {
 } from "recharts";
 import { KbButton } from "@/components/crm/ui";
 import { formatCurrency } from "@/lib/utils";
-import type { FunnelRow, VelocityRow, LeaderboardRow, SavedReportRow } from "./queries";
+import type { FunnelRow, VelocityRow, LeaderboardRow, QuotePerfRow, ProductPerfRow, SavedReportRow } from "./queries";
 import { deleteReport } from "./actions";
 
 const CHART_COLORS = ["#1d77bd", "#2fc6f6", "#5cb85c", "#7d4aea", "#f0ad4e", "#d9534f"];
@@ -35,11 +35,15 @@ export function ReportsClient({
   funnel,
   velocity,
   leaderboard,
+  quotes,
+  products,
   saved,
 }: {
   funnel: FunnelRow[];
   velocity: VelocityRow[];
   leaderboard: LeaderboardRow[];
+  quotes: QuotePerfRow[];
+  products: ProductPerfRow[];
   saved: SavedReportRow[];
 }) {
   return (
@@ -107,6 +111,46 @@ export function ReportsClient({
               <SimpleTable
                 head={["Owner", "Total", "Completed"]}
                 rows={leaderboard.map((l) => [l.owner, String(l.total), String(l.completed)])}
+              />
+            </>
+          )}
+        </Card>
+
+        <Card title="Quote Performance" subtitle="Quotes and value by status">
+          {quotes.every((q) => q.count === 0) ? <Empty /> : (
+            <>
+              <ChartFrame>
+                <BarChart data={quotes}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--kb-border)" />
+                  <XAxis dataKey="status" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill={CHART_COLORS[1]} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ChartFrame>
+              <SimpleTable
+                head={["Status", "Quotes", "Value"]}
+                rows={quotes.map((q) => [q.status, String(q.count), formatCurrency(q.valueCents / 100)])}
+              />
+            </>
+          )}
+        </Card>
+
+        <Card title="Product Performance" subtitle="Units and revenue by product">
+          {products.length === 0 ? <Empty /> : (
+            <>
+              <ChartFrame>
+                <BarChart data={products}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--kb-border)" />
+                  <XAxis dataKey="product" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Bar dataKey="revenueCents" fill={CHART_COLORS[2]} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ChartFrame>
+              <SimpleTable
+                head={["Product", "Units", "Revenue"]}
+                rows={products.map((p) => [p.product, String(p.quantity), formatCurrency(p.revenueCents / 100)])}
               />
             </>
           )}

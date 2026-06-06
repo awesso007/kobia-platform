@@ -21,6 +21,11 @@ export const AUTOMATION_TRIGGERS = [
   "SMS_RECEIVED",
   "CALL_COMPLETED",
   "FILE_UPLOADED",
+  "STAGE_TIME_EXCEEDED",
+  "DEAL_AMOUNT_CHANGED",
+  "QUOTE_SENT",
+  "QUOTE_ACCEPTED",
+  "LINE_ITEM_ADDED",
 ] as const;
 export type AutomationTriggerKind = (typeof AUTOMATION_TRIGGERS)[number];
 
@@ -36,6 +41,11 @@ export const TRIGGER_LABELS: Record<AutomationTriggerKind, string> = {
   SMS_RECEIVED: "SMS received",
   CALL_COMPLETED: "Call completed",
   FILE_UPLOADED: "File uploaded",
+  STAGE_TIME_EXCEEDED: "Deal rotting in stage",
+  DEAL_AMOUNT_CHANGED: "Deal amount changed",
+  QUOTE_SENT: "Quote sent",
+  QUOTE_ACCEPTED: "Quote accepted",
+  LINE_ITEM_ADDED: "Line item added",
 };
 
 export const CONDITION_OPERATORS = [
@@ -73,6 +83,8 @@ export const ACTION_KINDS = [
   "MAKE_CALL",
   "ATTACH_FILE",
   "WAIT",
+  "CREATE_QUOTE",
+  "SEND_QUOTE",
 ] as const;
 export type ActionKind = (typeof ACTION_KINDS)[number];
 
@@ -88,6 +100,8 @@ export const ACTION_LABELS: Record<ActionKind, string> = {
   MAKE_CALL: "Make call",
   ATTACH_FILE: "Attach file",
   WAIT: "Wait",
+  CREATE_QUOTE: "Create quote",
+  SEND_QUOTE: "Send quote",
 };
 
 export type ConditionRow = {
