@@ -3,15 +3,17 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
-import { MODULES } from "@/lib/modules-config";
+import { MODULES, type ModuleDefinition } from "@/lib/modules-config";
 import type { ModuleKey } from "@/lib/active-module";
 
 export function ModuleSidebar({
   tenantSlug,
   activeModule,
+  modules = MODULES,
 }: {
   tenantSlug: string;
   activeModule: ModuleKey;
+  modules?: ModuleDefinition[];
 }) {
   const router = useRouter();
 
@@ -44,7 +46,7 @@ export function ModuleSidebar({
       </Link>
 
       <nav className="flex-1 overflow-y-auto py-2">
-        {MODULES.map((mod) => {
+        {modules.map((mod) => {
           const isActive = mod.key === activeModule;
           const isLocked = mod.comingSoon;
           const Icon = mod.icon;

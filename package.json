@@ -16,13 +16,16 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "prisma generate",
+    "db:generate:all": "prisma generate && prisma generate --schema=prisma/platform/schema.prisma && prisma generate --schema=prisma/tenant/schema.prisma",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "provision:fig": "tsx scripts/provision-fig.ts",
     "trial-balance:fig": "tsx scripts/provision-fig.ts",
+    "provision:tenant": "tsx scripts/provision-tenant.ts",
+    "destroy:tenant": "tsx scripts/destroy-tenant.ts",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate && prisma generate --schema=prisma/platform/schema.prisma && prisma generate --schema=prisma/tenant/schema.prisma"
   },
   "dependencies": {
     "@clerk/nextjs": "^5.7.0",
@@ -43,6 +46,7 @@
     "date-fns": "^4.1.0",
     "lucide-react": "^0.452.0",
     "next": "14.2.15",
+    "pg": "^8.21.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.53.0",

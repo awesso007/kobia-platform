@@ -1,0 +1,205 @@
+// =============================================================================
+// KOBIA Tenant schema - schema-per-tenant business tables, Sprint 1.
+// =============================================================================
+// These tables are replicated into each tenant_<slug> Postgres schema. The
+// schema itself provides isolation, so there is NO tenantId column and NO FK
+// back to a shared Tenant table (contrast with the legacy row-level schema in
+// prisma/schema.prisma, which stays in use for hidden accounting code).
+//
+// At runtime the client is bound to a specific schema via ?schema=tenant_<slug>
+// (see src/lib/db/tenant-prisma.ts). Migrations are applied per schema by
+// scripts/provision-tenant.ts.
+//
+// Sprint 1 seeds the v0.1 CRM core so provisioning has a real migration to
+// deploy. Fuller CRM behavior (custom fields, tags, sharing, automation
+// actions) arrives in later sprints.
+//
+// Generated to a dedicated client output so it does NOT collide with the
+// default @prisma/client used by legacy accounting code.
+//
+// No em-dashes in comments by project convention (use hyphens).
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../src/lib/db/generated/tenant"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum LeadSource {
+  WEBSITE
+  REFERRAL
+  CALL
+  EMAIL
+  EVENT
+  OTHER
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  UNQUALIFIED
+  CONVERTED
+}
+
+enum DealStatus {
+  OPEN
+  WON
+  LOST
+}
+
+enum ActivityType {
+  NOTE
+  CALL
+  EMAIL
+  MEETING
+  TASK
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  industry  String?
+  website   String?
+  phone     String?
+  address   String?
+  ownerUserId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contacts   Contact[]
+  deals      Deal[]
+  activities CrmActivity[]
+
+  @@index([name])
+}
+
+model Contact {
+  id         String   @id @default(cuid())
+  salutation String?
+  firstName  String
+  lastName   String?
+  email      String?
+  phone      String?
+  title      String?
+  companyId  String?
+  ownerUserId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company    Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  deals      Deal[]
+  activities CrmActivity[]
+
+  @@index([companyId])
+  @@index([lastName])
+}
+
+model Lead {
+  id          String     @id @default(cuid())
+  name        String
+  companyName String?
+  email       String?
+  phone       String?
+  source      LeadSource @default(WEBSITE)
+  status      LeadStatus @default(NEW)
+  ownerUserId String?
+  notes       String?
+  convertedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  activities CrmActivity[]
+
+  @@index([status])
+  @@index([ownerUserId])
+}
+
+model Pipeline {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stages DealStage[]
+  deals  Deal[]
+}
+
+model DealStage {
+  id         String   @id @default(cuid())
+  pipelineId String
+  name       String
+  sortOrder  Int      @default(0)
+  isWon      Boolean  @default(false)
+  isLost     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals    Deal[]
+
+  @@index([pipelineId, sortOrder])
+}
+
+model Deal {
+  id             String     @id @default(cuid())
+  pipelineId     String
+  stageId        String
+  name           String
+  companyId      String?
+  contactId      String?
+  ownerUserId    String?
+  amountCents    BigInt     @default(0)
+  probabilityPct Int        @default(50)
+  closeDate      DateTime?
+  status         DealStatus @default(OPEN)
+  wonAt          DateTime?
+  lostAt         DateTime?
+  lostReason     String?
+  notes          String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  pipeline   Pipeline      @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  stage      DealStage     @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  company    Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contact    Contact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  activities CrmActivity[]
+
+  @@index([status])
+  @@index([pipelineId, stageId])
+  @@index([ownerUserId])
+}
+
+model CrmActivity {
+  id              String       @id @default(cuid())
+  type            ActivityType @default(NOTE)
+  subject         String
+  body            String?
+  occurredAt      DateTime     @default(now())
+  createdByUserId String?
+  leadId          String?
+  dealId          String?
+  contactId       String?
+  companyId       String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  lead    Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  deal    Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([occurredAt])
+  @@index([leadId])
+  @@index([dealId])
+  @@index([contactId])
+  @@index([companyId])
+}
