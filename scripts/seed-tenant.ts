@@ -437,8 +437,133 @@ async function main() {
       console.log(`[seed-tenant] email accounts already present (${emailAccountCount}); skipping insert`);
     }
 
+    // 14. Telephony + SMS (Sprint 7) - one phone number assigned to the OWNER,
+    //     one VOICE routing rule, one OWNER UserPreference, one SMS thread with
+    //     three messages on a seeded contact, and two historical calls. Seeded
+    //     only when no phone number exists.
+    const phoneNumberCount = await db.phoneNumber.count();
+    if (phoneNumberCount === 0) {
+      const number = await db.phoneNumber.create({
+        data: {
+          e164: "+15551234567",
+          friendlyName: "Acme Main Line",
+          type: "LOCAL",
+          provider: "TWILIO",
+          status: "ACTIVE",
+          assignedClerkUserId: OWNER,
+          monthlyPriceCents: 115,
+          purchasedAt: new Date(),
+        },
+      });
+      console.log(`[seed-tenant] inserted 1 phone number`);
+
+      await db.telephonyRule.create({
+        data: {
+          phoneNumberId: number.id,
+          kind: "VOICE",
+          config: { mode: "ring" } as never,
+        },
+      });
+      console.log(`[seed-tenant] inserted 1 telephony rule`);
+
+      await db.userPreference.upsert({
+        where: { clerkUserId: OWNER },
+        create: {
+          clerkUserId: OWNER,
+          receiveCallNotifications: true,
+          defaultOutboundNumberId: number.id,
+        },
+        update: { defaultOutboundNumberId: number.id },
+      });
+      console.log(`[seed-tenant] user preference ready for owner`);
+
+      const smsContact = await db.contact.findFirst({ orderBy: { createdAt: "asc" } });
+      const peerE164 = smsContact?.phone?.replace(/[^+\d]/g, "") || "+15555550101";
+      const now = new Date();
+      const t1 = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+      const t2 = new Date(now.getTime() - 90 * 60 * 1000);
+      const t3 = new Date(now.getTime() - 60 * 60 * 1000);
+      const thread = await db.smsThread.create({
+        data: {
+          contactId: smsContact?.id ?? null,
+          ourNumberE164: number.e164,
+          peerE164,
+          lastMessageAt: t3,
+          messageCount: 3,
+          unreadCount: 1,
+        },
+      });
+      await db.smsMessage.create({
+        data: {
+          threadId: thread.id,
+          direction: "OUTBOUND",
+          fromE164: number.e164,
+          toE164: peerE164,
+          body: "Hi, this is Acme following up on your enquiry. Is now a good time to chat?",
+          status: "DELIVERED",
+          sentAt: t1,
+          deliveredAt: t1,
+        },
+      });
+      await db.smsMessage.create({
+        data: {
+          threadId: thread.id,
+          direction: "INBOUND",
+          fromE164: peerE164,
+          toE164: number.e164,
+          body: "Yes, please give me a call this afternoon.",
+          status: "DELIVERED",
+          deliveredAt: t2,
+        },
+      });
+      await db.smsMessage.create({
+        data: {
+          threadId: thread.id,
+          direction: "OUTBOUND",
+          fromE164: number.e164,
+          toE164: peerE164,
+          body: "Great, I will ring you around 3pm. Talk soon.",
+          status: "DELIVERED",
+          sentAt: t3,
+          deliveredAt: t3,
+        },
+      });
+      console.log(`[seed-tenant] inserted 1 SMS thread + 3 messages`);
+
+      await db.call.create({
+        data: {
+          direction: "INBOUND",
+          fromE164: peerE164,
+          toE164: number.e164,
+          status: "COMPLETED",
+          ownerClerkUserId: OWNER,
+          contactId: smsContact?.id ?? null,
+          startedAt: t2,
+          answeredAt: t2,
+          endedAt: new Date(t2.getTime() + 4 * 60 * 1000),
+          durationSec: 240,
+        },
+      });
+      await db.call.create({
+        data: {
+          direction: "OUTBOUND",
+          fromE164: number.e164,
+          toE164: peerE164,
+          status: "NO_ANSWER",
+          ownerClerkUserId: OWNER,
+          contactId: smsContact?.id ?? null,
+          startedAt: t3,
+          endedAt: new Date(t3.getTime() + 30 * 1000),
+          durationSec: 0,
+        },
+      });
+      console.log(`[seed-tenant] inserted 2 calls`);
+    } else {
+      console.log(`[seed-tenant] phone numbers already present (${phoneNumberCount}); skipping insert`);
+    }
+
     // Summary
-    const [pipelines, stages, contacts, leads, deals, companies, tags, customFields, automations, automationRuns, savedReports, memberships, webForms, notifications, emailAccounts, emailTemplates, emailSignatures, emailThreads, emailMessages] = await Promise.all([
+    const [pipelines, stages, contacts, leads, deals, companies, tags, customFields, automations, automationRuns, savedReports, memberships, webForms, notifications, emailAccounts, emailTemplates, emailSignatures, emailThreads, emailMessages, phoneNumbers, calls, smsThreads, smsMessages, telephonyRules, userPreferences] = await Promise.all([
       db.pipeline.count(),
       db.dealStage.count(),
       db.contact.count(),
@@ -458,9 +583,15 @@ async function main() {
       db.emailSignature.count(),
       db.emailThread.count(),
       db.emailMessage.count(),
+      db.phoneNumber.count(),
+      db.call.count(),
+      db.smsThread.count(),
+      db.smsMessage.count(),
+      db.telephonyRule.count(),
+      db.userPreference.count(),
     ]);
     console.log(
-      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields} automations=${automations} automationRuns=${automationRuns} savedReports=${savedReports} memberships=${memberships} webForms=${webForms} notifications=${notifications} emailAccounts=${emailAccounts} emailTemplates=${emailTemplates} emailSignatures=${emailSignatures} emailThreads=${emailThreads} emailMessages=${emailMessages}`,
+      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields} automations=${automations} automationRuns=${automationRuns} savedReports=${savedReports} memberships=${memberships} webForms=${webForms} notifications=${notifications} emailAccounts=${emailAccounts} emailTemplates=${emailTemplates} emailSignatures=${emailSignatures} emailThreads=${emailThreads} emailMessages=${emailMessages} phoneNumbers=${phoneNumbers} calls=${calls} smsThreads=${smsThreads} smsMessages=${smsMessages} telephonyRules=${telephonyRules} userPreferences=${userPreferences}`,
     );
   } finally {
     await db.$disconnect();

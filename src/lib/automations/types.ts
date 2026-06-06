@@ -18,6 +18,8 @@ export const AUTOMATION_TRIGGERS = [
   "SCHEDULE",
   "EMAIL_SENT",
   "EMAIL_RECEIVED",
+  "SMS_RECEIVED",
+  "CALL_COMPLETED",
 ] as const;
 export type AutomationTriggerKind = (typeof AUTOMATION_TRIGGERS)[number];
 
@@ -30,6 +32,8 @@ export const TRIGGER_LABELS: Record<AutomationTriggerKind, string> = {
   SCHEDULE: "On a schedule",
   EMAIL_SENT: "Email sent",
   EMAIL_RECEIVED: "Email received",
+  SMS_RECEIVED: "SMS received",
+  CALL_COMPLETED: "Call completed",
 };
 
 export const CONDITION_OPERATORS = [
@@ -63,6 +67,8 @@ export const ACTION_KINDS = [
   "REMOVE_TAG",
   "ASSIGN_OWNER",
   "SEND_EMAIL",
+  "SEND_SMS",
+  "MAKE_CALL",
   "WAIT",
 ] as const;
 export type ActionKind = (typeof ACTION_KINDS)[number];
@@ -75,6 +81,8 @@ export const ACTION_LABELS: Record<ActionKind, string> = {
   REMOVE_TAG: "Remove tag",
   ASSIGN_OWNER: "Assign owner",
   SEND_EMAIL: "Send email",
+  SEND_SMS: "Send SMS",
+  MAKE_CALL: "Make call",
   WAIT: "Wait",
 };
 

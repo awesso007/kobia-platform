@@ -165,6 +165,7 @@ export function LeadsTable({
           id={editing.id}
           title={editing.name}
           subtitle={editing.companyName ?? editing.email ?? undefined}
+          recordPhone={editing.phone ?? null}
           onClose={() => setEditing(null)}
           details={<LeadDetails lead={editing} allTags={allTags} customFields={customFields} onConverted={() => setEditing(null)} />}
         />

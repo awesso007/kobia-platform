@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, Search } from "lucide-react";
+import Link from "next/link";
+import { Mail, MessageSquare, Search } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
 import { TenantSwitcher } from "./TenantSwitcher";
 import { EmailComposer } from "@/components/crm/email/EmailComposer";
@@ -43,6 +44,15 @@ export function CrmTopBar({ notifications = [], tenants = [] }: { notifications?
           }}
         />
       </div>
+
+      <Link
+        href="/app/messages"
+        aria-label="Messages"
+        className="grid h-8 w-8 place-items-center rounded"
+        style={{ color: "var(--kb-text-secondary)" }}
+      >
+        <MessageSquare size={18} />
+      </Link>
 
       <button
         type="button"

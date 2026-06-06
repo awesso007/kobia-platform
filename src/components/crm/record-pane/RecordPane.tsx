@@ -18,11 +18,14 @@ import type { ActivityKind, ActivityRow, RecordType } from "@/lib/crm/record";
 import { ACTIVITY_TYPES } from "@/lib/crm/record";
 import { addActivity, listActivities } from "@/app/app/(crm)/activity-actions";
 import { countUnreadForRecord } from "@/app/app/(crm)/email-actions";
+import { countUnreadForRecord as countUnreadSmsForRecord } from "@/app/app/(crm)/sms-actions";
 import { EmailTab } from "@/components/crm/email/EmailTab";
+import { SmsTab } from "@/components/crm/sms/SmsTab";
+import { CallButton } from "@/components/crm/calls/CallButton";
 
-type Tab = "details" | "activity" | "email" | "notes";
+type Tab = "details" | "activity" | "email" | "sms" | "notes";
 
-const TABS: Tab[] = ["details", "activity", "email", "notes"];
+const TABS: Tab[] = ["details", "activity", "email", "sms", "notes"];
 
 export function RecordPane({
   type,
@@ -31,6 +34,7 @@ export function RecordPane({
   subtitle,
   details,
   vars,
+  recordPhone,
   initialTab = "details",
   onClose,
 }: {
@@ -40,15 +44,18 @@ export function RecordPane({
   subtitle?: string;
   details?: React.ReactNode;
   vars?: Record<string, string>;
+  recordPhone?: string | null;
   initialTab?: Tab;
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [unread, setUnread] = useState(false);
+  const [smsUnread, setSmsUnread] = useState(false);
 
   useEffect(() => {
     let active = true;
     countUnreadForRecord(type, id).then((n) => { if (active) setUnread(n > 0); }).catch(() => {});
+    countUnreadSmsForRecord(type, id).then((n) => { if (active) setSmsUnread(n > 0); }).catch(() => {});
     return () => { active = false; };
   }, [type, id]);
 
@@ -88,15 +95,26 @@ export function RecordPane({
               </p>
             ) : null}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded"
-            style={{ color: "var(--kb-text-secondary)" }}
-          >
-            <X size={18} />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {recordPhone && (type === "contact" || type === "lead") ? (
+              <CallButton
+                target={{
+                  toE164: recordPhone,
+                  contactId: type === "contact" ? id : undefined,
+                  leadId: type === "lead" ? id : undefined,
+                }}
+              />
+            ) : null}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="grid h-8 w-8 place-items-center rounded"
+              style={{ color: "var(--kb-text-secondary)" }}
+            >
+              <X size={18} />
+            </button>
+          </div>
         </header>
 
         <nav className="flex gap-1 px-3 pt-2" style={{ borderBottom: "1px solid var(--kb-border)" }}>
@@ -113,7 +131,7 @@ export function RecordPane({
               }}
             >
               {t}
-              {t === "email" && unread ? (
+              {(t === "email" && unread) || (t === "sms" && smsUnread) ? (
                 <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "var(--kb-primary)" }} />
               ) : null}
             </button>
@@ -125,6 +143,8 @@ export function RecordPane({
             <div className="p-5">{details ?? <EmptyNote text="No details to show." />}</div>
           ) : tab === "email" ? (
             <EmailTab type={type} id={id} vars={vars} />
+          ) : tab === "sms" ? (
+            <SmsTab type={type} id={id} recordPhone={recordPhone} />
           ) : (
             <ActivityFeed key={tab} type={type} id={id} notesOnly={tab === "notes"} />
           )}

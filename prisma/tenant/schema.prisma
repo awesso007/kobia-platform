@@ -354,6 +354,8 @@ enum AutomationTrigger {
   SCHEDULE
   EMAIL_SENT
   EMAIL_RECEIVED
+  SMS_RECEIVED
+  CALL_COMPLETED
 }
 
 enum AutomationRunStatus {
@@ -674,4 +676,175 @@ model EmailSignature {
   updatedAt        DateTime @updatedAt
 
   @@index([ownerClerkUserId])
+}
+
+// Sprint 7: Calling + SMS via Twilio.
+
+enum PhoneNumberType {
+  LOCAL
+  TOLL_FREE
+  MOBILE
+}
+
+enum PhoneNumberProvider {
+  TWILIO
+  MANUAL
+}
+
+enum PhoneNumberStatus {
+  ACTIVE
+  RELEASED
+  PORTING
+}
+
+enum CallDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum CallStatus {
+  QUEUED
+  RINGING
+  IN_PROGRESS
+  COMPLETED
+  BUSY
+  NO_ANSWER
+  FAILED
+  CANCELED
+}
+
+enum SmsDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum SmsMessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum TelephonyRuleKind {
+  VOICE
+  SMS
+}
+
+model PhoneNumber {
+  id                String              @id @default(cuid())
+  e164              String              @unique
+  friendlyName      String?
+  type              PhoneNumberType     @default(LOCAL)
+  provider          PhoneNumberProvider @default(TWILIO)
+  providerSid       String?
+  capabilities      Json?
+  assignedClerkUserId String?
+  status            PhoneNumberStatus   @default(ACTIVE)
+  purchasedAt       DateTime?
+  monthlyPriceCents Int                 @default(0)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  rules TelephonyRule[]
+
+  @@index([status])
+  @@index([assignedClerkUserId])
+}
+
+model Call {
+  id                   String        @id @default(cuid())
+  direction            CallDirection
+  fromE164             String
+  toE164               String
+  providerCallSid      String?
+  status               CallStatus    @default(QUEUED)
+  startedAt            DateTime?
+  answeredAt           DateTime?
+  endedAt              DateTime?
+  durationSec          Int           @default(0)
+  recordingUrl         String?
+  recordingDurationSec Int?
+  transcript           String?
+  voicemailUrl         String?
+  ownerClerkUserId     String?
+  contactId            String?
+  dealId               String?
+  leadId               String?
+  companyId            String?
+  notes                String?
+  createdAt            DateTime      @default(now())
+
+  @@index([contactId])
+  @@index([leadId])
+  @@index([dealId])
+  @@index([companyId])
+  @@index([ownerClerkUserId, startedAt(sort: Desc)])
+  @@index([providerCallSid])
+}
+
+model SmsThread {
+  id            String       @id @default(cuid())
+  contactId     String?
+  leadId        String?
+  ourNumberE164 String
+  peerE164      String
+  lastMessageAt DateTime?
+  messageCount  Int          @default(0)
+  unreadCount   Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  messages SmsMessage[]
+
+  @@unique([ourNumberE164, peerE164])
+  @@index([contactId])
+  @@index([leadId])
+}
+
+model SmsMessage {
+  id                String           @id @default(cuid())
+  threadId          String
+  direction         SmsDirection
+  fromE164          String
+  toE164            String
+  body              String
+  mediaUrls         Json?
+  providerMessageSid String?
+  status            SmsMessageStatus @default(QUEUED)
+  errorCode         String?
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  createdAt         DateTime         @default(now())
+
+  thread SmsThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+  @@index([providerMessageSid])
+}
+
+model TelephonyRule {
+  id            String            @id @default(cuid())
+  phoneNumberId String
+  kind          TelephonyRuleKind
+  config        Json
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  phoneNumber PhoneNumber @relation(fields: [phoneNumberId], references: [id], onDelete: Cascade)
+
+  @@index([phoneNumberId])
+}
+
+model UserPreference {
+  id                   String   @id @default(cuid())
+  clerkUserId          String   @unique
+  callForwardingE164   String?
+  receiveCallNotifications Boolean @default(true)
+  defaultOutboundNumberId String?
+  defaultEmailAccountId String?
+  defaultSignatureId   String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }

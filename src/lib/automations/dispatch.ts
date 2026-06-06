@@ -18,6 +18,7 @@ import { setEntityTags } from "@/app/app/(crm)/settings/tags/actions";
 import { notifyOn } from "@/lib/notifications/notify";
 import { sendEmail } from "@/lib/email/send";
 import type { EmailRecordType } from "@/lib/email/link";
+import { sendAndRecordSms } from "@/lib/telephony/sms";
 import {
   evaluateConditions,
   renderTemplate,
@@ -184,6 +185,50 @@ async function runAction(
       );
       if (!res.ok) return { result: { kind: action.kind, status: "skipped", detail: res.error ?? "send failed" } };
       return { result: { kind: action.kind, status: "done", detail: `Sent to ${to}: ${subject}` } };
+    }
+    case "SEND_SMS": {
+      const fromPhoneNumberId = String(cfg.fromPhoneNumberId ?? "");
+      if (!fromPhoneNumberId) return { result: { kind: action.kind, status: "skipped", detail: "no from number" } };
+      const number = await db.phoneNumber.findUnique({ where: { id: fromPhoneNumberId } });
+      if (!number) return { result: { kind: action.kind, status: "skipped", detail: "from number not found" } };
+
+      // Recipient: a token resolving to the trigger record's phone, or a template.
+      const toRaw = String(cfg.to ?? "");
+      let to = "";
+      if (toRaw === "trigger.contact.phone" || toRaw === "trigger.lead.phone") {
+        to = String(ctx.record.phone ?? "");
+      } else {
+        to = renderTemplate(toRaw, ctx.record).trim();
+      }
+      if (!to) return { result: { kind: action.kind, status: "skipped", detail: "no recipient" } };
+
+      const body = renderTemplate(String(cfg.body ?? ""), ctx.record);
+      if (!body.trim()) return { result: { kind: action.kind, status: "skipped", detail: "empty body" } };
+
+      const link =
+        ctx.entityType === "CONTACT"
+          ? { contactId: ctx.entityId }
+          : ctx.entityType === "LEAD"
+            ? { leadId: ctx.entityId }
+            : {};
+      const res = await sendAndRecordSms({ fromE164: number.e164, toE164: to, body, ...link }, db);
+      if (!res.ok) return { result: { kind: action.kind, status: "skipped", detail: res.error ?? "send failed" } };
+      return { result: { kind: action.kind, status: "done", detail: `SMS to ${to}` } };
+    }
+    case "MAKE_CALL": {
+      // Stub: logs intent and creates a Task activity reminding the owner to call.
+      const to = String(cfg.to ?? ctx.record.phone ?? "");
+      const subject = renderTemplate(String(cfg.subject ?? `Call ${to || "contact"}`), ctx.record).trim() || "Make a call";
+      await db.crmActivity.create({
+        data: {
+          type: "TASK" as never,
+          subject,
+          body: to ? `Reminder to call ${to}.` : null,
+          dueAt: new Date(Date.now() + 86_400_000),
+          ...(fk ? { [fk]: ctx.entityId } : {}),
+        },
+      });
+      return { result: { kind: action.kind, status: "done", detail: `Task: ${subject}` } };
     }
     case "WAIT": {
       const minutes = Number(cfg.minutes ?? 0);
