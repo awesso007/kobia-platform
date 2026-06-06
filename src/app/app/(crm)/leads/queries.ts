@@ -6,6 +6,8 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { getTenantDb } from "@/lib/db/get-tenant-db";
+import { getTagMapForEntities } from "@/lib/crm/tags";
+import type { TagRow } from "@/lib/crm/record";
 
 export const LEADS_PAGE_SIZE = 25;
 
@@ -32,6 +34,7 @@ export type LeadRow = {
   ownerUserId: string | null;
   notes: string | null;
   createdAt: string;
+  tags: TagRow[];
 };
 
 export async function listLeads(params: LeadListParams): Promise<{
@@ -77,6 +80,8 @@ export async function listLeads(params: LeadListParams): Promise<{
     }),
   ]);
 
+  const tagMap = await getTagMapForEntities("LEAD", leads.map((l) => l.id));
+
   return {
     rows: leads.map((l) => ({
       id: l.id,
@@ -89,6 +94,7 @@ export async function listLeads(params: LeadListParams): Promise<{
       ownerUserId: l.ownerUserId,
       notes: l.notes,
       createdAt: l.createdAt.toISOString(),
+      tags: tagMap[l.id] ?? [],
     })),
     total,
     page,

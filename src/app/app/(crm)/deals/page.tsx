@@ -1,5 +1,7 @@
 import { getDealBoard } from "./queries";
 import { DealsBoard } from "./DealsBoard";
+import { getCustomFieldsFor } from "@/lib/crm/custom-fields";
+import { listTags } from "@/lib/crm/tags";
 import { NoTenantError } from "@/lib/db/get-tenant-db";
 import { CrmError } from "../CrmError";
 
@@ -14,8 +16,12 @@ export default async function DealsPage({
     ? searchParams.pipeline[0]
     : searchParams.pipeline;
   try {
-    const board = await getDealBoard(pipeline);
-    return <DealsBoard board={board} />;
+    const [board, customFields, tags] = await Promise.all([
+      getDealBoard(pipeline),
+      getCustomFieldsFor("DEAL"),
+      listTags(),
+    ]);
+    return <DealsBoard board={board} allTags={tags} customFields={customFields} />;
   } catch (err) {
     if (err instanceof NoTenantError) return <CrmError />;
     throw err;

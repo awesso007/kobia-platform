@@ -1,11 +1,5 @@
-import { StubPage } from "../StubPage";
+import { redirect } from "next/navigation";
 
 export default function SettingsPage() {
-  return (
-    <StubPage
-      title="Settings"
-      sprint="Sprint 6"
-      description="Users, roles, custom fields, tags, and tenant configuration."
-    />
-  );
+  redirect("/app/settings/custom-fields");
 }

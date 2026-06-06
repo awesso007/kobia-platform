@@ -4,6 +4,8 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { getTenantDb } from "@/lib/db/get-tenant-db";
+import { getTagMapForEntities } from "@/lib/crm/tags";
+import type { TagRow } from "@/lib/crm/record";
 
 export type PipelineOption = { id: string; name: string; isDefault: boolean };
 export type StageCol = { id: string; name: string; sortOrder: number; isWon: boolean; isLost: boolean };
@@ -15,6 +17,7 @@ export type DealCard = {
   contactName: string | null;
   daysInStage: number;
   status: string;
+  tags: TagRow[];
 };
 
 export type DealBoard = {
@@ -46,6 +49,8 @@ export async function getDealBoard(pipelineId?: string): Promise<DealBoard> {
     }),
   ]);
 
+  const tagMap = await getTagMapForEntities("DEAL", deals.map((d) => d.id));
+
   const now = Date.now();
   return {
     pipelines: pipelines.map((p) => ({ id: p.id, name: p.name, isDefault: p.isDefault })),
@@ -59,6 +64,7 @@ export async function getDealBoard(pipelineId?: string): Promise<DealBoard> {
       contactName: contactName(d.contact),
       daysInStage: Math.max(0, Math.floor((now - d.updatedAt.getTime()) / 86_400_000)),
       status: d.status,
+      tags: tagMap[d.id] ?? [],
     })),
   };
 }

@@ -8,12 +8,16 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { ArrowUpDown, Plus } from "lucide-react";
 import { KbButton, StatusBadge } from "@/components/crm/ui";
 import { RecordPane } from "@/components/crm/record-pane/RecordPane";
+import { TagChips } from "@/components/crm/TagChips";
+import { TagPicker } from "@/components/crm/TagPicker";
+import { CustomFieldInputs } from "@/components/crm/CustomFieldInputs";
+import type { CustomFieldDef, CustomFieldValueMap, TagRow } from "@/lib/crm/record";
 import type { LeadRow } from "./queries";
-import { createLead, updateLead, convertLeadToDeal, type LeadInput } from "./actions";
+import { createLead, updateLead, convertLeadToDeal, loadLeadDetail, type LeadInput } from "./actions";
 
 const SOURCES = ["WEBSITE", "REFERRAL", "CALL", "EMAIL", "EVENT", "OTHER"];
 const STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "UNQUALIFIED", "CONVERTED"];
@@ -24,12 +28,16 @@ export function LeadsTable({
   page,
   pageCount,
   owners,
+  allTags,
+  customFields,
 }: {
   rows: LeadRow[];
   total: number;
   page: number;
   pageCount: number;
   owners: string[];
+  allTags: TagRow[];
+  customFields: CustomFieldDef[];
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -95,13 +103,14 @@ export function LeadsTable({
               <Th label="Source" field="source" onSort={toggleSort} />
               <Th label="Status" field="status" onSort={toggleSort} />
               <Th label="Owner" field="ownerUserId" onSort={toggleSort} />
+              <th className="px-3 py-2 text-left font-medium">Tags</th>
               <Th label="Created" field="createdAt" onSort={toggleSort} />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={5} className="p-8 text-center" style={{ color: "var(--kb-text-secondary)" }}>
+                <td colSpan={6} className="p-8 text-center" style={{ color: "var(--kb-text-secondary)" }}>
                   No leads match these filters.
                 </td>
               </tr>
@@ -124,6 +133,7 @@ export function LeadsTable({
                   <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{l.source}</td>
                   <td className="px-3"><StatusBadge value={l.status} /></td>
                   <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{l.ownerUserId ?? "-"}</td>
+                  <td className="px-3"><TagChips tags={l.tags} /></td>
                   <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>
                     {new Date(l.createdAt).toLocaleDateString()}
                   </td>
@@ -148,7 +158,7 @@ export function LeadsTable({
         </div>
       </div>
 
-      {creating ? <LeadModal onClose={() => setCreating(false)} /> : null}
+      {creating ? <LeadModal allTags={allTags} customFields={customFields} onClose={() => setCreating(false)} /> : null}
       {editing ? (
         <RecordPane
           type="lead"
@@ -156,7 +166,7 @@ export function LeadsTable({
           title={editing.name}
           subtitle={editing.companyName ?? editing.email ?? undefined}
           onClose={() => setEditing(null)}
-          details={<LeadDetails lead={editing} onConverted={() => setEditing(null)} />}
+          details={<LeadDetails lead={editing} allTags={allTags} customFields={customFields} onConverted={() => setEditing(null)} />}
         />
       ) : null}
     </div>
@@ -202,7 +212,7 @@ function FilterSelect({
   );
 }
 
-function LeadDetails({ lead, onConverted }: { lead: LeadRow; onConverted: () => void }) {
+function LeadDetails({ lead, allTags, customFields, onConverted }: { lead: LeadRow; allTags: TagRow[]; customFields: CustomFieldDef[]; onConverted: () => void }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [form, setForm] = useState<LeadInput>({
@@ -214,10 +224,22 @@ function LeadDetails({ lead, onConverted }: { lead: LeadRow; onConverted: () => 
     status: lead.status,
     notes: lead.notes ?? "",
   });
+  const [tagIds, setTagIds] = useState<string[]>([]);
+  const [cfValues, setCfValues] = useState<CustomFieldValueMap>({});
+
+  useEffect(() => {
+    let active = true;
+    loadLeadDetail(lead.id).then((d) => {
+      if (!active) return;
+      setTagIds(d.tagIds);
+      setCfValues(d.customValues);
+    });
+    return () => { active = false; };
+  }, [lead.id]);
 
   function save() {
     startTransition(async () => {
-      await updateLead(lead.id, form);
+      await updateLead(lead.id, { ...form, tagIds, customFields: cfValues });
       router.refresh();
     });
   }
@@ -251,6 +273,8 @@ function LeadDetails({ lead, onConverted }: { lead: LeadRow; onConverted: () => 
           style={{ border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius-sm)" }}
         />
       </Field>
+      <Field label="Tags"><TagPicker all={allTags} selected={tagIds} onChange={setTagIds} /></Field>
+      <CustomFieldInputs fields={customFields} values={cfValues} onChange={(id, v) => setCfValues((p) => ({ ...p, [id]: v }))} />
       <div className="flex gap-2 pt-2">
         <KbButton onClick={save} disabled={pending}>{pending ? "Saving..." : "Save"}</KbButton>
         <KbButton variant="outline" onClick={convert} disabled={pending || lead.status === "CONVERTED"}>
@@ -261,15 +285,17 @@ function LeadDetails({ lead, onConverted }: { lead: LeadRow; onConverted: () => 
   );
 }
 
-function LeadModal({ onClose }: { onClose: () => void }) {
+function LeadModal({ allTags, customFields, onClose }: { allTags: TagRow[]; customFields: CustomFieldDef[]; onClose: () => void }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [form, setForm] = useState<LeadInput>({ name: "", email: "", phone: "", source: "WEBSITE", status: "NEW", notes: "" });
+  const [tagIds, setTagIds] = useState<string[]>([]);
+  const [cfValues, setCfValues] = useState<CustomFieldValueMap>({});
 
   function submit() {
     if (!form.name.trim()) return;
     startTransition(async () => {
-      await createLead(form);
+      await createLead({ ...form, tagIds, customFields: cfValues });
       onClose();
       router.refresh();
     });
@@ -300,6 +326,8 @@ function LeadModal({ onClose }: { onClose: () => void }) {
               style={{ border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius-sm)" }}
             />
           </Field>
+          <Field label="Tags"><TagPicker all={allTags} selected={tagIds} onChange={setTagIds} /></Field>
+          <CustomFieldInputs fields={customFields} values={cfValues} onChange={(id, v) => setCfValues((p) => ({ ...p, [id]: v }))} />
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <KbButton variant="outline" onClick={onClose}>Cancel</KbButton>

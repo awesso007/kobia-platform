@@ -62,16 +62,55 @@ enum ActivityType {
   TASK
 }
 
+// Sprint 3: shared engines (custom fields, tags, audit) and the entity type
+// they hang off of. CompanySize is a fixed bucket set for the Companies module.
+
+enum CrmEntityType {
+  LEAD
+  DEAL
+  CONTACT
+  COMPANY
+}
+
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+  MULTI_SELECT
+  URL
+  EMAIL
+  PHONE
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  VIEW
+}
+
+enum CompanySize {
+  SIZE_1_10
+  SIZE_11_50
+  SIZE_51_200
+  SIZE_201_1000
+  SIZE_1000_PLUS
+}
+
 model Company {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   name      String
+  domain    String?
   industry  String?
+  size      CompanySize?
   website   String?
   phone     String?
   address   String?
   ownerUserId String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
   contacts   Contact[]
   deals      Deal[]
@@ -202,4 +241,83 @@ model CrmActivity {
   @@index([dealId])
   @@index([contactId])
   @@index([companyId])
+}
+
+// =============================================================================
+// Sprint 3 engines: custom fields, tags, audit log.
+// These are tenant-scoped (they live in tenant_<slug>) because the field
+// definitions, tags, and audit trail are per-tenant. entityId is a soft
+// reference (no DB FK) so one row type can point at any CRM entity.
+// =============================================================================
+
+model CustomField {
+  id         String          @id @default(cuid())
+  entityType CrmEntityType
+  key        String
+  label      String
+  type       CustomFieldType @default(TEXT)
+  options    Json?
+  required   Boolean         @default(false)
+  order      Int             @default(0)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  values CustomFieldValue[]
+
+  @@unique([entityType, key])
+  @@index([entityType, order])
+}
+
+model CustomFieldValue {
+  id            String        @id @default(cuid())
+  customFieldId String
+  entityType    CrmEntityType
+  entityId      String
+  value         Json
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  customField CustomField @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+
+  @@unique([customFieldId, entityId])
+  @@index([entityType, entityId])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String   @default("#1d77bd")
+  createdAt DateTime @default(now())
+
+  assignments TagAssignment[]
+}
+
+model TagAssignment {
+  id         String        @id @default(cuid())
+  tagId      String
+  entityType CrmEntityType
+  entityId   String
+  createdAt  DateTime      @default(now())
+
+  tag Tag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([tagId, entityType, entityId])
+  @@index([entityType, entityId])
+}
+
+model AuditEntry {
+  id                String      @id @default(cuid())
+  actorClerkUserId  String?
+  actorEmail        String?
+  action            AuditAction
+  entityType        CrmEntityType
+  entityId          String
+  diff              Json?
+  ip                String?
+  userAgent         String?
+  createdAt         DateTime    @default(now())
+
+  @@index([entityType, createdAt])
+  @@index([action])
+  @@index([createdAt])
 }
