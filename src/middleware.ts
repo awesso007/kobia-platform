@@ -35,6 +35,14 @@ const isPublicRoute = createRouteMatcher([
   "/portal(.*)",
   "/sign/(.*)",
   "/debug2(.*)",
+  // Public marketing surfaces (Sprint 13): the hosted landing page, open/click
+  // tracking endpoints, and the unsubscribe page + submit endpoint are
+  // intentionally unauthenticated. Tenant is resolved from a validated
+  // `?t=<slug>` query param (landing page also accepts the kb-tenant cookie).
+  "/p(.*)",
+  "/api/track(.*)",
+  "/api/unsubscribe(.*)",
+  "/unsubscribe(.*)",
   // Sprint 1: CRM shell is a stub with no tenant resolution yet (see
   // CONFLICTS.md, Conflict 2). Kept public so the shell renders during the
   // foundations sprint. Auth gating is added once tenant resolution is wired.
@@ -128,6 +136,9 @@ const NON_TENANT_SEGMENTS = new Set([
   "portal",
   "sign",
   "debug2",
+  "p",
+  "track",
+  "unsubscribe",
   "_next",
 ]);
 

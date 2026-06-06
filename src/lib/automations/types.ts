@@ -108,6 +108,9 @@ export const ACTION_KINDS = [
   "CREATE_EVENT",
   "ATTACH_EVENT_TO_RECORD",
   "SEND_BOOKING_LINK",
+  "SEND_BROADCAST",
+  "ENROLL_IN_CAMPAIGN",
+  "ADD_TO_SEGMENT",
 ] as const;
 export type ActionKind = (typeof ACTION_KINDS)[number];
 
@@ -132,6 +135,9 @@ export const ACTION_LABELS: Record<ActionKind, string> = {
   CREATE_EVENT: "Create calendar event",
   ATTACH_EVENT_TO_RECORD: "Attach event to record",
   SEND_BOOKING_LINK: "Send booking link",
+  SEND_BROADCAST: "Send broadcast",
+  ENROLL_IN_CAMPAIGN: "Enroll in campaign",
+  ADD_TO_SEGMENT: "Add to segment",
 };
 
 export type ConditionRow = {

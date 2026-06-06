@@ -26,7 +26,9 @@ export type IndexEntityType =
   | "PROJECT"
   | "TASK_COMMENT"
   | "EVENT"
-  | "BOOKING_PAGE";
+  | "BOOKING_PAGE"
+  | "LANDING_PAGE"
+  | "BROADCAST";
 
 type IndexDoc = {
   title: string;
@@ -172,6 +174,26 @@ async function buildDoc(
         subtitle: `/book/${r.slug}`,
         body: r.description ?? null,
         ownerClerkUserId: r.ownerClerkUserId ?? null,
+      };
+    }
+    case "LANDING_PAGE": {
+      const r = await db.landingPage.findUnique({ where: { id: entityId } });
+      if (!r) return null;
+      return {
+        title: r.title,
+        subtitle: `/p/${r.slug}`,
+        body: join(r.metaTitle, r.metaDescription),
+        ownerClerkUserId: r.createdById ?? null,
+      };
+    }
+    case "BROADCAST": {
+      const r = await db.broadcast.findUnique({ where: { id: entityId } });
+      if (!r) return null;
+      return {
+        title: r.name,
+        subtitle: r.channel,
+        body: r.subject ?? null,
+        ownerClerkUserId: r.createdById ?? null,
       };
     }
     default:

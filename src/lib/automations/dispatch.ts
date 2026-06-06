@@ -394,6 +394,34 @@ async function runAction(
       if (!res.ok) return { result: { kind: action.kind, status: "skipped", detail: res.error ?? "send failed" } };
       return { result: { kind: action.kind, status: "done", detail: `Booking link to ${to}` } };
     }
+    case "SEND_BROADCAST": {
+      // Enqueue an existing broadcast to its segment now. Recipient resolution +
+      // unsubscribe dedupe happens in enqueueBroadcast; the broadcast-sender cron
+      // does the actual sending on its next pass.
+      const broadcastId = String(cfg.broadcastId ?? "");
+      if (!broadcastId) return { result: { kind: action.kind, status: "skipped", detail: "no broadcastId" } };
+      const { enqueueBroadcast } = await import("@/lib/marketing/broadcast");
+      const res = await enqueueBroadcast(db, broadcastId, new Date());
+      if (!res.ok) return { result: { kind: action.kind, status: "skipped", detail: res.error ?? "enqueue failed" } };
+      return { result: { kind: action.kind, status: "done", detail: `${res.recipients} recipients queued` } };
+    }
+    case "ENROLL_IN_CAMPAIGN": {
+      // Enroll the trigger record (contact or lead) into a drip campaign. Only
+      // CONTACT/LEAD entities are enrollable; other entity types are skipped.
+      const campaignId = String(cfg.campaignId ?? "");
+      if (!campaignId) return { result: { kind: action.kind, status: "skipped", detail: "no campaignId" } };
+      const entity = ctx.entityType === "CONTACT" ? "contact" : ctx.entityType === "LEAD" ? "lead" : null;
+      if (!entity) return { result: { kind: action.kind, status: "skipped", detail: "entity not enrollable" } };
+      const { enrollContacts } = await import("@/lib/marketing/campaign");
+      const n = await enrollContacts(db, campaignId, [{ entityType: entity, id: ctx.entityId }]);
+      return { result: { kind: action.kind, status: "done", detail: `${n} enrolled` } };
+    }
+    case "ADD_TO_SEGMENT": {
+      // Segments are dynamic (evaluated on demand from their filter), so there is
+      // nothing to write here. Kept as an explicit no-op so the action appears in
+      // the builder and documents intent.
+      return { result: { kind: action.kind, status: "skipped", detail: "segments are dynamic; no-op" } };
+    }
     case "WAIT": {
       const minutes = Number(cfg.minutes ?? 0);
       return { result: { kind: action.kind, status: "done", detail: `wait ${minutes}m` }, pause: { resumeMinutes: minutes } };
