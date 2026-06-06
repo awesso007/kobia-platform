@@ -562,8 +562,84 @@ async function main() {
       console.log(`[seed-tenant] phone numbers already present (${phoneNumberCount}); skipping insert`);
     }
 
+    // 15. Files (Sprint 8) - one "Marketing" folder, three sample files (LOCAL,
+    //     READY, MANUAL with fake storage keys), two attachments (to a seeded
+    //     deal and contact), and one active public share link (no password).
+    //     Seeded only when no file exists.
+    const fileCount = await db.file.count();
+    if (fileCount === 0) {
+      const folder = await db.fileFolder.create({ data: { name: "Marketing" } });
+      console.log(`[seed-tenant] inserted 1 file folder "Marketing"`);
+
+      const png = await db.file.create({
+        data: {
+          name: "brand-logo.png",
+          mimeType: "image/png",
+          size: BigInt(50 * 1024),
+          storageProvider: "LOCAL",
+          storageKey: "tenants/acme/2026/06/seed-0001__brand-logo.png",
+          status: "READY",
+          source: "MANUAL",
+          folderId: folder.id,
+          uploadedByClerkUserId: OWNER,
+        },
+      });
+      const pdf = await db.file.create({
+        data: {
+          name: "proposal.pdf",
+          mimeType: "application/pdf",
+          size: BigInt(200 * 1024),
+          storageProvider: "LOCAL",
+          storageKey: "tenants/acme/2026/06/seed-0002__proposal.pdf",
+          status: "READY",
+          source: "MANUAL",
+          folderId: folder.id,
+          uploadedByClerkUserId: OWNER,
+        },
+      });
+      const docx = await db.file.create({
+        data: {
+          name: "contract.docx",
+          mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          size: BigInt(80 * 1024),
+          storageProvider: "LOCAL",
+          storageKey: "tenants/acme/2026/06/seed-0003__contract.docx",
+          status: "READY",
+          source: "MANUAL",
+          uploadedByClerkUserId: OWNER,
+        },
+      });
+      console.log(`[seed-tenant] inserted 3 files`);
+
+      const seededDeal = await db.deal.findFirst({ orderBy: { createdAt: "asc" } });
+      const seededContact = await db.contact.findFirst({ orderBy: { createdAt: "asc" } });
+      if (seededDeal) {
+        await db.fileAttachment.create({
+          data: { fileId: pdf.id, entityType: "DEAL", entityId: seededDeal.id, attachedByClerkUserId: OWNER },
+        });
+      }
+      if (seededContact) {
+        await db.fileAttachment.create({
+          data: { fileId: png.id, entityType: "CONTACT", entityId: seededContact.id, attachedByClerkUserId: OWNER },
+        });
+      }
+      console.log(`[seed-tenant] inserted 2 file attachments`);
+
+      await db.fileShareLink.create({
+        data: {
+          fileId: docx.id,
+          slug: "acmesharedoc",
+          downloadCount: 0,
+          createdByClerkUserId: OWNER,
+        },
+      });
+      console.log(`[seed-tenant] inserted 1 file share link`);
+    } else {
+      console.log(`[seed-tenant] files already present (${fileCount}); skipping insert`);
+    }
+
     // Summary
-    const [pipelines, stages, contacts, leads, deals, companies, tags, customFields, automations, automationRuns, savedReports, memberships, webForms, notifications, emailAccounts, emailTemplates, emailSignatures, emailThreads, emailMessages, phoneNumbers, calls, smsThreads, smsMessages, telephonyRules, userPreferences] = await Promise.all([
+    const [pipelines, stages, contacts, leads, deals, companies, tags, customFields, automations, automationRuns, savedReports, memberships, webForms, notifications, emailAccounts, emailTemplates, emailSignatures, emailThreads, emailMessages, phoneNumbers, calls, smsThreads, smsMessages, telephonyRules, userPreferences, files, fileFolders, fileAttachments, fileShareLinks] = await Promise.all([
       db.pipeline.count(),
       db.dealStage.count(),
       db.contact.count(),
@@ -589,9 +665,13 @@ async function main() {
       db.smsMessage.count(),
       db.telephonyRule.count(),
       db.userPreference.count(),
+      db.file.count(),
+      db.fileFolder.count(),
+      db.fileAttachment.count(),
+      db.fileShareLink.count(),
     ]);
     console.log(
-      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields} automations=${automations} automationRuns=${automationRuns} savedReports=${savedReports} memberships=${memberships} webForms=${webForms} notifications=${notifications} emailAccounts=${emailAccounts} emailTemplates=${emailTemplates} emailSignatures=${emailSignatures} emailThreads=${emailThreads} emailMessages=${emailMessages} phoneNumbers=${phoneNumbers} calls=${calls} smsThreads=${smsThreads} smsMessages=${smsMessages} telephonyRules=${telephonyRules} userPreferences=${userPreferences}`,
+      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields} automations=${automations} automationRuns=${automationRuns} savedReports=${savedReports} memberships=${memberships} webForms=${webForms} notifications=${notifications} emailAccounts=${emailAccounts} emailTemplates=${emailTemplates} emailSignatures=${emailSignatures} emailThreads=${emailThreads} emailMessages=${emailMessages} phoneNumbers=${phoneNumbers} calls=${calls} smsThreads=${smsThreads} smsMessages=${smsMessages} telephonyRules=${telephonyRules} userPreferences=${userPreferences} files=${files} fileFolders=${fileFolders} fileAttachments=${fileAttachments} fileShareLinks=${fileShareLinks}`,
     );
   } finally {
     await db.$disconnect();

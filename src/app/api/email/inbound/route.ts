@@ -18,11 +18,11 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { NextResponse, type NextRequest } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
 import { resolveLinkForAddress } from "@/lib/email/link";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
+import { ingestObject } from "@/lib/storage";
+import { attachFile } from "@/lib/files/files";
 
 export const dynamic = "force-dynamic";
 
@@ -130,29 +130,52 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Persist attachments to /tmp (alpha storage; storageKey points at the file).
+  // Resolve the CRM record this thread links to (for File attachment).
+  const threadForLink = await db.emailThread.findUnique({ where: { id: threadId } });
+  const linkedType = threadForLink?.recordType ?? null;
+  const linkedId = threadForLink?.recordId ?? null;
+
+  // Ingest each attachment into the File system (source=EMAIL, READY) and attach
+  // it to the linked record. The EmailAttachment keeps its own storageKey plus
+  // the new fileId pointer so existing email UIs keep working.
   if (body.attachments && body.attachments.length > 0) {
-    const dir = path.join("/tmp", "kobia-email", message.id);
-    try {
-      await mkdir(dir, { recursive: true });
-      for (const att of body.attachments) {
-        const safeName = att.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-        const storageKey = path.join(dir, safeName);
-        if (att.contentBase64) {
-          await writeFile(storageKey, Buffer.from(att.contentBase64, "base64"));
-        }
+    for (const att of body.attachments) {
+      try {
+        const buf = att.contentBase64 ? Buffer.from(att.contentBase64, "base64") : Buffer.alloc(0);
+        const stored = await ingestObject({
+          tenantSlug: slug,
+          fileName: att.filename,
+          mimeType: att.mimeType,
+          data: buf,
+        });
+        const file = await db.file.create({
+          data: {
+            name: att.filename,
+            mimeType: att.mimeType,
+            size: BigInt(att.size ?? buf.length),
+            storageProvider: stored.provider as never,
+            storageKey: stored.storageKey,
+            storageBucket: stored.storageBucket,
+            status: "READY",
+            source: "EMAIL",
+          },
+        });
         await db.emailAttachment.create({
           data: {
             messageId: message.id,
             filename: att.filename,
             mimeType: att.mimeType,
-            size: att.size ?? 0,
-            storageKey,
+            size: att.size ?? buf.length,
+            storageKey: stored.storageKey,
+            fileId: file.id,
           },
         });
+        if (linkedType && linkedId) {
+          await attachFile(db, { fileId: file.id, entityType: linkedType as never, entityId: linkedId });
+        }
+      } catch (err) {
+        console.error("[email/inbound] attachment ingest failed", err);
       }
-    } catch (err) {
-      console.error("[email/inbound] attachment persist failed", err);
     }
   }
 
@@ -166,13 +189,12 @@ export async function POST(req: NextRequest) {
   });
 
   // Fire EMAIL_RECEIVED automation if the thread is linked to a record.
-  const thread = await db.emailThread.findUnique({ where: { id: threadId } });
-  if (thread?.recordType && thread.recordId) {
+  if (linkedType && linkedId) {
     await dispatchAutomation(
       {
         type: "EMAIL_RECEIVED",
-        entityType: thread.recordType as never,
-        entityId: thread.recordId,
+        entityType: linkedType as never,
+        entityId: linkedId,
         payload: { messageId: message.id, threadId, from, subject: body.subject ?? "" },
       },
       db,

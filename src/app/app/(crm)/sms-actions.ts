@@ -7,10 +7,12 @@
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
+import { headers } from "next/headers";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { requirePermission } from "@/lib/rbac/require-permission";
 import { sendAndRecordSms } from "@/lib/telephony/sms";
 import { ENTITY_TYPE_BY_RECORD, type RecordType } from "@/lib/crm/record";
+import { fileDownloadUrl } from "@/lib/files/files";
 
 export type SmsThreadRow = {
   id: string;
@@ -152,15 +154,41 @@ export type SendInput = {
   body: string;
   contactId?: string | null;
   leadId?: string | null;
+  /** File ids to send as MMS media (resolved to fetchable URLs for Twilio). */
+  mediaFileIds?: string[];
 };
+
+/** Absolute base URL for media links Twilio must fetch (LOCAL provider needs it). */
+function appOrigin(): string {
+  const h = headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? "https";
+  return host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_APP_URL ?? "");
+}
 
 export async function sendSms(input: SendInput): Promise<{ ok: boolean; threadId?: string; messageId?: string; error?: string }> {
   await requirePermission("telephony:manage");
+  const { db } = getTenantDb();
+
+  let mediaUrls: string[] | undefined;
+  if (input.mediaFileIds?.length) {
+    const files = await db.file.findMany({ where: { id: { in: input.mediaFileIds }, status: "READY" } });
+    const origin = appOrigin();
+    // Twilio fetches media itself, so the link must outlive the send (> 1h).
+    mediaUrls = await Promise.all(
+      files.map(async (f) => {
+        const url = await fileDownloadUrl(f, { inline: true, expiresIn: 60 * 60 * 6 });
+        return url.startsWith("http") ? url : `${origin}${url}`;
+      }),
+    );
+  }
+
   return sendAndRecordSms({
     fromE164: input.fromE164,
     toE164: input.toE164,
     body: input.body,
     contactId: input.contactId,
     leadId: input.leadId,
+    ...(mediaUrls?.length ? { mediaUrls } : {}),
   });
 }

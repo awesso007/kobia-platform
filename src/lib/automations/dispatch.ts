@@ -19,6 +19,7 @@ import { notifyOn } from "@/lib/notifications/notify";
 import { sendEmail } from "@/lib/email/send";
 import type { EmailRecordType } from "@/lib/email/link";
 import { sendAndRecordSms } from "@/lib/telephony/sms";
+import { attachFile, type FileEntity } from "@/lib/files/files";
 import {
   evaluateConditions,
   renderTemplate,
@@ -229,6 +230,22 @@ async function runAction(
         },
       });
       return { result: { kind: action.kind, status: "done", detail: `Task: ${subject}` } };
+    }
+    case "ATTACH_FILE": {
+      const fileId = String(cfg.fileId ?? "");
+      if (!fileId) return { result: { kind: action.kind, status: "skipped", detail: "no file" } };
+      // entityType/entityId default to the trigger record (the "trigger.record"
+      // / "trigger.id" tokens); a literal entityType/entityId may override.
+      const targetType = (cfg.entityType && cfg.entityType !== "trigger.record"
+        ? String(cfg.entityType)
+        : ctx.entityType) as FileEntity;
+      const targetId = cfg.entityId && cfg.entityId !== "trigger.id" ? String(cfg.entityId) : ctx.entityId;
+      const file = await db.file.findUnique({ where: { id: fileId } });
+      if (!file || file.status === "DELETED") {
+        return { result: { kind: action.kind, status: "skipped", detail: "file not found" } };
+      }
+      await attachFile(db, { fileId, entityType: targetType, entityId: targetId });
+      return { result: { kind: action.kind, status: "done", detail: `attached ${file.name}` } };
     }
     case "WAIT": {
       const minutes = Number(cfg.minutes ?? 0);

@@ -356,6 +356,38 @@ enum AutomationTrigger {
   EMAIL_RECEIVED
   SMS_RECEIVED
   CALL_COMPLETED
+  FILE_UPLOADED
+}
+
+enum FileStorageProvider {
+  S3
+  LOCAL
+}
+
+enum FileStatus {
+  UPLOADING
+  READY
+  FAILED
+  DELETED
+}
+
+enum FileSource {
+  MANUAL
+  EMAIL
+  SMS
+  AUTOMATION
+  WEBFORM
+}
+
+enum FileAttachmentEntity {
+  LEAD
+  DEAL
+  CONTACT
+  COMPANY
+  ACTIVITY
+  EMAIL_MESSAGE
+  SMS_MESSAGE
+  NOTE
 }
 
 enum AutomationRunStatus {
@@ -642,6 +674,7 @@ model EmailMessage {
 model EmailAttachment {
   id         String   @id @default(cuid())
   messageId  String
+  fileId     String?
   filename   String
   mimeType   String
   size       Int
@@ -651,6 +684,7 @@ model EmailAttachment {
   message EmailMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
   @@index([messageId])
+  @@index([fileId])
 }
 
 model EmailTemplate {
@@ -847,4 +881,83 @@ model UserPreference {
   defaultSignatureId   String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
+}
+
+// =============================================================================
+// Sprint 8: Files + Document Library. Additive only - new enums + new tables.
+// =============================================================================
+
+model FileFolder {
+  id               String       @id @default(cuid())
+  name             String
+  parentId         String?
+  ownerClerkUserId String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  parent   FileFolder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children FileFolder[] @relation("FolderTree")
+  files    File[]
+
+  @@index([parentId])
+}
+
+model File {
+  id                   String              @id @default(cuid())
+  name                 String
+  mimeType             String
+  size                 BigInt              @default(0)
+  storageProvider      FileStorageProvider @default(S3)
+  storageKey           String              @unique
+  storageBucket        String?
+  sha256               String?
+  uploadedByClerkUserId String?
+  status               FileStatus          @default(UPLOADING)
+  previewKey           String?
+  width                Int?
+  height               Int?
+  durationSec          Int?
+  folderId             String?
+  source               FileSource          @default(MANUAL)
+  externalUrl          String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  folder      FileFolder?     @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  attachments FileAttachment[]
+  shareLinks  FileShareLink[]
+
+  @@index([folderId])
+  @@index([uploadedByClerkUserId])
+  @@index([createdAt(sort: Desc)])
+}
+
+model FileAttachment {
+  id                   String               @id @default(cuid())
+  fileId               String
+  entityType           FileAttachmentEntity
+  entityId             String
+  attachedByClerkUserId String?
+  createdAt            DateTime             @default(now())
+
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([fileId, entityType, entityId])
+  @@index([entityType, entityId])
+}
+
+model FileShareLink {
+  id                  String    @id @default(cuid())
+  fileId              String
+  slug                String    @unique
+  password            String?
+  expiresAt           DateTime?
+  maxDownloads        Int?
+  downloadCount       Int       @default(0)
+  createdByClerkUserId String?
+  createdAt           DateTime  @default(now())
+
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@index([fileId])
 }
