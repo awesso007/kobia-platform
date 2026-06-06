@@ -73,9 +73,32 @@ export default clerkMiddleware((auth, req: NextRequest) => {
   if (tenantSlug) {
     res.headers.set("x-tenant-id", tenantSlug);
     res.headers.set("x-tenant-schema", schemaNameForSlug(tenantSlug));
+  } else if (url.pathname === "/app" || url.pathname.startsWith("/app/")) {
+    // Sprint 2: the CRM shell lives under /app (no tenant slug in the URL).
+    // Resolve the active tenant from the `kb-tenant` cookie, falling back to
+    // NEXT_PUBLIC_DEFAULT_TENANT or "acme" for the v0.1 alpha (single active
+    // tenant). A `?tenant=<slug>` query param updates the cookie so a tenant
+    // switcher can change the active CRM tenant without changing the URL.
+    const queryTenant = url.searchParams.get("tenant");
+    const cookieTenant = req.cookies.get("kb-tenant")?.value;
+    const appTenant =
+      sanitizeSlug(queryTenant) ??
+      sanitizeSlug(cookieTenant) ??
+      (process.env.NEXT_PUBLIC_DEFAULT_TENANT || "acme");
+    res.headers.set("x-tenant-id", appTenant);
+    res.headers.set("x-tenant-schema", schemaNameForSlug(appTenant));
+    if (queryTenant && sanitizeSlug(queryTenant) === appTenant) {
+      res.cookies.set("kb-tenant", appTenant, { path: "/", sameSite: "lax" });
+    }
   }
   return res;
 });
+
+/** Accept only Postgres-schema-safe slugs; reject anything else. */
+function sanitizeSlug(slug: string | null | undefined): string | null {
+  if (!slug) return null;
+  return /^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/.test(slug) ? slug : null;
+}
 
 // Path segments that are NOT tenant slugs (platform-level or shared routes).
 const NON_TENANT_SEGMENTS = new Set([
