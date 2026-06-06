@@ -8,6 +8,7 @@
 import { revalidatePath } from "next/cache";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { auditWrite } from "@/lib/crm/audit";
+import { dispatchAutomation } from "@/lib/automations/dispatch";
 import { setEntityTags } from "../settings/tags/actions";
 import { saveCustomFieldValues } from "../settings/custom-fields/actions";
 
@@ -24,6 +25,7 @@ export async function moveDealToStage(dealId: string, stageId: string) {
     },
   });
   await auditWrite({ action: "UPDATE", entityType: "DEAL", entityId: dealId, diff: { stageId, status: stage.isWon ? "WON" : stage.isLost ? "LOST" : "OPEN" } });
+  await dispatchAutomation({ type: "STAGE_CHANGED", entityType: "DEAL", entityId: dealId, changedFields: ["stageId", "status"] });
   revalidatePath("/app/deals");
 }
 
@@ -54,6 +56,7 @@ export async function createDeal(input: {
     await saveCustomFieldValues({ entityType: "DEAL", entityId: deal.id, values: input.customFields });
 
   await auditWrite({ action: "CREATE", entityType: "DEAL", entityId: deal.id, diff: { name } });
+  await dispatchAutomation({ type: "RECORD_CREATED", entityType: "DEAL", entityId: deal.id });
   revalidatePath("/app/deals");
   return deal.id;
 }
@@ -67,6 +70,7 @@ export async function updateDealMeta(
   if (input.customFields)
     await saveCustomFieldValues({ entityType: "DEAL", entityId: id, values: input.customFields });
   await auditWrite({ action: "UPDATE", entityType: "DEAL", entityId: id, diff: { meta: true } });
+  await dispatchAutomation({ type: "RECORD_UPDATED", entityType: "DEAL", entityId: id });
   revalidatePath("/app/deals");
 }
 

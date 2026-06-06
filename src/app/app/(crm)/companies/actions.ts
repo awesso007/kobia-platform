@@ -11,6 +11,7 @@
 import { revalidatePath } from "next/cache";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { auditWrite } from "@/lib/crm/audit";
+import { dispatchAutomation } from "@/lib/automations/dispatch";
 import { setEntityTags } from "../settings/tags/actions";
 import { saveCustomFieldValues } from "../settings/custom-fields/actions";
 import { COMPANY_SIZES } from "@/lib/crm/record";
@@ -57,6 +58,7 @@ export async function createCompany(input: CompanyInput) {
     await saveCustomFieldValues({ entityType: "COMPANY", entityId: company.id, values: input.customFields });
 
   await auditWrite({ action: "CREATE", entityType: "COMPANY", entityId: company.id, diff: { name } });
+  await dispatchAutomation({ type: "RECORD_CREATED", entityType: "COMPANY", entityId: company.id });
   revalidatePath("/app/companies");
   return company.id;
 }
@@ -72,6 +74,7 @@ export async function updateCompany(id: string, input: CompanyInput) {
     await saveCustomFieldValues({ entityType: "COMPANY", entityId: id, values: input.customFields });
 
   await auditWrite({ action: "UPDATE", entityType: "COMPANY", entityId: id, diff: dataFrom(input) });
+  await dispatchAutomation({ type: "RECORD_UPDATED", entityType: "COMPANY", entityId: id });
   revalidatePath("/app/companies");
 }
 

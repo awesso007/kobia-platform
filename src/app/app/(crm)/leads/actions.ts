@@ -10,6 +10,7 @@
 import { revalidatePath } from "next/cache";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { auditWrite } from "@/lib/crm/audit";
+import { dispatchAutomation } from "@/lib/automations/dispatch";
 import { setEntityTags } from "../settings/tags/actions";
 import { saveCustomFieldValues } from "../settings/custom-fields/actions";
 
@@ -60,6 +61,7 @@ export async function createLead(input: LeadInput) {
     await saveCustomFieldValues({ entityType: "LEAD", entityId: lead.id, values: input.customFields });
 
   await auditWrite({ action: "CREATE", entityType: "LEAD", entityId: lead.id, diff: { name } });
+  await dispatchAutomation({ type: "RECORD_CREATED", entityType: "LEAD", entityId: lead.id });
   revalidatePath("/app/leads");
   return lead.id;
 }
@@ -87,6 +89,7 @@ export async function updateLead(id: string, input: LeadInput) {
     await saveCustomFieldValues({ entityType: "LEAD", entityId: id, values: input.customFields });
 
   await auditWrite({ action: "UPDATE", entityType: "LEAD", entityId: id, diff: { name, status: asStatus(input.status) } });
+  await dispatchAutomation({ type: "RECORD_UPDATED", entityType: "LEAD", entityId: id });
   revalidatePath("/app/leads");
 }
 

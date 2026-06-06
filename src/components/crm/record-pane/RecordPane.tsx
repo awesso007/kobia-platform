@@ -26,6 +26,7 @@ export function RecordPane({
   title,
   subtitle,
   details,
+  initialTab = "details",
   onClose,
 }: {
   type: RecordType;
@@ -33,9 +34,10 @@ export function RecordPane({
   title: string;
   subtitle?: string;
   details?: React.ReactNode;
+  initialTab?: Tab;
   onClose: () => void;
 }) {
-  const [tab, setTab] = useState<Tab>("details");
+  const [tab, setTab] = useState<Tab>(initialTab);
 
   return (
     <>

@@ -218,8 +218,77 @@ async function main() {
     }
     console.log(`[seed-tenant] ${CUSTOM_FIELDS.length} custom fields ready`);
 
+    // 8. Automation - one sample "New Lead -> Create Welcome Task" plus two
+    //    historical run rows. Seeded only when no automation exists.
+    const automationCount = await db.automation.count();
+    if (automationCount === 0) {
+      const automation = await db.automation.create({
+        data: {
+          name: "New Lead -> Create Welcome Task",
+          description: "When a lead is created, schedule a welcome call for the next day.",
+          enabled: true,
+          triggerType: "RECORD_CREATED",
+          entityType: "LEAD",
+          conditions: { combinator: "AND", rows: [] } as never,
+          actions: [
+            {
+              kind: "CREATE_ACTIVITY",
+              config: {
+                activityType: "TASK",
+                subject: "Welcome call: {{record.name}}",
+                dueOffsetDays: 1,
+              },
+            },
+          ] as never,
+        },
+      });
+      await db.automationRun.create({
+        data: {
+          automationId: automation.id,
+          entityType: "LEAD",
+          status: "SUCCESS",
+          finishedAt: new Date(),
+          actionsExecuted: [{ kind: "CREATE_ACTIVITY", status: "done", detail: "Welcome call" }] as never,
+        },
+      });
+      await db.automationRun.create({
+        data: {
+          automationId: automation.id,
+          entityType: "LEAD",
+          status: "SKIPPED",
+          finishedAt: new Date(),
+          actionsExecuted: [] as never,
+        },
+      });
+      console.log(`[seed-tenant] inserted 1 automation + 2 runs`);
+    } else {
+      console.log(`[seed-tenant] automations already present (${automationCount}); skipping insert`);
+    }
+
+    // 9. Saved report - one sample custom report. Seeded only when none exist.
+    const reportCount = await db.savedReport.count();
+    if (reportCount === 0) {
+      await db.savedReport.create({
+        data: {
+          name: "My Deals by Stage",
+          definition: {
+            entity: "DEAL",
+            columns: [],
+            filters: [],
+            groupBy: "stageId",
+            aggregation: "count",
+            aggregateField: null,
+            chart: "bar",
+          } as never,
+        },
+      });
+      console.log(`[seed-tenant] inserted 1 saved report`);
+    } else {
+      console.log(`[seed-tenant] saved reports already present (${reportCount}); skipping insert`);
+    }
+
     // Summary
-    const [pipelines, stages, contacts, leads, deals, companies, tags, customFields] = await Promise.all([
+    const [pipelines, stages, contacts, leads, deals, companies, tags, customFields, automations, automationRuns, savedReports] = await Promise.all([
       db.pipeline.count(),
       db.dealStage.count(),
       db.contact.count(),
@@ -228,9 +297,12 @@ async function main() {
       db.company.count(),
       db.tag.count(),
       db.customField.count(),
+      db.automation.count(),
+      db.automationRun.count(),
+      db.savedReport.count(),
     ]);
     console.log(
-      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields}`,
+      `[seed-tenant] done. counts -> pipelines=${pipelines} stages=${stages} contacts=${contacts} leads=${leads} deals=${deals} companies=${companies} tags=${tags} customFields=${customFields} automations=${automations} automationRuns=${automationRuns} savedReports=${savedReports}`,
     );
   } finally {
     await db.$disconnect();

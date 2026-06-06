@@ -218,18 +218,23 @@ model Deal {
 }
 
 model CrmActivity {
-  id              String       @id @default(cuid())
-  type            ActivityType @default(NOTE)
-  subject         String
-  body            String?
-  occurredAt      DateTime     @default(now())
-  createdByUserId String?
-  leadId          String?
-  dealId          String?
-  contactId       String?
-  companyId       String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id                 String       @id @default(cuid())
+  type               ActivityType @default(NOTE)
+  subject            String
+  body               String?
+  occurredAt         DateTime     @default(now())
+  createdByUserId    String?
+  // Sprint 4: task-style activities gained a due date, completion stamp, and an
+  // explicit owner so the Activities module can show open/done/overdue states.
+  dueAt              DateTime?
+  completedAt        DateTime?
+  ownerClerkUserId   String?
+  leadId             String?
+  dealId             String?
+  contactId          String?
+  companyId          String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
   lead    Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
   deal    Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
@@ -237,6 +242,8 @@ model CrmActivity {
   company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([occurredAt])
+  @@index([dueAt])
+  @@index([ownerClerkUserId])
   @@index([leadId])
   @@index([dealId])
   @@index([contactId])
@@ -319,5 +326,106 @@ model AuditEntry {
 
   @@index([entityType, createdAt])
   @@index([action])
+  @@index([createdAt])
+}
+
+// =============================================================================
+// Sprint 4: Activities are covered by the extended CrmActivity above. The
+// Automations engine and Reports module add the models below. AutomationEntity
+// is a superset of CrmEntityType (it adds ACTIVITY) so an automation can be
+// keyed to activity events; the four-value CrmEntityType stays as-is because
+// tags / custom fields / audit only ever target the four core records.
+// =============================================================================
+
+enum AutomationEntity {
+  LEAD
+  DEAL
+  CONTACT
+  COMPANY
+  ACTIVITY
+}
+
+enum AutomationTrigger {
+  RECORD_CREATED
+  RECORD_UPDATED
+  FIELD_CHANGED
+  STAGE_CHANGED
+  ACTIVITY_DUE
+  SCHEDULE
+}
+
+enum AutomationRunStatus {
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+enum AutomationQueueStatus {
+  PENDING
+  DONE
+  FAILED
+}
+
+model Automation {
+  id                   String            @id @default(cuid())
+  name                 String
+  description          String?
+  enabled              Boolean           @default(true)
+  triggerType          AutomationTrigger
+  triggerConfig        Json?
+  entityType           AutomationEntity
+  conditions           Json?
+  actions              Json
+  createdByClerkUserId String?
+  deletedAt            DateTime?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  runs AutomationRun[]
+
+  @@index([entityType, triggerType, enabled])
+  @@index([deletedAt])
+}
+
+model AutomationRun {
+  id              String              @id @default(cuid())
+  automationId    String
+  entityType      AutomationEntity
+  entityId        String?
+  status          AutomationRunStatus
+  startedAt       DateTime            @default(now())
+  finishedAt      DateTime?
+  error           String?
+  actionsExecuted Json?
+
+  automation Automation        @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  queueItems AutomationQueue[]
+
+  @@index([automationId, startedAt])
+  @@index([status])
+}
+
+model AutomationQueue {
+  id              String                @id @default(cuid())
+  automationRunId String
+  resumeAt        DateTime
+  payload         Json?
+  status          AutomationQueueStatus @default(PENDING)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  automationRun AutomationRun @relation(fields: [automationRunId], references: [id], onDelete: Cascade)
+
+  @@index([status, resumeAt])
+}
+
+model SavedReport {
+  id               String   @id @default(cuid())
+  name             String
+  definition       Json
+  ownerClerkUserId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
   @@index([createdAt])
 }
