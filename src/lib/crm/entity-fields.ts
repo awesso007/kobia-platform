@@ -80,4 +80,22 @@ export const ENTITY_FIELDS: Record<AutomationEntityKind, EntityField[]> = {
     { key: "endDate", label: "End", kind: "date" },
     { key: "createdAt", label: "Created", kind: "date" },
   ],
+  EVENT: [
+    { key: "title", label: "Title", kind: "text" },
+    { key: "location", label: "Location", kind: "text" },
+    { key: "status", label: "Status", kind: "enum", options: ["CONFIRMED", "TENTATIVE", "CANCELED"] },
+    { key: "startAt", label: "Start", kind: "date" },
+    { key: "endAt", label: "End", kind: "date" },
+    { key: "organizerClerkUserId", label: "Organizer", kind: "text" },
+    { key: "createdAt", label: "Created", kind: "date" },
+  ],
+  BOOKING: [
+    { key: "inviteeName", label: "Invitee name", kind: "text" },
+    { key: "inviteeEmail", label: "Invitee email", kind: "text" },
+    { key: "inviteePhone", label: "Invitee phone", kind: "text" },
+    { key: "status", label: "Status", kind: "enum", options: ["PENDING", "CONFIRMED", "CANCELED", "RESCHEDULED"] },
+    { key: "startAt", label: "Start", kind: "date" },
+    { key: "endAt", label: "End", kind: "date" },
+    { key: "createdAt", label: "Created", kind: "date" },
+  ],
 };

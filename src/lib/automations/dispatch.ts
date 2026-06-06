@@ -41,6 +41,18 @@ const FK_BY_ENTITY: Record<string, "leadId" | "dealId" | "contactId" | "companyI
   PROJECT: null,
 };
 
+const RELATED_FOR_ENTITY: Record<string, "LEAD" | "DEAL" | "CONTACT" | "COMPANY" | "PROJECT" | "TASK" | null> = {
+  LEAD: "LEAD",
+  DEAL: "DEAL",
+  CONTACT: "CONTACT",
+  COMPANY: "COMPANY",
+  PROJECT: "PROJECT",
+  TASK: "TASK",
+  ACTIVITY: null,
+  EVENT: null,
+  BOOKING: null,
+};
+
 /** Build a flat string-keyed snapshot of a record for condition + template use. */
 async function loadRecordSnapshot(
   db: Db,
@@ -66,6 +78,10 @@ async function loadRecordSnapshot(
       const p = await db.project.findUnique({ where: { id: entityId } });
       return p ? { ...p, budget: p.budget == null ? null : Number(p.budget) } : null;
     }
+    case "EVENT":
+      return (await db.calendarEvent.findUnique({ where: { id: entityId } })) as Record<string, unknown> | null;
+    case "BOOKING":
+      return (await db.booking.findUnique({ where: { id: entityId } })) as Record<string, unknown> | null;
     default:
       return null;
   }
@@ -320,6 +336,63 @@ async function runAction(
       if (!projectId) return { result: { kind: action.kind, status: "skipped", detail: "no project" } };
       await db.task.update({ where: { id: ctx.entityId }, data: { projectId } });
       return { result: { kind: action.kind, status: "done", detail: projectId } };
+    }
+    case "CREATE_EVENT": {
+      // Create an event on a target calendar (cfg.calendarId or the default).
+      const title = renderTemplate(String(cfg.title ?? "Automated event"), ctx.record).trim() || "Automated event";
+      const calendarId =
+        (cfg.calendarId ? String(cfg.calendarId) : "") ||
+        (await db.calendar.findFirst({ where: { isDefault: true }, select: { id: true } }))?.id ||
+        (await db.calendar.findFirst({ select: { id: true } }))?.id ||
+        "";
+      if (!calendarId) return { result: { kind: action.kind, status: "skipped", detail: "no calendar" } };
+      const offsetMinutes = Number(cfg.startOffsetMinutes ?? 60);
+      const durationMinutes = Number(cfg.durationMinutes ?? 30);
+      const startAt = new Date(Date.now() + offsetMinutes * 60_000);
+      const endAt = new Date(startAt.getTime() + durationMinutes * 60_000);
+      const related = RELATED_FOR_ENTITY[ctx.entityType] ?? null;
+      const ev = await db.calendarEvent.create({
+        data: {
+          calendarId,
+          title,
+          description: cfg.description ? renderTemplate(String(cfg.description), ctx.record) : null,
+          startAt,
+          endAt,
+          source: "AUTOMATION" as never,
+          relatedRecordType: related as never,
+          relatedRecordId: related ? ctx.entityId : null,
+        },
+      });
+      await dispatchAutomation({ type: "EVENT_CREATED", entityType: "EVENT", entityId: ev.id }, db);
+      return { result: { kind: action.kind, status: "done", detail: ev.id } };
+    }
+    case "ATTACH_EVENT_TO_RECORD": {
+      const eventId = String(cfg.eventId ?? "");
+      const related = RELATED_FOR_ENTITY[ctx.entityType] ?? null;
+      if (!eventId || !related) return { result: { kind: action.kind, status: "skipped", detail: "no event/record" } };
+      await db.calendarEvent.update({
+        where: { id: eventId },
+        data: { relatedRecordType: related as never, relatedRecordId: ctx.entityId },
+      });
+      return { result: { kind: action.kind, status: "done", detail: `${related}:${ctx.entityId}` } };
+    }
+    case "SEND_BOOKING_LINK": {
+      // Email a booking page link to the trigger record's contact email. Uses
+      // the same email plumbing as SEND_EMAIL; skips if no account/recipient.
+      const accountId = String(cfg.accountId ?? "");
+      const slug = String(cfg.slug ?? "");
+      if (!accountId || !slug) return { result: { kind: action.kind, status: "skipped", detail: "no account/slug" } };
+      const to = String(ctx.record.email ?? "").trim();
+      if (!to) return { result: { kind: action.kind, status: "skipped", detail: "no recipient" } };
+      const link = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/book/${slug}`;
+      const subject = renderTemplate(String(cfg.subject ?? "Schedule a time with us"), ctx.record);
+      const html = `<p>${renderTemplate(String(cfg.body ?? "Pick a time that works for you:"), ctx.record)}</p><p><a href="${link}">${link}</a></p>`;
+      const res = await sendEmail(
+        { accountId, to: [to], subject, html, recordType: ctx.entityType as EmailRecordType, recordId: ctx.entityId },
+        db,
+      );
+      if (!res.ok) return { result: { kind: action.kind, status: "skipped", detail: res.error ?? "send failed" } };
+      return { result: { kind: action.kind, status: "done", detail: `Booking link to ${to}` } };
     }
     case "WAIT": {
       const minutes = Number(cfg.minutes ?? 0);

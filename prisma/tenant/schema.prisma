@@ -116,6 +116,8 @@ enum SearchEntityType {
   TASK
   PROJECT
   TASK_COMMENT
+  EVENT
+  BOOKING_PAGE
 }
 
 enum SavedViewEntityType {
@@ -427,6 +429,8 @@ enum AutomationEntity {
   ACTIVITY
   TASK
   PROJECT
+  EVENT
+  BOOKING
 }
 
 enum AutomationTrigger {
@@ -451,6 +455,9 @@ enum AutomationTrigger {
   TASK_DUE_SOON
   TASK_OVERDUE
   PROJECT_STATUS_CHANGED
+  EVENT_CREATED
+  EVENT_STARTING_SOON
+  BOOKING_CONFIRMED
 }
 
 enum FileStorageProvider {
@@ -606,6 +613,9 @@ enum NotificationType {
   TASK_DUE_SOON
   TASK_MENTIONED
   TASK_COMMENTED
+  EVENT_INVITE
+  EVENT_REMINDER
+  BOOKING_CREATED
 }
 
 model Notification {
@@ -1467,4 +1477,251 @@ model ChecklistItem {
   checklist Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
 
   @@index([checklistId])
+}
+
+// =============================================================================
+// Sprint 12: Calendar + Scheduling + Booking Pages + Meeting Rooms.
+// Additive only. New enums + tables; no changes to existing models.
+// No em-dashes in comments by project convention (use hyphens).
+// =============================================================================
+
+enum CalendarType {
+  PERSONAL
+  TEAM
+  RESOURCE
+  EXTERNAL_GOOGLE
+  EXTERNAL_OUTLOOK
+  EXTERNAL_ICS
+}
+
+enum CalendarVisibility {
+  PRIVATE
+  TEAM
+  TENANT
+}
+
+enum CalEventStatus {
+  CONFIRMED
+  TENTATIVE
+  CANCELED
+}
+
+enum CalEventVisibility {
+  PUBLIC
+  PRIVATE
+  CONFIDENTIAL
+}
+
+enum CalEventSource {
+  MANUAL
+  API
+  BOOKING
+  AUTOMATION
+  EXTERNAL_SYNC
+}
+
+enum CalRelatedRecordType {
+  LEAD
+  DEAL
+  CONTACT
+  COMPANY
+  PROJECT
+  TASK
+}
+
+enum AttendeeResponse {
+  NEEDS_ACTION
+  ACCEPTED
+  DECLINED
+  TENTATIVE
+}
+
+enum BookingLocationType {
+  PHONE
+  VIDEO_LINK
+  IN_PERSON
+  CUSTOM
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELED
+  RESCHEDULED
+}
+
+model Calendar {
+  id                 String             @id @default(cuid())
+  name               String
+  ownerClerkUserId   String?
+  type               CalendarType       @default(PERSONAL)
+  color              String             @default("#1d77bd")
+  isDefault          Boolean            @default(false)
+  visibility         CalendarVisibility @default(TEAM)
+  externalAccountId  String?
+  externalCalendarId String?
+  externalUrl        String?
+  syncToken          String?
+  lastSyncedAt       DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  events CalendarEvent[]
+
+  @@index([ownerClerkUserId])
+  @@index([type])
+}
+
+model CalendarEvent {
+  id                   String                @id @default(cuid())
+  calendarId           String
+  title                String
+  description          String?
+  location             String?
+  locationUrl          String?
+  startAt              DateTime
+  endAt                DateTime
+  allDay               Boolean               @default(false)
+  timezone             String                @default("UTC")
+  status               CalEventStatus        @default(CONFIRMED)
+  visibility           CalEventVisibility    @default(PUBLIC)
+  organizerClerkUserId String?
+  recurrenceRule       String?
+  recurrenceExceptions Json?
+  parentEventId        String?
+  colorOverride        String?
+  reminders            Json?
+  externalId           String?
+  externalEtag         String?
+  source               CalEventSource        @default(MANUAL)
+  relatedRecordType    CalRelatedRecordType?
+  relatedRecordId      String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  calendar     Calendar        @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  attendees    EventAttendee[]
+  roomBookings RoomBooking[]
+
+  @@index([calendarId, startAt])
+  @@index([relatedRecordType, relatedRecordId])
+  @@index([organizerClerkUserId, startAt])
+  @@index([externalId])
+}
+
+model EventAttendee {
+  id          String           @id @default(cuid())
+  eventId     String
+  clerkUserId String?
+  contactId   String?
+  email       String
+  name        String?
+  response    AttendeeResponse @default(NEEDS_ACTION)
+  isOrganizer Boolean          @default(false)
+  isOptional  Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  event CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([clerkUserId])
+  @@index([contactId])
+}
+
+model MeetingRoom {
+  id        String   @id @default(cuid())
+  name      String
+  location  String?
+  capacity  Int?
+  color     String   @default("#7d4aea")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings RoomBooking[]
+}
+
+model RoomBooking {
+  id        String   @id @default(cuid())
+  roomId    String
+  eventId   String
+  createdAt DateTime @default(now())
+
+  room  MeetingRoom   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  event CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, eventId])
+  @@index([eventId])
+}
+
+model BookingPage {
+  id                  String              @id @default(cuid())
+  slug                String              @unique
+  ownerClerkUserId    String?
+  name                String
+  description         String?
+  durationMinutes     Int                 @default(30)
+  bufferBeforeMinutes Int                 @default(0)
+  bufferAfterMinutes  Int                 @default(0)
+  minNoticeMinutes    Int                 @default(60)
+  maxAdvanceDays      Int                 @default(30)
+  timezone            String              @default("UTC")
+  active              Boolean             @default(true)
+  color               String              @default("#1d77bd")
+  locationType        BookingLocationType @default(VIDEO_LINK)
+  locationDetails     String?
+  requireApproval     Boolean             @default(false)
+  redirectUrl         String?
+  customQuestions     Json?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  availability BookingAvailability[]
+  bookings     Booking[]
+
+  @@index([ownerClerkUserId])
+}
+
+model BookingAvailability {
+  id            String @id @default(cuid())
+  bookingPageId String
+  dayOfWeek     Int
+  startMinutes  Int
+  endMinutes    Int
+
+  bookingPage BookingPage @relation(fields: [bookingPageId], references: [id], onDelete: Cascade)
+
+  @@index([bookingPageId])
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+  bookingPageId   String
+  eventId         String?
+  inviteeName     String
+  inviteeEmail    String
+  inviteePhone    String?
+  inviteeTimezone String        @default("UTC")
+  startAt         DateTime
+  endAt           DateTime
+  status          BookingStatus @default(PENDING)
+  rescheduleToken String?
+  customAnswers   Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  bookingPage BookingPage @relation(fields: [bookingPageId], references: [id], onDelete: Cascade)
+
+  @@index([bookingPageId, startAt])
+}
+
+model Availability {
+  id           String @id @default(cuid())
+  clerkUserId  String
+  dayOfWeek    Int
+  startMinutes Int
+  endMinutes   Int
+
+  @@index([clerkUserId])
 }

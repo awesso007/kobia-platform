@@ -24,7 +24,9 @@ export type IndexEntityType =
   | "NOTE"
   | "TASK"
   | "PROJECT"
-  | "TASK_COMMENT";
+  | "TASK_COMMENT"
+  | "EVENT"
+  | "BOOKING_PAGE";
 
 type IndexDoc = {
   title: string;
@@ -150,6 +152,26 @@ async function buildDoc(
         subtitle: null,
         body: r.body,
         ownerClerkUserId: r.clerkUserId ?? null,
+      };
+    }
+    case "EVENT": {
+      const r = await db.calendarEvent.findUnique({ where: { id: entityId } });
+      if (!r) return null;
+      return {
+        title: r.title,
+        subtitle: r.location ?? null,
+        body: join(r.description, r.locationUrl),
+        ownerClerkUserId: r.organizerClerkUserId ?? null,
+      };
+    }
+    case "BOOKING_PAGE": {
+      const r = await db.bookingPage.findUnique({ where: { id: entityId } });
+      if (!r) return null;
+      return {
+        title: r.name,
+        subtitle: `/book/${r.slug}`,
+        body: r.description ?? null,
+        ownerClerkUserId: r.ownerClerkUserId ?? null,
       };
     }
     default:
