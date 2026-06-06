@@ -1,0 +1,368 @@
+"use client";
+
+/*
+ * Deals board: kanban (columns = DealStage of the active pipeline) with
+ * @dnd-kit drag-and-drop, plus a List fallback. Dragging a card to another
+ * column updates the deal's stage optimistically, then persists via the
+ * moveDealToStage server action. Pipeline switcher and Kanban/List toggle live
+ * in the header. "+ New Deal" per column opens a small create modal.
+ *
+ * No em-dashes in copy by project convention (use hyphens).
+ */
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDraggable,
+  useDroppable,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { Plus } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+import { KbButton, StatusBadge } from "@/components/crm/ui";
+import { RecordPane } from "@/components/crm/record-pane/RecordPane";
+import type { DealBoard, DealCard, StageCol } from "./queries";
+import { createDeal, moveDealToStage } from "./actions";
+
+export function DealsBoard({ board }: { board: DealBoard }) {
+  const router = useRouter();
+  const [view, setView] = useState<"kanban" | "list">("kanban");
+  const [deals, setDeals] = useState<DealCard[]>(board.deals);
+  const [creatingStage, setCreatingStage] = useState<StageCol | null>(null);
+  const [openDeal, setOpenDeal] = useState<DealCard | null>(null);
+  const [, startTransition] = useTransition();
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const dealsByStage = useMemo(() => {
+    const map = new Map<string, DealCard[]>();
+    for (const s of board.stages) map.set(s.id, []);
+    for (const d of deals) {
+      if (!map.has(d.stageId)) map.set(d.stageId, []);
+      map.get(d.stageId)!.push(d);
+    }
+    return map;
+  }, [deals, board.stages]);
+
+  function switchPipeline(id: string) {
+    router.push(`/app/deals?pipeline=${id}`);
+  }
+
+  function onDragEnd(e: DragEndEvent) {
+    const dealId = String(e.active.id);
+    const targetStage = e.over ? String(e.over.id) : null;
+    if (!targetStage) return;
+    const deal = deals.find((d) => d.id === dealId);
+    if (!deal || deal.stageId === targetStage) return;
+
+    const prev = deals;
+    setDeals((cur) => cur.map((d) => (d.id === dealId ? { ...d, stageId: targetStage } : d)));
+    startTransition(async () => {
+      try {
+        await moveDealToStage(dealId, targetStage);
+        router.refresh();
+      } catch {
+        setDeals(prev);
+      }
+    });
+  }
+
+  if (board.stages.length === 0) {
+    return (
+      <div>
+        <Header
+          board={board}
+          view={view}
+          onView={setView}
+          onSwitch={switchPipeline}
+        />
+        <div
+          className="grid place-items-center p-16 text-center"
+          style={{ backgroundColor: "var(--kb-surface)", border: "1px dashed var(--kb-border)", borderRadius: "var(--kb-radius)" }}
+        >
+          <p style={{ fontWeight: 600 }}>No pipeline stages yet</p>
+          <p className="mt-2 text-sm" style={{ color: "var(--kb-text-secondary)" }}>
+            Seed a pipeline (npm run seed:tenant -- --slug acme) to populate the board.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <Header board={board} view={view} onView={setView} onSwitch={switchPipeline} />
+
+      {view === "kanban" ? (
+        <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+          <div className="flex gap-3 overflow-x-auto pb-3">
+            {board.stages.map((stage) => (
+              <Column
+                key={stage.id}
+                stage={stage}
+                cards={dealsByStage.get(stage.id) ?? []}
+                onNew={() => setCreatingStage(stage)}
+                onOpen={setOpenDeal}
+              />
+            ))}
+          </div>
+        </DndContext>
+      ) : (
+        <DealList deals={deals} stages={board.stages} onOpen={setOpenDeal} />
+      )}
+
+      {creatingStage && board.activePipelineId ? (
+        <NewDealModal
+          pipelineId={board.activePipelineId}
+          stage={creatingStage}
+          onClose={() => setCreatingStage(null)}
+        />
+      ) : null}
+      {openDeal ? (
+        <RecordPane
+          type="deal"
+          id={openDeal.id}
+          title={openDeal.name}
+          subtitle={openDeal.contactName ?? undefined}
+          onClose={() => setOpenDeal(null)}
+          details={<DealDetails deal={openDeal} />}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function Header({
+  board,
+  view,
+  onView,
+  onSwitch,
+}: {
+  board: DealBoard;
+  view: "kanban" | "list";
+  onView: (v: "kanban" | "list") => void;
+  onSwitch: (id: string) => void;
+}) {
+  return (
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <div className="mb-1 text-xs" style={{ color: "var(--kb-text-secondary)" }}>CRM / Deals</div>
+        <h1 style={{ fontSize: "var(--kb-fs-h1)", fontWeight: 600, color: "var(--kb-text-primary)" }}>Deals</h1>
+      </div>
+      <div className="flex items-center gap-2">
+        {board.pipelines.length > 0 ? (
+          <select
+            value={board.activePipelineId ?? ""}
+            onChange={(e) => onSwitch(e.target.value)}
+            className="rounded px-2 py-1.5 text-sm outline-none"
+            style={{ border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius-sm)" }}
+          >
+            {board.pipelines.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        ) : null}
+        <div className="flex overflow-hidden rounded" style={{ border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius-sm)" }}>
+          {(["kanban", "list"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => onView(v)}
+              className="px-3 py-1.5 text-sm capitalize"
+              style={{
+                backgroundColor: view === v ? "var(--kb-primary)" : "var(--kb-surface)",
+                color: view === v ? "#fff" : "var(--kb-text-secondary)",
+              }}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Column({
+  stage,
+  cards,
+  onNew,
+  onOpen,
+}: {
+  stage: StageCol;
+  cards: DealCard[];
+  onNew: () => void;
+  onOpen: (d: DealCard) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: stage.id });
+  const total = cards.reduce((sum, c) => sum + c.amountCents, 0);
+  const accent = stage.isWon ? "var(--kb-success)" : stage.isLost ? "var(--kb-error)" : "var(--kb-primary)";
+  return (
+    <div
+      ref={setNodeRef}
+      className="flex w-72 shrink-0 flex-col rounded"
+      style={{
+        backgroundColor: isOver ? "rgba(29,119,189,0.06)" : "var(--kb-surface-grey)",
+        borderRadius: "var(--kb-radius)",
+        borderTop: `3px solid ${accent}`,
+      }}
+    >
+      <div className="flex items-center justify-between px-3 py-2">
+        <span style={{ fontWeight: 600, color: "var(--kb-text-primary)", fontSize: "var(--kb-fs-body)" }}>{stage.name}</span>
+        <span className="text-xs" style={{ color: "var(--kb-text-secondary)" }}>
+          {cards.length} - {formatCurrency(total / 100)}
+        </span>
+      </div>
+      <div className="flex-1 space-y-2 px-2 pb-2">
+        {cards.map((c) => (
+          <Card key={c.id} deal={c} onOpen={() => onOpen(c)} />
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={onNew}
+        className="m-2 flex items-center justify-center gap-1 rounded py-1.5 text-xs"
+        style={{ border: "1px dashed var(--kb-border)", borderRadius: "var(--kb-radius-sm)", color: "var(--kb-text-secondary)" }}
+      >
+        <Plus size={14} /> New Deal
+      </button>
+    </div>
+  );
+}
+
+function Card({ deal, onOpen }: { deal: DealCard; onOpen: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: deal.id });
+  const style: React.CSSProperties = {
+    backgroundColor: "var(--kb-surface)",
+    borderRadius: "var(--kb-radius-sm)",
+    boxShadow: "var(--kb-shadow-card)",
+    opacity: isDragging ? 0.5 : 1,
+    transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className="p-3" {...attributes} {...listeners}>
+      <button type="button" onClick={onOpen} className="block w-full text-left">
+        <p style={{ fontWeight: 500, color: "var(--kb-text-primary)", fontSize: "var(--kb-fs-body)" }}>{deal.name}</p>
+        <p className="mt-1 text-xs" style={{ color: "var(--kb-primary)" }}>{formatCurrency(deal.amountCents / 100)}</p>
+        <div className="mt-1 flex items-center justify-between text-xs" style={{ color: "var(--kb-text-secondary)" }}>
+          <span>{deal.contactName ?? "No contact"}</span>
+          <span>{deal.daysInStage}d in stage</span>
+        </div>
+      </button>
+    </div>
+  );
+}
+
+function DealList({ deals, stages, onOpen }: { deals: DealCard[]; stages: StageCol[]; onOpen: (d: DealCard) => void }) {
+  const stageName = new Map(stages.map((s) => [s.id, s.name]));
+  return (
+    <div
+      className="overflow-hidden"
+      style={{ backgroundColor: "var(--kb-surface)", border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius)", boxShadow: "var(--kb-shadow-card)" }}
+    >
+      <table className="w-full text-sm">
+        <thead>
+          <tr style={{ backgroundColor: "var(--kb-surface-grey)", color: "var(--kb-text-secondary)" }}>
+            <th className="px-3 py-2 text-left font-medium">Deal</th>
+            <th className="px-3 py-2 text-left font-medium">Stage</th>
+            <th className="px-3 py-2 text-left font-medium">Amount</th>
+            <th className="px-3 py-2 text-left font-medium">Contact</th>
+            <th className="px-3 py-2 text-left font-medium">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {deals.length === 0 ? (
+            <tr><td colSpan={5} className="p-8 text-center" style={{ color: "var(--kb-text-secondary)" }}>No deals in this pipeline.</td></tr>
+          ) : (
+            deals.map((d) => (
+              <tr key={d.id} onClick={() => onOpen(d)} className="cursor-pointer" style={{ borderTop: "1px solid var(--kb-border)", height: "var(--kb-row-h)" }}>
+                <td className="px-3" style={{ fontWeight: 500, color: "var(--kb-text-primary)" }}>{d.name}</td>
+                <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{stageName.get(d.stageId) ?? "-"}</td>
+                <td className="px-3" style={{ color: "var(--kb-primary)" }}>{formatCurrency(d.amountCents / 100)}</td>
+                <td className="px-3" style={{ color: "var(--kb-text-secondary)" }}>{d.contactName ?? "-"}</td>
+                <td className="px-3"><StatusBadge value={d.status} /></td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function DealDetails({ deal }: { deal: DealCard }) {
+  return (
+    <dl className="space-y-3 text-sm">
+      <Row label="Amount" value={formatCurrency(deal.amountCents / 100)} />
+      <Row label="Contact" value={deal.contactName ?? "-"} />
+      <Row label="Days in stage" value={`${deal.daysInStage}`} />
+      <Row label="Status" value={deal.status} />
+    </dl>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-3">
+      <dt style={{ color: "var(--kb-text-secondary)" }}>{label}</dt>
+      <dd style={{ color: "var(--kb-text-primary)", fontWeight: 500 }}>{value}</dd>
+    </div>
+  );
+}
+
+function NewDealModal({ pipelineId, stage, onClose }: { pipelineId: string; stage: StageCol; onClose: () => void }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [name, setName] = useState("");
+  const [amount, setAmount] = useState("");
+
+  function submit() {
+    if (!name.trim()) return;
+    const cents = Math.round((Number(amount) || 0) * 100);
+    startTransition(async () => {
+      await createDeal({ name, pipelineId, stageId: stage.id, amountCents: cents });
+      onClose();
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center" style={{ backgroundColor: "rgba(0,0,0,0.35)" }} onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm p-5"
+        style={{ backgroundColor: "var(--kb-surface)", borderRadius: "var(--kb-radius)", boxShadow: "var(--kb-shadow-modal)" }}
+      >
+        <h2 className="mb-1" style={{ fontSize: "var(--kb-fs-section)", fontWeight: 600 }}>New deal</h2>
+        <p className="mb-4 text-xs" style={{ color: "var(--kb-text-secondary)" }}>Stage: {stage.name}</p>
+        <label className="mb-3 block">
+          <span className="mb-1 block text-xs" style={{ color: "var(--kb-text-secondary)" }}>Name</span>
+          <input
+            value={name}
+            autoFocus
+            onChange={(e) => setName(e.target.value)}
+            className="w-full rounded px-3 py-2 text-sm outline-none"
+            style={{ border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius-sm)" }}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs" style={{ color: "var(--kb-text-secondary)" }}>Amount (USD)</span>
+          <input
+            value={amount}
+            inputMode="decimal"
+            onChange={(e) => setAmount(e.target.value)}
+            className="w-full rounded px-3 py-2 text-sm outline-none"
+            style={{ border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius-sm)" }}
+          />
+        </label>
+        <div className="mt-5 flex justify-end gap-2">
+          <KbButton variant="outline" onClick={onClose}>Cancel</KbButton>
+          <KbButton onClick={submit} disabled={pending || !name.trim()}>{pending ? "Creating..." : "Create deal"}</KbButton>
+        </div>
+      </div>
+    </div>
+  );
+}
