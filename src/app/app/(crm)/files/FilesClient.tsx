@@ -14,7 +14,6 @@ import { FolderPlus, UploadCloud, Search } from "lucide-react";
 import type { FileRow } from "@/lib/files/files";
 import {
   listFiles,
-  listFolders,
   createFolder,
   getDownloadUrl,
   renameFile,
