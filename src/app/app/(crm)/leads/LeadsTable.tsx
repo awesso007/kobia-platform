@@ -127,8 +127,40 @@ export function LeadsTable({
         <FilterSelect label="Owner" value={sp.get("owner") ?? ""} options={owners} onChange={(v) => setParam({ owner: v })} />
       </div>
 
+      {/* Mobile card layout (below md); the table is hidden there. */}
+      <div className="grid gap-2 md:hidden">
+        {rows.length === 0 ? (
+          <p className="p-4 text-center text-sm" style={{ color: "var(--kb-text-secondary)" }}>
+            No leads match these filters.
+          </p>
+        ) : (
+          rows.map((l) => (
+            <button
+              key={l.id}
+              type="button"
+              onClick={() => setEditing(l)}
+              className="w-full p-3 text-left"
+              style={{ backgroundColor: "var(--kb-surface)", border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius)", boxShadow: "var(--kb-shadow-card)" }}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span style={{ color: "var(--kb-text-primary)", fontWeight: 600 }}>{l.name}</span>
+                <StatusBadge value={l.status} />
+              </div>
+              {l.companyName ? (
+                <div className="mt-0.5 text-xs" style={{ color: "var(--kb-text-secondary)" }}>{l.companyName}</div>
+              ) : null}
+              <div className="mt-2 flex items-center justify-between text-xs" style={{ color: "var(--kb-text-secondary)" }}>
+                <span>{l.source}</span>
+                <span>{new Date(l.createdAt).toLocaleDateString()}</span>
+              </div>
+              <div className="mt-2"><TagChips tags={l.tags} /></div>
+            </button>
+          ))
+        )}
+      </div>
+
       <div
-        className="overflow-hidden"
+        className="hidden overflow-x-auto md:block"
         style={{ backgroundColor: "var(--kb-surface)", border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius)", boxShadow: "var(--kb-shadow-card)" }}
       >
         <table className="w-full text-sm">
@@ -338,10 +370,10 @@ function LeadModal({ allTags, customFields, onClose }: { allTags: TagRow[]; cust
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center" style={{ backgroundColor: "rgba(0,0,0,0.35)" }} onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-stretch overflow-auto sm:place-items-center sm:p-4" style={{ backgroundColor: "rgba(0,0,0,0.35)" }} onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md p-5"
+        className="h-full w-full p-5 sm:h-auto sm:max-w-md sm:rounded"
         style={{ backgroundColor: "var(--kb-surface)", borderRadius: "var(--kb-radius)", boxShadow: "var(--kb-shadow-modal)" }}
       >
         <h2 className="mb-4" style={{ fontSize: "var(--kb-fs-section)", fontWeight: 600, color: "var(--kb-text-primary)" }}>

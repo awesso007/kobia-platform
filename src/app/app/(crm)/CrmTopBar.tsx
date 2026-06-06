@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Mail, MessageSquare, Search } from "lucide-react";
+import { Mail, Menu, MessageSquare, Search } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
 import { TenantSwitcher } from "./TenantSwitcher";
 import { EmailComposer } from "@/components/crm/email/EmailComposer";
@@ -19,14 +19,26 @@ export function CrmTopBar({ notifications = [], tenants = [] }: { notifications?
   const [composing, setComposing] = useState(false);
   return (
     <header
-      className="flex items-center gap-4 px-4"
+      className="flex items-center gap-2 px-3 md:gap-4 md:px-4"
       style={{
         height: "var(--kb-topbar-h)",
         backgroundColor: "var(--kb-surface)",
         borderBottom: "1px solid var(--kb-border)",
       }}
     >
-      <TenantSwitcher tenants={tenants} />
+      <button
+        type="button"
+        onClick={() => window.dispatchEvent(new Event("kobia:toggle-nav"))}
+        className="grid place-items-center rounded md:hidden"
+        style={{ width: 44, height: 44, color: "var(--kb-text-secondary)" }}
+        aria-label="Open navigation"
+      >
+        <Menu size={20} />
+      </button>
+
+      <div className="hidden md:block">
+        <TenantSwitcher tenants={tenants} />
+      </div>
 
       <button
         type="button"
@@ -42,7 +54,7 @@ export function CrmTopBar({ notifications = [], tenants = [] }: { notifications?
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" />
         <span className="flex-1 text-left">Search</span>
         <kbd
-          className="rounded px-1.5 py-0.5 text-[10px]"
+          className="hidden rounded px-1.5 py-0.5 text-[10px] sm:block"
           style={{ backgroundColor: "var(--kb-surface)", border: "1px solid var(--kb-border)" }}
         >
           Cmd K
@@ -64,7 +76,7 @@ export function CrmTopBar({ notifications = [], tenants = [] }: { notifications?
         className="flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium text-white"
         style={{ backgroundColor: "var(--kb-primary)", borderRadius: "var(--kb-radius-sm)" }}
       >
-        <Mail size={14} /> Email
+        <Mail size={14} /> <span className="hidden sm:inline">Email</span>
       </button>
 
       <NotificationBell initial={notifications} />

@@ -123,7 +123,31 @@ export function CompaniesTable({
         <FilterSelect label="Tag" value={sp.get("tag") ?? ""} options={allTags.map((t) => ({ value: t.id, label: t.name }))} onChange={(v) => setParam({ tag: v })} />
       </div>
 
-      <div className="overflow-hidden" style={{ backgroundColor: "var(--kb-surface)", border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius)", boxShadow: "var(--kb-shadow-card)" }}>
+      <div className="grid gap-2 md:hidden">
+        {rows.length === 0 ? (
+          <p className="p-4 text-center text-sm" style={{ color: "var(--kb-text-secondary)" }}>No companies match these filters.</p>
+        ) : (
+          rows.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setEditing(c)}
+              className="w-full p-3 text-left"
+              style={{ backgroundColor: "var(--kb-surface)", border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius)", boxShadow: "var(--kb-shadow-card)" }}
+            >
+              <div style={{ color: "var(--kb-text-primary)", fontWeight: 600 }}>{c.name}</div>
+              {c.domain ? <div className="mt-0.5 text-xs" style={{ color: "var(--kb-text-secondary)" }}>{c.domain}</div> : null}
+              <div className="mt-2 flex items-center justify-between text-xs" style={{ color: "var(--kb-text-secondary)" }}>
+                <span>{c.industry ?? "-"}</span>
+                <span>{companySizeLabel(c.size)}</span>
+              </div>
+              <div className="mt-2"><TagChips tags={c.tags} /></div>
+            </button>
+          ))
+        )}
+      </div>
+
+      <div className="hidden overflow-x-auto md:block" style={{ backgroundColor: "var(--kb-surface)", border: "1px solid var(--kb-border)", borderRadius: "var(--kb-radius)", boxShadow: "var(--kb-shadow-card)" }}>
         <table className="w-full text-sm">
           <thead>
             <tr style={{ backgroundColor: "var(--kb-surface-grey)", color: "var(--kb-text-secondary)" }}>
@@ -336,8 +360,8 @@ function Empty() {
 
 function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center overflow-auto p-4" style={{ backgroundColor: "rgba(0,0,0,0.35)" }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md p-5" style={{ backgroundColor: "var(--kb-surface)", borderRadius: "var(--kb-radius)", boxShadow: "var(--kb-shadow-modal)" }}>
+    <div className="fixed inset-0 z-50 grid place-items-stretch overflow-auto sm:place-items-center sm:p-4" style={{ backgroundColor: "rgba(0,0,0,0.35)" }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="h-full w-full p-5 sm:h-auto sm:max-w-md sm:rounded" style={{ backgroundColor: "var(--kb-surface)", borderRadius: "var(--kb-radius)", boxShadow: "var(--kb-shadow-modal)" }}>
         <h2 className="mb-4" style={{ fontSize: "var(--kb-fs-section)", fontWeight: 600, color: "var(--kb-text-primary)" }}>{title}</h2>
         {children}
       </div>

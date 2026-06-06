@@ -60,6 +60,13 @@ export function RecordPane({
     return () => { active = false; };
   }, [type, id]);
 
+  // The global keyboard handler dispatches kobia:escape on Esc; close on it.
+  useEffect(() => {
+    const onEscape = () => onClose();
+    window.addEventListener("kobia:escape", onEscape);
+    return () => window.removeEventListener("kobia:escape", onEscape);
+  }, [onClose]);
+
   return (
     <>
       <div
@@ -69,9 +76,8 @@ export function RecordPane({
         aria-hidden
       />
       <aside
-        className="fixed right-0 top-0 z-50 flex h-full flex-col"
+        className="fixed inset-0 z-50 flex h-full w-full flex-col md:inset-y-0 md:right-0 md:left-auto md:w-[480px]"
         style={{
-          width: "480px",
           maxWidth: "100vw",
           backgroundColor: "var(--kb-surface)",
           boxShadow: "var(--kb-shadow-modal)",
@@ -118,13 +124,13 @@ export function RecordPane({
           </div>
         </header>
 
-        <nav className="flex gap-1 px-3 pt-2" style={{ borderBottom: "1px solid var(--kb-border)" }}>
+        <nav className="flex gap-1 overflow-x-auto px-3 pt-2" style={{ borderBottom: "1px solid var(--kb-border)" }}>
           {TABS.map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => setTab(t)}
-              className="flex items-center gap-1 px-3 py-2 text-sm capitalize"
+              className="flex shrink-0 items-center gap-1 px-3 py-2 text-sm capitalize"
               style={{
                 fontWeight: tab === t ? 600 : 400,
                 color: tab === t ? "var(--kb-primary)" : "var(--kb-text-secondary)",
