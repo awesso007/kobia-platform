@@ -8,7 +8,7 @@ import { getTagMapForEntities } from "@/lib/crm/tags";
 import type { TagRow } from "@/lib/crm/record";
 
 export type PipelineOption = { id: string; name: string; isDefault: boolean };
-export type StageCol = { id: string; name: string; sortOrder: number; isWon: boolean; isLost: boolean };
+export type StageCol = { id: string; name: string; sortOrder: number; isWon: boolean; isLost: boolean; probability: number; rottingDays: number | null; color: string | null };
 export type DealCard = {
   id: string;
   name: string;
@@ -34,11 +34,14 @@ function contactName(c: { firstName: string; lastName: string | null } | null): 
 
 export async function getDealBoard(pipelineId?: string): Promise<DealBoard> {
   const { db } = getTenantDb();
-  const pipelines = await db.pipeline.findMany({ orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] });
+  const pipelines = await db.pipeline.findMany({
+    where: { entityType: "DEAL", archivedAt: null },
+    orderBy: [{ order: "asc" }, { isDefault: "desc" }, { createdAt: "asc" }],
+  });
   if (pipelines.length === 0) {
     return { pipelines: [], activePipelineId: null, stages: [], deals: [] };
   }
-  const active = pipelines.find((p) => p.id === pipelineId) ?? pipelines[0]!;
+  const active = pipelines.find((p) => p.id === pipelineId) ?? pipelines.find((p) => p.isDefault) ?? pipelines[0]!;
 
   const [stages, deals] = await Promise.all([
     db.dealStage.findMany({ where: { pipelineId: active.id }, orderBy: { sortOrder: "asc" } }),
@@ -55,7 +58,7 @@ export async function getDealBoard(pipelineId?: string): Promise<DealBoard> {
   return {
     pipelines: pipelines.map((p) => ({ id: p.id, name: p.name, isDefault: p.isDefault })),
     activePipelineId: active.id,
-    stages: stages.map((s) => ({ id: s.id, name: s.name, sortOrder: s.sortOrder, isWon: s.isWon, isLost: s.isLost })),
+    stages: stages.map((s) => ({ id: s.id, name: s.name, sortOrder: s.sortOrder, isWon: s.isWon, isLost: s.isLost, probability: s.probability, rottingDays: s.rotting_days, color: s.color })),
     deals: deals.map((d) => ({
       id: d.id,
       name: d.name,

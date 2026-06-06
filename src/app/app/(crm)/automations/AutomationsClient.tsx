@@ -36,6 +36,7 @@ import { RunHistory } from "./RunHistory";
 export type EmailAccountOption = { id: string; address: string };
 export type EmailTemplateOption = { id: string; name: string };
 export type PhoneNumberOption = { id: string; e164: string };
+export type QuoteTemplateOption = { id: string; name: string };
 
 export function AutomationsClient({
   automations,
@@ -43,12 +44,14 @@ export function AutomationsClient({
   emailAccounts,
   emailTemplates,
   phoneNumbers,
+  quoteTemplates,
 }: {
   automations: AutomationRow[];
   allTags: TagRow[];
   emailAccounts: EmailAccountOption[];
   emailTemplates: EmailTemplateOption[];
   phoneNumbers: PhoneNumberOption[];
+  quoteTemplates: QuoteTemplateOption[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState<AutomationRow | "new" | null>(null);
@@ -132,6 +135,7 @@ export function AutomationsClient({
           emailAccounts={emailAccounts}
           emailTemplates={emailTemplates}
           phoneNumbers={phoneNumbers}
+          quoteTemplates={quoteTemplates}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); router.refresh(); }}
         />
@@ -143,7 +147,7 @@ export function AutomationsClient({
 
 const emptyConditions: ConditionGroup = { combinator: "AND", rows: [] };
 
-function BuilderModal({ initial, allTags, emailAccounts, emailTemplates, phoneNumbers, onClose, onSaved }: { initial: AutomationRow | null; allTags: TagRow[]; emailAccounts: EmailAccountOption[]; emailTemplates: EmailTemplateOption[]; phoneNumbers: PhoneNumberOption[]; onClose: () => void; onSaved: () => void }) {
+function BuilderModal({ initial, allTags, emailAccounts, emailTemplates, phoneNumbers, quoteTemplates, onClose, onSaved }: { initial: AutomationRow | null; allTags: TagRow[]; emailAccounts: EmailAccountOption[]; emailTemplates: EmailTemplateOption[]; phoneNumbers: PhoneNumberOption[]; quoteTemplates: QuoteTemplateOption[]; onClose: () => void; onSaved: () => void }) {
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -293,7 +297,7 @@ function BuilderModal({ initial, allTags, emailAccounts, emailTemplates, phoneNu
                       <button type="button" onClick={() => removeAction(i)} aria-label="Remove action" style={{ color: "var(--kb-error)" }}><X size={14} /></button>
                     </div>
                   </div>
-                  <ActionConfig action={act} fields={fields.map((f) => ({ key: f.key, label: f.label }))} allTags={allTags} emailAccounts={emailAccounts} emailTemplates={emailTemplates} phoneNumbers={phoneNumbers} onChange={(patch) => setActionConfig(i, patch)} />
+                  <ActionConfig action={act} fields={fields.map((f) => ({ key: f.key, label: f.label }))} allTags={allTags} emailAccounts={emailAccounts} emailTemplates={emailTemplates} phoneNumbers={phoneNumbers} quoteTemplates={quoteTemplates} onChange={(patch) => setActionConfig(i, patch)} />
                 </div>
               ))
             )}
@@ -313,7 +317,7 @@ function BuilderModal({ initial, allTags, emailAccounts, emailTemplates, phoneNu
   );
 }
 
-function ActionConfig({ action, fields, allTags, emailAccounts, emailTemplates, phoneNumbers, onChange }: { action: AutomationAction; fields: { key: string; label: string }[]; allTags: TagRow[]; emailAccounts: EmailAccountOption[]; emailTemplates: EmailTemplateOption[]; phoneNumbers: PhoneNumberOption[]; onChange: (patch: Record<string, unknown>) => void }) {
+function ActionConfig({ action, fields, allTags, emailAccounts, emailTemplates, phoneNumbers, quoteTemplates, onChange }: { action: AutomationAction; fields: { key: string; label: string }[]; allTags: TagRow[]; emailAccounts: EmailAccountOption[]; emailTemplates: EmailTemplateOption[]; phoneNumbers: PhoneNumberOption[]; quoteTemplates: QuoteTemplateOption[]; onChange: (patch: Record<string, unknown>) => void }) {
   const c = action.config ?? {};
   const get = (k: string) => (c[k] === undefined ? "" : String(c[k]));
   switch (action.kind) {
@@ -394,6 +398,17 @@ function ActionConfig({ action, fields, allTags, emailAccounts, emailTemplates, 
         <div className="space-y-1">
           <input value={get("subject")} onChange={(e) => onChange({ subject: e.target.value })} placeholder="Reminder subject (supports {{record.field}})" className="w-full rounded px-2 py-1 text-xs outline-none" style={inputStyle} />
           <div className="text-xs" style={{ color: "var(--kb-text-secondary)" }}>Creates a Task reminding the owner to call. Outbound dialing is coming soon.</div>
+        </div>
+      );
+    case "CREATE_QUOTE":
+    case "SEND_QUOTE":
+      return (
+        <div className="space-y-1">
+          <select value={get("templateId")} onChange={(e) => onChange({ templateId: e.target.value })} className="w-full rounded px-2 py-1 text-xs outline-none" style={inputStyle}>
+            <option value="">Default template</option>
+            {quoteTemplates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+          <div className="text-xs" style={{ color: "var(--kb-text-secondary)" }}>Builds a quote from the trigger deal line items{action.kind === "SEND_QUOTE" ? " and marks it sent" : ""}. Requires a Deal trigger.</div>
         </div>
       );
     case "WAIT":

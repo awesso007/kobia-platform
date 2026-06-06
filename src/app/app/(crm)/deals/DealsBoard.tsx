@@ -30,6 +30,7 @@ import { CustomFieldInputs } from "@/components/crm/CustomFieldInputs";
 import type { CustomFieldDef, CustomFieldValueMap, TagRow } from "@/lib/crm/record";
 import type { DealBoard, DealCard, StageCol } from "./queries";
 import { createDeal, moveDealToStage, updateDealMeta, loadDealDetail } from "./actions";
+import { LineItemsSection } from "./line-items/LineItemsSection";
 
 export function DealsBoard({ board, allTags, customFields }: { board: DealBoard; allTags: TagRow[]; customFields: CustomFieldDef[] }) {
   const router = useRouter();
@@ -425,6 +426,9 @@ function DealDetails({ deal, allTags, customFields }: { deal: DealCard; allTags:
       <CustomFieldInputs fields={customFields} values={cfValues} onChange={(id, v) => setCfValues((p) => ({ ...p, [id]: v }))} />
       <div className="flex gap-2 pt-2">
         <KbButton onClick={save} disabled={pending}>{pending ? "Saving..." : "Save"}</KbButton>
+      </div>
+      <div className="pt-2" style={{ borderTop: "1px solid var(--kb-border)" }}>
+        <LineItemsSection dealId={deal.id} />
       </div>
     </div>
   );

@@ -4,7 +4,7 @@
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
-import { pipelineFunnel, dealVelocity, activityLeaderboard, listSavedReports } from "./queries";
+import { pipelineFunnel, dealVelocity, activityLeaderboard, quotePerformance, productPerformance, listSavedReports } from "./queries";
 import { ReportsClient } from "./ReportsClient";
 import { NoTenantError } from "@/lib/db/get-tenant-db";
 import { CrmError } from "../CrmError";
@@ -13,13 +13,15 @@ export const dynamic = "force-dynamic";
 
 export default async function ReportsPage() {
   try {
-    const [funnel, velocity, leaderboard, saved] = await Promise.all([
+    const [funnel, velocity, leaderboard, quotes, products, saved] = await Promise.all([
       pipelineFunnel(),
       dealVelocity(),
       activityLeaderboard(),
+      quotePerformance(),
+      productPerformance(),
       listSavedReports(),
     ]);
-    return <ReportsClient funnel={funnel} velocity={velocity} leaderboard={leaderboard} saved={saved} />;
+    return <ReportsClient funnel={funnel} velocity={velocity} leaderboard={leaderboard} quotes={quotes} products={products} saved={saved} />;
   } catch (err) {
     if (err instanceof NoTenantError) return <CrmError />;
     throw err;

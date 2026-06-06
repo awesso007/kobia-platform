@@ -13,6 +13,7 @@
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
+import { randomBytes } from "crypto";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { setEntityTags } from "@/app/app/(crm)/settings/tags/actions";
 import { notifyOn } from "@/lib/notifications/notify";
@@ -247,6 +248,26 @@ async function runAction(
       await attachFile(db, { fileId, entityType: targetType, entityId: targetId });
       return { result: { kind: action.kind, status: "done", detail: `attached ${file.name}` } };
     }
+    case "CREATE_QUOTE": {
+      // Only meaningful for a DEAL trigger - the quote is built from the deal's
+      // line items. Skips silently for other entity types.
+      if (ctx.entityType !== "DEAL") return { result: { kind: action.kind, status: "skipped", detail: "deal trigger required" } };
+      const quoteId = await createQuoteFromDeal(db, ctx.entityId, {
+        templateId: cfg.templateId ? String(cfg.templateId) : null,
+        send: false,
+      });
+      if (!quoteId) return { result: { kind: action.kind, status: "skipped", detail: "deal not found" } };
+      return { result: { kind: action.kind, status: "done", detail: quoteId } };
+    }
+    case "SEND_QUOTE": {
+      if (ctx.entityType !== "DEAL") return { result: { kind: action.kind, status: "skipped", detail: "deal trigger required" } };
+      const quoteId = await createQuoteFromDeal(db, ctx.entityId, {
+        templateId: cfg.templateId ? String(cfg.templateId) : null,
+        send: true,
+      });
+      if (!quoteId) return { result: { kind: action.kind, status: "skipped", detail: "deal not found" } };
+      return { result: { kind: action.kind, status: "done", detail: `sent ${quoteId}` } };
+    }
     case "WAIT": {
       const minutes = Number(cfg.minutes ?? 0);
       return { result: { kind: action.kind, status: "done", detail: `wait ${minutes}m` }, pause: { resumeMinutes: minutes } };
@@ -254,6 +275,108 @@ async function runAction(
     default:
       return { result: { kind: String(action.kind), status: "skipped", detail: "unknown action" } };
   }
+}
+
+/** Allocate the next quote number for the current month: Q-YYYYMM-NNNN. */
+async function nextQuoteNumber(db: Db): Promise<string> {
+  const now = new Date();
+  const ym = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  const prefix = `Q-${ym}-`;
+  const last = await db.quote.findFirst({
+    where: { number: { startsWith: prefix } },
+    orderBy: { number: "desc" },
+    select: { number: true },
+  });
+  let n = 1;
+  if (last) {
+    const tail = Number(last.number.slice(prefix.length));
+    if (Number.isFinite(tail)) n = tail + 1;
+  }
+  return `${prefix}${String(n).padStart(4, "0")}`;
+}
+
+/**
+ * Create a quote from a deal's line items (used by the CREATE_QUOTE / SEND_QUOTE
+ * automation actions). When `send` is true, also generates+stores the PDF, marks
+ * it SENT, and notifies the deal owner. Returns the new quote id, or null if the
+ * deal does not exist. Runs entirely on the injected db (no request scope).
+ */
+async function createQuoteFromDeal(
+  db: Db,
+  dealId: string,
+  opts: { templateId: string | null; send: boolean },
+): Promise<string | null> {
+  const deal = await db.deal.findUnique({ where: { id: dealId }, include: { lineItems: { orderBy: { sortOrder: "asc" } } } });
+  if (!deal) return null;
+
+  const template = opts.templateId
+    ? await db.quoteTemplate.findUnique({ where: { id: opts.templateId } })
+    : await db.quoteTemplate.findFirst({ orderBy: { createdAt: "asc" } });
+
+  const quote = await db.quote.create({
+    data: {
+      number: await nextQuoteNumber(db),
+      title: `Quote for ${deal.name}`,
+      dealId: deal.id,
+      contactId: deal.contactId,
+      templateId: template?.id ?? null,
+      status: "DRAFT",
+      publicSlug: randomBytes(12).toString("base64url"),
+      notes: template?.defaultNotes ?? null,
+      termsAndConditions: template?.defaultTerms ?? null,
+      ownerClerkUserId: deal.ownerUserId ?? null,
+    },
+  });
+
+  if (deal.lineItems.length > 0) {
+    await db.quoteLineItem.createMany({
+      data: deal.lineItems.map((l, idx) => ({
+        quoteId: quote.id,
+        productId: l.productId,
+        name: l.name,
+        description: l.description,
+        quantity: l.quantity,
+        unitPriceCents: l.unitPriceCents,
+        discountPct: l.discountPct,
+        taxRatePct: l.taxRatePct,
+        sortOrder: idx,
+      })),
+    });
+    // Recompute stored totals from the line items.
+    const items = await db.quoteLineItem.findMany({ where: { quoteId: quote.id } });
+    let subtotal = 0, discount = 0, tax = 0;
+    for (const i of items) {
+      const gross = Number(i.quantity) * i.unitPriceCents;
+      const disc = gross * (Number(i.discountPct) / 100);
+      const net = gross - disc;
+      tax += net * (Number(i.taxRatePct) / 100);
+      subtotal += gross; discount += disc;
+    }
+    await db.quote.update({
+      where: { id: quote.id },
+      data: {
+        subtotalCents: Math.round(subtotal),
+        discountCents: Math.round(discount),
+        taxCents: Math.round(tax),
+        totalCents: Math.round(subtotal - discount + tax),
+      },
+    });
+  }
+
+  if (opts.send) {
+    try {
+      const { generateAndStoreQuotePdf } = await import("@/app/app/(crm)/quotes/pdf");
+      await generateAndStoreQuotePdf(quote.id);
+    } catch {
+      // PDF generation is best-effort.
+    }
+    await db.quote.update({ where: { id: quote.id }, data: { status: "SENT", sentAt: new Date() } });
+    if (quote.ownerClerkUserId) {
+      await notifyOn(db, quote.ownerClerkUserId, { type: "SYSTEM", title: `Quote ${quote.number} sent`, linkUrl: `/app/quotes/${quote.id}` });
+    }
+  }
+
+  return quote.id;
 }
 
 type UpdatableModel = {
@@ -423,4 +546,34 @@ export async function processAutomationQueue(injectedDb?: Db): Promise<{ process
     }
   }
   return { processed };
+}
+
+/**
+ * Daily scan for rotting deals. A deal is rotting when it has sat in its current
+ * stage longer than the stage's rotting_days threshold. We use the deal's
+ * updatedAt as a proxy for "time in stage" (it bumps on every stage move). For
+ * each rotting OPEN deal we dispatch a STAGE_TIME_EXCEEDED event so any matching
+ * automations run. Returns the count of deals flagged. Cron-safe (injected db).
+ */
+export async function scanRottingDeals(injectedDb?: Db): Promise<{ rotting: number }> {
+  const db = injectedDb ?? getTenantDb().db;
+  const stages = await db.dealStage.findMany({ where: { rotting_days: { not: null } }, select: { id: true, rotting_days: true } });
+  if (stages.length === 0) return { rotting: 0 };
+
+  const now = Date.now();
+  let rotting = 0;
+  for (const stage of stages) {
+    const days = stage.rotting_days ?? 0;
+    if (days <= 0) continue;
+    const cutoff = new Date(now - days * 86_400_000);
+    const deals = await db.deal.findMany({
+      where: { stageId: stage.id, status: "OPEN", updatedAt: { lt: cutoff } },
+      select: { id: true },
+    });
+    for (const deal of deals) {
+      rotting++;
+      await dispatchAutomation({ type: "STAGE_TIME_EXCEEDED", entityType: "DEAL", entityId: deal.id, changedFields: ["stageId"] }, db);
+    }
+  }
+  return { rotting };
 }

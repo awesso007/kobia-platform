@@ -29,6 +29,18 @@ function asStatus(v: unknown): LeadStatus {
   return LEAD_STATUSES.includes(v as LeadStatus) ? (v as LeadStatus) : "NEW";
 }
 
+/** Sprint 10: move a lead to a different stage on the Leads kanban. */
+export async function moveLeadToStage(leadId: string, stageId: string) {
+  await requirePermission("record:update");
+  const { db } = getTenantDb();
+  const stage = await db.dealStage.findUniqueOrThrow({ where: { id: stageId } });
+  await db.lead.update({ where: { id: leadId }, data: { stageId, pipelineId: stage.pipelineId } });
+  await auditWrite({ action: "UPDATE", entityType: "LEAD", entityId: leadId, diff: { stageId } });
+  await dispatchAutomation({ type: "STAGE_CHANGED", entityType: "LEAD", entityId: leadId, changedFields: ["stageId"] });
+  await reindex(db, "LEAD", leadId);
+  revalidatePath("/app/leads/kanban");
+}
+
 export type LeadInput = {
   name: string;
   email?: string;

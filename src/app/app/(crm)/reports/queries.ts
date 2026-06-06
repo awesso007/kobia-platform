@@ -87,6 +87,48 @@ export async function activityLeaderboard(): Promise<LeaderboardRow[]> {
     .sort((a, b) => b.total - a.total);
 }
 
+export type QuotePerfRow = { status: string; count: number; valueCents: number };
+
+/** Quote Performance: quote count + total value per status (Sprint 10). */
+export async function quotePerformance(): Promise<QuotePerfRow[]> {
+  const { db } = getTenantDb();
+  const STATUSES = ["DRAFT", "SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"];
+  const quotes = await db.quote.findMany({ select: { status: true, totalCents: true } });
+  return STATUSES.map((status) => {
+    const inStatus = quotes.filter((q) => q.status === status);
+    return {
+      status,
+      count: inStatus.length,
+      valueCents: inStatus.reduce((sum, q) => sum + q.totalCents, 0),
+    };
+  });
+}
+
+export type ProductPerfRow = { product: string; quantity: number; revenueCents: number };
+
+/**
+ * Product Performance: units and revenue per product across all deal line items
+ * (Sprint 10). Revenue uses the stored lineTotalCents (generated column).
+ */
+export async function productPerformance(): Promise<ProductPerfRow[]> {
+  const { db } = getTenantDb();
+  const lines = await db.dealLineItem.findMany({
+    select: { name: true, productId: true, quantity: true, lineTotalCents: true },
+  });
+  const byProduct = new Map<string, { product: string; quantity: number; revenueCents: number }>();
+  for (const l of lines) {
+    const key = l.productId ?? `custom:${l.name}`;
+    const entry = byProduct.get(key) ?? { product: l.name, quantity: 0, revenueCents: 0 };
+    entry.quantity += Number(l.quantity);
+    entry.revenueCents += l.lineTotalCents;
+    byProduct.set(key, entry);
+  }
+  return Array.from(byProduct.values())
+    .map((e) => ({ ...e, quantity: Math.round(e.quantity * 100) / 100 }))
+    .sort((a, b) => b.revenueCents - a.revenueCents)
+    .slice(0, 20);
+}
+
 // ---------------------------------------------------------------------------
 // Custom report runner
 // ---------------------------------------------------------------------------

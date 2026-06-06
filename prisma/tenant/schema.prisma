@@ -54,6 +54,35 @@ enum DealStatus {
   LOST
 }
 
+// Sprint 10: multi-pipeline + products/quotes enums.
+enum PipelineEntityType {
+  DEAL
+  LEAD
+  TICKET
+}
+
+enum StageWonOrLost {
+  OPEN
+  WON
+  LOST
+}
+
+enum ProductType {
+  ONE_TIME
+  RECURRING_MONTHLY
+  RECURRING_YEARLY
+  SERVICE
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  VIEWED
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
 enum ActivityType {
   NOTE
   CALL
@@ -184,6 +213,9 @@ model Lead {
   ownerUserId String?
   notes       String?
   convertedAt DateTime?
+  // Sprint 10: optional pipeline + stage so Leads can run a kanban.
+  pipelineId  String?
+  stageId     String?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -191,28 +223,40 @@ model Lead {
 
   @@index([status])
   @@index([ownerUserId])
+  @@index([pipelineId, stageId])
 }
 
 model Pipeline {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  isDefault Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String             @id @default(cuid())
+  name       String             @unique
+  isDefault  Boolean            @default(false)
+  // Sprint 10: which record type this pipeline drives (DEAL or LEAD; TICKET reserved).
+  entityType PipelineEntityType @default(DEAL)
+  archivedAt DateTime?
+  color      String?
+  order      Int                @default(0)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
 
   stages DealStage[]
   deals  Deal[]
 }
 
 model DealStage {
-  id         String   @id @default(cuid())
-  pipelineId String
-  name       String
-  sortOrder  Int      @default(0)
-  isWon      Boolean  @default(false)
-  isLost     Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           String         @id @default(cuid())
+  pipelineId   String
+  name         String
+  sortOrder    Int            @default(0)
+  // Sprint 10: probability/rotting/wonOrLost supersede the isWon/isLost bools,
+  // which are retained for backwards compatibility and populated in parallel.
+  probability  Int            @default(0)
+  rotting_days Int?
+  wonOrLost    StageWonOrLost @default(OPEN)
+  color        String?
+  isWon        Boolean        @default(false)
+  isLost       Boolean        @default(false)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
   deals    Deal[]
@@ -239,11 +283,13 @@ model Deal {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
-  pipeline   Pipeline      @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
-  stage      DealStage     @relation(fields: [stageId], references: [id], onDelete: Restrict)
-  company    Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  contact    Contact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  pipeline   Pipeline       @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  stage      DealStage      @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  company    Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contact    Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
   activities CrmActivity[]
+  lineItems  DealLineItem[]
+  quotes     Quote[]
 
   @@index([status])
   @@index([pipelineId, stageId])
@@ -390,6 +436,11 @@ enum AutomationTrigger {
   SMS_RECEIVED
   CALL_COMPLETED
   FILE_UPLOADED
+  STAGE_TIME_EXCEEDED
+  DEAL_AMOUNT_CHANGED
+  QUOTE_SENT
+  QUOTE_ACCEPTED
+  LINE_ITEM_ADDED
 }
 
 enum FileStorageProvider {
@@ -1036,4 +1087,133 @@ model SavedView {
   updatedAt        DateTime            @updatedAt
 
   @@index([entityType, ownerClerkUserId])
+}
+
+// =============================================================================
+// Sprint 10: Products + Line Items, Quotes + PDF. Additive only. lineTotalCents
+// is a stored GENERATED column (built in SQL by migration 0010_products);
+// Prisma cannot express the expression, so it is read-only from app code.
+// =============================================================================
+
+model ProductCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  parentId  String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([parentId])
+}
+
+model Product {
+  id             String      @id @default(cuid())
+  sku            String      @unique
+  name           String
+  description    String?
+  type           ProductType @default(ONE_TIME)
+  unitPriceCents Int         @default(0)
+  currency       String      @default("USD")
+  costCents      Int?
+  taxable        Boolean     @default(true)
+  active         Boolean     @default(true)
+  category       String?
+  sortOrder      Int         @default(0)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  dealLineItems  DealLineItem[]
+  quoteLineItems QuoteLineItem[]
+
+  @@index([sku])
+  @@index([active])
+}
+
+model DealLineItem {
+  id             String   @id @default(cuid())
+  dealId         String
+  productId      String?
+  name           String
+  description    String?
+  quantity       Decimal  @default(1) @db.Decimal(12, 3)
+  unitPriceCents Int      @default(0)
+  discountPct    Decimal  @default(0) @db.Decimal(5, 2)
+  taxRatePct     Decimal  @default(0) @db.Decimal(5, 2)
+  lineTotalCents Int      @default(0)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  deal    Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([dealId])
+  @@index([productId])
+}
+
+model QuoteTemplate {
+  id           String   @id @default(cuid())
+  name         String
+  htmlTemplate String
+  defaultTerms String?
+  defaultNotes String?
+  primaryColor String   @default("#3b82f6")
+  logoFileId   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  quotes Quote[]
+}
+
+model Quote {
+  id                 String      @id @default(cuid())
+  number             String      @unique
+  dealId             String?
+  contactId          String?
+  companyId          String?
+  title              String
+  status             QuoteStatus @default(DRAFT)
+  sentAt             DateTime?
+  viewedAt           DateTime?
+  acceptedAt         DateTime?
+  declinedAt         DateTime?
+  expiresAt          DateTime?
+  currency           String      @default("USD")
+  subtotalCents      Int         @default(0)
+  discountCents      Int         @default(0)
+  taxCents           Int         @default(0)
+  totalCents         Int         @default(0)
+  notes              String?
+  termsAndConditions String?
+  templateId         String?
+  pdfFileId          String?
+  publicSlug         String      @unique
+  ownerClerkUserId   String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  deal      Deal?           @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  template  QuoteTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  lineItems QuoteLineItem[]
+
+  @@index([dealId])
+  @@index([status])
+}
+
+model QuoteLineItem {
+  id             String  @id @default(cuid())
+  quoteId        String
+  productId      String?
+  name           String
+  description    String?
+  quantity       Decimal @default(1) @db.Decimal(12, 3)
+  unitPriceCents Int     @default(0)
+  discountPct    Decimal @default(0) @db.Decimal(5, 2)
+  taxRatePct     Decimal @default(0) @db.Decimal(5, 2)
+  lineTotalCents Int     @default(0)
+  sortOrder      Int     @default(0)
+
+  quote   Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([quoteId])
 }
