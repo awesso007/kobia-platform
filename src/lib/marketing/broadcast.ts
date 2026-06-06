@@ -84,8 +84,13 @@ export async function enqueueBroadcast(
 
 export type ProcessResult = { sent: number; failed: number };
 
-/** Send all PENDING recipients for one broadcast, then finalize status + stats. */
-export async function processBroadcast(db: Db, broadcastId: string): Promise<ProcessResult> {
+/**
+ * Send all PENDING recipients for one broadcast, then finalize status + stats.
+ * tenantSlug, when provided, is woven into the open/click tracking URLs so the
+ * public tracking routes can resolve the tenant schema (schema-per-tenant means
+ * a recipientId alone is not enough to find the tenant).
+ */
+export async function processBroadcast(db: Db, broadcastId: string, tenantSlug?: string): Promise<ProcessResult> {
   const broadcast = await db.broadcast.findUnique({ where: { id: broadcastId } });
   if (!broadcast) return { sent: 0, failed: 0 };
 
@@ -115,7 +120,7 @@ export async function processBroadcast(db: Db, broadcastId: string): Promise<Pro
           failed++;
           continue;
         }
-        const html = withTracking(broadcast.bodyHtml ?? "", rcpt.id);
+        const html = withTracking(broadcast.bodyHtml ?? "", rcpt.id, tenantSlug);
         const res = await sendEmail(
           { accountId: account.id, to: [rcpt.email], subject: broadcast.subject ?? broadcast.name, html, text: broadcast.bodyText ?? undefined },
           db,
@@ -226,9 +231,12 @@ export async function computeStats(db: Db, broadcastId: string): Promise<Broadca
 }
 
 /** Append a 1x1 open-tracking pixel to an email body. Click tracking is wired
- * in the UI by pointing links at /api/track/click; we only inject the pixel. */
-function withTracking(html: string, recipientId: string): string {
+ * in the UI by pointing links at /api/track/click; we only inject the pixel.
+ * The pixel carries `?t=<slug>` so the public open route can resolve the tenant
+ * schema (a recipientId is only unique within a tenant). */
+function withTracking(html: string, recipientId: string, tenantSlug?: string): string {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
-  const pixel = `<img src="${base}/api/track/open/${recipientId}" width="1" height="1" alt="" style="display:none" />`;
+  const t = tenantSlug ? `?t=${encodeURIComponent(tenantSlug)}` : "";
+  const pixel = `<img src="${base}/api/track/open/${recipientId}${t}" width="1" height="1" alt="" style="display:none" />`;
   return `${html}${pixel}`;
 }
