@@ -43,6 +43,14 @@
     {
       "path": "/api/cron/portal-session-cleanup",
       "schedule": "30 11 * * *"
+    },
+    {
+      "path": "/api/cron/chat-digest",
+      "schedule": "45 11 * * *"
+    },
+    {
+      "path": "/api/cron/chat-presence-cleanup",
+      "schedule": "0 12 * * *"
     }
   ]
 }

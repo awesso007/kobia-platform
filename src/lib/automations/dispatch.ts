@@ -84,6 +84,8 @@ async function loadRecordSnapshot(
       return (await db.booking.findUnique({ where: { id: entityId } })) as Record<string, unknown> | null;
     case "TICKET":
       return (await db.ticket.findUnique({ where: { id: entityId } })) as Record<string, unknown> | null;
+    case "CHAT_MESSAGE":
+      return (await db.chatMessage.findUnique({ where: { id: entityId } })) as Record<string, unknown> | null;
     default:
       return null;
   }

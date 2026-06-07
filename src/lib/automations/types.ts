@@ -6,7 +6,7 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 
-export const AUTOMATION_ENTITIES = ["LEAD", "DEAL", "CONTACT", "COMPANY", "ACTIVITY", "TASK", "PROJECT", "EVENT", "BOOKING", "TICKET"] as const;
+export const AUTOMATION_ENTITIES = ["LEAD", "DEAL", "CONTACT", "COMPANY", "ACTIVITY", "TASK", "PROJECT", "EVENT", "BOOKING", "TICKET", "CHAT_MESSAGE"] as const;
 export type AutomationEntityKind = (typeof AUTOMATION_ENTITIES)[number];
 
 export const AUTOMATION_TRIGGERS = [
@@ -38,6 +38,7 @@ export const AUTOMATION_TRIGGERS = [
   "TICKET_STATUS_CHANGED",
   "SLA_BREACHED",
   "KB_ARTICLE_VIEWED",
+  "CHAT_MENTION",
 ] as const;
 export type AutomationTriggerKind = (typeof AUTOMATION_TRIGGERS)[number];
 
@@ -70,6 +71,7 @@ export const TRIGGER_LABELS: Record<AutomationTriggerKind, string> = {
   TICKET_STATUS_CHANGED: "Ticket status changed",
   SLA_BREACHED: "SLA breached",
   KB_ARTICLE_VIEWED: "KB article viewed",
+  CHAT_MENTION: "Chat mention",
 };
 
 export const CONDITION_OPERATORS = [

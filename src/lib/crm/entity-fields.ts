@@ -107,4 +107,11 @@ export const ENTITY_FIELDS: Record<AutomationEntityKind, EntityField[]> = {
     { key: "assigneeId", label: "Assignee", kind: "text" },
     { key: "createdAt", label: "Created", kind: "date" },
   ],
+  CHAT_MESSAGE: [
+    { key: "authorName", label: "Author", kind: "text" },
+    { key: "authorId", label: "Author id", kind: "text" },
+    { key: "bodyText", label: "Body", kind: "text" },
+    { key: "channelId", label: "Channel id", kind: "text" },
+    { key: "createdAt", label: "Created", kind: "date" },
+  ],
 };
