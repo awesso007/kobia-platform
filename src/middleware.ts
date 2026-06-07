@@ -43,6 +43,12 @@ const isPublicRoute = createRouteMatcher([
   "/api/track(.*)",
   "/api/unsubscribe(.*)",
   "/unsubscribe(.*)",
+  // Public Documents surfaces (Sprint 14): the e-signature signing page
+  // (/esign/[token]) and its submit endpoint, plus the document share viewer
+  // (/d/[token]). Tenant is resolved from a validated `?t=<slug>` query param.
+  "/esign(.*)",
+  "/api/esign(.*)",
+  "/d/(.*)",
   // Sprint 1: CRM shell is a stub with no tenant resolution yet (see
   // CONFLICTS.md, Conflict 2). Kept public so the shell renders during the
   // foundations sprint. Auth gating is added once tenant resolution is wired.
@@ -139,6 +145,8 @@ const NON_TENANT_SEGMENTS = new Set([
   "p",
   "track",
   "unsubscribe",
+  "esign",
+  "d",
   "_next",
 ]);
 
