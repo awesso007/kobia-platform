@@ -12,6 +12,7 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import type { PrismaClient } from "@/lib/db/generated/tenant";
+import { htmlToText } from "@/lib/documents/documents";
 
 export type IndexEntityType =
   | "LEAD"
@@ -28,7 +29,9 @@ export type IndexEntityType =
   | "EVENT"
   | "BOOKING_PAGE"
   | "LANDING_PAGE"
-  | "BROADCAST";
+  | "BROADCAST"
+  | "DOCUMENT"
+  | "DOC_FOLDER";
 
 type IndexDoc = {
   title: string;
@@ -193,6 +196,27 @@ async function buildDoc(
         title: r.name,
         subtitle: r.channel,
         body: r.subject ?? null,
+        ownerClerkUserId: r.createdById ?? null,
+      };
+    }
+    case "DOCUMENT": {
+      const r = await db.document.findUnique({ where: { id: entityId } });
+      if (!r) return null;
+      const excerpt = r.bodyHtml ? htmlToText(r.bodyHtml, 2000) : null;
+      return {
+        title: r.name,
+        subtitle: r.mimeType ?? r.kind,
+        body: excerpt,
+        ownerClerkUserId: r.createdById ?? null,
+      };
+    }
+    case "DOC_FOLDER": {
+      const r = await db.docFolder.findUnique({ where: { id: entityId } });
+      if (!r) return null;
+      return {
+        title: r.name,
+        subtitle: r.path,
+        body: null,
         ownerClerkUserId: r.createdById ?? null,
       };
     }

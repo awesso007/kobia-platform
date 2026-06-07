@@ -394,6 +394,33 @@ async function runAction(
       if (!res.ok) return { result: { kind: action.kind, status: "skipped", detail: res.error ?? "send failed" } };
       return { result: { kind: action.kind, status: "done", detail: `Booking link to ${to}` } };
     }
+    case "SEND_FOR_SIGNATURE": {
+      // Create an envelope for cfg.documentId with cfg.signers (name/email/order)
+      // and send it immediately. Skips silently if config is missing.
+      const documentId = String(cfg.documentId ?? "");
+      const rawSigners = Array.isArray(cfg.signers) ? (cfg.signers as Array<Record<string, unknown>>) : [];
+      const signers = rawSigners
+        .map((s, i) => ({
+          name: String(s.name ?? "").trim(),
+          email: String(s.email ?? "").trim(),
+          order: Number(s.order ?? i),
+        }))
+        .filter((s) => s.name && s.email);
+      if (!documentId || signers.length === 0) {
+        return { result: { kind: action.kind, status: "skipped", detail: "no document/signers" } };
+      }
+      const { createEnvelope, sendEnvelope } = await import("@/lib/documents/envelopes");
+      const name = renderTemplate(String(cfg.name ?? "Signature request"), ctx.record).trim() || "Signature request";
+      const envelopeId = await createEnvelope(db, {
+        name,
+        documentId,
+        message: cfg.message ? renderTemplate(String(cfg.message), ctx.record) : null,
+        signers,
+      });
+      const res = await sendEnvelope(db, envelopeId);
+      if (!res.ok) return { result: { kind: action.kind, status: "skipped", detail: res.detail } };
+      return { result: { kind: action.kind, status: "done", detail: res.detail } };
+    }
     case "SEND_BROADCAST": {
       // Enqueue an existing broadcast to its segment now. Recipient resolution +
       // unsubscribe dedupe happens in enqueueBroadcast; the broadcast-sender cron
