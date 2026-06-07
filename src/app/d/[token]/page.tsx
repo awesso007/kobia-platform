@@ -45,9 +45,9 @@ export default async function ShareViewerPage({
     if (!link || !isShareLinkLive(link)) return unavailable;
 
     if (link.password) {
-      if (!pw) return <Shell><PasswordGate token={params.token} tenant={tenant} /></Shell>;
+      if (!pw) return <Shell><PasswordGate tenant={tenant} /></Shell>;
       if (!verifySharePassword(pw, link.password)) {
-        return <Shell><PasswordGate token={params.token} tenant={tenant} error /></Shell>;
+        return <Shell><PasswordGate tenant={tenant} error /></Shell>;
       }
     }
 

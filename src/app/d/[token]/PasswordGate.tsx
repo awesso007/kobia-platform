@@ -9,7 +9,7 @@
  */
 import { useState } from "react";
 
-export function PasswordGate({ token, tenant, error }: { token: string; tenant: string; error?: boolean }) {
+export function PasswordGate({ tenant, error }: { tenant: string; error?: boolean }) {
   const [pw, setPw] = useState("");
 
   function onSubmit(e: React.FormEvent) {
