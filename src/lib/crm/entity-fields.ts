@@ -98,4 +98,13 @@ export const ENTITY_FIELDS: Record<AutomationEntityKind, EntityField[]> = {
     { key: "endAt", label: "End", kind: "date" },
     { key: "createdAt", label: "Created", kind: "date" },
   ],
+  TICKET: [
+    { key: "subject", label: "Subject", kind: "text" },
+    { key: "status", label: "Status", kind: "enum", options: ["NEW", "OPEN", "PENDING", "RESOLVED", "CLOSED"] },
+    { key: "priority", label: "Priority", kind: "enum", options: ["LOW", "NORMAL", "HIGH", "URGENT"] },
+    { key: "channel", label: "Channel", kind: "enum", options: ["EMAIL", "PORTAL", "PHONE", "CHAT", "MANUAL"] },
+    { key: "requesterEmail", label: "Requester email", kind: "text" },
+    { key: "assigneeId", label: "Assignee", kind: "text" },
+    { key: "createdAt", label: "Created", kind: "date" },
+  ],
 };

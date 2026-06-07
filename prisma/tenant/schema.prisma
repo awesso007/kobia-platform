@@ -122,6 +122,8 @@ enum SearchEntityType {
   BROADCAST
   DOCUMENT
   DOC_FOLDER
+  TICKET
+  KB_ARTICLE
 }
 
 enum SavedViewEntityType {
@@ -206,6 +208,8 @@ model Contact {
   company    Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
   deals      Deal[]
   activities CrmActivity[]
+  tickets    Ticket[]
+  portalSessions CustomerPortalSession[]
 
   @@index([companyId])
   @@index([lastName])
@@ -2157,4 +2161,271 @@ model EnvelopeAuditEvent {
   signer   EnvelopeSigner? @relation(fields: [signerId], references: [id], onDelete: SetNull)
 
   @@index([envelopeId])
+}
+
+// ----------------------------------------------------------------------------
+// Sprint 15: Helpdesk (ticketing + SLA + knowledge base + customer portal).
+// ----------------------------------------------------------------------------
+
+enum TicketStatus {
+  NEW
+  OPEN
+  PENDING
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TicketChannel {
+  EMAIL
+  PORTAL
+  PHONE
+  CHAT
+  MANUAL
+}
+
+enum TicketAuthorType {
+  AGENT
+  CUSTOMER
+  SYSTEM
+}
+
+enum TicketAuditEventType {
+  CREATED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  ASSIGNED
+  REPLIED
+  INTERNAL_NOTE
+  MERGED
+  CLOSED
+  REOPENED
+  SLA_BREACHED
+}
+
+enum KbStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum KbVisibility {
+  PUBLIC
+  INTERNAL
+  AUTHENTICATED
+}
+
+model Ticket {
+  id                 String         @id @default(cuid())
+  number             Int            @unique
+  subject            String
+  description        String
+  status             TicketStatus   @default(NEW)
+  priority           TicketPriority @default(NORMAL)
+  channel            TicketChannel  @default(MANUAL)
+  requesterContactId String?
+  requesterEmail     String
+  requesterName      String
+  assigneeId         String?
+  teamId             String?
+  categoryId         String?
+  slaPolicyId        String?
+  firstResponseDueAt DateTime?
+  resolveDueAt       DateTime?
+  firstResponseAt    DateTime?
+  resolvedAt         DateTime?
+  closedAt           DateTime?
+  tags               String[]       @default([])
+  customFieldsJson   Json?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  requesterContact Contact?         @relation(fields: [requesterContactId], references: [id], onDelete: SetNull)
+  team             Team?            @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  category         TicketCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  slaPolicy        SlaPolicy?       @relation(fields: [slaPolicyId], references: [id], onDelete: SetNull)
+  messages         TicketMessage[]
+  attachments      TicketAttachment[]
+  watchers         TicketWatcher[]
+  auditEvents      TicketAuditEvent[]
+
+  @@index([status, priority])
+  @@index([assigneeId])
+  @@index([teamId])
+  @@index([requesterEmail])
+  @@index([number])
+  @@index([categoryId])
+}
+
+model TicketMessage {
+  id          String           @id @default(cuid())
+  ticketId    String
+  authorType  TicketAuthorType
+  authorId    String?
+  authorName  String
+  authorEmail String?
+  bodyHtml    String
+  isInternal  Boolean          @default(false)
+  attachments Json?
+  createdAt   DateTime         @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+}
+
+model TicketAttachment {
+  id          String   @id @default(cuid())
+  ticketId    String
+  messageId   String?
+  name        String
+  mimeType    String
+  sizeBytes   Int      @default(0)
+  storageKey  String
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+}
+
+model Team {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  memberIdsJson Json
+  createdAt     DateTime @default(now())
+
+  tickets Ticket[]
+
+  @@index([name])
+}
+
+model TicketCategory {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  slaPolicyId String?
+  color       String?
+  createdAt   DateTime @default(now())
+
+  tickets Ticket[]
+
+  @@index([name])
+}
+
+model SlaPolicy {
+  id                   String   @id @default(cuid())
+  name                 String
+  description          String?
+  firstResponseMinutes Int      @default(60)
+  resolveMinutes       Int      @default(1440)
+  businessHoursOnly    Boolean  @default(false)
+  priorityOverrides    Json?
+  createdAt            DateTime @default(now())
+
+  tickets Ticket[]
+
+  @@index([name])
+}
+
+model TicketWatcher {
+  id        String   @id @default(cuid())
+  ticketId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@unique([ticketId, userId])
+  @@index([ticketId])
+}
+
+model KbArticle {
+  id              String       @id @default(cuid())
+  slug            String       @unique
+  title           String
+  bodyHtml        String
+  summary         String?
+  categoryId      String?
+  status          KbStatus     @default(DRAFT)
+  visibility      KbVisibility @default(PUBLIC)
+  authorId        String?
+  viewCount       Int          @default(0)
+  helpfulCount    Int          @default(0)
+  notHelpfulCount Int          @default(0)
+  publishedAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  category KbCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  feedback KbFeedback[]
+
+  @@index([slug])
+  @@index([categoryId])
+  @@index([status])
+}
+
+model KbCategory {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  order       Int      @default(0)
+  parentId    String?
+  createdAt   DateTime @default(now())
+
+  articles KbArticle[]
+
+  @@index([slug])
+}
+
+model KbFeedback {
+  id        String   @id @default(cuid())
+  articleId String
+  helpful   Boolean
+  comment   String?
+  createdAt DateTime @default(now())
+
+  article KbArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId])
+}
+
+model CustomerPortalSession {
+  id         String    @id @default(cuid())
+  contactId  String
+  email      String
+  token      String    @unique
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([contactId])
+}
+
+model TicketAuditEvent {
+  id           String               @id @default(cuid())
+  ticketId     String
+  actorType    TicketAuthorType
+  actorId      String?
+  event        TicketAuditEventType
+  oldValue     String?
+  newValue     String?
+  metadataJson Json?
+  createdAt    DateTime             @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
 }

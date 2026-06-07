@@ -82,6 +82,8 @@ async function loadRecordSnapshot(
       return (await db.calendarEvent.findUnique({ where: { id: entityId } })) as Record<string, unknown> | null;
     case "BOOKING":
       return (await db.booking.findUnique({ where: { id: entityId } })) as Record<string, unknown> | null;
+    case "TICKET":
+      return (await db.ticket.findUnique({ where: { id: entityId } })) as Record<string, unknown> | null;
     default:
       return null;
   }
@@ -448,6 +450,31 @@ async function runAction(
       // nothing to write here. Kept as an explicit no-op so the action appears in
       // the builder and documents intent.
       return { result: { kind: action.kind, status: "skipped", detail: "segments are dynamic; no-op" } };
+    }
+    case "CREATE_TICKET": {
+      // Open a support ticket from the trigger record. Requester defaults to the
+      // trigger record's email/name when present (contact/lead); cfg may override.
+      const subject = renderTemplate(String(cfg.subject ?? "New ticket"), ctx.record).trim() || "New ticket";
+      const description = renderTemplate(String(cfg.description ?? cfg.body ?? ""), ctx.record);
+      const requesterEmail = renderTemplate(String(cfg.requesterEmail ?? "{{record.email}}"), ctx.record).trim();
+      const requesterName =
+        renderTemplate(String(cfg.requesterName ?? "{{record.name}}"), ctx.record).trim() || requesterEmail || "Unknown";
+      if (!requesterEmail) return { result: { kind: action.kind, status: "skipped", detail: "no requester email" } };
+      const { createTicket } = await import("@/lib/helpdesk/tickets");
+      const id = await createTicket(db, {
+        subject,
+        description,
+        requesterEmail,
+        requesterName,
+        requesterContactId: ctx.entityType === "CONTACT" ? ctx.entityId : null,
+        priority: cfg.priority ? (String(cfg.priority) as never) : undefined,
+        teamId: cfg.teamId ? String(cfg.teamId) : null,
+        categoryId: cfg.categoryId ? String(cfg.categoryId) : null,
+        slaPolicyId: cfg.slaPolicyId ? String(cfg.slaPolicyId) : null,
+        channel: "MANUAL",
+        actorType: "SYSTEM",
+      });
+      return { result: { kind: action.kind, status: "done", detail: id } };
     }
     case "WAIT": {
       const minutes = Number(cfg.minutes ?? 0);

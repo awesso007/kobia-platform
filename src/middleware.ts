@@ -49,6 +49,14 @@ const isPublicRoute = createRouteMatcher([
   "/esign(.*)",
   "/api/esign(.*)",
   "/d/(.*)",
+  // Public Helpdesk surfaces (Sprint 15): the customer portal (/portal, already
+  // listed above), the public knowledge base (/kb, /kb/[slug]), the portal login
+  // + ticket APIs, and the KB feedback API are intentionally unauthenticated.
+  // Tenant is resolved from a validated `?t=<slug>` query param; the portal also
+  // gates ticket reads/writes by a signed customer-session cookie.
+  "/kb(.*)",
+  "/api/portal(.*)",
+  "/api/kb(.*)",
   // Sprint 1: CRM shell is a stub with no tenant resolution yet (see
   // CONFLICTS.md, Conflict 2). Kept public so the shell renders during the
   // foundations sprint. Auth gating is added once tenant resolution is wired.
@@ -147,6 +155,7 @@ const NON_TENANT_SEGMENTS = new Set([
   "unsubscribe",
   "esign",
   "d",
+  "kb",
   "_next",
 ]);
 
