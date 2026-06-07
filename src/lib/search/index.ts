@@ -31,7 +31,9 @@ export type IndexEntityType =
   | "LANDING_PAGE"
   | "BROADCAST"
   | "DOCUMENT"
-  | "DOC_FOLDER";
+  | "DOC_FOLDER"
+  | "TICKET"
+  | "KB_ARTICLE";
 
 type IndexDoc = {
   title: string;
@@ -218,6 +220,27 @@ async function buildDoc(
         subtitle: r.path,
         body: null,
         ownerClerkUserId: r.createdById ?? null,
+      };
+    }
+    case "TICKET": {
+      const r = await db.ticket.findUnique({ where: { id: entityId } });
+      if (!r) return null;
+      return {
+        title: `#${r.number} ${r.subject}`,
+        subtitle: `${r.status} - ${r.priority}`,
+        body: join(r.description, r.requesterName, r.requesterEmail),
+        ownerClerkUserId: r.assigneeId ?? null,
+      };
+    }
+    case "KB_ARTICLE": {
+      const r = await db.kbArticle.findUnique({ where: { id: entityId } });
+      if (!r) return null;
+      const excerpt = r.bodyHtml ? htmlToText(r.bodyHtml, 2000) : null;
+      return {
+        title: r.title,
+        subtitle: `/kb/${r.slug}`,
+        body: join(r.summary, excerpt),
+        ownerClerkUserId: r.authorId ?? null,
       };
     }
     default:
