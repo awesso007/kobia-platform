@@ -19,6 +19,7 @@
 import type { PrismaClient } from "@/lib/db/generated/tenant";
 import { reindex } from "@/lib/search";
 import { computeDueDates, type Priority, type SlaPolicyShape } from "./sla";
+export type { Priority } from "./sla";
 
 type Db = PrismaClient;
 
