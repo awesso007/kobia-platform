@@ -65,7 +65,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { siteId: st
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { siteId: string; pageId: string } }) {
+export async function DELETE(req: NextRequest, _ctx: { params: { siteId: string; pageId: string } }) {
   try {
     await requirePermission("record:delete");
     const blockId = req.nextUrl.searchParams.get("blockId") ?? "";
