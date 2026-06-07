@@ -18,6 +18,7 @@ import {
   CheckSquare,
   CalendarDays,
   Megaphone,
+  LifeBuoy,
   Settings,
 } from "lucide-react";
 
@@ -41,6 +42,7 @@ export const crmNav: CrmNavItem[] = [
   { key: "files", label: "Files", href: "/app/files", icon: FolderOpen },
   { key: "documents", label: "Documents", href: "/app/documents", icon: FileText },
   { key: "marketing", label: "Marketing", href: "/app/marketing", icon: Megaphone },
+  { key: "helpdesk", label: "Helpdesk", href: "/app/helpdesk", icon: LifeBuoy },
   { key: "automations", label: "Automations", href: "/app/automations", icon: Workflow },
   { key: "reports", label: "Reports", href: "/app/reports", icon: BarChart3 },
   { key: "settings", label: "Settings", href: "/app/settings", icon: Settings },
