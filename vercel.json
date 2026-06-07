@@ -51,6 +51,10 @@
     {
       "path": "/api/cron/chat-presence-cleanup",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/workflow-resumer",
+      "schedule": "15 12 * * *"
     }
   ]
 }
