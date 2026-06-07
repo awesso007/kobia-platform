@@ -33,7 +33,8 @@ export type IndexEntityType =
   | "DOCUMENT"
   | "DOC_FOLDER"
   | "TICKET"
-  | "KB_ARTICLE";
+  | "KB_ARTICLE"
+  | "CHAT_MESSAGE";
 
 type IndexDoc = {
   title: string;
@@ -240,6 +241,19 @@ async function buildDoc(
         title: r.title,
         subtitle: `/kb/${r.slug}`,
         body: join(r.summary, excerpt),
+        ownerClerkUserId: r.authorId ?? null,
+      };
+    }
+    case "CHAT_MESSAGE": {
+      const r = await db.chatMessage.findUnique({
+        where: { id: entityId },
+        include: { channel: true },
+      });
+      if (!r || r.deletedAt) return null;
+      return {
+        title: r.bodyText.slice(0, 80),
+        subtitle: join(r.authorName, r.channel?.name ? `#${r.channel.name}` : null),
+        body: r.bodyText,
         ownerClerkUserId: r.authorId ?? null,
       };
     }
