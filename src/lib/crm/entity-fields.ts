@@ -114,4 +114,11 @@ export const ENTITY_FIELDS: Record<AutomationEntityKind, EntityField[]> = {
     { key: "channelId", label: "Channel id", kind: "text" },
     { key: "createdAt", label: "Created", kind: "date" },
   ],
+  SITE_PAGE: [
+    { key: "title", label: "Title", kind: "text" },
+    { key: "slug", label: "Slug", kind: "text" },
+    { key: "siteId", label: "Site id", kind: "text" },
+    { key: "published", label: "Published", kind: "boolean" },
+    { key: "createdAt", label: "Created", kind: "date" },
+  ],
 };

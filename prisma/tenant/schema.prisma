@@ -2572,3 +2572,130 @@ model ChatNotificationPref {
   @@unique([userId, channelId])
   @@index([channelId])
 }
+
+// Sprint 17: Sites / Landing Page Builder - multi-page marketing sites with
+// reusable blocks, themes, custom domains, and lightweight analytics.
+
+enum SiteBlockType {
+  HERO
+  TEXT
+  IMAGE
+  CTA
+  FEATURES
+  TESTIMONIAL
+  FAQ
+  FORM_EMBED
+  HTML
+  SPACER
+  GALLERY
+  VIDEO
+}
+
+enum SiteAnalyticsEvent {
+  PAGEVIEW
+  CLICK
+  FORM_SUBMIT
+}
+
+model SiteTheme {
+  id        String   @id @default(cuid())
+  name      String
+  isDefault Boolean  @default(false)
+  tokens    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sites Site[]
+
+  @@index([isDefault])
+}
+
+model Site {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  description  String?
+  theme        Json?
+  themeId      String?
+  faviconUrl   String?
+  customDomain String?  @unique
+  published    Boolean  @default(false)
+  homePageId   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  siteTheme SiteTheme?      @relation(fields: [themeId], references: [id], onDelete: SetNull)
+  pages     SitePage[]
+  domains   SiteDomain[]
+  analytics SiteAnalytics[]
+
+  @@index([published])
+}
+
+model SitePage {
+  id             String   @id @default(cuid())
+  siteId         String
+  slug           String
+  title          String
+  seoTitle       String?
+  seoDescription String?
+  ogImageUrl     String?
+  published      Boolean  @default(false)
+  order          Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  site   Site        @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  blocks SiteBlock[]
+
+  @@unique([siteId, slug])
+  @@index([siteId])
+  @@index([published])
+}
+
+model SiteBlock {
+  id        String        @id @default(cuid())
+  pageId    String
+  type      SiteBlockType
+  order     Int           @default(0)
+  data      Json
+  visible   Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  page SitePage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId])
+}
+
+model SiteDomain {
+  id                String   @id @default(cuid())
+  siteId            String
+  domain            String   @unique
+  verified          Boolean  @default(false)
+  verificationToken String
+  createdAt         DateTime @default(now())
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId])
+}
+
+model SiteAnalytics {
+  id        String             @id @default(cuid())
+  siteId    String
+  pageId    String?
+  eventType SiteAnalyticsEvent @default(PAGEVIEW)
+  path      String?
+  referrer  String?
+  userAgent String?
+  ipHash    String?
+  createdAt DateTime           @default(now())
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId])
+  @@index([pageId])
+  @@index([eventType])
+  @@index([createdAt])
+}
