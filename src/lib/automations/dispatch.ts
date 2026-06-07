@@ -646,12 +646,52 @@ async function executeSequence(
 }
 
 /**
+ * Sprint 18: start any ACTIVE Workflow whose entryTriggerType equals the event
+ * type. An optional entryTriggerFilter (a single `field op value` expression) is
+ * evaluated against the event record/payload; a workflow whose filter does not
+ * match is skipped. Each match kicks off a WorkflowRun. Never throws.
+ */
+async function startMatchingWorkflows(db: Db, event: AutomationEvent): Promise<void> {
+  try {
+    const workflows = await db.workflow.findMany({
+      where: { status: "ACTIVE", entryTriggerType: event.type },
+      select: { id: true, entryTriggerFilter: true },
+    });
+    if (workflows.length === 0) return;
+
+    const { startRun } = await import("@/lib/workflows/runner");
+    const { evaluateExpression } = await import("@/lib/workflows/workflow-utils");
+
+    const context: Record<string, unknown> = {
+      entityType: event.entityType,
+      entityId: event.entityId,
+      record: event.record ?? {},
+      payload: event.payload ?? {},
+    };
+
+    for (const wf of workflows) {
+      const filter = wf.entryTriggerFilter;
+      if (typeof filter === "string" && filter.trim() && !evaluateExpression(filter, context)) continue;
+      await startRun(db, wf.id, context);
+    }
+  } catch (err) {
+    console.error("[dispatchAutomation] workflow trigger failed", err);
+  }
+}
+
+/**
  * Match and run all enabled automations for an event. Safe to call from any
  * CRUD action; swallows its own errors.
  */
 export async function dispatchAutomation(event: AutomationEvent, injectedDb?: Db): Promise<void> {
   try {
     const db = injectedDb ?? getTenantDb().db;
+
+    // Sprint 18: also start any ACTIVE visual workflows whose entry trigger
+    // matches this event. Workflows run independently of classic automations and
+    // must not block them, so failures here are swallowed.
+    await startMatchingWorkflows(db, event);
+
     const automations = await db.automation.findMany({
       where: {
         enabled: true,
