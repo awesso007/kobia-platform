@@ -7,7 +7,8 @@ import Link from "next/link";
 import { listLandingPages } from "../queries";
 import { NoTenantError } from "@/lib/db/get-tenant-db";
 import { CrmError } from "../../CrmError";
-import { PageHeader, Card, EmptyState, RowLink, MarketingBadge, fmtDate } from "../MarketingUI";
+import { PageHeader, Card, EmptyState, RowLink, MarketingBadge } from "../MarketingUI";
+import { fmtDate } from "../marketing-utils";
 
 export const dynamic = "force-dynamic";
 

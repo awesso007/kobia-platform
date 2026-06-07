@@ -94,8 +94,3 @@ export function RowLink({ href, children }: { href: string; children: React.Reac
   );
 }
 
-export function fmtDate(d: Date | string | null | undefined): string {
-  if (!d) return "-";
-  const date = typeof d === "string" ? new Date(d) : d;
-  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
