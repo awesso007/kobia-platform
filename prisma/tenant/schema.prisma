@@ -120,6 +120,8 @@ enum SearchEntityType {
   BOOKING_PAGE
   LANDING_PAGE
   BROADCAST
+  DOCUMENT
+  DOC_FOLDER
 }
 
 enum SavedViewEntityType {
@@ -1966,4 +1968,193 @@ model Unsubscribe {
   reason    String?
   source    UnsubscribeSource @default(MANUAL)
   createdAt DateTime          @default(now())
+}
+
+// ---------------------------------------------------------------- Sprint 14: Documents
+
+enum DocumentKind {
+  FILE
+  DOC
+}
+
+enum DocumentPermissionLevel {
+  VIEW
+  EDIT
+  OWNER
+}
+
+enum EnvelopeStatus {
+  DRAFT
+  SENT
+  COMPLETED
+  VOIDED
+  DECLINED
+}
+
+enum EnvelopeSignerStatus {
+  PENDING
+  SENT
+  VIEWED
+  SIGNED
+  DECLINED
+}
+
+enum EnvelopeAuditEventType {
+  CREATED
+  SENT
+  VIEWED
+  SIGNED
+  DECLINED
+  VOIDED
+  COMPLETED
+}
+
+model DocFolder {
+  id          String   @id @default(cuid())
+  name        String
+  parentId    String?
+  path        String
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parent      DocFolder?  @relation("DocFolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    DocFolder[] @relation("DocFolderTree")
+  documents   Document[]
+  permissions DocumentPermission[]
+
+  @@index([parentId])
+  @@index([path])
+}
+
+model Document {
+  id          String       @id @default(cuid())
+  name        String
+  folderId    String?
+  kind        DocumentKind @default(FILE)
+  mimeType    String?
+  sizeBytes   Int          @default(0)
+  storageKey  String?
+  bodyHtml    String?
+  version     Int          @default(1)
+  isLocked    Boolean      @default(false)
+  lockedById  String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  folder      DocFolder?           @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  versions    DocumentVersion[]
+  shareLinks  DocumentShareLink[]
+  permissions DocumentPermission[]
+  envelopes   Envelope[]
+
+  @@index([folderId])
+}
+
+model DocumentVersion {
+  id          String   @id @default(cuid())
+  documentId  String
+  version     Int
+  name        String
+  mimeType    String?
+  sizeBytes   Int      @default(0)
+  storageKey  String?
+  bodyHtml    String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+}
+
+model DocumentShareLink {
+  id            String    @id @default(cuid())
+  documentId    String
+  token         String    @unique
+  password      String?
+  expiresAt     DateTime?
+  allowDownload Boolean   @default(true)
+  createdById   String?
+  createdAt     DateTime  @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([token])
+}
+
+model DocumentPermission {
+  id         String                  @id @default(cuid())
+  documentId String?
+  folderId   String?
+  userId     String?
+  role       String?
+  permission DocumentPermissionLevel @default(VIEW)
+  createdAt  DateTime                @default(now())
+
+  document Document?  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  folder   DocFolder? @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([folderId])
+}
+
+model Envelope {
+  id          String         @id @default(cuid())
+  name        String
+  status      EnvelopeStatus @default(DRAFT)
+  documentId  String
+  message     String?
+  createdById String?
+  sentAt      DateTime?
+  completedAt DateTime?
+  voidedAt    DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  document    Document             @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  signers     EnvelopeSigner[]
+  auditEvents EnvelopeAuditEvent[]
+
+  @@index([documentId])
+  @@index([status])
+}
+
+model EnvelopeSigner {
+  id          String               @id @default(cuid())
+  envelopeId  String
+  name        String
+  email       String
+  order       Int                  @default(0)
+  status      EnvelopeSignerStatus @default(PENDING)
+  signedAt    DateTime?
+  declinedAt  DateTime?
+  token       String               @unique
+  fields      Json
+  signatureData String?
+  reminderSentAt DateTime?
+
+  envelope    Envelope             @relation(fields: [envelopeId], references: [id], onDelete: Cascade)
+  auditEvents EnvelopeAuditEvent[]
+
+  @@index([envelopeId])
+  @@index([token])
+}
+
+model EnvelopeAuditEvent {
+  id         String                 @id @default(cuid())
+  envelopeId String
+  signerId   String?
+  event      EnvelopeAuditEventType
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime               @default(now())
+
+  envelope Envelope        @relation(fields: [envelopeId], references: [id], onDelete: Cascade)
+  signer   EnvelopeSigner? @relation(fields: [signerId], references: [id], onDelete: SetNull)
+
+  @@index([envelopeId])
 }
