@@ -2699,3 +2699,105 @@ model SiteAnalytics {
   @@index([eventType])
   @@index([createdAt])
 }
+
+// ── Sprint 18: Workflows / Visual Automation Builder ───────────────────────────
+
+enum WorkflowStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum WorkflowRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELED
+  WAITING
+}
+
+enum WorkflowStepStatus {
+  SUCCESS
+  FAILED
+  SKIPPED
+  WAITING
+}
+
+enum WorkflowVariableType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+}
+
+model Workflow {
+  id                 String         @id @default(cuid())
+  name               String
+  description        String?
+  status             WorkflowStatus @default(DRAFT)
+  version            Int            @default(1)
+  graph              Json
+  entryTriggerType   String
+  entryTriggerFilter Json?
+  createdById        String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  runs      WorkflowRun[]
+  variables WorkflowVariable[]
+
+  @@index([status])
+  @@index([entryTriggerType])
+}
+
+model WorkflowRun {
+  id            String            @id @default(cuid())
+  workflowId    String
+  triggeredBy   Json?
+  status        WorkflowRunStatus @default(RUNNING)
+  startedAt     DateTime          @default(now())
+  completedAt   DateTime?
+  currentNodeId String?
+  resumeAt      DateTime?
+  context       Json?
+  error         String?
+
+  workflow Workflow          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  stepLogs WorkflowStepLog[]
+
+  @@index([workflowId])
+  @@index([status])
+  @@index([resumeAt])
+}
+
+model WorkflowStepLog {
+  id          String             @id @default(cuid())
+  runId       String
+  nodeId      String
+  nodeType    String
+  status      WorkflowStepStatus
+  input       Json?
+  output      Json?
+  error       String?
+  startedAt   DateTime           @default(now())
+  completedAt DateTime?
+
+  run WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}
+
+model WorkflowVariable {
+  id           String               @id @default(cuid())
+  workflowId   String
+  name         String
+  type         WorkflowVariableType @default(STRING)
+  defaultValue String?
+  createdAt    DateTime             @default(now())
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, name])
+  @@index([workflowId])
+}
