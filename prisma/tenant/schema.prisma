@@ -124,6 +124,7 @@ enum SearchEntityType {
   DOC_FOLDER
   TICKET
   KB_ARTICLE
+  CHAT_MESSAGE
 }
 
 enum SavedViewEntityType {
@@ -2428,4 +2429,146 @@ model TicketAuditEvent {
   ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([ticketId])
+}
+
+// ---------------------------------------------------------------------------
+// Sprint 16: Chat / internal messaging. Channels (public/private/DM), messages
+// with threads + mentions + reactions, presence, pins, and per-channel
+// notification prefs. Authored by Membership.clerkUserId (stored as authorId).
+// ---------------------------------------------------------------------------
+
+enum ChatChannelKind {
+  PUBLIC
+  PRIVATE
+  DM
+  GROUP_DM
+}
+
+enum ChatMemberRole {
+  ADMIN
+  MEMBER
+}
+
+enum ChatPresenceStatus {
+  ONLINE
+  AWAY
+  DND
+  OFFLINE
+}
+
+enum ChatNotificationLevel {
+  ALL
+  MENTIONS
+  NONE
+}
+
+model ChatChannel {
+  id          String          @id @default(cuid())
+  name        String
+  slug        String          @unique
+  description String?
+  kind        ChatChannelKind @default(PUBLIC)
+  isArchived  Boolean         @default(false)
+  createdById String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  members        ChatMember[]
+  messages       ChatMessage[]
+  pinnedMessages ChatPinnedMessage[]
+  notifPrefs     ChatNotificationPref[]
+
+  @@index([kind])
+  @@index([isArchived])
+}
+
+model ChatMember {
+  id         String         @id @default(cuid())
+  channelId  String
+  userId     String
+  role       ChatMemberRole @default(MEMBER)
+  joinedAt   DateTime       @default(now())
+  lastReadAt DateTime?
+  mutedUntil DateTime?
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+  @@index([channelId])
+  @@index([userId])
+}
+
+model ChatMessage {
+  id          String    @id @default(cuid())
+  channelId   String
+  parentId    String?
+  authorId    String
+  authorName  String
+  bodyText    String
+  bodyHtml    String?
+  attachments Json?
+  mentionsJson Json?
+  editedAt    DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  channel        ChatChannel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  parent         ChatMessage?        @relation("ChatThread", fields: [parentId], references: [id], onDelete: SetNull)
+  replies        ChatMessage[]       @relation("ChatThread")
+  reactions      ChatReaction[]
+  pinnedMessages ChatPinnedMessage[]
+
+  @@index([channelId])
+  @@index([parentId])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model ChatReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+}
+
+model ChatPresence {
+  id           String             @id @default(cuid())
+  userId       String             @unique
+  status       ChatPresenceStatus @default(OFFLINE)
+  customStatus String?
+  lastSeenAt   DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
+model ChatPinnedMessage {
+  id         String   @id @default(cuid())
+  channelId  String
+  messageId  String
+  pinnedById String?
+  createdAt  DateTime @default(now())
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, messageId])
+  @@index([channelId])
+}
+
+model ChatNotificationPref {
+  id        String                @id @default(cuid())
+  userId    String
+  channelId String
+  level     ChatNotificationLevel @default(ALL)
+  updatedAt DateTime              @updatedAt
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channelId])
+  @@index([channelId])
 }
