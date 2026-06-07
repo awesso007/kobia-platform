@@ -183,22 +183,22 @@ export async function createEnvelopeAction(input: {
   if (!input.documentId) throw new Error("A document is required.");
   const signers = (input.signers ?? []).filter((s) => s.name?.trim() && s.email?.trim());
   if (signers.length === 0) throw new Error("At least one signer is required.");
-  const { db } = getTenantDb();
+  const { db, tenantId } = getTenantDb();
   const id = await createEnvelopeLib(db, {
     name,
     documentId: input.documentId,
     message: input.message ?? null,
     signers,
   });
-  if (input.send) await sendEnvelopeLib(db, id);
+  if (input.send) await sendEnvelopeLib(db, id, tenantId);
   revalidatePath("/app/documents/envelopes");
   return { id };
 }
 
 export async function sendEnvelopeAction(id: string): Promise<{ detail: string }> {
   await requirePermission("record:update");
-  const { db } = getTenantDb();
-  const res = await sendEnvelopeLib(db, id);
+  const { db, tenantId } = getTenantDb();
+  const res = await sendEnvelopeLib(db, id, tenantId);
   if (!res.ok) throw new Error(res.detail);
   revalidatePath("/app/documents/envelopes");
   revalidatePath(`/app/documents/envelopes/${id}`);

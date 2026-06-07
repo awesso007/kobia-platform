@@ -47,6 +47,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
       fields: body.fields,
       ipAddress,
       userAgent,
+      tenantSlug: tenant,
     });
     if (!res.ok) return NextResponse.json({ ok: false, error: res.detail }, { status: 400 });
     return NextResponse.json({ ok: true, completed: res.completed ?? false });
