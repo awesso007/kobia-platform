@@ -12,7 +12,7 @@
 import { revalidatePath } from "next/cache";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { requirePermission } from "@/lib/rbac/require-permission";
-import { reindex, removeFromIndex } from "@/lib/search";
+import { removeFromIndex } from "@/lib/search";
 import {
   createTicket as createTicketLib,
   addMessage,
