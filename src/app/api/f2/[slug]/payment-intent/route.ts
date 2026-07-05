@@ -30,7 +30,7 @@ export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS });
 }
 
-export async function POST(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function POST(req: NextRequest, _ctx: { params: { slug: string } }) {
   const tenantSlug = sanitizeSlug(req.nextUrl.searchParams.get("t"));
   if (!tenantSlug) {
     return NextResponse.json({ ok: false, error: "Missing or invalid tenant." }, { status: 400, headers: CORS });
