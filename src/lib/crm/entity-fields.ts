@@ -121,4 +121,9 @@ export const ENTITY_FIELDS: Record<AutomationEntityKind, EntityField[]> = {
     { key: "published", label: "Published", kind: "boolean" },
     { key: "createdAt", label: "Created", kind: "date" },
   ],
+  FORM_V2: [
+    { key: "formId", label: "Form id", kind: "text" },
+    { key: "slug", label: "Form slug", kind: "text" },
+    { key: "leadId", label: "Lead id", kind: "text" },
+  ],
 };

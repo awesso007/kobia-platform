@@ -2801,3 +2801,151 @@ model WorkflowVariable {
   @@unique([workflowId, name])
   @@index([workflowId])
 }
+
+// Sprint 19: Forms 2.0. A richer form builder (multi-step wizards, conditional
+// visibility, calculations, payment fields) in a NEW namespace so the Sprint 5
+// simple Form/FormSubmission models keep serving legacy /forms/[slug].
+
+enum FormV2Status {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum FormFieldType {
+  SHORT_TEXT
+  LONG_TEXT
+  EMAIL
+  PHONE
+  NUMBER
+  DATE
+  DATETIME
+  SELECT
+  MULTISELECT
+  RADIO
+  CHECKBOX
+  FILE
+  RATING
+  SIGNATURE
+  HIDDEN
+  CALCULATED
+  PAYMENT
+  HEADING
+  PARAGRAPH
+}
+
+enum FormV2SubmissionStatus {
+  PENDING
+  COMPLETED
+  PAID
+  FAILED
+}
+
+enum FormV2AnalyticsEvent {
+  VIEW
+  STEP_ADVANCE
+  STEP_BACK
+  SUBMIT_ATTEMPT
+  SUBMIT_SUCCESS
+  PAYMENT_INIT
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+}
+
+model FormV2 {
+  id                String       @id @default(cuid())
+  name              String
+  slug              String       @unique
+  description       String?
+  status            FormV2Status @default(DRAFT)
+  successMessage    String?
+  redirectUrl       String?
+  submitButtonLabel String       @default("Submit")
+  theme             Json?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  steps       FormStep[]
+  fields      FormField[]
+  submissions FormV2Submission[]
+  analytics   FormV2Analytics[]
+
+  @@index([status])
+}
+
+model FormStep {
+  id          String  @id @default(cuid())
+  formId      String
+  order       Int     @default(0)
+  title       String
+  description String?
+
+  form   FormV2      @relation(fields: [formId], references: [id], onDelete: Cascade)
+  fields FormField[]
+
+  @@index([formId])
+}
+
+model FormField {
+  id             String        @id @default(cuid())
+  formId         String
+  stepId         String?
+  order          Int           @default(0)
+  key            String
+  label          String
+  type           FormFieldType @default(SHORT_TEXT)
+  required       Boolean       @default(false)
+  placeholder    String?
+  helpText       String?
+  options        Json?
+  validation     Json?
+  defaultValue   String?
+  calculation    String?
+  paymentAmount  Int?
+  paymentCurrency String       @default("USD")
+  paymentDescription String?
+  visibilityRule Json?
+
+  form FormV2    @relation(fields: [formId], references: [id], onDelete: Cascade)
+  step FormStep? @relation(fields: [stepId], references: [id], onDelete: SetNull)
+
+  @@unique([formId, key])
+  @@index([formId])
+  @@index([stepId])
+}
+
+model FormV2Submission {
+  id              String                 @id @default(cuid())
+  formId          String
+  status          FormV2SubmissionStatus @default(PENDING)
+  data            Json
+  meta            Json?
+  leadId          String?
+  contactId       String?
+  amountCents     Int?
+  currency        String                 @default("USD")
+  paymentIntentId String?
+  paidAt          DateTime?
+  createdAt       DateTime               @default(now())
+
+  form FormV2 @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId])
+  @@index([status])
+}
+
+model FormV2Analytics {
+  id        String               @id @default(cuid())
+  formId    String
+  stepId    String?
+  event     FormV2AnalyticsEvent
+  path      String?
+  referrer  String?
+  ipHash    String?
+  createdAt DateTime             @default(now())
+
+  form FormV2 @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId])
+  @@index([event])
+}
