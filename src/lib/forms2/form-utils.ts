@@ -343,6 +343,37 @@ export function formatMoneyCents(cents: number | null | undefined, currency = "U
   }
 }
 
+// Serializable shapes passed from the server page to the public client renderer.
+export type PublicField = {
+  id: string;
+  stepId: string | null;
+  order: number;
+  key: string;
+  label: string;
+  type: FieldType;
+  required: boolean;
+  placeholder: string | null;
+  helpText: string | null;
+  options: unknown;
+  validation: unknown;
+  defaultValue: string | null;
+  calculation: string | null;
+  paymentAmount: number | null;
+  paymentCurrency: string;
+  paymentDescription: string | null;
+  visibilityRule: unknown;
+};
+
+export type PublicStep = { id: string; order: number; title: string; description: string | null };
+
+export type PublicForm = {
+  name: string;
+  description: string | null;
+  successMessage: string | null;
+  redirectUrl: string | null;
+  submitButtonLabel: string;
+};
+
 export type OptionItem = { label: string; value: string };
 
 /** Normalize a field's options json into a clean {label,value}[] list. */
