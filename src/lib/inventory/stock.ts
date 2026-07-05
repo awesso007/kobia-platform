@@ -291,3 +291,28 @@ export async function poReceive(
   }
   return { status };
 }
+
+/**
+ * Scan every StockItem at or below its low-stock threshold and fire STOCK_LOW
+ * for the ones not already notified within the dedup window. Used by the
+ * low-stock cron. Returns the number of items notified.
+ */
+export async function checkLowStock(db: Db, opts?: { dedupHours?: number }): Promise<number> {
+  const dedupMs = (opts?.dedupHours ?? 20) * 60 * 60 * 1000;
+  const cutoff = new Date(Date.now() - dedupMs);
+  const items = await db.stockItem.findMany({
+    select: { id: true, productId: true, warehouseId: true, quantity: true, lowStockThreshold: true, lastLowStockNotifiedAt: true },
+  });
+  const events: LowStockEvent[] = items
+    .filter((s) => s.quantity <= s.lowStockThreshold)
+    .filter((s) => !s.lastLowStockNotifiedAt || s.lastLowStockNotifiedAt < cutoff)
+    .map((s) => ({
+      stockItemId: s.id,
+      productId: s.productId,
+      warehouseId: s.warehouseId,
+      quantity: s.quantity,
+      lowStockThreshold: s.lowStockThreshold,
+    }));
+  if (events.length > 0) await fireLowStock(db, events);
+  return events.length;
+}

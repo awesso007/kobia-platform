@@ -55,6 +55,10 @@
     {
       "path": "/api/cron/workflow-resumer",
       "schedule": "15 12 * * *"
+    },
+    {
+      "path": "/api/cron/low-stock-checker",
+      "schedule": "30 12 * * *"
     }
   ]
 }
