@@ -37,6 +37,7 @@ export type Action =
   | "customfield:manage"
   | "tag:manage"
   | "form:manage"
+  | "inventory:manage"
   | "email:manage"
   | "telephony:manage"
   | "member:manage"
@@ -49,20 +50,20 @@ const MATRIX: Record<Role, Set<Action>> = {
   OWNER: new Set<Action>([
     "record:read", "record:create", "record:update", "record:delete",
     "activity:create", "report:run", "report:manage",
-    "automation:manage", "customfield:manage", "tag:manage", "form:manage",
+    "automation:manage", "customfield:manage", "tag:manage", "form:manage", "inventory:manage",
     "email:manage", "telephony:manage",
     "member:manage", "billing:manage", "workspace:manage", "tenant:delete",
   ]),
   ADMIN: new Set<Action>([
     "record:read", "record:create", "record:update", "record:delete",
     "activity:create", "report:run", "report:manage",
-    "automation:manage", "customfield:manage", "tag:manage", "form:manage",
+    "automation:manage", "customfield:manage", "tag:manage", "form:manage", "inventory:manage",
     "email:manage", "telephony:manage",
     "member:manage", "workspace:manage",
   ]),
   MEMBER: new Set<Action>([
     "record:read", "record:create", "record:update",
-    "activity:create", "report:run", "email:manage", "telephony:manage",
+    "activity:create", "report:run", "email:manage", "telephony:manage", "inventory:manage",
   ]),
   VIEWER: new Set<Action>([
     "record:read", "report:run",

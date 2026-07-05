@@ -1151,14 +1151,23 @@ model Product {
   active         Boolean     @default(true)
   category       String?
   sortOrder      Int         @default(0)
+  barcode        String?
+  trackInventory Boolean     @default(false)
+  weightGrams    Int?
+  reorderPoint   Int?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  dealLineItems  DealLineItem[]
-  quoteLineItems QuoteLineItem[]
+  dealLineItems      DealLineItem[]
+  quoteLineItems     QuoteLineItem[]
+  stockItems         StockItem[]
+  stockMovements     StockMovement[]
+  transferItems      StockTransferItem[]
+  purchaseOrderItems PurchaseOrderItem[]
 
   @@index([sku])
   @@index([active])
+  @@index([barcode])
 }
 
 model DealLineItem {
@@ -2948,4 +2957,190 @@ model FormV2Analytics {
 
   @@index([formId])
   @@index([event])
+}
+
+// Sprint 20: Inventory / Warehouse.
+enum StockMovementType {
+  RECEIPT
+  SHIPMENT
+  ADJUSTMENT
+  TRANSFER_OUT
+  TRANSFER_IN
+  RETURN
+}
+
+enum StockTransferStatus {
+  DRAFT
+  PENDING
+  IN_TRANSIT
+  RECEIVED
+  CANCELED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SENT
+  PARTIAL
+  RECEIVED
+  CANCELED
+}
+
+model Warehouse {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  address   String?
+  city      String?
+  region    String?
+  country   String?
+  isDefault Boolean  @default(false)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stockItems     StockItem[]
+  movements      StockMovement[]
+  transfersFrom  StockTransfer[] @relation("TransferFrom")
+  transfersTo    StockTransfer[] @relation("TransferTo")
+  purchaseOrders PurchaseOrder[]
+
+  @@index([active])
+}
+
+model StockItem {
+  id                     String    @id @default(cuid())
+  productId              String
+  warehouseId            String
+  quantity               Int       @default(0)
+  lowStockThreshold      Int       @default(10)
+  reservedQuantity       Int       @default(0)
+  locationCode           String?
+  lastLowStockNotifiedAt DateTime?
+  updatedAt              DateTime  @updatedAt
+
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, warehouseId])
+  @@index([warehouseId])
+  @@index([productId])
+}
+
+model StockMovement {
+  id            String            @id @default(cuid())
+  productId     String
+  warehouseId   String
+  type          StockMovementType
+  quantity      Int
+  unitCostCents Int?
+  referenceType String?
+  referenceId   String?
+  note          String?
+  createdById   String?
+  createdAt     DateTime          @default(now())
+
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model StockTransfer {
+  id              String              @id @default(cuid())
+  transferNumber  String              @unique
+  fromWarehouseId String
+  toWarehouseId   String
+  status          StockTransferStatus @default(DRAFT)
+  notes           String?
+  createdById     String?
+  createdAt       DateTime            @default(now())
+  sentAt          DateTime?
+  receivedAt      DateTime?
+
+  fromWarehouse Warehouse           @relation("TransferFrom", fields: [fromWarehouseId], references: [id])
+  toWarehouse   Warehouse           @relation("TransferTo", fields: [toWarehouseId], references: [id])
+  items         StockTransferItem[]
+
+  @@index([status])
+  @@index([fromWarehouseId])
+  @@index([toWarehouseId])
+}
+
+model StockTransferItem {
+  id               String @id @default(cuid())
+  transferId       String
+  productId        String
+  quantity         Int
+  receivedQuantity Int    @default(0)
+
+  transfer StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  product  Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([transferId])
+  @@index([productId])
+}
+
+model Vendor {
+  id           String   @id @default(cuid())
+  name         String
+  email        String?
+  phone        String?
+  contactName  String?
+  address      String?
+  city         String?
+  region       String?
+  country      String?
+  taxId        String?
+  paymentTerms String?
+  notes        String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+
+  @@index([active])
+}
+
+model PurchaseOrder {
+  id            String              @id @default(cuid())
+  poNumber      String              @unique
+  vendorId      String
+  warehouseId   String
+  status        PurchaseOrderStatus @default(DRAFT)
+  subtotalCents Int                 @default(0)
+  taxCents      Int                 @default(0)
+  totalCents    Int                 @default(0)
+  currency      String              @default("USD")
+  expectedDate  DateTime?
+  notes         String?
+  createdAt     DateTime            @default(now())
+  sentAt        DateTime?
+  receivedAt    DateTime?
+
+  vendor    Vendor              @relation(fields: [vendorId], references: [id])
+  warehouse Warehouse           @relation(fields: [warehouseId], references: [id])
+  items     PurchaseOrderItem[]
+
+  @@index([status])
+  @@index([vendorId])
+  @@index([warehouseId])
+}
+
+model PurchaseOrderItem {
+  id               String @id @default(cuid())
+  poId             String
+  productId        String
+  quantity         Int
+  receivedQuantity Int    @default(0)
+  unitCostCents    Int    @default(0)
+
+  po      PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  product Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([poId])
+  @@index([productId])
 }

@@ -22,6 +22,7 @@ import {
   CalendarDays,
   Megaphone,
   LifeBuoy,
+  Boxes,
   Settings,
 } from "lucide-react";
 
@@ -49,6 +50,7 @@ export const crmNav: CrmNavItem[] = [
   { key: "sites", label: "Sites", href: "/app/sites", icon: Globe },
   { key: "forms2", label: "Forms", href: "/app/forms2", icon: ClipboardList },
   { key: "helpdesk", label: "Helpdesk", href: "/app/helpdesk", icon: LifeBuoy },
+  { key: "inventory", label: "Inventory", href: "/app/inventory", icon: Boxes },
   { key: "automations", label: "Automations", href: "/app/automations", icon: Workflow },
   { key: "reports", label: "Reports", href: "/app/reports", icon: BarChart3 },
   { key: "settings", label: "Settings", href: "/app/settings", icon: Settings },

@@ -126,4 +126,23 @@ export const ENTITY_FIELDS: Record<AutomationEntityKind, EntityField[]> = {
     { key: "slug", label: "Form slug", kind: "text" },
     { key: "leadId", label: "Lead id", kind: "text" },
   ],
+  STOCK_ITEM: [
+    { key: "productId", label: "Product id", kind: "text" },
+    { key: "warehouseId", label: "Warehouse id", kind: "text" },
+    { key: "quantity", label: "Quantity", kind: "number" },
+    { key: "lowStockThreshold", label: "Low stock threshold", kind: "number" },
+  ],
+  STOCK_TRANSFER: [
+    { key: "transferNumber", label: "Transfer number", kind: "text" },
+    { key: "fromWarehouseId", label: "From warehouse id", kind: "text" },
+    { key: "toWarehouseId", label: "To warehouse id", kind: "text" },
+    { key: "status", label: "Status", kind: "enum", options: ["DRAFT", "PENDING", "IN_TRANSIT", "RECEIVED", "CANCELED"] },
+  ],
+  PURCHASE_ORDER: [
+    { key: "poNumber", label: "PO number", kind: "text" },
+    { key: "vendorId", label: "Vendor id", kind: "text" },
+    { key: "warehouseId", label: "Warehouse id", kind: "text" },
+    { key: "status", label: "Status", kind: "enum", options: ["DRAFT", "SENT", "PARTIAL", "RECEIVED", "CANCELED"] },
+    { key: "totalCents", label: "Total", kind: "number" },
+  ],
 };
