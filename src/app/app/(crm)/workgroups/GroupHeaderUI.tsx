@@ -10,7 +10,7 @@
  */
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { canManage, initialFromName, visibilityLabel } from "@/lib/workgroups/workgroup-utils";
 
 export type GroupHeaderData = {
