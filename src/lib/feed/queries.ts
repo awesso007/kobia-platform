@@ -36,12 +36,14 @@ function groupReactions(reactions: { kind: string; userId: string }[]): PostReac
  */
 export async function listPosts(
   db: Db,
-  opts: { filter?: FeedFilter; cursor?: string | null; limit?: number; currentUserId?: string | null } = {},
+  opts: { filter?: FeedFilter; cursor?: string | null; limit?: number; currentUserId?: string | null; workgroupId?: string | null } = {},
 ): Promise<{ posts: Awaited<ReturnType<typeof loadPostCards>>; nextCursor: string | null }> {
   const filter = opts.filter ?? "all";
   const take = Math.min(Math.max(opts.limit ?? PAGE_SIZE, 1), 50);
 
-  const where: Prisma.FeedPostWhereInput = { deletedAt: null };
+  // Scope: a group feed shows only that group's posts; the global feed shows
+  // only posts NOT attached to any workgroup (group content stays in-group).
+  const where: Prisma.FeedPostWhereInput = { deletedAt: null, workgroupId: opts.workgroupId ?? null };
   if (filter === "announcements") where.type = "ANNOUNCEMENT";
   if (filter === "mine" && opts.currentUserId) where.authorId = opts.currentUserId;
   if (filter === "mentions" && opts.currentUserId) {
