@@ -1383,6 +1383,7 @@ model Task {
   progressPct          Int          @default(0)
   sortOrder            Int          @default(0)
   completedAt          DateTime?
+  workgroupId          String?
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
   deletedAt            DateTime?
@@ -1402,6 +1403,7 @@ model Task {
   @@index([assigneeClerkUserId])
   @@index([dueAt])
   @@index([parentTaskId])
+  @@index([workgroupId])
   @@index([deletedAt])
 }
 
@@ -1614,6 +1616,7 @@ model CalendarEvent {
   source               CalEventSource        @default(MANUAL)
   relatedRecordType    CalRelatedRecordType?
   relatedRecordId      String?
+  workgroupId          String?
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
 
@@ -1624,6 +1627,7 @@ model CalendarEvent {
   @@index([calendarId, startAt])
   @@index([relatedRecordType, relatedRecordId])
   @@index([organizerClerkUserId, startAt])
+  @@index([workgroupId])
   @@index([externalId])
 }
 
@@ -2055,6 +2059,7 @@ model Document {
   lockedById  String?
   createdById String?
   updatedById String?
+  workgroupId String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -2065,6 +2070,7 @@ model Document {
   envelopes   Envelope[]
 
   @@index([folderId])
+  @@index([workgroupId])
 }
 
 model DocumentVersion {
@@ -2479,6 +2485,7 @@ model ChatChannel {
   kind        ChatChannelKind @default(PUBLIC)
   isArchived  Boolean         @default(false)
   createdById String?
+  workgroupId String?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
@@ -2489,6 +2496,7 @@ model ChatChannel {
 
   @@index([kind])
   @@index([isArchived])
+  @@index([workgroupId])
 }
 
 model ChatMember {
@@ -3338,4 +3346,109 @@ model FeedView {
 
   @@unique([postId, userId])
   @@index([postId])
+}
+
+// Sprint 22: Workgroups / Projects Hub. Bitrix24-style scoped workspaces with
+// their own feed, tasks, files, calendar, and chat channel. Users are clerk
+// user id strings (no FK), matching Chat/Feed.
+enum WorkgroupVisibility {
+  PUBLIC
+  PRIVATE
+  SECRET
+}
+
+enum WorkgroupStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum WorkgroupMemberRole {
+  OWNER
+  MODERATOR
+  MEMBER
+}
+
+enum WorkgroupInviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  REVOKED
+}
+
+enum WorkgroupJoinRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+model Workgroup {
+  id            String              @id @default(cuid())
+  name          String
+  slug          String              @unique
+  description   String?
+  visibility    WorkgroupVisibility @default(PUBLIC)
+  icon          String?
+  coverColor    String              @default("#4f46e5")
+  ownerId       String
+  status        WorkgroupStatus     @default(ACTIVE)
+  chatChannelId String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  members      WorkgroupMember[]
+  invites      WorkgroupInvite[]
+  joinRequests WorkgroupJoinRequest[]
+
+  @@index([visibility])
+  @@index([status])
+  @@index([ownerId])
+}
+
+model WorkgroupMember {
+  id                   String              @id @default(cuid())
+  workgroupId          String
+  userId               String
+  role                 WorkgroupMemberRole @default(MEMBER)
+  joinedAt             DateTime            @default(now())
+  notificationsEnabled Boolean             @default(true)
+
+  workgroup Workgroup @relation(fields: [workgroupId], references: [id], onDelete: Cascade)
+
+  @@unique([workgroupId, userId])
+  @@index([userId])
+}
+
+model WorkgroupInvite {
+  id             String                @id @default(cuid())
+  workgroupId    String
+  inviterId      String
+  inviteeUserId  String?
+  inviteeEmail   String?
+  status         WorkgroupInviteStatus @default(PENDING)
+  token          String                @unique
+  createdAt      DateTime              @default(now())
+  respondedAt    DateTime?
+
+  workgroup Workgroup @relation(fields: [workgroupId], references: [id], onDelete: Cascade)
+
+  @@index([workgroupId])
+  @@index([inviteeUserId])
+  @@index([status])
+}
+
+model WorkgroupJoinRequest {
+  id          String                     @id @default(cuid())
+  workgroupId String
+  userId      String
+  message     String?
+  status      WorkgroupJoinRequestStatus @default(PENDING)
+  createdAt   DateTime                   @default(now())
+  respondedAt DateTime?
+
+  workgroup Workgroup @relation(fields: [workgroupId], references: [id], onDelete: Cascade)
+
+  @@index([workgroupId])
+  @@index([userId])
+  @@index([status])
 }
