@@ -145,4 +145,19 @@ export const ENTITY_FIELDS: Record<AutomationEntityKind, EntityField[]> = {
     { key: "status", label: "Status", kind: "enum", options: ["DRAFT", "SENT", "PARTIAL", "RECEIVED", "CANCELED"] },
     { key: "totalCents", label: "Total", kind: "number" },
   ],
+  FEED_POST: [
+    { key: "authorId", label: "Author id", kind: "text" },
+    { key: "type", label: "Type", kind: "enum", options: ["POST", "ANNOUNCEMENT", "POLL", "QUESTION", "EVENT_SHARE", "RECORD_SHARE", "SYSTEM"] },
+    { key: "title", label: "Title", kind: "text" },
+    { key: "body", label: "Body", kind: "text" },
+    { key: "visibility", label: "Visibility", kind: "enum", options: ["PUBLIC", "PRIVATE_GROUP", "DIRECT"] },
+    { key: "pinned", label: "Pinned", kind: "boolean" },
+    { key: "createdAt", label: "Created", kind: "date" },
+  ],
+  FEED_COMMENT: [
+    { key: "postId", label: "Post id", kind: "text" },
+    { key: "authorId", label: "Author id", kind: "text" },
+    { key: "body", label: "Body", kind: "text" },
+    { key: "createdAt", label: "Created", kind: "date" },
+  ],
 };

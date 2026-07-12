@@ -3144,3 +3144,198 @@ model PurchaseOrderItem {
   @@index([poId])
   @@index([productId])
 }
+
+// Sprint 21: Feed / Activity Stream - a company social feed with posts,
+// threaded comments, reactions, polls, @mentions, follows, and view tracking.
+// Authors/users are stored as clerk user id strings (no FK to a user table),
+// matching the Chat models. Additive tenant-schema migration 0021_feed.
+
+enum FeedPostType {
+  POST
+  ANNOUNCEMENT
+  POLL
+  QUESTION
+  EVENT_SHARE
+  RECORD_SHARE
+  SYSTEM
+}
+
+enum FeedVisibility {
+  PUBLIC
+  PRIVATE_GROUP
+  DIRECT
+}
+
+enum FeedSharedRecordType {
+  DEAL
+  CONTACT
+  TASK
+  DOCUMENT
+}
+
+enum FeedReactionKind {
+  LIKE
+  LOVE
+  LAUGH
+  WOW
+  SAD
+  THANKS
+}
+
+enum FeedFollowTargetType {
+  POST
+  USER
+  RECORD
+}
+
+model FeedPost {
+  id                   String                @id @default(cuid())
+  authorId             String
+  type                 FeedPostType          @default(POST)
+  title                String?
+  body                 String
+  attachments          Json?
+  sharedRecordType     FeedSharedRecordType?
+  sharedRecordId       String?
+  sharedRecordSnapshot Json?
+  pinned               Boolean               @default(false)
+  visibility           FeedVisibility        @default(PUBLIC)
+  workgroupId          String?
+  commentCount         Int                   @default(0)
+  reactionCount        Int                   @default(0)
+  viewCount            Int                   @default(0)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  deletedAt            DateTime?
+
+  comments  FeedComment[]
+  reactions FeedReaction[]
+  poll      FeedPoll?
+  mentions  FeedMention[]
+  views     FeedView[]
+
+  @@index([type])
+  @@index([authorId])
+  @@index([pinned])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model FeedComment {
+  id              String    @id @default(cuid())
+  postId          String
+  parentCommentId String?
+  authorId        String
+  body            String
+  attachments     Json?
+  reactionCount   Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  post      FeedPost       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parent    FeedComment?   @relation("FeedCommentThread", fields: [parentCommentId], references: [id], onDelete: SetNull)
+  replies   FeedComment[]  @relation("FeedCommentThread")
+  reactions FeedReaction[]
+  mentions  FeedMention[]
+
+  @@index([postId])
+  @@index([parentCommentId])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model FeedReaction {
+  id        String           @id @default(cuid())
+  postId    String?
+  commentId String?
+  userId    String
+  kind      FeedReactionKind
+  createdAt DateTime         @default(now())
+
+  post    FeedPost?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment FeedComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([commentId])
+  @@index([userId])
+}
+
+model FeedPoll {
+  id            String    @id @default(cuid())
+  postId        String    @unique
+  question      String
+  allowMultiple Boolean   @default(false)
+  closesAt      DateTime?
+  closedAt      DateTime?
+
+  post    FeedPost         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  options FeedPollOption[]
+  votes   FeedPollVote[]
+}
+
+model FeedPollOption {
+  id     String @id @default(cuid())
+  pollId String
+  label  String
+  order  Int    @default(0)
+
+  poll  FeedPoll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes FeedPollVote[]
+
+  @@index([pollId])
+}
+
+model FeedPollVote {
+  id        String   @id @default(cuid())
+  pollId    String
+  optionId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  poll   FeedPoll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option FeedPollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, optionId, userId])
+  @@index([pollId])
+  @@index([optionId])
+}
+
+model FeedMention {
+  id              String   @id @default(cuid())
+  postId          String?
+  commentId       String?
+  mentionedUserId String
+  createdAt       DateTime @default(now())
+
+  post    FeedPost?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment FeedComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([commentId])
+  @@index([mentionedUserId])
+}
+
+model FeedFollow {
+  id         String               @id @default(cuid())
+  userId     String
+  targetType FeedFollowTargetType
+  targetId   String
+  createdAt  DateTime             @default(now())
+
+  @@unique([userId, targetType, targetId])
+  @@index([userId])
+  @@index([targetType, targetId])
+}
+
+model FeedView {
+  id       String   @id @default(cuid())
+  postId   String
+  userId   String
+  viewedAt DateTime @default(now())
+
+  post FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([postId])
+}

@@ -59,6 +59,14 @@
     {
       "path": "/api/cron/low-stock-checker",
       "schedule": "30 12 * * *"
+    },
+    {
+      "path": "/api/cron/feed-poll-closer",
+      "schedule": "45 12 * * *"
+    },
+    {
+      "path": "/api/cron/feed-digest",
+      "schedule": "0 13 * * *"
     }
   ]
 }
