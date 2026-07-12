@@ -160,4 +160,11 @@ export const ENTITY_FIELDS: Record<AutomationEntityKind, EntityField[]> = {
     { key: "body", label: "Body", kind: "text" },
     { key: "createdAt", label: "Created", kind: "date" },
   ],
+  WORKGROUP: [
+    { key: "name", label: "Name", kind: "text" },
+    { key: "slug", label: "Slug", kind: "text" },
+    { key: "visibility", label: "Visibility", kind: "enum", options: ["PUBLIC", "PRIVATE", "SECRET"] },
+    { key: "ownerId", label: "Owner id", kind: "text" },
+    { key: "createdAt", label: "Created", kind: "date" },
+  ],
 };
