@@ -226,6 +226,29 @@ export async function toggleReaction(
   return { added: true };
 }
 
+/** Remove a user's reaction of a specific kind from a post or comment (no-op if absent). */
+export async function removeReaction(
+  db: Db,
+  input: { postId?: string | null; commentId?: string | null; userId: string; kind: ReactionKind },
+): Promise<{ removed: boolean }> {
+  const onPost = Boolean(input.postId);
+  const onComment = Boolean(input.commentId);
+  if (onPost === onComment) throw new Error("Provide exactly one of postId or commentId");
+  const existing = await db.feedReaction.findFirst({
+    where: {
+      userId: input.userId,
+      kind: input.kind,
+      postId: input.postId ?? null,
+      commentId: input.commentId ?? null,
+    },
+  });
+  if (!existing) return { removed: false };
+  await db.feedReaction.delete({ where: { id: existing.id } });
+  if (onPost) await db.feedPost.update({ where: { id: input.postId! }, data: { reactionCount: { decrement: 1 } } });
+  else await db.feedComment.update({ where: { id: input.commentId! }, data: { reactionCount: { decrement: 1 } } });
+  return { removed: true };
+}
+
 /**
  * Cast poll votes for a user. Enforces single-choice unless allowMultiple, and
  * replaces the user's prior votes on the poll. Ignores votes on a closed poll.
