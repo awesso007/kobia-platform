@@ -6,7 +6,7 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 
-export const AUTOMATION_ENTITIES = ["LEAD", "DEAL", "CONTACT", "COMPANY", "ACTIVITY", "TASK", "PROJECT", "EVENT", "BOOKING", "TICKET", "CHAT_MESSAGE", "SITE_PAGE", "FORM_V2", "STOCK_ITEM", "STOCK_TRANSFER", "PURCHASE_ORDER"] as const;
+export const AUTOMATION_ENTITIES = ["LEAD", "DEAL", "CONTACT", "COMPANY", "ACTIVITY", "TASK", "PROJECT", "EVENT", "BOOKING", "TICKET", "CHAT_MESSAGE", "SITE_PAGE", "FORM_V2", "STOCK_ITEM", "STOCK_TRANSFER", "PURCHASE_ORDER", "FEED_POST", "FEED_COMMENT"] as const;
 export type AutomationEntityKind = (typeof AUTOMATION_ENTITIES)[number];
 
 export const AUTOMATION_TRIGGERS = [
@@ -46,6 +46,10 @@ export const AUTOMATION_TRIGGERS = [
   "STOCK_LOW",
   "TRANSFER_RECEIVED",
   "PURCHASE_ORDER_RECEIVED",
+  "FEED_POST_CREATED",
+  "FEED_COMMENT_CREATED",
+  "FEED_MENTION",
+  "FEED_ANNOUNCEMENT_PINNED",
 ] as const;
 export type AutomationTriggerKind = (typeof AUTOMATION_TRIGGERS)[number];
 
@@ -86,6 +90,10 @@ export const TRIGGER_LABELS: Record<AutomationTriggerKind, string> = {
   STOCK_LOW: "Stock low",
   TRANSFER_RECEIVED: "Stock transfer received",
   PURCHASE_ORDER_RECEIVED: "Purchase order received",
+  FEED_POST_CREATED: "Feed post created",
+  FEED_COMMENT_CREATED: "Feed comment created",
+  FEED_MENTION: "Feed mention",
+  FEED_ANNOUNCEMENT_PINNED: "Feed announcement pinned",
 };
 
 export const CONDITION_OPERATORS = [
