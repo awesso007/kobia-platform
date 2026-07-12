@@ -42,6 +42,7 @@ export type CreatePostInput = {
   sharedRecordId?: string | null;
   sharedRecordSnapshot?: unknown;
   pinned?: boolean;
+  workgroupId?: string | null;
   poll?: { question: string; options: string[]; allowMultiple?: boolean; closesAt?: Date | string | null } | null;
 };
 
@@ -65,6 +66,7 @@ export async function createPost(db: Db, input: CreatePostInput): Promise<string
       sharedRecordId: input.sharedRecordId ?? null,
       sharedRecordSnapshot: (input.sharedRecordSnapshot ?? null) as never,
       pinned: input.pinned ?? false,
+      workgroupId: input.workgroupId ?? null,
     },
   });
 

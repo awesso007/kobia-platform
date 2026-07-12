@@ -28,7 +28,7 @@ const inputStyle = {
   color: "var(--kb-text-primary)",
 } as const;
 
-export function FeedComposer({ members }: { members: ComposerMember[] }) {
+export function FeedComposer({ members, workgroupId }: { members: ComposerMember[]; workgroupId?: string | null }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [open, setOpen] = useState(false);
@@ -87,6 +87,7 @@ export function FeedComposer({ members }: { members: ComposerMember[] }) {
           attachments,
           sharedRecordType: sharedRecordType || null,
           sharedRecordId: sharedRecordId.trim() || null,
+          workgroupId: workgroupId ?? null,
           poll,
         }),
       });

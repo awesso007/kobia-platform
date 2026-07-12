@@ -286,12 +286,14 @@ export function FeedStream({
   currentUserId,
   filter,
   canPin,
+  workgroupId,
 }: {
   posts: PostCardData[];
   nextCursor: string | null;
   currentUserId: string | null;
   filter: string;
   canPin: boolean;
+  workgroupId?: string | null;
 }) {
   const [items, setItems] = useState<PostCardData[]>(posts);
   const [cursor, setCursor] = useState<string | null>(nextCursor);
@@ -300,7 +302,8 @@ export function FeedStream({
   function loadMore() {
     if (!cursor) return;
     start(async () => {
-      const res = await api(`/api/feed/posts?filter=${filter}&cursor=${cursor}`);
+      const wg = workgroupId ? `&workgroupId=${workgroupId}` : "";
+      const res = await api(`/api/feed/posts?filter=${filter}&cursor=${cursor}${wg}`);
       if (res.ok) {
         setItems((prev) => [...prev, ...(res.posts as PostCardData[])]);
         setCursor(res.nextCursor ?? null);
@@ -310,6 +313,7 @@ export function FeedStream({
 
   return (
     <div>
+      {!workgroupId && (
       <div className="mb-4 flex gap-2 text-sm">
         {TABS.map((t) => (
           <Link
@@ -327,6 +331,7 @@ export function FeedStream({
           </Link>
         ))}
       </div>
+      )}
 
       {items.length === 0 ? (
         <p className="p-8 text-center text-sm" style={{ color: "var(--kb-text-secondary)" }}>Nothing here yet.</p>

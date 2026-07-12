@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
       filter,
       cursor: sp.get("cursor") || null,
       currentUserId: member?.clerkUserId ?? null,
+      workgroupId: sp.get("workgroupId") || null,
     });
     return NextResponse.json({ ok: true, ...page });
   } catch (err) {
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
 
     // Only admins/owners may pin on create.
     const pinned = Boolean(body.pinned) && (member?.role === "ADMIN" || member?.role === "OWNER");
+    const workgroupId = body.workgroupId ? String(body.workgroupId) : null;
 
     const pollRaw = body.poll as { question?: unknown; options?: unknown; allowMultiple?: unknown; closesAt?: unknown } | null | undefined;
     const poll =
@@ -82,6 +84,7 @@ export async function POST(req: NextRequest) {
       sharedRecordId: (body.sharedRecordId as string) ?? null,
       sharedRecordSnapshot: body.sharedRecordSnapshot ?? null,
       pinned,
+      workgroupId,
       poll,
     });
     return NextResponse.json({ ok: true, id }, { status: 201 });

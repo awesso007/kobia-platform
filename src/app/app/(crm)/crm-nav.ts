@@ -24,6 +24,7 @@ import {
   LifeBuoy,
   Boxes,
   Rss,
+  Users2,
   Settings,
 } from "lucide-react";
 
@@ -53,6 +54,7 @@ export const crmNav: CrmNavItem[] = [
   { key: "helpdesk", label: "Helpdesk", href: "/app/helpdesk", icon: LifeBuoy },
   { key: "inventory", label: "Inventory", href: "/app/inventory", icon: Boxes },
   { key: "feed", label: "Feed", href: "/app/feed", icon: Rss },
+  { key: "workgroups", label: "Workgroups", href: "/app/workgroups", icon: Users2 },
   { key: "automations", label: "Automations", href: "/app/automations", icon: Workflow },
   { key: "reports", label: "Reports", href: "/app/reports", icon: BarChart3 },
   { key: "settings", label: "Settings", href: "/app/settings", icon: Settings },
