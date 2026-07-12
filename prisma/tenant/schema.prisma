@@ -710,6 +710,16 @@ enum EmailTemplateScope {
   TENANT
 }
 
+// Sprint 23: Webmail folders for a Gmail-like inbox on top of Sprint 6 email.
+enum EmailFolder {
+  INBOX
+  SENT
+  DRAFTS
+  ARCHIVE
+  SPAM
+  TRASH
+}
+
 model EmailAccount {
   id                         String             @id @default(cuid())
   ownerClerkUserId           String
@@ -777,15 +787,21 @@ model EmailMessage {
   status       EmailMessageStatus @default(SENT)
   errorMessage String?
   repliedTo    String?
+  folder       EmailFolder        @default(INBOX)
+  isRead       Boolean            @default(false)
+  isStarred    Boolean            @default(false)
   createdAt    DateTime           @default(now())
 
-  thread      EmailThread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  account     EmailAccount      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  thread      EmailThread         @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  account     EmailAccount        @relation(fields: [accountId], references: [id], onDelete: Cascade)
   attachments EmailAttachment[]
+  labels      EmailMessageLabel[]
 
   @@index([threadId])
   @@index([externalId])
   @@index([status])
+  @@index([accountId, folder, receivedAt])
+  @@index([accountId, threadId, receivedAt])
 }
 
 model EmailAttachment {
@@ -821,12 +837,71 @@ model EmailTemplate {
 model EmailSignature {
   id               String   @id @default(cuid())
   ownerClerkUserId String
+  accountId        String?
+  name             String?
   html             String
   isDefault        Boolean  @default(false)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   @@index([ownerClerkUserId])
+  @@index([accountId])
+}
+
+// Sprint 23: Webmail labels, filters, drafts. All scoped to an EmailAccount.
+model EmailLabel {
+  id        String   @id @default(cuid())
+  accountId String
+  name      String
+  color     String   @default("#2563eb")
+  createdAt DateTime @default(now())
+
+  messages EmailMessageLabel[]
+
+  @@unique([accountId, name])
+  @@index([accountId])
+}
+
+model EmailMessageLabel {
+  id        String   @id @default(cuid())
+  messageId String
+  labelId   String
+  createdAt DateTime @default(now())
+
+  message EmailMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  label   EmailLabel   @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, labelId])
+  @@index([labelId])
+}
+
+model EmailFilter {
+  id        String   @id @default(cuid())
+  accountId String
+  name      String
+  condition Json
+  action    Json
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([accountId])
+}
+
+model EmailDraft {
+  id          String   @id @default(cuid())
+  accountId   String
+  threadId    String?
+  to          String?
+  cc          String?
+  bcc         String?
+  subject     String?
+  body        String?
+  attachments Json?
+  inReplyTo   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([accountId, updatedAt])
 }
 
 // Sprint 7: Calling + SMS via Twilio.

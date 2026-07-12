@@ -1,0 +1,42 @@
+/*
+ * /app/mail/[accountId] (Sprint 23) - default to the account inbox view.
+ *
+ * No em-dashes in copy by project convention (use hyphens).
+ */
+import { notFound } from "next/navigation";
+import { NoTenantError } from "@/lib/db/get-tenant-db";
+import { CrmError } from "../../CrmError";
+import { loadMailView } from "../queries";
+import { MailShell, type MailMessage } from "../MailUI";
+
+export const dynamic = "force-dynamic";
+
+export default async function AccountInboxPage({
+  params,
+  searchParams,
+}: {
+  params: { accountId: string };
+  searchParams: { cursor?: string };
+}) {
+  try {
+    const data = await loadMailView({ accountId: params.accountId, folder: "INBOX", cursor: searchParams.cursor });
+    if (!data) notFound();
+    return (
+      <MailShell
+        accounts={data.accounts}
+        account={data.account}
+        labels={data.labels}
+        counts={data.counts}
+        messages={data.messages as unknown as MailMessage[]}
+        nextCursor={data.nextCursor}
+        activeFolder="INBOX"
+        activeLabelId={null}
+        activeThreadId={null}
+        listTitle="Inbox"
+      />
+    );
+  } catch (err) {
+    if (err instanceof NoTenantError) return <CrmError />;
+    throw err;
+  }
+}
