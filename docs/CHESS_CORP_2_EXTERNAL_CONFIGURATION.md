@@ -483,6 +483,12 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
   suggestions bound to source task fingerprints. The worker examines at
   most 25 new candidate tasks per run and never executes a change.
   An independent active OWNER/ADMIN must accept or reject each suggestion.
+  After an ACCEPTED suggestion, a separately initiated, authorized PUT
+  /api/chess/ai-triage may create ONE generic manager follow-up task and an
+  in-app notification if the original task state is unchanged. The source
+  task, due date, client records and financial statements are never modified.
+  A database constraint prevents recording an executed follow-up before
+  acceptance; the applied marker and new task commit atomically.
 - Actual AI vendor models and cost controls have NOT been tested with
   real provider credentials; no autonomous bookkeeping, tax filing, payroll,
   licensed decisioning, invoice collection or regulated client outreach is
