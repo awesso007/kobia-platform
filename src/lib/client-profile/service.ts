@@ -1,6 +1,6 @@
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { getCurrentMembership, requirePermission, PermissionError } from "@/lib/rbac/require-permission";
-import { canAccessService, canReadClientProfile, canWriteClientProfile } from "./policy";
+import { canAccessService, canReadClientProfile } from "./policy";
 import type { ClientService, ProfileActor, ServiceGrant } from "./policy";
 import { z } from "zod";
 
