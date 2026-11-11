@@ -62,7 +62,7 @@ export async function confirmChessDocumentUpload(documentId:string,businessId:st
  });
  if(!doc)throw new PermissionError("record:update");
  const head=await s3.headObject(doc.storageKey);
- if(!head || !head.versionId || !head.etag || head.size<1 || head.size>doc.maxBytes || head.mimeType!==doc.mimeType) {
+ if(!head || !head.versionId || head.versionId==="null" || !head.etag || head.size<1 || head.size>doc.maxBytes || head.mimeType!==doc.mimeType) {
   await db.chessClientDocument.updateMany({where:{id:doc.id,status:"PENDING"},data:{status:"REJECTED"}});
   return {status:"REJECTED" as const};
  }
