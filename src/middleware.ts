@@ -25,6 +25,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/chess/calendar-sync/run",
   "/api/chess/payroll-status/run",
   "/api/chess/ai-triage/run",
+  "/api/chess/incident-health",
   "/api/chess/recurring-billing/run",
   "/api/chess/audit-archive/run",
   // Exact token authenticated before returning only the deployed build SHA.
@@ -120,7 +121,8 @@ export default clerkMiddleware((auth, req: NextRequest) => {
       url.pathname === "/api/chess/payroll-status/run" ||
       url.pathname === "/api/chess/ai-triage/run" ||
       url.pathname === "/api/chess/recurring-billing/run" ||
-      url.pathname === "/api/chess/audit-archive/run") {
+      url.pathname === "/api/chess/audit-archive/run" ||
+      url.pathname === "/api/chess/incident-health") {
     tenantSlug = sanitizeSlug(url.searchParams.get("t"));
   }
 
