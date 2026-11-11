@@ -24,6 +24,9 @@ async function main() {
  await probe("/api/chess/recurrences/run?t=demo",{
   method:"POST",headers:{"Content-Type":"application/json"},body:"{}",
  },new Set([403]));
+ await probe("/api/chess/payroll-status/run?t=demo",{
+  method:"POST",headers:{"Content-Type":"application/json"},body:"{}",
+ },new Set([403]));
  await probe("/api/chess/calendar-sync/run?t=demo",{
   method:"POST",headers:{"Content-Type":"application/json"},body:"{}",
  },new Set([403]));
@@ -31,6 +34,9 @@ async function main() {
  await probe("/api/chess/appointments?businessId=unowned",{},allowedDenied);
  await probe("/api/chess/appointments-calendar.ics?businessId=unowned",{},allowedDenied);
  await probe("/api/chess/staff?businessId=unowned",{},allowedDenied);
+ await probe("/api/chess/bank-reviews?businessId=unowned",{},allowedDenied);
+ await probe("/api/chess/tax-workpapers?businessId=unowned",{},allowedDenied);
+ await probe("/api/chess/payroll-status?businessId=unowned",{},allowedDenied);
  await probe("/api/chess/worker-health",{},allowedDenied);
  await probe("/api/chess/alerts?businessId=unowned",{},allowedDenied);
  await probe("/api/chess/calendar-preferences",{},allowedDenied);
