@@ -3,6 +3,7 @@ import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
 import {getClientServiceLink} from "@/lib/client-profile/service";
 import * as s3 from "@/lib/storage/s3";
+import {matchesPinnedDocument} from "./storage-integrity";
 
 const MAX_SIZE=20*1024*1024;
 const types=["application/pdf","image/png","image/jpeg"] as const;
@@ -84,10 +85,11 @@ export async function getChessDocumentDownload(
  const {db}=getTenantDb();
  const document=await db.chessClientDocument.findFirst({where:{
   id:documentId,businessId,clientProfileId,service,status:"READY",
- },select:{storageKey:true,storageVersionId:true,storageETag:true,fileName:true}});
+ },select:{storageKey:true,storageVersionId:true,storageETag:true,fileName:true,
+  actualBytes:true,mimeType:true,maxBytes:true}});
  if(!document || !document.storageVersionId || !document.storageETag)throw new PermissionError("record:read");
  const pinned=await s3.headObject(document.storageKey,document.storageVersionId);
- if(!pinned || pinned.versionId!==document.storageVersionId || pinned.etag!==document.storageETag)
+ if(!matchesPinnedDocument(document,pinned))
   throw new PermissionError("record:read");
  const url=await s3.createPresignedDownloadUrl(document.storageKey,{
   expiresIn:60,contentDisposition:"attachment",versionId:document.storageVersionId,
