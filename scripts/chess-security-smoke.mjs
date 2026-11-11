@@ -57,6 +57,23 @@ async function main() {
   method:"POST",headers:{"Content-Type":"application/json",
    "Origin":"https://attacker.example"},body:"{}",
  },allowedDenied);
+ // Round 9: no anonymous business portfolio data or invoice/AI mutations.
+ await probe("/api/chess/operations-report/portfolio?month=2026-11&format=json",
+  {},allowedDenied);
+ await probe("/api/chess/operations-report/portfolio?month=2026-11&format=csv",
+  {},allowedDenied);
+ await probe("/api/chess/billing",{
+  method:"DELETE",headers:{"Content-Type":"application/json",
+   "Origin":"https://attacker.example"},body:"{}",
+ },allowedDenied);
+ await probe("/api/chess/ai-triage",{
+  method:"PATCH",headers:{"Content-Type":"application/json",
+   "Origin":"https://attacker.example"},body:"{}",
+ },allowedDenied);
+ await probe("/api/chess/ai-triage",{
+  method:"PUT",headers:{"Content-Type":"application/json",
+   "Origin":"https://attacker.example"},body:"{}",
+ },allowedDenied);
  await probe("/api/chess/worker-health",{},allowedDenied);
  await probe("/api/chess/alerts?businessId=unowned",{},allowedDenied);
  await probe("/api/chess/calendar-preferences",{},allowedDenied);
