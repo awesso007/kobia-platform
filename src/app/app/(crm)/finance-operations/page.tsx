@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {listBusinessUnits} from "@/lib/chess/business-units";
-import {getChessFinanceDashboard} from "@/lib/chess/finance-dashboard";
+import {getChessFinanceDashboard,listChessAuthorizedFinanceCases} from "@/lib/chess/finance-dashboard";
 export const dynamic="force-dynamic";
 
 export default async function ChessFinanceOperationsPage({
@@ -17,7 +17,8 @@ export default async function ChessFinanceOperationsPage({
   No active business unit is available to your account.
  </main>;
  let report:Awaited<ReturnType<typeof getChessFinanceDashboard>>|null=null;
- try{report=await getChessFinanceDashboard(selected.id);}catch{
+ let cases:Awaited<ReturnType<typeof listChessAuthorizedFinanceCases>>=[];
+ try{[report,cases]=await Promise.all([getChessFinanceDashboard(selected.id),listChessAuthorizedFinanceCases(selected.id)]);}catch{
   return <main className="mx-auto max-w-5xl p-8" role="alert">
    Finance operations require an active business manager assignment.
   </main>;
@@ -67,6 +68,20 @@ export default async function ChessFinanceOperationsPage({
      <p className="mt-2 text-3xl font-semibold tabular-nums">{value.toLocaleString("en-US")}</p>
     </div>)}
    </div>
+  </section>
+  <section className="space-y-3">
+   <h2 className="text-xl font-semibold">My authorized finance cases</h2>
+   {cases.length===0?<p className="text-sm text-slate-600">
+    No active financial service cases are assigned and explicitly granted to this account.
+   </p>:<ul className="grid gap-3 sm:grid-cols-2">
+    {cases.map(item=><li key={item.id} className="rounded-xl border border-slate-200 p-4">
+     <strong className="text-sm">{item.service.replaceAll("_"," ")}</strong>
+     <p className="mt-1 text-xs text-slate-500">Case reference {item.id}</p>
+     <Link href={`/app/finance-operations/${encodeURIComponent(item.id)}?businessId=${encodeURIComponent(selected.id)}`}
+      className="mt-2 inline-block text-sm font-semibold text-emerald-700 hover:underline">
+      Open client service review
+     </Link>
+    </li>)}</ul>}
   </section>
   <section className="space-y-2 rounded-xl border border-slate-200 p-5">
    <h2 className="font-semibold">Financial controls and activation</h2>
