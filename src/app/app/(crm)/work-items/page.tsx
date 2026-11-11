@@ -26,7 +26,7 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
   listChessEmployeeAlerts(selected.id).catch(()=>[]),
   getChessManagerQueue(selected.id).catch(()=>null),
   listChessRecurrences(selected.id).catch(()=>null),
-  getMyCalendarPreference().catch(()=>({enabled:false,acknowledgedAt:null})),
+  getMyCalendarPreference().catch(()=>({enabled:false,appointmentsEnabled:false,acknowledgedAt:null})),
   listChessAppointments(selected.id).catch(()=>null),
   listChessAssignableStaff(selected.id).catch(()=>null),
   getChessWorkerHealth().catch(()=>null),
@@ -56,7 +56,8 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
   </section>
   <section className="space-y-3">
    <h2 className="text-xl font-semibold">Calendar sharing</h2>
-   <CalendarConsent initialEnabled={calendarPreference.enabled}/>
+   <CalendarConsent initialEnabled={calendarPreference.enabled}
+    initialAppointmentsEnabled={calendarPreference.appointmentsEnabled}/>
   </section>
   <section className="space-y-3">
    <h2 className="text-xl font-semibold">My notifications</h2>
