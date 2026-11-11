@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {needsVerifiedLicense,credentialAllowsAssignment} from "./regulated-services";
+import {needsVerifiedLicense,credentialAllowsAssignment,canTransitionServiceCase} from "./regulated-services";
 describe("regulated service gates",()=>{
  it("requires verification for regulated businesses",()=>{
   for(const s of ["MORTGAGE","INSURANCE","REAL_ESTATE","INVESTMENTS"] as const) {
@@ -15,5 +15,17 @@ describe("regulated service gates",()=>{
  });
  it("accepts active verified credentials",()=>{
   expect(credentialAllowsAssignment({status:"VERIFIED",expiresAt:new Date("2099-01-01"),verifiedAt:new Date("2026-01-01"),verifiedByClerkUserId:"reviewer",verificationSource:"official-registry",registryCheckedAt:new Date("2026-01-01")})).toBe(true);
+ });
+});
+
+describe("regulated case lifecycle",()=>{
+ it("requires review before active service",()=>{
+  expect(canTransitionServiceCase("INTAKE","ACTIVE")).toBe(false);
+  expect(canTransitionServiceCase("INTAKE","REVIEW")).toBe(true);
+  expect(canTransitionServiceCase("REVIEW","ACTIVE")).toBe(true);
+ });
+ it("disallows closed-case reopening",()=>{
+  expect(canTransitionServiceCase("CLOSED","ACTIVE")).toBe(false);
+  expect(canTransitionServiceCase("ACTIVE","HOLD")).toBe(true);
  });
 });
