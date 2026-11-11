@@ -45,6 +45,36 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
   }})).rejects.toThrow();
   await expect(db.chessSecurityEvent.delete({where:{id:event.id}})).rejects.toThrow();
  });
+ it("persists pinned S3 version metadata without exposing object bytes",async()=>{
+  const record=await db.chessClientDocument.create({data:{
+   businessId:"integration-unit",clientProfileId:"integration-client",service:"TAX",
+   storageKey:"test-version-"+Date.now(),fileName:"example.pdf",
+   mimeType:"application/pdf",maxBytes:1024,actualBytes:11,
+   storageVersionId:"s3-immutable-version",storageETag:"etag-verified",
+   status:"QUARANTINED",uploadedByClerkUserId:"integration-user",
+  }});
+  const loaded=await db.chessClientDocument.findUnique({where:{id:record.id}});
+  expect(loaded?.storageVersionId).toBe("s3-immutable-version");
+  expect(loaded?.storageETag).toBe("etag-verified");
+  await db.chessClientDocument.delete({where:{id:record.id}});
+ });
+ it("rejects stale work-item status updates",async()=>{
+  const item=await db.chessWorkItem.create({data:{
+   businessId:"integration-unit",title:"Test optimistic concurrency",
+  }});
+  const stale=item.updatedAt;
+  const changed=await db.chessWorkItem.updateMany({
+   where:{id:item.id,updatedAt:stale,status:"TODO"},
+   data:{status:"IN_PROGRESS",updatedAt:new Date(stale.getTime()+1000)},
+  });
+  expect(changed.count).toBe(1);
+  const conflict=await db.chessWorkItem.updateMany({
+   where:{id:item.id,updatedAt:stale,status:"TODO"},
+   data:{status:"CANCELLED"},
+  });
+  expect(conflict.count).toBe(0);
+  await db.chessWorkItem.delete({where:{id:item.id}});
+ });
  it("rejects a service link whose client profile does not exist",async()=>{
   await expect(db.clientServiceLink.create({data:{
    profileId:"missing-profile-id",businessId,service:"TAX",
