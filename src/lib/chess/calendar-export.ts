@@ -1,4 +1,4 @@
-export type CalendarWorkItem={id:string;dueAt:Date|null;status:string;kind?:"TASK"|"APPOINTMENT"};
+export type CalendarWorkItem={id:string;dueAt:Date|null;endAt?:Date|null;status:string;kind?:"TASK"|"APPOINTMENT"};
 /** Read-only iCalendar export. No client names or restricted service details
  * leave the app in calendar event summaries. Calendar applications must use
  * the currently authenticated download rather than a public subscription. */
@@ -11,7 +11,8 @@ export function toPrivateChessCalendar(tasks:readonly CalendarWorkItem[],now=new
  for(const task of tasks){
   if(!task.dueAt || !Number.isFinite(task.dueAt.getTime()) ||
     task.status==="CANCELLED")continue;
-  const end=new Date(task.dueAt.getTime()+30*60*1000);
+  const end=task.endAt??new Date(task.dueAt.getTime()+30*60*1000);
+  if(!Number.isFinite(end.getTime())||end<=task.dueAt)continue;
   lines.push("BEGIN:VEVENT",
    `UID:${task.id}@chess-operations`,
    `DTSTAMP:${format(now)}`,
