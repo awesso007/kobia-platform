@@ -3,6 +3,7 @@ import {getTenantBySlug} from "@/lib/tenant";
 import {PermissionError} from "@/lib/rbac/require-permission";
 import {assertBusinessManager} from "./business-manager";
 import {getClientServiceLink} from "@/lib/client-profile/service";
+import {isUsableConsent} from "./onboarding";
 
 /** Only business-unit aggregates. Never exposes ledger balances,
  * client identities, payroll employee pay or other business units. */
@@ -52,7 +53,12 @@ export async function listChessAuthorizedFinanceCases(businessId:string){
  for(const row of records){
   try{
    const grant=await getClientServiceLink(row.clientProfileId,businessId,row.service);
-   if(grant)visible.push(row);
+   if(!grant)continue;
+   const consent=await db.chessClientConsent.findMany({where:{
+    businessId,clientProfileId:row.clientProfileId,purpose:`service:${row.service}`,
+   },select:{status:true,expiresAt:true,consentedAt:true,acceptedByClerkUserId:true,
+    verifiedEmailDigest:true,acceptanceEvidenceDigest:true}});
+   if(consent.some(value=>isUsableConsent(value)))visible.push(row);
   }catch{/* No cross-client service-grant information escapes to the UI. */}
  }
  return visible;
