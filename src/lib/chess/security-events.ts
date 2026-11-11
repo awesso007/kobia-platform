@@ -1,6 +1,7 @@
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
 import {z} from "zod";
+import {assertBusinessAccess} from "./business-units";
 const schema=z.object({
  businessId:z.string().min(1).max(128).optional(),
  action:z.string().trim().min(1).max(120),
@@ -15,6 +16,7 @@ export async function appendChessSecurityEvent(input:unknown) {
  const actor=await getCurrentMembership();
  if (!actor || actor.status!=="ACTIVE") throw new PermissionError("record:create");
  const data=schema.parse(input);
+ if (data.businessId) await assertBusinessAccess(data.businessId);
  const {db}=getTenantDb();
  return db.chessSecurityEvent.create({
   data:{...data,actorClerkUserId:actor.clerkUserId},
