@@ -1,9 +1,10 @@
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { getCurrentMembership, requirePermission, PermissionError } from "@/lib/rbac/require-permission";
-import { canAccessService, canReadClientProfile } from "./policy";
-import type { ClientService, ProfileActor, ServiceGrant } from "./policy";
+import { canReadClientProfile } from "./policy";
+import type { ClientService, ProfileActor } from "./policy";
 import { z } from "zod";
 import { assertBusinessAccess } from "@/lib/chess/business-units";
+import {auditedClientServiceRead} from "./service-access-audit";
 
 const createInput = z.object({
   displayName: z.string().trim().min(1).max(200),
@@ -72,17 +73,17 @@ export async function getClientServiceLink(profileId: string, businessId: string
   await getClientProfile(profileId);
   const actor = await currentActor();
   const { db } = getTenantDb();
-  const link = await db.clientServiceLink.findUnique({
-    where: { profileId_businessId_service: { profileId: idInput.parse(profileId), businessId: idInput.parse(businessId), service: serviceInput.parse(service) } },
-    include: { grants: true },
+  // Read the active grant and write an immutable, privacy-limited decision
+  // event in one tenant-local transaction. An audit failure denies the read.
+  const result=await auditedClientServiceRead(db,{
+    profileId:idInput.parse(profileId),
+    businessId:idInput.parse(businessId),
+    service:serviceInput.parse(service),
+    actor,
   });
-  if (!link) return null;
-  const grants: ServiceGrant[] = link.grants.map(grant => ({
-    clerkUserId: grant.clerkUserId, service, canRead: grant.canRead,
-    canWrite: grant.canWrite, revokedAt: grant.revokedAt,
-  }));
-  if (!canAccessService(actor, service, grants, "read")) throw new PermissionError("record:read");
-  return { id: link.id, profileId: link.profileId, businessId: link.businessId, service: link.service, externalId: link.externalId };
+  if(result.status==="NOT_FOUND")return null;
+  if(result.status==="DENIED")throw new PermissionError("record:read");
+  return result.link;
 }
 
 /** The initial administrative provisioning path. Service data is not accessible
