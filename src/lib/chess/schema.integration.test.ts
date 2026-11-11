@@ -36,6 +36,15 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
   }});
   expect(active).toBe(0);
  });
+ it("makes security-event rows immutable at the database layer",async()=>{
+  const event=await db.chessSecurityEvent.create({data:{
+   action:"TEST",resourceType:"INTEGRATION",decision:"ALLOW",
+  }});
+  await expect(db.chessSecurityEvent.update({where:{id:event.id},data:{
+   decision:"DENY",
+  }})).rejects.toThrow();
+  await expect(db.chessSecurityEvent.delete({where:{id:event.id}})).rejects.toThrow();
+ });
  it("rejects a service link whose client profile does not exist",async()=>{
   await expect(db.clientServiceLink.create({data:{
    profileId:"missing-profile-id",businessId,service:"TAX",
