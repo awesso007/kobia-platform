@@ -747,3 +747,26 @@ environment variable names and expected test fixtures.
   checklist of remaining Milestones 1-8 code, vendor credentials,
   authenticated E2E and release approvals. This migration is a
   development security control, NOT a legal e-signature integration.
+
+
+## Round 12 - client consent portal approval and test inputs
+
+- `CHESS_CLIENT_CONSENT_PORTAL_ENABLED=false` until tested against
+  fictional signed-in client sessions in isolated staging.
+- `CHESS_CLIENT_PORTAL_POLICY_APPROVED=false` until a named
+  authorized reviewer approves the exact client-facing disclosure,
+  withdrawal language, service purpose and legal retention rules.
+- `CHESS_CLIENT_PORTAL_IDENTITY_APPROVED=false` until the mapping
+  of Clerk verified primary email to the tenant's active client
+  contact is independently accepted and reviewed for account
+  recovery, duplicate email and cross-business boundaries.
+- Existing `CHESS_CONSENT_EVIDENCE_KEY`, `CHESS_PUBLIC_ORIGIN`,
+  Clerk credentials, tenant PostgreSQL migrations and private
+  consent identity remain mandatory; never commit live credentials.
+- All three flags must be explicitly true to expose
+  `/client-consents?tenant=<approved-slug>`. The same tenant
+  selector must be used for the consent API; the portal checks
+  the client's identity again for each sensitive read or mutation.
+- See `docs/CHESS_CORP_2_M3_ROUND12_PORTAL.md` for test scenarios.
+  This UI does not deliver legal e-signatures or document intake,
+  so M3-01 and M3-02 are not independently release-complete.

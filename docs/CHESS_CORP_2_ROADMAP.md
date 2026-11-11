@@ -782,3 +782,35 @@ No historical consent evidence is manufactured by this migration.
 No merge, production deployment or activation of regulated providers
 is authorized. All Milestones 1-8 are still subject to unresolved
 external production gates.
+
+
+## Round 12 - highest-priority remaining M3-01 client portal follow-up
+
+- Added a separate, noindex, private, authenticated client consent
+  dashboard and per-consent immutable disclosure viewer with guarded
+  acceptance/withdrawal controls. Record selection binds the verified
+  primary Clerk email to a tenant-local linked CRM contact and binds
+  accepted/withdrawn records to their original Clerk identity.
+- The new portal does not require staff CRM membership. Middleware
+  reserves the portal path, resolves explicit tenant context for the
+  read UI and mutation API, and applies no-store security headers.
+- Activation requires all three independently controlled flags
+  `CHESS_CLIENT_CONSENT_PORTAL_ENABLED`,
+  `CHESS_CLIENT_PORTAL_POLICY_APPROVED`,
+  `CHESS_CLIENT_PORTAL_IDENTITY_APPROVED`; missing approvals
+  leave the new interface unavailable. A legacy staff-shell
+  consent link redirects to the client portal only after activation.
+- Unit tests cover identity isolation, expired state and verified
+  email contact matching; anonymous portal HTTP checks added.
+  Full signed-in E2E and accessibility tests remain unperformed.
+- Prior stale onboarding TODO comments were corrected. Existing
+  service-consent API retains its audited, origin-restricted
+  state changes; no real provider key has been supplied.
+- Configuration, acceptance and detailed remaining external gates
+  are in `docs/CHESS_CORP_2_M3_ROUND12_PORTAL.md`.
+
+**NOT PRODUCTION COMPLETE:** verified client test sessions, external
+signatures when required, legal/identity review, data retention,
+full document portal, staged migration deployment and licensed
+provider approval remain mandatory. The draft PR must not be merged
+or deployed to live client processing on ordinary CI alone.

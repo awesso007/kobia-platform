@@ -42,11 +42,13 @@ marked production complete by green CI.
 
 ## Milestone 3 - Client onboarding, consent and documents
 
-- **M3-01 [BOTH]** Deploy a client-facing consent/document portal that
-  uses verified customer authentication, displays the exact disclosure
-  version and offers accessible self-service grant/withdrawal.
-  Basic authenticated API acceptance exists; the full approved UX
-  and session E2E are not verified.
+- **M3-01 [BOTH]** Deploy and independently validate the new
+  dedicated, default-off, identity-scoped consent dashboard and
+  disclosure/withdrawal UX with real fictional signed-in clients.
+  Development UI and verified-email record filters exist as of Round 12,
+  but external identity/policy approval, browser accessibility testing,
+  legal e-signatures where required and actual multi-tenant E2E
+  are not complete. A full consent/document portal needs further work.
 - **M3-02 [BOTH]** Integrate an approved signature/e-sign/evidence
   provider where legally required, independently verify provider
   provenance and obtain legal approval for the signed text.
