@@ -64,69 +64,62 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware((auth, req: NextRequest) => {
-  const url = req.nextUrl;
-  const hostname = req.headers.get("host") ?? "";
+  const url = req.nextUrl.clone();
+  const host = (req.headers.get("host") ?? "").split(":")[0];
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "kobia.ai";
+  const rawSubdomain = host.endsWith(`.${rootDomain}`)
+    ? host.slice(0, -(`.${rootDomain}`).length) : null;
+  const hostTenant = rawSubdomain && rawSubdomain !== "www" ? sanitizeSlug(rawSubdomain) : null;
+  const isApi = url.pathname === "/api" || url.pathname.startsWith("/api/");
+  const rewrite = !!hostTenant && !isApi;
 
-  // Subdomain routing in production
-  if (hostname.endsWith(`.${rootDomain}`) && hostname !== rootDomain) {
-    const subdomain = hostname.replace(`.${rootDomain}`, "");
-    if (subdomain && subdomain !== "www") {
-      url.pathname = `/${subdomain}${url.pathname}`;
-      const res = NextResponse.rewrite(url);
-      res.headers.set("x-pathname", url.pathname);
-      return res;
-    }
+  if (rewrite && hostTenant) {
+    url.pathname = `/${hostTenant}${url.pathname}`;
   }
 
   if (!isPublicRoute(req)) {
     const { userId } = auth();
     if (!userId) {
-      // Redirect unauthed user to their tenant login page (or root if no tenant in path).
-      // Avoids Clerk's default 404-via-not-found-rewrite when no signInUrl is configured.
       const segments = url.pathname.split("/").filter(Boolean);
-      const maybeTenant = segments[0];
-      const loginUrl = maybeTenant
-        ? new URL(`/${maybeTenant}/login`, req.url)
-        : new URL("/", req.url);
-      loginUrl.searchParams.set("redirect_url", url.pathname);
+      const maybeTenant = hostTenant ?? (segments[0] && !NON_TENANT_SEGMENTS.has(segments[0]) ? segments[0] : null);
+      const loginUrl = maybeTenant ? new URL(`/${maybeTenant}/login`, req.url) : new URL("/", req.url);
+      loginUrl.searchParams.set("redirect_url", req.nextUrl.pathname);
       return NextResponse.redirect(loginUrl);
     }
   }
 
-  // Expose pathname to RSC layouts (used by tenant layout for onboarding guard).
-  const res = NextResponse.next();
-  res.headers.set("x-pathname", url.pathname);
+  // Never trust incoming x-tenant-* headers. Only request headers passed to
+  // NextResponse.next/rewrite are visible to server components and route handlers.
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.delete("x-tenant-id");
+  requestHeaders.delete("x-tenant-schema");
 
-  // Sprint 1 tenant resolution (slug-in-URL, see CONFLICTS.md Conflict 2).
-  // We resolve the active tenant from the first path segment and attach
-  // x-tenant-id (slug) + x-tenant-schema (tenant_<slug>) so getTenantDb() can
-  // bind the per-tenant Prisma client. We deliberately do NOT do a DB lookup
-  // here (Edge runtime has no Prisma); the schema name is derived from the
-  // slug. Clerk Organizations are intentionally not wired this sprint.
-  const tenantSlug = resolveTenantSlug(url.pathname);
-  if (tenantSlug) {
-    res.headers.set("x-tenant-id", tenantSlug);
-    res.headers.set("x-tenant-schema", schemaNameForSlug(tenantSlug));
-  } else if (url.pathname === "/app" || url.pathname.startsWith("/app/")) {
-    // Sprint 2: the CRM shell lives under /app (no tenant slug in the URL).
-    // Resolve the active tenant from the `kb-tenant` cookie, falling back to
-    // NEXT_PUBLIC_DEFAULT_TENANT or "acme" for the v0.1 alpha (single active
-    // tenant). A `?tenant=<slug>` query param updates the cookie so a tenant
-    // switcher can change the active CRM tenant without changing the URL.
-    const queryTenant = url.searchParams.get("tenant");
-    const cookieTenant = req.cookies.get("kb-tenant")?.value;
-    const appTenant =
-      sanitizeSlug(queryTenant) ??
-      sanitizeSlug(cookieTenant) ??
-      (process.env.NEXT_PUBLIC_DEFAULT_TENANT || "acme");
-    res.headers.set("x-tenant-id", appTenant);
-    res.headers.set("x-tenant-schema", schemaNameForSlug(appTenant));
-    if (queryTenant && sanitizeSlug(queryTenant) === appTenant) {
-      res.cookies.set("kb-tenant", appTenant, { path: "/", sameSite: "lax" });
-    }
+  const isChessApi = url.pathname.startsWith("/api/chess/") ||
+    url.pathname.startsWith("/api/client-profiles") ||
+    url.pathname.startsWith("/api/client-service-links");
+  const isCrmApp = url.pathname === "/app" || url.pathname.startsWith("/app/");
+  const isTenantRoute = !!resolveTenantSlug(url.pathname);
+  let tenantSlug = hostTenant ?? (isTenantRoute ? resolveTenantSlug(url.pathname) : null);
+
+  if (!tenantSlug && (isCrmApp || isChessApi)) {
+    const fromCookie = sanitizeSlug(req.cookies.get("kb-tenant")?.value);
+    const fromQuery = isCrmApp ? sanitizeSlug(url.searchParams.get("tenant")) : null;
+    const defaultTenant = sanitizeSlug(process.env.NEXT_PUBLIC_DEFAULT_TENANT);
+    tenantSlug = fromQuery ?? fromCookie ?? defaultTenant;
   }
-  return res;
+
+  if (tenantSlug) {
+    requestHeaders.set("x-tenant-id", tenantSlug);
+    requestHeaders.set("x-tenant-schema", schemaNameForSlug(tenantSlug));
+  }
+
+  const options = { request: { headers: requestHeaders } };
+  const response = rewrite ? NextResponse.rewrite(url, options) : NextResponse.next(options);
+  response.headers.set("x-pathname", url.pathname);
+  if (isCrmApp && tenantSlug && url.searchParams.get("tenant") === tenantSlug) {
+    response.cookies.set("kb-tenant", tenantSlug, { path: "/", sameSite: "lax", secure: process.env.NODE_ENV==="production", httpOnly: true });
+  }
+  return response;
 });
 
 /** Accept only Postgres-schema-safe slugs; reject anything else. */
