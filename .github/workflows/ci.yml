@@ -57,6 +57,7 @@ jobs:
           node --check scripts/chess-dr-restore-validate.mjs
           node --check scripts/chess-audit-archive-sandbox.mjs
           node --check scripts/chess-authz-e2e.mjs
+          node --test scripts/chess-authz-e2e-check.mjs
           node --check scripts/chess-staging-verify.mjs
 
       - name: Build

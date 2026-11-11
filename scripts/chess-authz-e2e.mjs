@@ -25,18 +25,24 @@ const otherTenant=base(required("CHESS_AUTHZ_E2E_OTHER_TENANT_URL"));
 if(own===otherTenant)throw new Error("Provide two different tenant origins.");
 const managerCookie=required("CHESS_AUTHZ_E2E_MANAGER_COOKIE");
 const noGrantCookie=required("CHESS_AUTHZ_E2E_NO_GRANT_COOKIE");
+const foreignCookie=required("CHESS_AUTHZ_E2E_OTHER_TENANT_MANAGER_COOKIE");
 if(!managerCookie.includes("=")||!noGrantCookie.includes("=")||
- managerCookie===noGrantCookie)
+ managerCookie===noGrantCookie||foreignCookie===managerCookie||
+ foreignCookie===noGrantCookie||!foreignCookie.includes("="))
  throw new Error("Two distinct, live sandbox staff sessions are required.");
 const businessId=required("CHESS_AUTHZ_E2E_BUSINESS_ID");
 const otherBusinessId=required("CHESS_AUTHZ_E2E_OTHER_BUSINESS_ID");
 const ownCaseId=required("CHESS_AUTHZ_E2E_SERVICE_CASE_ID");
 const otherCaseId=required("CHESS_AUTHZ_E2E_OTHER_CASE_ID");
-for(const id of [businessId,otherBusinessId,ownCaseId,otherCaseId]){
+const revokedCaseId=required("CHESS_AUTHZ_E2E_REVOKED_CASE_ID");
+const foreignBusinessId=required("CHESS_AUTHZ_E2E_OTHER_TENANT_BUSINESS_ID");
+for(const id of [businessId,otherBusinessId,ownCaseId,otherCaseId,
+ revokedCaseId,foreignBusinessId]){
  if(!/^[A-Za-z0-9_-]{5,128}$/.test(id))
   throw new Error("Invalid opaque test fixture reference");
 }
-if(businessId===otherBusinessId||ownCaseId===otherCaseId)
+if(businessId===otherBusinessId||ownCaseId===otherCaseId||
+ revokedCaseId===ownCaseId||revokedCaseId===otherCaseId)
  throw new Error("Fixture references are not independent.");
 const month=required("CHESS_AUTHZ_E2E_MONTH");
 if(!/^20[2-9][0-9]-(0[1-9]|1[0-2])$/.test(month))
@@ -84,10 +90,51 @@ const foreignTenant=await request(otherTenant,
  `/api/chess/operations-report?businessId=${encodeURIComponent(businessId)}&month=${month}`,
  managerCookie);
 assertCode("Foreign tenant cannot read original business records",foreignTenant,[403,404]);
+const foreignOwner=await request(otherTenant,
+ `/api/chess/operations-report?businessId=${encodeURIComponent(foreignBusinessId)}&month=${month}`,
+ foreignCookie);
+assertCode("Independent tenant B manager can access only B reports",foreignOwner,[200]);
+const foreignManagerOnA=await request(own,
+ `/api/chess/operations-report?businessId=${encodeURIComponent(businessId)}&month=${month}`,
+ foreignCookie);
+assertCode("B member session cannot enter tenant A",foreignManagerOnA,[403,404]);
+const ownManagerOnB=await request(otherTenant,
+ `/api/chess/operations-report/portfolio?month=${month}`,managerCookie);
+assertCode("A member session cannot access B portfolio",ownManagerOnB,[403,404]);
+const ownPortfolio=await request(own,
+ `/api/chess/operations-report/portfolio?month=${month}`,managerCookie);
+assertCode("A active owner can view tenant A portfolio",ownPortfolio,[200]);
+const staffPortfolio=await request(own,
+ `/api/chess/operations-report/portfolio?month=${month}`,noGrantCookie);
+assertCode("Ungrafted staff denied tenant portfolio",staffPortfolio,[403,404]);
+const revokedConsent=await request(own,
+ `/api/chess/regulated-workflows?businessId=${encodeURIComponent(businessId)}&serviceCaseId=${encodeURIComponent(revokedCaseId)}`,
+ managerCookie);
+assertCode("Revoked service consent immediately blocks case access",revokedConsent,[403,404]);
+const billingRead=await request(own,
+ `/api/chess/billing?businessId=${encodeURIComponent(businessId)}`,
+ managerCookie);
+assertCode("Authorized manager may list currently granted invoices",billingRead,[200]);
+const staffBillingRead=await request(own,
+ `/api/chess/billing?businessId=${encodeURIComponent(businessId)}`,
+ noGrantCookie);
+assertCode("Staff cannot view invoice metadata",staffBillingRead,[403,404]);
 const csrf=await request(own,"/api/chess/billing",managerCookie,{
  method:"POST",headers:{"Content-Type":"application/json",
   "Origin":"https://attacker.example"},
  body:"{}",
 });
 assertCode("Cross-origin billing creation blocked without mutation",csrf,[403]);
-console.log("Authenticated cross-tenant, cross-business, client-grant and CSRF regression PASS.");
+for(const [label,path,method] of [
+ ["Forged invoice void", "/api/chess/billing","DELETE"],
+ ["Forged AI triage review", "/api/chess/ai-triage","PATCH"],
+ ["Forged regulated workflow decision", "/api/chess/regulated-workflows","PATCH"],
+]){
+ const result=await request(own,path,managerCookie,{
+  method,headers:{"Content-Type":"application/json",
+   "Origin":"https://attacker.example"},
+  body:"{}",
+ });
+ assertCode(label+" blocked before mutation",result,[403]);
+}
+console.log("PASS authenticated two-tenant, revoked-consent, invoice, portfolio and CSRF regression.");
