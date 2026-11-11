@@ -47,7 +47,8 @@ async function context(raw:unknown){
  const data=contextSchema.parse(raw);
  const actor=await getCurrentMembership();
  if(!actor || actor.status!=="ACTIVE")throw new PermissionError("record:read");
- await getClientServiceLink(data.clientProfileId,data.businessId,data.service);
+ const grant=await getClientServiceLink(data.clientProfileId,data.businessId,data.service);
+ if(!grant)throw new PermissionError("record:read");
  const {db,tenantId}=getTenantDb();
  const [serviceCase,tenant]=await Promise.all([
   db.chessServiceCase.findFirst({where:{
@@ -92,7 +93,9 @@ async function assertOffsetAccount(tenantId:string,entityId:string,accountId:str
  * mandatory; posting must happen via the ledger's independently guarded path. */
 export async function suggestChessBankReview(input:unknown){
  const data=suggestSchema.parse(input);
- const state=await context(data);
+ const state=await context({businessId:data.businessId,
+  clientProfileId:data.clientProfileId,serviceCaseId:data.serviceCaseId,
+  service:data.service});
  const txn=await loadTxn(state.legacyTenantId,state.legacyEntityId,data.legacyBankTransactionId);
  if(txn.status!=="UNMATCHED")throw new PermissionError("record:create");
  if(data.suggestedAccountId)await assertOffsetAccount(state.legacyTenantId,
@@ -136,7 +139,8 @@ export async function reviewChessBankSuggestion(input:unknown){
   service:{in:["ACCOUNTING","BOOKKEEPING"]},
  },select:{service:true}});
  if(!serviceCase)throw new PermissionError("record:update");
- await getClientServiceLink(existing.clientProfileId,data.businessId,serviceCase.service);
+ const grant=await getClientServiceLink(existing.clientProfileId,data.businessId,serviceCase.service);
+ if(!grant)throw new PermissionError("record:update");
  const txn=await loadTxn(existing.legacyTenantId,existing.legacyEntityId,existing.legacyBankTransactionId);
  const digest=bankTransactionFingerprint(txn,existing.legacyTenantId,existing.legacyEntityId);
  const stale=digest!==existing.transactionDigest || txn.status!=="UNMATCHED";
