@@ -5,6 +5,8 @@ import {getChessManagerQueue,listChessEmployeeAlerts} from "@/lib/chess/employee
 import WorkItemsClient from "./WorkItemsClient";
 import RecurrencesClient from "./RecurrencesClient";
 import EmployeeAlerts from "./EmployeeAlerts";
+import CalendarConsent from "./CalendarConsent";
+import {getMyCalendarPreference} from "@/lib/chess/calendar-preferences";
 import {listChessRecurrences} from "@/lib/chess/recurring-work";
 export const dynamic="force-dynamic";
 export default async function ChessWorkItemsPage({searchParams}:{searchParams:{businessId?:string}}){
@@ -15,11 +17,12 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
  const requested=searchParams.businessId;
  const selected=businesses.find(b=>b.id===requested)??businesses[0];
  if(!selected)return <main className="mx-auto max-w-4xl p-8">No active business assignment is available.</main>;
- const [tasks,alerts,manager,recurrences]=await Promise.all([
+ const [tasks,alerts,manager,recurrences,calendarPreference]=await Promise.all([
   listChessWorkItems(selected.id).catch(()=>[]),
   listChessEmployeeAlerts(selected.id).catch(()=>[]),
   getChessManagerQueue(selected.id).catch(()=>null),
   listChessRecurrences(selected.id).catch(()=>null),
+  getMyCalendarPreference().catch(()=>({enabled:false,acknowledgedAt:null})),
  ]);
  const serialize=tasks.map(t=>({...t,
   dueAt:t.dueAt?.toISOString()??null,updatedAt:t.updatedAt.toISOString(),
@@ -43,6 +46,10 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
      className="text-sm font-semibold text-emerald-700 hover:underline">Export my calendar (.ics)</a>
    </div>
    <WorkItemsClient businessId={selected.id} initialTasks={serialize}/>
+  </section>
+  <section className="space-y-3">
+   <h2 className="text-xl font-semibold">Calendar sharing</h2>
+   <CalendarConsent initialEnabled={calendarPreference.enabled}/>
   </section>
   <section className="space-y-3">
    <h2 className="text-xl font-semibold">My notifications</h2>
