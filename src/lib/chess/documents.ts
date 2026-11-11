@@ -5,6 +5,16 @@ import {getClientServiceLink} from "@/lib/client-profile/service";
 import * as s3 from "@/lib/storage/s3";
 import {matchesPinnedDocument} from "./storage-integrity";
 
+export function documentDownloadAllowed(
+ doc:{status:string;suppressedAt:Date|null;retentionUntil:Date|null;
+  storageVersionId:string|null;storageETag:string|null}|null,
+ now=new Date(),
+):boolean{
+ return !!doc&&doc.status==="READY"&&!doc.suppressedAt&&
+  !!doc.storageVersionId&&!!doc.storageETag&&
+  (!doc.retentionUntil||doc.retentionUntil>now);
+}
+
 const MAX_SIZE=20*1024*1024;
 const types=["application/pdf","image/png","image/jpeg"] as const;
 const request=z.object({
@@ -86,10 +96,19 @@ export async function getChessDocumentDownload(
  const document=await db.chessClientDocument.findFirst({where:{
   id:documentId,businessId,clientProfileId,service,status:"READY",
  },select:{storageKey:true,storageVersionId:true,storageETag:true,fileName:true,
-  actualBytes:true,mimeType:true,maxBytes:true}});
- if(!document || !document.storageVersionId || !document.storageETag)throw new PermissionError("record:read");
+  actualBytes:true,mimeType:true,maxBytes:true,status:true,
+  suppressedAt:true,retentionUntil:true}});
+ if(!documentDownloadAllowed(document))throw new PermissionError("record:read");
  const pinned=await s3.headObject(document.storageKey,document.storageVersionId);
  if(!matchesPinnedDocument(document,pinned))
+  throw new PermissionError("record:read");
+ // One final authorization/database lifecycle read just before signing.
+ // An existing 60-second presigned URL cannot be retroactively revoked.
+ const latest=await db.chessClientDocument.findFirst({where:{
+  id:documentId,businessId,clientProfileId,service,status:"READY",
+ },select:{status:true,suppressedAt:true,retentionUntil:true,
+  storageVersionId:true,storageETag:true}});
+ if(!documentDownloadAllowed(latest)||latest?.storageVersionId!==document.storageVersionId)
   throw new PermissionError("record:read");
  const url=await s3.createPresignedDownloadUrl(document.storageKey,{
   expiresIn:60,contentDisposition:"attachment",versionId:document.storageVersionId,
@@ -118,7 +137,8 @@ export async function listChessServiceDocuments(
  const records=await db.chessClientDocument.findMany({
   where:{businessId,clientProfileId,service},
   select:{id:true,fileName:true,mimeType:true,status:true,
-   actualBytes:true,createdAt:true,verifiedAt:true},
+   actualBytes:true,createdAt:true,verifiedAt:true,
+   retentionUntil:true,legalHoldAt:true,suppressedAt:true},
   orderBy:{createdAt:"desc"},take:100,
  });
  return {canUpload:grant.canWrite,records};
