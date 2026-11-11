@@ -147,6 +147,26 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
   the configured calendar bridge. Appointment outbound events are queued and
   handled by the worker, but do not reach third-party calendars until
   provider credentials, OAuth delegation and an approved scheduler are live.
+### Optional real-provider sandbox validation (manual only)
+- Configure GitHub environment `chess-calendar-sandbox` with approval
+  protection and **test-only** provider credentials, never production access.
+- Supply environment variables `CHESS_CALENDAR_SANDBOX_VALIDATE=true`,
+  `CHESS_CALENDAR_SANDBOX_ISOLATED=true`,
+  `CHESS_CALENDAR_SANDBOX_TENANT`,
+  `CHESS_CALENDAR_SANDBOX_BUSINESS_ID`,
+  `CHESS_CALENDAR_SANDBOX_STAFF_ID`, plus the existing
+  `CHESS_CALENDAR_API_URL`, `CHESS_CALENDAR_CANCEL_API_URL`,
+  `CHESS_CALENDAR_STATUS_API_URL`,
+  `CHESS_CALENDAR_ALLOWED_HOST` and `CHESS_CALENDAR_API_KEY`.
+- The assigned sandbox staff account must independently authorize a
+  dedicated test calendar through the provider's OAuth flow.
+- Manually run `chess-calendar-sandbox.yml` to validate appointment
+  create/status/cancel using a synthetic meeting title and no client data.
+  A provider event whose cancellation cannot be confirmed requires cleanup
+  in the sandbox provider. This test does not prove production compliance.
+- The ordinary CI workflow does not use real provider credentials or run
+  this integration; it uses mocked contract tests.
+
 - **Activation:** keep `CHESS_CALENDAR_SYNC_ENABLED=false` and
   `CHESS_SCHEDULER_ENABLED=false` until sandbox tests and approvals pass.
 
