@@ -61,12 +61,13 @@ export async function confirmChessDocumentUpload(documentId:string,businessId:st
  });
  if(!doc)throw new PermissionError("record:update");
  const head=await s3.headObject(doc.storageKey);
- if(!head || head.size<1 || head.size>doc.maxBytes || head.mimeType!==doc.mimeType) {
+ if(!head || !head.versionId || !head.etag || head.size<1 || head.size>doc.maxBytes || head.mimeType!==doc.mimeType) {
   await db.chessClientDocument.updateMany({where:{id:doc.id,status:"PENDING"},data:{status:"REJECTED"}});
   return {status:"REJECTED" as const};
  }
  await db.chessClientDocument.updateMany({
-  where:{id:doc.id,status:"PENDING"},data:{status:"QUARANTINED",actualBytes:head.size},
+  where:{id:doc.id,status:"PENDING"},data:{status:"QUARANTINED",actualBytes:head.size,
+   storageVersionId:head.versionId,storageETag:head.etag},
  });
  return {status:"QUARANTINED" as const};
 }
@@ -83,10 +84,13 @@ export async function getChessDocumentDownload(
  const {db}=getTenantDb();
  const document=await db.chessClientDocument.findFirst({where:{
   id:documentId,businessId,clientProfileId,service,status:"READY",
- },select:{storageKey:true,fileName:true}});
- if(!document)throw new PermissionError("record:read");
+ },select:{storageKey:true,storageVersionId:true,storageETag:true,fileName:true}});
+ if(!document || !document.storageVersionId || !document.storageETag)throw new PermissionError("record:read");
+ const pinned=await s3.headObject(document.storageKey,document.storageVersionId);
+ if(!pinned || pinned.versionId!==document.storageVersionId || pinned.etag!==document.storageETag)
+  throw new PermissionError("record:read");
  const url=await s3.createPresignedDownloadUrl(document.storageKey,{
-  expiresIn:60,contentDisposition:"attachment",
+  expiresIn:60,contentDisposition:"attachment",versionId:document.storageVersionId,
  });
  return {url,expiresInSeconds:60};
 }
