@@ -40,6 +40,12 @@ jobs:
             exit 1
           fi
 
+      - name: Validate DR and authenticated security probe scripts
+        run: |
+          node --check scripts/chess-dr-restore-validate.mjs
+          node --check scripts/chess-audit-archive-sandbox.mjs
+          node --check scripts/chess-authz-e2e.mjs
+
       - name: Build
         run: npm run build
         env:
