@@ -106,6 +106,14 @@ export async function transitionChessWorkItem(data:unknown){
     completedAt:parsed.status==="COMPLETED"?now:null},
   });
   if(changed.count!==1)throw new WorkItemConflictError();
+  if(parsed.status==="CANCELLED"){
+   // Pending calendar pushes were never sent. Already-synced events require
+   // an explicit remote cancellation workflow before any further changes.
+   await tx.chessCalendarOutbox.updateMany({
+    where:{workItemId:existing.id,status:"PENDING"},
+    data:{status:"CANCELLED"},
+   });
+  }
   await tx.chessSecurityEvent.create({data:{
    businessId:parsed.businessId,actorClerkUserId:actor.clerkUserId,
    action:"WORK_ITEM_STATUS_CHANGED",resourceType:"ChessWorkItem",
