@@ -71,10 +71,24 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
   Month-end recurrences preserve their intended day where possible.
 - New assigned work creates private in-app notifications. The authorized
   employee can export their assigned work as an authenticated `.ics` file.
-- **Not yet live calendar synchronization:** an iCalendar download is a
-  manual calendar export, not an OAuth-linked Google or Microsoft calendar.
-  A production sync integration requires provider selection, event permission,
-  per-employee delegated authorization and conflict/cancellation handling.
+- CHESS_CALENDAR_SYNC_ENABLED: keep `false` until the calendar gateway is
+  approved and every affected employee has authorized calendar access.
+- CHESS_CALENDAR_API_URL: approved HTTPS gateway's event-creation POST
+  endpoint. It receives tenantSlug, businessId, workItemId, a staff reference,
+  UTC start/end, a generic private title and an Idempotency-Key.
+- CHESS_CALENDAR_ALLOWED_HOST: exact approved gateway hostname.
+- CHESS_CALENDAR_API_KEY: gateway credential held in the server's secret manager.
+- The gateway must verify a staff member's Google/Microsoft delegated OAuth
+  authorization, target calendar, scoped event permissions, refresh-token
+  handling, privacy policy and idempotency before creating events.
+- Calendar outbox events are `PENDING`, `SUBMITTING`, `SYNCED`, `REJECTED`,
+  `UNKNOWN` or `CANCELLED`. An uncertain remote result is NEVER
+  automatically retried; reconcile it with the gateway by idempotency key.
+- Calendar subscriptions via the authenticated `.ics` export are manual
+  exports. The gateway hook provides optional outbound calendar event
+  creation once configured. Remote cancellation, employee reassignment after
+  publication, OAuth consent UI and bidirectional conflict handling remain
+  independent production blockers, not solved by the adapter alone.
 
 ## 4. Payroll execution (required to enable real transfers)
 - CHESS_PAYROLL_API_URL: provider's approved HTTPS POST endpoint. The
