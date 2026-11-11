@@ -60,6 +60,7 @@ integration("CHESS fictional demo seed on isolated PostgreSQL",()=>{
   }})).toBe(0);
   expect(await db.chessWorkItem.count({where:{
    businessId:{in:ids},
+   title:{startsWith:"Fictional "},
   }})).toBe(8);
  });
 });

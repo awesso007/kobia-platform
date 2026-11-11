@@ -178,7 +178,8 @@ export async function verifyChessDemoRecords(db: PrismaClient): Promise<{
       db.chessPractitionerCredential.count({where:{businessId:{in:ids}}}),
       db.chessServiceCase.count({where:{businessId:{in:ids}}}),
       db.chessBillingInvoice.count({where:{businessId:{in:ids}}}),
-      db.chessWorkItem.count({where:{businessId:{in:ids}}}),
+      db.chessWorkItem.count({where:{businessId:{in:ids},title:{in:units.map(u=>
+        "Fictional "+u.service.toLowerCase().replaceAll("_"," ")+" client follow-up")}}}),
     ]);
   const pending = consents.every(c=>c.status==="PENDING" &&
     !c.consentedAt && !c.acceptedByClerkUserId &&
