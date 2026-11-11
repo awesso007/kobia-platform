@@ -577,8 +577,8 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
   incident response and offsite access controls are signed off.
   Activating requires both flags true, an approved active scheduler,
   allowlisted tenants and a protected `CHESS_WORKFLOW_WORKER_TOKEN`.
-- The exporter only sends `tenantSlug,eventId,occurredAt,action,
-  resourceType,decision,businessTag,actorTag,resourceTag,digest`.
+- The exporter only sends `tenantSlug,eventId,occurredAt,actionTag,
+  resourceTypeTag,decision,businessTag,actorTag,resourceTag,digest`.
   Staff, business and resource identifiers are HMAC pseudonyms,
   and arbitrary free-text source event labels are REJECTED locally.
   Original security event records are never modified by the exporter.
