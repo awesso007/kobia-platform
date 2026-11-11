@@ -169,6 +169,7 @@ export async function sendChessInvoice(input:unknown){
  const state=await accessInvoice(data.businessId,data.invoiceId);
  const {actor,db,invoice}=state;
  if(invoice.status!=="APPROVED"||!invoice.approvedAt||
+  !invoice.approvedByClerkUserId||
   !canSendApprovedInvoice(invoice,actor.clerkUserId))
   throw new PermissionError("record:update");
  const [creator,reviewer]=await Promise.all([
