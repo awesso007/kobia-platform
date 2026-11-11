@@ -619,6 +619,34 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    expect(fetched?.providerInvoiceId).toBeNull();
   }finally{await db.chessBillingInvoice.delete({where:{id:invoice.id}});}
  });
+ it("freezes month-end operational evidence and enforces distinct review and immutability",async()=>{
+  const snapshot=await db.chessOperationalPeriodSnapshot.create({data:{
+   businessId:"fictional-snapshot-"+Date.now().toString(36),
+   month:"2026-10",reportJson:JSON.stringify({
+    purpose:"OPERATIONS_ONLY",caseCounts:2,
+    excludes:"revenue, cash, settlements, tax, consolidation",
+   }),
+   sourceDigest:"a".repeat(64),createdByClerkUserId:"fictional-author",
+  }});
+  expect(snapshot.status).toBe("PENDING");
+  await expect(db.chessOperationalPeriodSnapshot.update({where:{id:snapshot.id},
+   data:{status:"APPROVED",reviewedByClerkUserId:"fictional-author",
+    reviewedAt:new Date()},
+  })).rejects.toThrow();
+  const reviewed=await db.chessOperationalPeriodSnapshot.update({where:{id:snapshot.id},
+   data:{status:"APPROVED",reviewedByClerkUserId:"fictional-independent-reviewer",
+    reviewedAt:new Date()},
+  });
+  expect(reviewed.status).toBe("APPROVED");
+  await expect(db.chessOperationalPeriodSnapshot.update({where:{id:snapshot.id},
+   data:{sourceDigest:"b".repeat(64)},
+  })).rejects.toThrow();
+  await expect(db.chessOperationalPeriodSnapshot.update({where:{id:snapshot.id},
+   data:{status:"PENDING",reviewedAt:null,reviewedByClerkUserId:null},
+  })).rejects.toThrow();
+  await expect(db.chessOperationalPeriodSnapshot.delete({where:{id:snapshot.id}}))
+   .rejects.toThrow();
+ });
  it("enforces one verified archive delivery receipt per immutable security event",async()=>{
   const event=await db.chessSecurityEvent.create({data:{
    action:"TEST_ARCHIVE_EXPORT",resourceType:"INTEGRATION",
