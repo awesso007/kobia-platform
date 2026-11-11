@@ -9,6 +9,7 @@ import CalendarConsent from "./CalendarConsent";
 import AppointmentsClient from "./AppointmentsClient";
 import {listChessAppointments,listChessAssignableStaff} from "@/lib/chess/appointments";
 import {getMyCalendarPreference} from "@/lib/chess/calendar-preferences";
+import {getChessWorkerHealth} from "@/lib/chess/worker-health";
 import {listChessRecurrences} from "@/lib/chess/recurring-work";
 export const dynamic="force-dynamic";
 export default async function ChessWorkItemsPage({searchParams}:{searchParams:{businessId?:string}}){
@@ -19,7 +20,7 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
  const requested=searchParams.businessId;
  const selected=businesses.find(b=>b.id===requested)??businesses[0];
  if(!selected)return <main className="mx-auto max-w-4xl p-8">No active business assignment is available.</main>;
- const [tasks,alerts,manager,recurrences,calendarPreference,appointments,staff]=await Promise.all([
+ const [tasks,alerts,manager,recurrences,calendarPreference,appointments,staff,workerHealth]=await Promise.all([
   listChessWorkItems(selected.id).catch(()=>[]),
   listChessEmployeeAlerts(selected.id).catch(()=>[]),
   getChessManagerQueue(selected.id).catch(()=>null),
@@ -27,6 +28,7 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
   getMyCalendarPreference().catch(()=>({enabled:false,acknowledgedAt:null})),
   listChessAppointments(selected.id).catch(()=>null),
   listChessAssignableStaff(selected.id).catch(()=>null),
+  getChessWorkerHealth().catch(()=>null),
  ]);
  const serialize=tasks.map(t=>({...t,
   dueAt:t.dueAt?.toISOString()??null,updatedAt:t.updatedAt.toISOString(),
@@ -89,6 +91,16 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
     lastRunAt:item.lastRunAt?.toISOString()??null,
     updatedAt:item.updatedAt.toISOString(),
    }))}/>
+  </section>}
+  {workerHealth&&<section className="space-y-3 rounded-xl border border-slate-200 p-4">
+   <h2 className="text-xl font-semibold">Operations health</h2>
+   <p className="text-sm text-slate-700">
+    Scheduler: {workerHealth.schedulerStale?"Not recently observed":"Reporting"}
+    {" · "}Late recurring schedules: {workerHealth.activeRecurrences}
+    {" · "}Pending or uncertain calendar events: {workerHealth.calendarPending}
+   </p>
+   <p className="text-xs text-slate-500">Scheduler health requires an approved, running tenant worker and live monitoring.
+    A green status here does not mean external calendar connections are configured.</p>
   </section>}
   <Link href="/app/overview" className="text-sm font-medium text-emerald-700 hover:underline">
    Back to operations overview
