@@ -374,6 +374,67 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    }
   }finally{await db.chessRegulatedAffiliation.delete({where:{id:affiliation.id}});}
  });
+ it("enforces M7 AI source uniqueness and immutable invoice billing guards",async()=>{
+  const suffix=Date.now().toString(36);
+  const business="m7-"+suffix;
+  const task="task-"+suffix;
+  const evidence="e".repeat(64);
+  const suggestion=await db.chessAiSuggestion.create({data:{
+   businessId:business,workItemId:task,sourceDigest:evidence,
+   priority:"NORMAL",recommendation:"REVIEW_DEADLINE",
+   rationaleCode:"DEADLINE_SOON",modelVersion:"sandbox_model_v1",
+   requestedByClerkUserId:"creator",
+  }});
+  try{
+   expect(suggestion.status).toBe("PENDING");
+   await expect(db.chessAiSuggestion.create({data:{
+    businessId:business,workItemId:task,sourceDigest:evidence,
+    priority:"HIGH",recommendation:"ESCALATE_TO_MANAGER",
+    rationaleCode:"TASK_BLOCKED",modelVersion:"sandbox_model_v1",
+    requestedByClerkUserId:"other",
+   }})).rejects.toThrow();
+   const once=await db.chessAiSuggestion.updateMany({where:{
+    id:suggestion.id,status:"PENDING",updatedAt:suggestion.updatedAt,
+   },data:{status:"ACCEPTED",reviewedByClerkUserId:"different-human",
+    reviewedAt:new Date()}});
+   expect(once.count).toBe(1);
+   const replay=await db.chessAiSuggestion.updateMany({where:{
+    id:suggestion.id,status:"PENDING",updatedAt:suggestion.updatedAt,
+   },data:{status:"REJECTED"}});
+   expect(replay.count).toBe(0);
+  }finally{await db.chessAiSuggestion.delete({where:{id:suggestion.id}});}
+  const invoice=await db.chessBillingInvoice.create({data:{
+   businessId:business,clientProfileId:"fictional-client",
+   serviceCaseId:"case-"+suffix,service:"BOOKKEEPING",
+   requestKey:"m7-request-"+suffix,descriptionCode:"BOOKKEEPING_MONTHLY",
+   amountCents:19000n,sourceDigest:"a".repeat(64),
+   idempotencyKey:"b".repeat(64),createdByClerkUserId:"creator",
+  }});
+  try{
+   expect(invoice.status).toBe("DRAFT");
+   expect(invoice.amountCents).toBe(19000n);
+   await expect(db.chessBillingInvoice.create({data:{
+    businessId:business,clientProfileId:"fictional-client",
+    serviceCaseId:"case-"+suffix,service:"BOOKKEEPING",
+    requestKey:"m7-request-"+suffix,descriptionCode:"BOOKKEEPING_MONTHLY",
+    amountCents:19000n,sourceDigest:"a".repeat(64),
+    idempotencyKey:"c".repeat(64),createdByClerkUserId:"another",
+   }})).rejects.toThrow();
+   await expect(db.chessBillingInvoice.update({where:{id:invoice.id},
+    data:{amountCents:-10n}})).rejects.toThrow();
+   await expect(db.chessBillingInvoice.update({where:{id:invoice.id},
+    data:{currency:"EUR"}})).rejects.toThrow();
+   const approved=await db.chessBillingInvoice.updateMany({where:{
+    id:invoice.id,status:"DRAFT",updatedAt:invoice.updatedAt,
+   },data:{status:"APPROVED",approvedByClerkUserId:"reviewer",
+    approvedAt:new Date()}});
+   expect(approved.count).toBe(1);
+   const again=await db.chessBillingInvoice.updateMany({where:{
+    id:invoice.id,status:"DRAFT",updatedAt:invoice.updatedAt,
+   },data:{status:"APPROVED"}});
+   expect(again.count).toBe(0);
+  }finally{await db.chessBillingInvoice.delete({where:{id:invoice.id}});}
+ });
  it("rejects a service link whose client profile does not exist",async()=>{
   await expect(db.clientServiceLink.create({data:{
    profileId:"missing-profile-id",businessId,service:"TAX",
