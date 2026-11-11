@@ -3560,6 +3560,7 @@ model ClientProfile {
 model ClientServiceLink {
   id           String            @id @default(cuid())
   profileId    String
+  businessId   String
   service      ClientServiceArea
   externalId   String?           // locator only; never contains secrets or sensitive content
   createdAt    DateTime          @default(now())
@@ -3567,7 +3568,8 @@ model ClientServiceLink {
   profile      ClientProfile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
   grants       ClientServiceGrant[]
 
-  @@unique([profileId, service])
+  @@unique([profileId, businessId, service])
+  @@index([businessId, service])
   @@index([service, externalId])
 }
 
