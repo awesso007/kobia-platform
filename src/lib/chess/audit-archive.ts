@@ -17,11 +17,21 @@ export async function runChessAuditArchive(){
   select:{id:true,businessId:true,actorClerkUserId:true,
    action:true,resourceType:true,resourceId:true,decision:true,occurredAt:true},
  });
- if(unqueued.length){
+ let rejectedSource=0;
+ const toQueue:{eventId:string;digest:string}[]=[];
+ for(const event of unqueued){
+  try{
+   toQueue.push({eventId:event.id,
+    digest:auditArchiveEnvelope(tenantId,event).digest});
+  }catch{
+   // Invalid historic event labels remain local for manual compliance review.
+   // Do not send accidental names or document descriptions to an archive.
+   rejectedSource++;
+  }
+ }
+ if(toQueue.length){
   await db.chessAuditArchiveOutbox.createMany({
-   data:unqueued.map(event=>({
-    eventId:event.id,digest:auditArchiveEnvelope(tenantId,event).digest,
-   })),skipDuplicates:true,
+   data:toQueue,skipDuplicates:true,
   });
  }
  const rows=await db.chessAuditArchiveOutbox.findMany({
@@ -29,7 +39,7 @@ export async function runChessAuditArchive(){
   orderBy:{createdAt:"asc"},take:25,
   include:{event:true},
  });
- let archived=0,unresolved=0,blocked=0;
+ let archived=0,unresolved=0,blocked=rejectedSource;
  for(const row of rows){
   const envelope=auditArchiveEnvelope(tenantId,row.event);
   if(envelope.digest!==row.digest){blocked++;continue;}
