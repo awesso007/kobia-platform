@@ -256,3 +256,24 @@ export async function listChessInvoices(businessId:string){
   }});
  return rows.map(row=>({...row,amountCents:row.amountCents.toString()}));
 }
+
+
+export async function listChessBillableCases(businessId:string){
+ const actor=await assertBusinessManager(businessId);
+ if(!["OWNER","ADMIN"].includes(actor.role))throw new PermissionError("record:read");
+ const {db}=getTenantDb();
+ const rows=await db.chessServiceCase.findMany({where:{
+  businessId,status:"ACTIVE",
+  service:{in:["ACCOUNTING","BOOKKEEPING","PAYROLL","TAX"]},
+ },select:{id:true,clientProfileId:true,service:true},
+  orderBy:{createdAt:"desc"},take:100});
+ const authorized:typeof rows=[];
+ for(const row of rows){
+  try{
+   await scopedInvoiceCase(businessId,row.clientProfileId,row.id,
+    row.service as BillableService);
+   authorized.push(row);
+  }catch{/* No client lacking current written billing consent is displayed. */}
+ }
+ return authorized;
+}
