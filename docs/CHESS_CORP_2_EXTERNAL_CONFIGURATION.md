@@ -80,6 +80,11 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
   approved host that deletes a provider event by providerEventId and honors
   the unique cancellation Idempotency-Key. Both create and cancel endpoints
   must be operational before calendar sync may be enabled.
+- CHESS_CALENDAR_STATUS_API_URL: third approved HTTPS POST endpoint for
+  event reconciliation. Given a tenant, work item, idempotency key and
+  action CREATE or CANCEL, it must return verified provider status
+  (accepted, rejected, pending or not_found) and an event ID when accepted.
+  "not_found" or an outage never authorizes a blind retry.
 - CHESS_CALENDAR_ALLOWED_HOST: exact approved gateway hostname.
 - CHESS_CALENDAR_API_KEY: gateway credential held in the server's secret manager.
 - The gateway must verify a staff member's Google/Microsoft delegated OAuth
