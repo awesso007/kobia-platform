@@ -3619,3 +3619,31 @@ model ChessEmployeeAssignment {
   @@unique([businessId, clerkUserId])
   @@index([clerkUserId, revokedAt])
 }
+
+// CHESS CORP 2 M3 - explicit purpose-bound consent and onboarding checklist.
+// No raw document bytes or signatures are stored in these models.
+enum ChessConsentStatus { PENDING GRANTED WITHDRAWN EXPIRED }
+model ChessClientConsent {
+  id String @id @default(cuid())
+  clientProfileId String
+  businessId String
+  purpose String
+  policyVersion String
+  status ChessConsentStatus @default(PENDING)
+  consentedAt DateTime?
+  withdrawnAt DateTime?
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([clientProfileId, businessId, purpose, status])
+}
+model ChessIntakeItem {
+  id String @id @default(cuid())
+  clientProfileId String
+  businessId String
+  title String
+  required Boolean @default(true)
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([clientProfileId,businessId])
+}
