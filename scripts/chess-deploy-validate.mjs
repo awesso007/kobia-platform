@@ -33,6 +33,25 @@ try{
  if(url.protocol!=="https:" && process.env.NODE_ENV==="production")
   errors.push("CHESS_PUBLIC_ORIGIN must use HTTPS in production");
 }catch{errors.push("CHESS_PUBLIC_ORIGIN must be a valid URL");}
+if(process.env.CHESS_BANK_FEED_ENABLED==="true" ||
+ process.env.CHESS_BANK_FEED_IMPORT_ENABLED==="true"){
+ for(const name of ["CHESS_BANK_FEED_API_URL","CHESS_BANK_FEED_ALLOWED_HOST",
+  "CHESS_BANK_FEED_API_KEY"]){
+  if(!process.env[name])errors.push(`${name} required for bank feed import`);
+ }
+ const raw=process.env.CHESS_BANK_FEED_API_URL;
+ if(raw)try{
+  const url=new URL(raw);
+  if(url.protocol!=="https:"||url.hostname!==process.env.CHESS_BANK_FEED_ALLOWED_HOST||
+   url.username||url.password||url.hash)
+   errors.push("Bank feed gateway must be exact approved HTTPS host");
+ }catch{errors.push("Bank feed gateway URL is malformed");}
+ if(process.env.CHESS_BANK_FEED_SOURCE!=="PLAID")
+  errors.push("Bank feed source must be explicitly approved PLAID");
+ if(process.env.CHESS_BANK_FEED_ENABLED!=="true" ||
+    process.env.CHESS_BANK_FEED_IMPORT_ENABLED!=="true")
+  errors.push("Both bank feed enablement flags must be approved");
+}
 if(process.env.CHESS_PAYROLL_STATUS_ENABLED==="true"){
  const raw=process.env.CHESS_PAYROLL_STATUS_API_URL;
  if(!raw)errors.push("CHESS_PAYROLL_STATUS_API_URL required when payroll status enabled");
