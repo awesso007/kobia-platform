@@ -30,6 +30,21 @@ for(const slug of slugs){
    typeof result.examined!=="number")throw new Error("Invalid worker response.");
   console.log(`CHESS ${slug}: examined ${result.examined}; created ${result.generated}; blocked ${result.blocked}`);
   if(result.blocked>0)failures++;
+  if(process.env.CHESS_CALENDAR_SYNC_ENABLED==="true"){
+   const calendarUrl=new URL("/api/chess/calendar-sync/run",base);
+   calendarUrl.searchParams.set("t",slug);
+   const response=await fetch(calendarUrl,{
+    method:"POST",redirect:"error",cache:"no-store",
+    headers:{"Authorization":`Bearer ${token}`,"Content-Type":"application/json"},
+    body:"{}",signal:AbortSignal.timeout(20000),
+   });
+   if(!response.ok)throw new Error(`Calendar gateway HTTP ${response.status}`);
+   const calendar=await response.json();
+   if(calendar.disabled || typeof calendar.unknown!=="number")
+    throw new Error("Calendar synchronization has not been configured.");
+   console.log(`CHESS ${slug}: calendar synced ${calendar.synced}; unknown ${calendar.unknown}`);
+   if(calendar.unknown>0)failures++;
+  }
  }catch(error){
   failures++;
   console.error(`CHESS ${slug}: scheduler failed`,error instanceof Error?error.message:String(error));
