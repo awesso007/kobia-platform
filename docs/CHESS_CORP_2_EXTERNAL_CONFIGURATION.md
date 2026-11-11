@@ -106,6 +106,28 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
   publication, OAuth consent UI and bidirectional conflict handling remain
   independent production blockers, not solved by the adapter alone.
 
+### Staff appointment and provider sandbox requirements
+- **PostgreSQL requirement:** the migration role must be allowed to install
+  `btree_gist` (or the DBA must pre-install it). Its exclusion constraint
+  prevents overlapping SCHEDULED staff bookings within one KOBIA tenant,
+  including across CHESS business units. It cannot coordinate across
+  independent KOBIA tenants.
+- **Test personnel:** provide an approved staging business unit, two active
+  employee accounts and a manager account; use fictional clients only.
+- **Calendar provider sandbox:** provision a test employee's delegated OAuth
+  calendar connection and provide a sandbox API key, exact HTTPS host and
+  three API URLs for create, cancel and status lookup.
+- **Gateway contract:** event status lookup must accept action CREATE/CANCEL
+  and idempotency key, returning accepted/rejected/pending/not_found and a
+  provider event ID on accepted creations. A "not_found" result does not
+  automatically authorize another delivery.
+- **Privacy:** appointment subjects remain in the authorized workspace.
+  Only generic work-item event titles and times are sent through the
+  configured external calendar bridge. Appointment events are not yet
+  automatically synced to a third-party calendar.
+- **Activation:** keep `CHESS_CALENDAR_SYNC_ENABLED=false` and
+  `CHESS_SCHEDULER_ENABLED=false` until sandbox tests and approvals pass.
+
 ## 4. Payroll execution (required to enable real transfers)
 - CHESS_PAYROLL_API_URL: provider's approved HTTPS POST endpoint. The
   implementation expects {id,status:accepted|rejected|pending} and sends
