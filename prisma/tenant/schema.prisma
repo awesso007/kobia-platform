@@ -3732,6 +3732,29 @@ model ChessCalendarOutbox {
   @@index([businessId,status])
 }
 
+enum ChessWorkerKind {
+  RECURRING_WORK
+  CALENDAR_SYNC
+}
+
+enum ChessWorkerRunStatus {
+  SUCCESS
+  DEGRADED
+  FAILED
+}
+
+model ChessWorkerRun {
+  id String @id @default(cuid())
+  kind ChessWorkerKind
+  status ChessWorkerRunStatus
+  examined Int @default(0)
+  processed Int @default(0)
+  blocked Int @default(0)
+  occurredAt DateTime @default(now())
+
+  @@index([kind,occurredAt])
+}
+
 model ChessEmployeeAlert {
   id String @id @default(cuid())
   businessId String
