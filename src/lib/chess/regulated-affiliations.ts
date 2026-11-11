@@ -97,7 +97,8 @@ export async function verifyChessRegulatedAffiliation(input:unknown){
  return db.$transaction(async tx=>{
   const changed=await tx.chessRegulatedAffiliation.updateMany({
    where:{id:record.id,businessId:data.businessId,updatedAt:record.updatedAt},
-   data:{status:valid?"VERIFIED":"REJECTED",checkedAt:now,
+   data:{status:valid?"VERIFIED":"REJECTED",
+    checkedAt:evidence?new Date(evidence.checkedAt):now,
     verifiedByClerkUserId:valid?actor.clerkUserId:null,
     sourceUrl:evidence?.sourceUrl??null,
     expiresAt:evidence?.expiresAt?new Date(evidence.expiresAt):null},
