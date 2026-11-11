@@ -58,3 +58,51 @@ export async function openChessServiceCase(input:unknown) {
   id:true,businessId:true,clientProfileId:true,service:true,status:true,
  }});
 }
+
+
+type CaseStatus="INTAKE"|"REVIEW"|"ACTIVE"|"HOLD"|"CLOSED";
+const validTransitions:Record<CaseStatus,readonly CaseStatus[]>={
+ INTAKE:["REVIEW","CLOSED"],
+ REVIEW:["ACTIVE","HOLD","CLOSED"],
+ ACTIVE:["HOLD","CLOSED"],
+ HOLD:["REVIEW","CLOSED"],
+ CLOSED:[],
+};
+export function canTransitionServiceCase(from:CaseStatus,to:CaseStatus):boolean {
+ return validTransitions[from]?.includes(to) ?? false;
+}
+
+/** Admin-controlled progress transition with re-evaluation of recorded consent
+ * and independent license evidence before entering ACTIVE status. */
+export async function transitionChessServiceCase(
+ caseId:string,businessId:string,target:CaseStatus,
+) {
+ await assertBusinessAccess(businessId);
+ const actor=await getCurrentMembership();
+ if(!actor || !["OWNER","ADMIN"].includes(actor.role))throw new PermissionError("record:update");
+ const {db}=getTenantDb();
+ const record=await db.chessServiceCase.findFirst({where:{id:caseId,businessId}});
+ if(!record || !canTransitionServiceCase(record.status,target))throw new PermissionError("record:update");
+ if(target==="ACTIVE"){
+  const consents=await db.chessClientConsent.findMany({
+   where:{businessId,clientProfileId:record.clientProfileId,purpose:`service:${record.service}`},
+   select:{status:true,expiresAt:true,consentedAt:true,acceptedByClerkUserId:true,
+    verifiedEmailDigest:true,acceptanceEvidenceDigest:true},
+  });
+  if(!consents.some(c=>isUsableConsent(c)))throw new PermissionError("record:update");
+  if(needsVerifiedLicense(record.service)){
+   if(!record.ownerClerkUserId)throw new PermissionError("record:update");
+   const creds=await db.chessPractitionerCredential.findMany({
+    where:{businessId,clerkUserId:record.ownerClerkUserId,service:record.service},
+    select:{status:true,expiresAt:true,verifiedAt:true,verifiedByClerkUserId:true,
+     verificationSource:true,registryCheckedAt:true},
+   });
+   if(!creds.some(c=>credentialAllowsAssignment(c)))throw new PermissionError("record:update");
+  }
+ }
+ const result=await db.chessServiceCase.updateMany({
+  where:{id:caseId,businessId,status:record.status},data:{status:target},
+ });
+ if(result.count!==1)throw new PermissionError("record:update");
+ return {id:caseId,status:target};
+}
