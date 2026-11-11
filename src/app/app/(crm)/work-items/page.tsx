@@ -81,7 +81,13 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
    }}/>
   </section>}
   {appointments&&staff&&<section className="space-y-3">
-   <h2 className="text-xl font-semibold">Appointments</h2>
+   <div className="flex flex-wrap items-center justify-between gap-3">
+    <h2 className="text-xl font-semibold">Appointments</h2>
+    <a href={`/api/chess/appointments-calendar.ics?businessId=${encodeURIComponent(selected.id)}`}
+     className="text-sm font-semibold text-emerald-700 hover:underline">
+     Export my appointment calendar (.ics)
+    </a>
+   </div>
    <p className="text-sm text-slate-600">Time slots are protected against overlapping staff bookings.</p>
    <AppointmentsClient businessId={selected.id} staff={staff}
     initialAppointments={appointments.map(item=>({
