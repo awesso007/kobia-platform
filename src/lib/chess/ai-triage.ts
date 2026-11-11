@@ -3,6 +3,7 @@ import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
 import {assertBusinessManager} from "./business-manager";
 import {requestChessAiTriage,workItemSourceDigest,dueBucket} from "./ai-triage-provider";
+import {claimChessAiDailyCall} from "./ai-daily-budget";
 
 const ids=z.object({businessId:z.string().min(1).max(128),
  workItemId:z.string().min(1).max(128)}).strict();
@@ -29,6 +30,9 @@ export async function suggestChessWorkItemTriage(input:unknown){
   workItemId_sourceDigest:{workItemId:item.id,sourceDigest:digest},
  },select:{id:true,status:true,priority:true,recommendation:true,rationaleCode:true}});
  if(prior)return prior;
+ // Reserve the maximum external AI cost before the remote call.
+ // Failed attempts still consume the conservative quota.
+ await claimChessAiDailyCall(db,data.businessId);
  const advice=await requestChessAiTriage({
   status:item.status,dueBucket:dueBucket(item.dueAt),
   hasAssignee:!!item.assignedClerkUserId,

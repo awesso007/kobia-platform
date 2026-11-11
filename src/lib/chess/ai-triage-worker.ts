@@ -1,6 +1,7 @@
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {aiTriageConfigured,dueBucket,requestChessAiTriage,
  workItemSourceDigest} from "./ai-triage-provider";
+import {claimChessAiDailyCall} from "./ai-daily-budget";
 
 /** Tenant-allowlisted scheduler creates pending, non-executing suggestions.
  * It has no capability to modify a task, charge a client, or post a journal.
@@ -35,6 +36,7 @@ export async function runChessAiTriage(now=new Date()){
   if(duplicate)continue;
   examined++;
   try{
+   await claimChessAiDailyCall(db,task.businessId,now);
    const proposal=await requestChessAiTriage({
     status:task.status,dueBucket:dueBucket(task.dueAt,now),
     hasAssignee:!!task.assignedClerkUserId,

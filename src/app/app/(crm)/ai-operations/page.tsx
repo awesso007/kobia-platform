@@ -4,6 +4,7 @@ import {listBusinessUnits} from "@/lib/chess/business-units";
 import {listChessWorkItemTriage} from "@/lib/chess/ai-triage";
 import {listChessWorkItems} from "@/lib/chess/workflow";
 import {aiTriageConfigured} from "@/lib/chess/ai-triage-provider";
+import {getChessAiDailyUsage} from "@/lib/chess/ai-daily-budget";
 import {getCurrentMembership} from "@/lib/rbac/require-permission";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {isAuthorizedWorkflowTenant} from "@/lib/chess/worker-authorization";
@@ -26,6 +27,7 @@ export default async function AiOperationsPage({searchParams}:{
    schedulerEnabled:process.env.CHESS_SCHEDULER_ENABLED,
    allowedTenants:process.env.CHESS_ACTIVE_TENANT_SLUGS,
   });
+  const usage=canSeeWorker?await getChessAiDailyUsage(selected.id):null;
   const latestAiRun=canSeeWorker?await db.chessWorkerRun.findFirst({where:{
    kind:"AI_TRIAGE",
   },orderBy:{occurredAt:"desc"},select:{
@@ -75,6 +77,18 @@ export default async function AiOperationsPage({searchParams}:{
     </p>:<p className="mt-2 text-sm text-slate-500">
      No recorded AI worker run in this tenant.
     </p>}
+   </section>}
+   {usage&&<section className="rounded-xl border border-slate-200 bg-white p-5">
+    <h2 className="text-base font-semibold">Conservative AI provider call budget</h2>
+    <p className="mt-2 text-sm text-slate-700">
+     {usage.utcDay} UTC: {usage.reservedCalls} reserved out of {usage.maxCalls}
+     approved daily calls for this business.
+    </p>
+    <p className="mt-1 text-xs text-slate-600">
+     Each invocation reserves up to {usage.maxProviderCostMicrosPerCall}
+     microdollars; failed calls still count. These are maximum authorized
+     request amounts, not actual provider charges or settlement.
+    </p>
    </section>}
    <OperationsClient key={selected.id} view="ai" businessId={selected.id}
     suggestions={suggestions.map(s=>({...s,updatedAt:s.updatedAt.toISOString(),
