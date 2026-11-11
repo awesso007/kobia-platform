@@ -174,6 +174,17 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    expect(read?.blocked).toBe(2);
   }finally{await db.chessWorkerRun.delete({where:{id:run.id}});}
  });
+ it("persists privacy-limited AI scheduler telemetry",async()=>{
+  const run=await db.chessWorkerRun.create({data:{
+   kind:"AI_TRIAGE",status:"DEGRADED",examined:25,processed:23,blocked:2,
+  }});
+  try{
+   const found=await db.chessWorkerRun.findUnique({where:{id:run.id}});
+   expect(found?.kind).toBe("AI_TRIAGE");
+   expect(found?.examined).toBe(25);
+   expect(found?.blocked).toBe(2);
+  }finally{await db.chessWorkerRun.delete({where:{id:run.id}});}
+ });
  it("rejects overlapping staff appointments but permits adjacent slots and rebooking after cancellation",async()=>{
   const suffix=Date.now().toString(36);
   const business=await db.chessBusinessUnit.create({

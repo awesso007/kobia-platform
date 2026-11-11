@@ -4,6 +4,9 @@ import {listBusinessUnits} from "@/lib/chess/business-units";
 import {listChessWorkItemTriage} from "@/lib/chess/ai-triage";
 import {listChessWorkItems} from "@/lib/chess/workflow";
 import {aiTriageConfigured} from "@/lib/chess/ai-triage-provider";
+import {getCurrentMembership} from "@/lib/rbac/require-permission";
+import {getTenantDb} from "@/lib/db/get-tenant-db";
+import {isAuthorizedWorkflowTenant} from "@/lib/chess/worker-authorization";
 export const dynamic="force-dynamic";
 export default async function AiOperationsPage({searchParams}:{
  searchParams:{businessId?:string};
@@ -15,6 +18,19 @@ export default async function AiOperationsPage({searchParams}:{
   const [suggestions,tasks]=await Promise.all([
    listChessWorkItemTriage(selected.id),listChessWorkItems(selected.id),
   ]);
+  const actor=await getCurrentMembership();
+  const {db,tenantId}=getTenantDb();
+  const canSeeWorker=actor?.status==="ACTIVE"&&
+   ["OWNER","ADMIN"].includes(actor.role);
+  const scheduled=aiTriageConfigured()&&isAuthorizedWorkflowTenant(tenantId,{
+   schedulerEnabled:process.env.CHESS_SCHEDULER_ENABLED,
+   allowedTenants:process.env.CHESS_ACTIVE_TENANT_SLUGS,
+  });
+  const latestAiRun=canSeeWorker?await db.chessWorkerRun.findFirst({where:{
+   kind:"AI_TRIAGE",
+  },orderBy:{occurredAt:"desc"},select:{
+   status:true,examined:true,processed:true,blocked:true,occurredAt:true,
+  }}):null;
   const pending=suggestions.filter(x=>x.status==="PENDING").length;
   const accepted=suggestions.filter(x=>x.status==="ACCEPTED").length;
   const applied=suggestions.filter(x=>!!x.appliedAt).length;
@@ -46,6 +62,20 @@ export default async function AiOperationsPage({searchParams}:{
       <p className="mt-2 text-3xl font-semibold tabular-nums">{value}</p>
      </div>)}
    </section>
+   {canSeeWorker&&<section aria-label="Automated triage health"
+    className="rounded-xl border bg-white p-5">
+    <h2 className="text-base font-semibold">Scheduled AI triage</h2>
+    <p className="mt-1 text-sm text-slate-600">
+     {scheduled?"Configured for the current tenant":"Disabled until provider, privacy and scheduler approvals"}
+    </p>
+    {latestAiRun?<p className="mt-2 text-sm">
+     Last run: {latestAiRun.status} at {latestAiRun.occurredAt.toISOString()}.
+     Examined {latestAiRun.examined}; suggestions {latestAiRun.processed};
+     blocked {latestAiRun.blocked}.
+    </p>:<p className="mt-2 text-sm text-slate-500">
+     No recorded AI worker run in this tenant.
+    </p>}
+   </section>}
    <OperationsClient key={selected.id} view="ai" businessId={selected.id}
     suggestions={suggestions.map(s=>({...s,updatedAt:s.updatedAt.toISOString(),
      appliedAt:s.appliedAt?.toISOString()??null}))}

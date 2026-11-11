@@ -3738,6 +3738,7 @@ model ChessCalendarOutbox {
 enum ChessWorkerKind {
   RECURRING_WORK
   CALENDAR_SYNC
+  AI_TRIAGE
 }
 
 enum ChessWorkerRunStatus {

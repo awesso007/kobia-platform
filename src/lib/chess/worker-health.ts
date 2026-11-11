@@ -2,7 +2,7 @@ import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
 import {getChessAuditArchiveHealth} from "./audit-archive";
 
-type Kind="RECURRING_WORK"|"CALENDAR_SYNC";
+type Kind="RECURRING_WORK"|"CALENDAR_SYNC"|"AI_TRIAGE";
 export function classifyWorkerRun(processed:number,blocked:number,failed=false):
  "SUCCESS"|"DEGRADED"|"FAILED" {
  if(failed)return "FAILED";
