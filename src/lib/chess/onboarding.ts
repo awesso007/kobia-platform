@@ -8,6 +8,7 @@ const requestSchema = z.object({
  clientProfileId: z.string().min(1).max(128),
  purpose: z.string().trim().min(4).max(200),
  policyVersion: z.string().trim().min(1).max(60),
+ policyText: z.string().trim().min(50).max(20000),
  expiresAt: z.coerce.date().optional(),
 }).strict();
 
