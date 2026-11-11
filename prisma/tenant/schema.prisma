@@ -4029,6 +4029,24 @@ model ChessBillingInvoice {
   @@index([clientProfileId,businessId])
 }
 
+// M7 signed merchant observation receipts. These are claims from the
+// contracted gateway, NOT bank settlement, GL posting or earned revenue.
+model ChessMerchantPaymentEvent {
+  id String @id @default(cuid())
+  businessId String
+  invoiceId String
+  providerInvoiceId String
+  providerEventId String @unique
+  eventKind String
+  amountCents BigInt
+  currency String @default("USD")
+  eventDigest String
+  status String @default("OBSERVED")
+  occurredAt DateTime
+  receivedAt DateTime @default(now())
+  @@index([businessId,invoiceId,receivedAt])
+}
+
 // M7 frozen, independently reviewed operational month-end snapshots.
 // Explicitly NOT a GAAP close, settlement report or cross-entity consolidation.
 model ChessOperationalPeriodSnapshot {
