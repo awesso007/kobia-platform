@@ -3712,6 +3712,9 @@ model ChessCalendarPreference {
   enabled Boolean @default(false)
   acknowledgedAt DateTime?
   revokedAt DateTime?
+  appointmentEnabled Boolean @default(false)
+  appointmentAcknowledgedAt DateTime?
+  appointmentRevokedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
