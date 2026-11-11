@@ -3647,3 +3647,20 @@ model ChessIntakeItem {
   createdAt DateTime @default(now())
   @@index([clientProfileId,businessId])
 }
+
+// CHESS CORP 2 M4 - case work queue, no cross-business task visibility.
+enum ChessWorkStatus { TODO IN_PROGRESS BLOCKED COMPLETED CANCELLED }
+model ChessWorkItem {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String?
+  title String
+  status ChessWorkStatus @default(TODO)
+  assignedClerkUserId String?
+  dueAt DateTime?
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([businessId,status,dueAt])
+  @@index([assignedClerkUserId,status])
+}
