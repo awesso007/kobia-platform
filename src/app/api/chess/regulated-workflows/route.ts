@@ -30,10 +30,11 @@ export async function POST(req:Request){
 export async function PATCH(req:Request){
  try{
   assertMutationOrigin(req);
-  const input:unknown=await req.json();
-  const action=z.object({action:z.enum(["ATTEST","DECIDE"])}).passthrough().parse(input);
-  const result=action.action==="ATTEST"?
-   await attestChessRegulatedChecklist(input):await decideChessRegulatedWorkflow(input);
+  const input=z.object({action:z.enum(["ATTEST","DECIDE"])}).passthrough()
+   .parse(await req.json());
+  const {action,...data}=input;
+  const result=action==="ATTEST"?
+   await attestChessRegulatedChecklist(data):await decideChessRegulatedWorkflow(data);
   return NextResponse.json(result,{headers:{"Cache-Control":"no-store"}});
  }catch(e){return fail(e);}
 }
