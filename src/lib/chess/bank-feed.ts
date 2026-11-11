@@ -22,6 +22,7 @@ const operation=z.object({
 }).strict();
 const importInput=operation.extend({
  sinceAt:z.string().datetime(),
+ acknowledgeUnmatched:z.literal(true),
 }).strict();
 function requireOwnerAdmin(actor:{role:string;status:string}|null){
  if(!actor || actor.status!=="ACTIVE"||!["OWNER","ADMIN"].includes(actor.role))
