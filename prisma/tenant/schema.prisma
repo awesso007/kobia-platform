@@ -4039,8 +4039,34 @@ model ChessSecurityEvent {
   resourceId String?
   decision String
   occurredAt DateTime @default(now())
+  archive ChessAuditArchiveOutbox?
   @@index([businessId,occurredAt])
   @@index([actorClerkUserId,occurredAt])
+}
+
+// M8 audit archive outbox. Original security events are write-once;
+// the delivery metadata is mutable only until an external receipt is pinned.
+enum ChessAuditArchiveStatus {
+  PENDING
+  SUBMITTING
+  UNKNOWN
+  ARCHIVED
+  REJECTED
+}
+model ChessAuditArchiveOutbox {
+  id String @id @default(cuid())
+  eventId String @unique
+  digest String
+  status ChessAuditArchiveStatus @default(PENDING)
+  receiptId String?
+  lastErrorCode String?
+  attemptedAt DateTime?
+  archivedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  event ChessSecurityEvent @relation(fields:[eventId],references:[id],onDelete:Restrict)
+
+  @@index([status,createdAt])
 }
 
 // M3 document storage metadata. Bytes are stored in private object storage.
