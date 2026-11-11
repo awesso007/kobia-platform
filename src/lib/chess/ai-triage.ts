@@ -163,12 +163,21 @@ export async function applyChessWorkItemAdvice(input:unknown){
 }
 
 export async function listChessWorkItemTriage(businessId:string){
- await assertBusinessManager(businessId);
+ const actor=await assertBusinessManager(businessId);
  const {db}=getTenantDb();
- return db.chessAiSuggestion.findMany({where:{businessId},
+ const rows=await db.chessAiSuggestion.findMany({where:{businessId},
   orderBy:{createdAt:"desc"},take:100,select:{
    id:true,workItemId:true,priority:true,recommendation:true,rationaleCode:true,
    modelVersion:true,status:true,createdAt:true,updatedAt:true,
    appliedAt:true,followupWorkItemId:true,
+   requestedByClerkUserId:true,reviewedByClerkUserId:true,
   }});
+ return rows.map(({requestedByClerkUserId,reviewedByClerkUserId,...row})=>({
+  ...row,
+  mayReview:row.status==="PENDING"&&
+   independentAiReview(requestedByClerkUserId,actor.clerkUserId,actor.role),
+  mayApply:row.status==="ACCEPTED"&&
+   ["OWNER","ADMIN"].includes(actor.role)&&
+   !!reviewedByClerkUserId&&!row.appliedAt,
+ }));
 }

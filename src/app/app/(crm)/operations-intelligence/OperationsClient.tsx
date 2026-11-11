@@ -5,7 +5,7 @@ import {useRouter} from "next/navigation";
 type Case={id:string;clientProfileId:string;service:string};
 type Invoice={id:string;service:string;descriptionCode:string;amountCents:string;
  status:string;updatedAt:string;clientProfileId:string;serviceCaseId:string};
-type Suggestion={id:string;workItemId:string;priority:string;recommendation:string;
+type Suggestion={id:string;workItemId:string;priority:string;recommendation:string;mayReview?:boolean;mayApply?:boolean;
  rationaleCode:string;status:string;updatedAt:string;appliedAt:string|null;
  followupWorkItemId:string|null};
 type WorkItem={id:string;status:string;title:string;dueAt:string|null};
@@ -16,10 +16,10 @@ const products:Record<string,string[]>={
  TAX:["TAX_PREPARATION","TAX_PLANNING"],
 };
 export default function OperationsClient({
- businessId,cases,invoices,suggestions,tasks,billingReady,aiReady,
+ businessId,cases,invoices,suggestions,tasks,billingReady,aiReady,view="all",
 }:{businessId:string;cases:Case[];invoices:Invoice[];
  suggestions:Suggestion[];tasks:WorkItem[];
- billingReady:boolean;aiReady:boolean}){
+ billingReady:boolean;aiReady:boolean;view?:"all"|"ai"|"billing"}){
  const router=useRouter();
  const [caseId,setCaseId]=useState(cases[0]?.id??"");
  const selected=cases.find(c=>c.id===caseId);
@@ -28,10 +28,11 @@ export default function OperationsClient({
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
  const [notice,setNotice]=useState("");
- async function send(path:string,method:"POST"|"PATCH"|"PUT",data:unknown){
+ async function send(path:string,method:"POST"|"PATCH"|"PUT"|"DELETE",data:unknown){
   const response=await fetch(path,{method,credentials:"same-origin",
    headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
-  if(!response.ok)throw new Error(response.status===403?
+  if(!response.ok)throw new Error(response.status===429?
+   "Request limit reached. Retry after one minute.":response.status===403?
    "Access denied: verify independent approval, current client consent and service grants.":
    "Operation unavailable. Check account, source freshness and external provider settings.");
   return response.json() as Promise<unknown>;
@@ -95,7 +96,7 @@ export default function OperationsClient({
        {s.rationaleCode.replaceAll("_"," ")} · {s.status}
       </p>
      </div>
-     {s.status==="ACCEPTED"&&!s.appliedAt&&s.recommendation!=="KEEP_QUEUE"&&
+     {s.status==="ACCEPTED"&&s.mayApply&&!s.appliedAt&&s.recommendation!=="KEEP_QUEUE"&&
       <button disabled={busy} type="button"
        onClick={()=>perform(()=>send("/api/chess/ai-triage","PUT",{
         businessId,suggestionId:s.id,expectedUpdatedAt:s.updatedAt,
@@ -106,7 +107,7 @@ export default function OperationsClient({
      {s.appliedAt&&<p className="text-xs text-emerald-700">
       Follow-up task created; source work unchanged.
      </p>}
-     {s.status==="PENDING"&&<div className="flex gap-2">
+     {s.status==="PENDING"&&s.mayReview&&<div className="flex gap-2">
       {(["ACCEPTED","REJECTED"] as const).map(decision=><button
        key={decision} disabled={busy} type="button"
        onClick={()=>perform(()=>send("/api/chess/ai-triage","PATCH",{
@@ -119,8 +120,8 @@ export default function OperationsClient({
      </div>}
     </div>)}
    </div>}
-  </section>
-  <section className="space-y-3 border-t border-slate-200 pt-6">
+  </section>}
+  {(view==="all"||view==="billing")&&<section className="space-y-3 border-t border-slate-200 pt-6">
    <h2 className="text-xl font-semibold">Client invoice approvals</h2>
    <p className="text-sm text-slate-600">
     Create only authorized accounting, bookkeeping, payroll and tax service
@@ -197,6 +198,6 @@ export default function OperationsClient({
       </button>}
      </div>
     </li>)}</ul>}
-  </section>
+  </section>}
  </div>;
 }
