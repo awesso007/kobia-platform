@@ -212,6 +212,38 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
   Human review must be independent of the suggestion creator. An approved
   category is not posted to the general ledger. A separate accounting
   posting approval and same-tenant ledger transaction path remain required.
+- Optional Plaid-backed provider gateway environment:
+  `CHESS_BANK_FEED_API_URL` (HTTPS POST endpoint returning normalized
+  posted USD transactions), `CHESS_BANK_FEED_ALLOWED_HOST` (exact hostname),
+  `CHESS_BANK_FEED_API_KEY` (server-only secret),
+  `CHESS_BANK_FEED_SOURCE=PLAID`, `CHESS_BANK_FEED_ENABLED=false`,
+  `CHESS_BANK_FEED_IMPORT_ENABLED=false` by default.
+  Both flags must be explicitly enabled after banking-provider authorization
+  and a test-environment compliance review. A different provider requires
+  adapting the source enum and gateway contract, not relabeling it as Plaid.
+- The gateway request includes an opaque `providerAccountRef`,
+  `since` ISO 8601 date, `includePending:false`, and
+  `maxTransactions:500`. The gateway must enforce the customer's
+  bank connection/consent and map the opaque account ref itself.
+  The gateway response is a strict JSON object with `transactions`
+  (0-500) and `truncated:false`; each transaction must have
+  `externalId`, `postedDate`, signed `amountCents` string,
+  `description`, `currency:"USD"` and `pending:false`.
+  A truncated response is rejected rather than silently omitting records.
+- Before import: provision a CHESS bank feed connection for an ACTIVE case,
+  an existing legacy USD `BankAccount`, explicit service grant, and a
+  separate verified `bank_feed:BOOKKEEPING` or
+  `bank_feed:ACCOUNTING` consent. Only owner/admin may activate.
+  `POST /api/chess/bank-feed/import` requires explicit
+  `acknowledgeUnmatched:true` and a `sinceAt` within 90 days.
+- Imported transactions are inserted only into the existing tenant ledger
+  with `status:UNMATCHED`, no raw provider tokens, and a digest from
+  tenant + bank account + provider transaction ID. Existing ledger review
+  must still approve category/matching and post journals separately.
+- Provider integration remains disabled without an authorized agreement,
+  bank connection tokens stored in the provider gateway, webhook validation,
+  sandbox evidence, data-retention policy and reconciliation audit.
+
 - Direct feeds from outside banks have NOT been activated. Bank feed
   onboarding requires a provider selection and DPA, customer bank consent,
   explicit mapping to a permitted legacy BankAccount, token vault,
