@@ -88,7 +88,7 @@ export async function verifyChessPractitionerCredential(input:unknown){
   verifiedAt:valid?checkedAt:null,
   verifiedByClerkUserId:valid?actor.clerkUserId:null,
   verificationSource:valid?(raw as z.infer<typeof result>).sourceUrl:null,
-  registryCheckedAt:checkedAt,
+  registryCheckedAt:valid?new Date((raw as z.infer<typeof result>).checkedAt):checkedAt,
   expiresAt:valid && (raw as z.infer<typeof result>).expiresAt
    ?new Date((raw as z.infer<typeof result>).expiresAt!):null,
  };
