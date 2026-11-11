@@ -113,11 +113,18 @@ export async function setClientServiceGrant(
   const link = await db.clientServiceLink.findUnique({ where: { id: idInput.parse(linkId) }, select: { id: true, businessId: true } });
   if (!link) throw new Error("Service link not found in active tenant.");
   await assertBusinessAccess(link.businessId);
-  return db.clientServiceGrant.upsert({
-    where: { linkId_clerkUserId: { linkId, clerkUserId } },
-    create: { linkId, clerkUserId, ...privileges },
-    update: { ...privileges, revokedAt: null },
-    select: { id: true, linkId: true, clerkUserId: true, canRead: true, canWrite: true, revokedAt: true },
+  return db.$transaction(async tx => {
+    const grant = await tx.clientServiceGrant.upsert({
+      where: { linkId_clerkUserId: { linkId, clerkUserId } },
+      create: { linkId, clerkUserId, ...privileges },
+      update: { ...privileges, revokedAt: null },
+      select: { id: true, linkId: true, clerkUserId: true, canRead: true, canWrite: true, revokedAt: true },
+    });
+    await tx.chessSecurityEvent.create({data:{
+      businessId:link.businessId,actorClerkUserId:actor.clerkUserId,
+      action:"SERVICE_GRANT_UPDATED",resourceType:"ClientServiceGrant",resourceId:grant.id,decision:"ALLOW",
+    }});
+    return grant;
   });
 }
 
@@ -128,8 +135,17 @@ export async function revokeClientServiceGrant(linkId: string, clerkUserId: stri
   const link = await db.clientServiceLink.findUnique({ where: { id: idInput.parse(linkId) }, select: { businessId: true } });
   if (!link) throw new PermissionError("member:manage");
   await assertBusinessAccess(link.businessId);
-  return db.clientServiceGrant.updateMany({
-    where: { linkId: idInput.parse(linkId), clerkUserId: idInput.parse(clerkUserId), revokedAt: null },
-    data: { revokedAt: new Date(), canRead: false, canWrite: false },
+  return db.$transaction(async tx => {
+    const result = await tx.clientServiceGrant.updateMany({
+      where: { linkId: idInput.parse(linkId), clerkUserId: idInput.parse(clerkUserId), revokedAt: null },
+      data: { revokedAt: new Date(), canRead: false, canWrite: false },
+    });
+    if (result.count > 0) {
+      await tx.chessSecurityEvent.create({data:{
+        businessId:link.businessId,actorClerkUserId:actor.clerkUserId,
+        action:"SERVICE_GRANT_REVOKED",resourceType:"ClientServiceGrant",resourceId:linkId,decision:"ALLOW",
+      }});
+    }
+    return result;
   });
 }
