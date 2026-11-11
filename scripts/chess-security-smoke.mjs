@@ -31,6 +31,8 @@ async function main() {
     untrusted.headers.get("x-frame-options")!=="DENY"||
     !(untrusted.headers.get("cache-control")??"").includes("no-store"))
   throw new Error("Private attestation must refuse anonymous access with secure headers.");
+ await probe("/client-consents?tenant=fictional",{},allowedDenied);
+ await probe("/client-consents/fictional-consent?tenant=fictional",{},allowedDenied);
  await probe("/api/chess/staging-attestation",{
   headers:{"Authorization":"Bearer invalid-demo-token"},
  },new Set([403]));

@@ -12,8 +12,8 @@ const requestSchema = z.object({
  expiresAt: z.coerce.date().optional(),
 }).strict();
 
-/** A pending request is not permission to share data. Client acceptance is a
- * separate authenticated workflow and is intentionally not implemented here. */
+/** A PENDING request grants no sharing authority. Acceptance takes place
+ * through separately verified Clerk client identity and policy matching. */
 export async function requestClientConsent(input: unknown) {
  const data=requestSchema.parse(input);
  await assertBusinessAccess(data.businessId);
@@ -36,8 +36,8 @@ export async function requestClientConsent(input: unknown) {
  });
 }
 
-/** Withdrawal is always available to a verified administrative actor.
- * A future client portal must also allow authenticated self-service withdrawal. */
+/** Admin withdrawal is independently audited; client self-service
+ * withdrawal is available in the approval-gated consent portal. */
 export async function withdrawClientConsent(consentId: string,businessId: string) {
  await assertBusinessAccess(businessId);
  const actor=await getCurrentMembership();

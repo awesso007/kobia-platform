@@ -1,12 +1,14 @@
 import Link from "next/link";
 import {headers} from "next/headers";
 import type {Metadata} from "next";
+import {notFound} from "next/navigation";
 import {listOwnClientConsents} from "@/lib/chess/client-consent-self-service";
 
 export const dynamic="force-dynamic";
 export const metadata:Metadata={title:"Your consent records",robots:{index:false,follow:false}};
 
 export default async function ClientConsentDashboard(){
+ if(process.env.CHESS_CLIENT_CONSENT_PORTAL_ENABLED!=="true")notFound();
  const tenant=headers().get("x-tenant-id");
  let records:Awaited<ReturnType<typeof listOwnClientConsents>>=[];
  let error=false;
