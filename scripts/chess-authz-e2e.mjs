@@ -8,9 +8,13 @@ function required(name){
 }
 function base(raw){
  const parsed=new URL(raw);
- if(parsed.protocol!=="https:"||parsed.username||parsed.password||
+ const trusted=required("CHESS_AUTHZ_E2E_ALLOWED_HOSTS").split(",")
+  .map(host=>host.trim()).filter(Boolean);
+ if(trusted.length!==2||new Set(trusted).size!==2||
+  parsed.protocol!=="https:"||!trusted.includes(parsed.hostname)||
+  parsed.username||parsed.password||
   parsed.search||parsed.hash||parsed.pathname!=="/"||parsed.port)
-  throw new Error("E2E target must be an exact HTTPS origin");
+  throw new Error("E2E target must be an explicitly approved HTTPS staging host");
  return parsed.origin;
 }
 if(process.env.CHESS_AUTHZ_E2E_VALIDATE!=="true"||
