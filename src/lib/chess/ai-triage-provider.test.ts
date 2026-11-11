@@ -32,6 +32,7 @@ describe("M7 supervised AI triage security",()=>{
  });
  it("requires explicit provider activation, exact HTTPS origin and sends no text or client identifiers",async()=>{
   vi.stubEnv("CHESS_AI_TRIAGE_ENABLED","true");
+  vi.stubEnv("CHESS_AI_DATA_SHARING_APPROVED","true");
   vi.stubEnv("CHESS_AI_TRIAGE_API_URL","https://ai.example.test/triage");
   vi.stubEnv("CHESS_AI_ALLOWED_HOST","ai.example.test");
   vi.stubEnv("CHESS_AI_API_KEY","sandbox");
