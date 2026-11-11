@@ -34,6 +34,14 @@ function secret(){
  return value;
 }
 export function auditArchiveEnvelope(tenantSlug:string,event:EventInput){
+ // Event labels are safe classification codes, not arbitrary client text.
+ // Legacy events with free-form strings stay LOCAL until reviewed.
+ const code=/^[A-Za-z][A-Za-z0-9_]{0,119}$/;
+ if(!/^[a-z0-9][a-z0-9-]{0,49}$/.test(tenantSlug)||
+  !code.test(event.action)||!code.test(event.resourceType)||
+  !["ALLOW","DENY","REVIEW","ERROR"].includes(event.decision)||
+  !Number.isFinite(event.occurredAt.getTime()))
+  throw new Error("Audit metadata contains disallowed export fields.");
  const key=secret();
  const pseudonym=(kind:string,value:string|null)=>
   value?createHmac("sha256",key).update(JSON.stringify({
