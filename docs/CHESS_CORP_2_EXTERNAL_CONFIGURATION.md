@@ -428,6 +428,33 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
   functioning third-party mortgage, insurance, real estate or investments
   system.
 
+### Manual, isolated Milestone 6 acceptance workflow
+- In GitHub, create a protected `chess-regulated-sandbox` environment.
+  Set `CHESS_M6_SANDBOX_VALIDATE=true` and
+  `CHESS_M6_SANDBOX_ISOLATED=true` ONLY after the provider guarantees
+  that a coordination ticket is non-transactional and uses fictional data.
+- Supply `CHESS_M6_SANDBOX_SERVICE` (one of MORTGAGE, INSURANCE,
+  REAL_ESTATE, INVESTMENTS), `CHESS_M6_SANDBOX_PRACTITIONER_REGISTRY_ID`,
+  `CHESS_M6_SANDBOX_FIRM_REGISTRY_ID`,
+  `CHESS_M6_SANDBOX_JURISDICTION`, `CHESS_M6_SANDBOX_TENANT`,
+  `CHESS_M6_SANDBOX_BUSINESS_ID`, the M6 affiliation API/source host
+  configuration and secret key, and the partner handoff/status URLs,
+  approved hostname and secret key. Also supply the relevant
+  `CHESS_REGULATED_PARTNER_<SERVICE>` variable.
+- Manually dispatch `chess-regulated-sandbox.yml` once for each service
+  using a freshly issued fictional test client and a test partner.
+  It checks current independent firm affiliation, submits a synthetic
+  coordination ticket and checks status by the SAME workflow/provider ID.
+  It does not originate a mortgage, bind a policy, submit an offer or
+  place a trade.
+- This workflow is **not** the default CI test. Do not use real clients,
+  real registry passwords, employee financial data or production service
+  accounts. Clean up synthetic tickets in the test provider as required.
+- Additional signed provider consent, acceptance logging, retention,
+  revocation/cancellation protocol and independent legal review are
+  required to enable live client referrals. Current code does not
+  automatically cancel an already-sent external ticket after withdrawal.
+
 ## 6. Release validation steps
 1. Add these entries under GitHub Environment chess-staging as Secrets or
    Variables, following the sample workflow.
