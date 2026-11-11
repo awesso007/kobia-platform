@@ -33,6 +33,20 @@ try{
  if(url.protocol!=="https:" && process.env.NODE_ENV==="production")
   errors.push("CHESS_PUBLIC_ORIGIN must use HTTPS in production");
 }catch{errors.push("CHESS_PUBLIC_ORIGIN must be a valid URL");}
+if(process.env.CHESS_PAYROLL_STATUS_ENABLED==="true"){
+ const raw=process.env.CHESS_PAYROLL_STATUS_API_URL;
+ if(!raw)errors.push("CHESS_PAYROLL_STATUS_API_URL required when payroll status enabled");
+ else try{
+  const u=new URL(raw);
+  if(u.protocol!=="https:"||u.hostname!==process.env.CHESS_PAYROLL_ALLOWED_HOST||
+   u.username||u.password||u.hash)
+   errors.push("Payroll status URL must match approved HTTPS provider host");
+ }catch{errors.push("Payroll status URL is malformed");}
+ if(process.env.CHESS_PAYROLL_PROVIDER_CERTIFIED!=="true")
+  errors.push("Payroll status requires approved provider certification");
+ if(process.env.CHESS_SCHEDULER_ENABLED!=="true")
+  errors.push("Payroll status requires approved scheduler activation");
+}
 if(process.env.CHESS_PAYROLL_EXECUTION_ENABLED==="true" &&
  process.env.CHESS_PAYROLL_PROVIDER_CERTIFIED!=="true"){
  errors.push("Payroll execution enabled without verified provider compliance gate");
