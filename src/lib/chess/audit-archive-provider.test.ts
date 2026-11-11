@@ -31,6 +31,8 @@ describe("M8 external audit archive isolation and integrity",()=>{
   expect(a.digest).toMatch(/^[a-f0-9]{64}$/);
   expect(a.actorTag).toMatch(/^[a-f0-9]{64}$/);
   expect(JSON.stringify(a)).not.toContain("private-user");
+  expect(JSON.stringify(a)).not.toContain(event.action);
+  expect(JSON.stringify(a)).not.toContain(event.resourceType);
   expect(JSON.stringify(a)).not.toContain("private-unit");
   expect(JSON.stringify(a)).not.toContain("private-invoice");
   expect(a.digest).not.toBe(auditArchiveEnvelope("other-tenant",event).digest);
