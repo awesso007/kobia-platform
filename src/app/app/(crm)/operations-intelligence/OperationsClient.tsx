@@ -6,7 +6,8 @@ type Case={id:string;clientProfileId:string;service:string};
 type Invoice={id:string;service:string;descriptionCode:string;amountCents:string;
  status:string;updatedAt:string;clientProfileId:string;serviceCaseId:string};
 type Suggestion={id:string;workItemId:string;priority:string;recommendation:string;
- rationaleCode:string;status:string;updatedAt:string};
+ rationaleCode:string;status:string;updatedAt:string;appliedAt:string|null;
+ followupWorkItemId:string|null};
 type WorkItem={id:string;status:string;title:string;dueAt:string|null};
 const products:Record<string,string[]>={
  ACCOUNTING:["ACCOUNTING_MONTHLY","ACCOUNTING_PROJECT"],
@@ -27,7 +28,7 @@ export default function OperationsClient({
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
  const [notice,setNotice]=useState("");
- async function send(path:string,method:"POST"|"PATCH",data:unknown){
+ async function send(path:string,method:"POST"|"PATCH"|"PUT",data:unknown){
   const response=await fetch(path,{method,credentials:"same-origin",
    headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
   if(!response.ok)throw new Error(response.status===403?
@@ -94,6 +95,17 @@ export default function OperationsClient({
        {s.rationaleCode.replaceAll("_"," ")} · {s.status}
       </p>
      </div>
+     {s.status==="ACCEPTED"&&!s.appliedAt&&s.recommendation!=="KEEP_QUEUE"&&
+      <button disabled={busy} type="button"
+       onClick={()=>perform(()=>send("/api/chess/ai-triage","PUT",{
+        businessId,suggestionId:s.id,expectedUpdatedAt:s.updatedAt,
+       }),"A single generic follow-up task was created after human approval. Original work was untouched.")}
+       className="rounded-lg border border-emerald-700 px-3 py-2 text-sm font-semibold text-emerald-800 disabled:opacity-40">
+       Apply approved advice to private follow-up
+      </button>}
+     {s.appliedAt&&<p className="text-xs text-emerald-700">
+      Follow-up task created; source work unchanged.
+     </p>}
      {s.status==="PENDING"&&<div className="flex gap-2">
       {(["ACCEPTED","REJECTED"] as const).map(decision=><button
        key={decision} disabled={busy} type="button"
