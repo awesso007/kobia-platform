@@ -287,6 +287,32 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
 - Unknown provider results are preserved for review and are NOT treated as
   permission to resubmit a payroll run.
 
+### Optional isolated finance sandbox checks (manual, never CI default)
+- `chess-bank-feed-sandbox.yml` requires the protected GitHub environment
+  `chess-bank-feed-sandbox` with
+  `CHESS_BANK_FEED_SANDBOX_VALIDATE=true`,
+  `CHESS_BANK_FEED_SANDBOX_ISOLATED=true`,
+  `CHESS_BANK_FEED_SANDBOX_ACCOUNT_REF`, and the provider URL, exact hostname,
+  source=PLAID, and secret API key described above. It only validates a
+  seven-day read-only response from a fake authorized bank account; it
+  does not import any transaction.
+- `chess-payroll-status-sandbox.yml` requires protected environment
+  `chess-payroll-sandbox` with
+  `CHESS_PAYROLL_SANDBOX_VALIDATE=true`,
+  `CHESS_PAYROLL_SANDBOX_ISOLATED=true`,
+  `CHESS_PAYROLL_SANDBOX_TENANT_ID`,
+  `CHESS_PAYROLL_SANDBOX_ENTITY_ID`,
+  `CHESS_PAYROLL_SANDBOX_PAYRUN_ID`,
+  `CHESS_PAYROLL_SANDBOX_PROVIDER_REQUEST_ID`,
+  `CHESS_PAYROLL_SANDBOX_IDEMPOTENCY_KEY` (secret),
+  `CHESS_PAYROLL_STATUS_API_URL`,
+  `CHESS_PAYROLL_ALLOWED_HOST` and `CHESS_PAYROLL_API_KEY` (secret).
+  The provider must already contain a fictional test payroll run. This
+  script only reads its status; it cannot submit a pay run or transfer money.
+- Approval-gate both environments. Use no real staff, taxpayer, bank
+  account or production payroll credentials. Sandbox workflows require
+  manual dispatch and do not constitute a production financial audit.
+
 ## 5. Official license registry (required to enable regulated services)
 - CHESS_LICENSE_API_URL: contracted official registry access or approved
   aggregator's verified lookup POST endpoint. It must return registryId,
