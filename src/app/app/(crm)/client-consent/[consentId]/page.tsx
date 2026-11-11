@@ -1,6 +1,7 @@
 import {auth,currentUser} from "@clerk/nextjs/server";
 import {notFound,redirect} from "next/navigation";
 import {headers} from "next/headers";
+import {currentClientConsentPortalActive} from "@/lib/chess/client-consent-portal-policy";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import ConsentDecision from "./ConsentDecision";
 export const dynamic="force-dynamic";
@@ -10,7 +11,7 @@ export const dynamic="force-dynamic";
 export default async function ClientConsentPage({params}:{params:{consentId:string}}) {
  // Preserve older client links, but keep the CHESS CRM shell out of the
  // customer journey when the independently approved portal is activated.
- if(process.env.CHESS_CLIENT_CONSENT_PORTAL_ENABLED==="true"){
+ if(currentClientConsentPortalActive()){
   const tenant=headers().get("x-tenant-id");
   if(!tenant)notFound();
   redirect(`/client-consents/${encodeURIComponent(params.consentId)}?tenant=${encodeURIComponent(tenant)}`);

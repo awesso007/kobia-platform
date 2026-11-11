@@ -2,6 +2,7 @@ import Link from "next/link";
 import {headers} from "next/headers";
 import {notFound} from "next/navigation";
 import type {Metadata} from "next";
+import {currentClientConsentPortalActive} from "@/lib/chess/client-consent-portal-policy";
 import {getOwnClientConsent} from "@/lib/chess/client-consent-self-service";
 import ConsentControls from "./ConsentControls";
 
@@ -11,7 +12,7 @@ export const metadata:Metadata={title:"Review consent disclosure",robots:{index:
 export default async function ConsentDetail({
  params,
 }:{params:{consentId:string}}){
- if(process.env.CHESS_CLIENT_CONSENT_PORTAL_ENABLED!=="true")notFound();
+ if(!currentClientConsentPortalActive())notFound();
  const tenant=headers().get("x-tenant-id");
  if(!tenant)notFound();
  let consent:Awaited<ReturnType<typeof getOwnClientConsent>>;

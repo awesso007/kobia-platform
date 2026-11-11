@@ -74,6 +74,14 @@ if(process.env.CHESS_REGULATED_HANDOFF_ENABLED==="true"){
 }
 // M8 exported security events require a separate approved append-only archive.
 // Enabling export without its restricted retention policy is a release blocker.
+// Consent portal is off until legal disclosure text and external
+// identity verification policies are separately signed off.
+if(process.env.CHESS_CLIENT_CONSENT_PORTAL_ENABLED==="true"){
+ if(process.env.CHESS_CLIENT_PORTAL_POLICY_APPROVED!=="true")
+  errors.push("Client consent portal requires independently approved disclosure and withdrawal policy");
+ if(process.env.CHESS_CLIENT_PORTAL_IDENTITY_APPROVED!=="true")
+  errors.push("Client consent portal requires verified Clerk client identity and tenant selection review");
+}
 if(process.env.CHESS_AUDIT_EXPORT_ENABLED==="true"){
  for(const name of ["CHESS_AUDIT_ARCHIVE_URL","CHESS_AUDIT_STATUS_URL",
   "CHESS_AUDIT_ALLOWED_HOST","CHESS_AUDIT_ARCHIVE_API_KEY",
