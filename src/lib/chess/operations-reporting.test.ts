@@ -14,6 +14,6 @@ describe("M7 business operations report integrity",()=>{
    SENT:{invoices:2,amountCents:"128000000000"},
   });
   expect(invoiceSummaryGroups([{status:"DRAFT",_count:{_all:0},
-   _sum:{amountCents:null}}]).DRAFT.amountCents).toBe("0");
+   _sum:{amountCents:null}}]).DRAFT?.amountCents).toBe("0");
  });
 });
