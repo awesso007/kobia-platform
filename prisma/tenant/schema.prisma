@@ -3694,6 +3694,31 @@ model ChessWorkRecurrence {
   @@index([businessId,active])
 }
 
+enum ChessCalendarSyncStatus {
+  PENDING
+  SUBMITTING
+  SYNCED
+  REJECTED
+  UNKNOWN
+  CANCELLED
+}
+
+model ChessCalendarOutbox {
+  id String @id @default(cuid())
+  businessId String
+  workItemId String @unique
+  recipientClerkUserId String
+  scheduledFor DateTime
+  idempotencyKey String @unique
+  providerEventId String?
+  status ChessCalendarSyncStatus @default(PENDING)
+  lastErrorCode String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId,status])
+}
+
 model ChessEmployeeAlert {
   id String @id @default(cuid())
   businessId String
