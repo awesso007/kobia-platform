@@ -178,6 +178,27 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    const start=new Date("2026-12-03T17:00:00.000Z");
    const end=new Date("2026-12-03T18:00:00.000Z");
    const first=await db.chessAppointment.create({data:{...common,startAt:start,endAt:end}});
+   const queue=await db.chessAppointmentCalendarOutbox.create({data:{
+    businessId:business.id,appointmentId:first.id,
+    recipientClerkUserId:common.assignedClerkUserId,startsAt:start,endsAt:end,
+    idempotencyKey:"appointment-calendar:"+first.id,
+   }});
+   expect(queue.status).toBe("WAITING_CONSENT");
+   await expect(db.chessAppointmentCalendarOutbox.create({data:{
+    businessId:business.id,appointmentId:first.id,
+    recipientClerkUserId:common.assignedClerkUserId,startsAt:start,endsAt:end,
+    idempotencyKey:"duplicate:"+first.id,
+   }})).rejects.toThrow();
+   await db.chessAppointmentCalendarOutbox.update({
+    where:{id:queue.id},data:{status:"PENDING"},
+   });
+   await db.chessAppointmentCalendarOutbox.update({
+    where:{id:queue.id},data:{status:"SYNCED",providerEventId:"sandbox-event"},
+   });
+   const cancelQueue=await db.chessAppointmentCalendarOutbox.update({
+    where:{id:queue.id},data:{status:"CANCEL_PENDING"},
+   });
+   expect(cancelQueue.providerEventId).toBe("sandbox-event");
    // No sensitive details cross businesses, but the same employee cannot
    // be scheduled by two CHESS business units at once within this tenant.
    await expect(db.chessAppointment.create({data:{
@@ -197,6 +218,7 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    }});
    expect(rebook.status).toBe("SCHEDULED");
   }finally{
+   await db.chessAppointmentCalendarOutbox.deleteMany({where:{businessId:{in:[business.id,otherBusiness.id]}}});
    await db.chessAppointment.deleteMany({where:{businessId:{in:[business.id,otherBusiness.id]}}});
    await db.chessBusinessUnit.deleteMany({where:{id:{in:[business.id,otherBusiness.id]}}});
   }
