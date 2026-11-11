@@ -126,10 +126,16 @@ export async function listChessRecurringPlans(businessId:string){
    visible.push(row);
   }catch{/* No billing consent: no client or plan metadata is disclosed. */}
  }
- return visible.map(({createdByClerkUserId,approvedByClerkUserId,...row})=>({
-  ...row,amountCents:row.amountCents.toString(),
+ return visible.map(row=>({
+  id:row.id,businessId:row.businessId,
+  clientProfileId:row.clientProfileId,serviceCaseId:row.serviceCaseId,
+  service:row.service,descriptionCode:row.descriptionCode,
+  amountCents:row.amountCents.toString(),currency:row.currency,
+  status:row.status,nextDraftAt:row.nextDraftAt,
+  lastDraftAt:row.lastDraftAt,approvedAt:row.approvedAt,
+  createdAt:row.createdAt,updatedAt:row.updatedAt,
   mayApprove:row.status==="PENDING"&&
-   createdByClerkUserId!==actor.clerkUserId,
+   row.createdByClerkUserId!==actor.clerkUserId,
   mayPause:row.status==="ACTIVE",
  }));
 }
