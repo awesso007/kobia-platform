@@ -3723,6 +3723,9 @@ model ChessPractitionerCredential {
   status ChessCredentialStatus @default(UNVERIFIED)
   expiresAt DateTime?
   verifiedAt DateTime?
+  verifiedByClerkUserId String?
+  verificationSource String?
+  registryCheckedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@index([businessId,service,clerkUserId,status])
