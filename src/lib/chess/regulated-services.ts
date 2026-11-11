@@ -36,7 +36,7 @@ export async function openChessServiceCase(input:unknown) {
  if (!profile) throw new PermissionError("record:read");
  const consents=await db.chessClientConsent.findMany({
   where:{clientProfileId:data.clientProfileId,businessId:data.businessId,purpose:`service:${data.service}`},
-  select:{status:true,expiresAt:true},
+  select:{status:true,expiresAt:true,consentedAt:true,acceptedByClerkUserId:true,verifiedEmailDigest:true,acceptanceEvidenceDigest:true},
  });
  if (!consents.some(c=>isUsableConsent(c))) throw new PermissionError("record:create");
  if (data.ownerClerkUserId) {
