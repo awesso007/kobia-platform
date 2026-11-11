@@ -26,7 +26,8 @@ export function isAppointmentConflict(error:unknown):boolean {
  if(!error || typeof error!=="object")return false;
  const code=("code" in error && typeof error.code==="string")?error.code:"";
  const message=("message" in error && typeof error.message==="string")?error.message:"";
- return code==="23P01" || code==="P2004" && message.includes("ChessAppointment_no_staff_overlap");
+ return code==="23P01" || code==="P2004" || code==="P2002" ||
+  message.includes("ChessAppointment_no_staff_overlap");
 }
 
 export async function createChessAppointment(input:unknown){
