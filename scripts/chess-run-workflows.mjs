@@ -46,6 +46,22 @@ for(const slug of slugs){
    console.log(`CHESS ${slug}: payroll runs reviewed ${payroll.examined}; status updated ${payroll.updated}; unresolved ${payroll.unresolved}`);
    if(payroll.unresolved>0)failures++;
   }
+  if(process.env.CHESS_AI_TRIAGE_ENABLED==="true"){
+   const triageUrl=new URL("/api/chess/ai-triage/run",base);
+   triageUrl.searchParams.set("t",slug);
+   const aiResponse=await fetch(triageUrl,{
+    method:"POST",redirect:"error",cache:"no-store",
+    headers:{"Authorization":`Bearer ${token}`,"Content-Type":"application/json"},
+    body:"{}",signal:AbortSignal.timeout(20000),
+   });
+   if(!aiResponse.ok)throw new Error(`AI triage HTTP ${aiResponse.status}`);
+   const ai=await aiResponse.json();
+   if(ai.disabled||typeof ai.generated!=="number"||
+    typeof ai.blocked!=="number")
+    throw new Error("AI triage integration is not ready.");
+   console.log(`CHESS ${slug}: AI proposals ${ai.generated}; triage failed ${ai.blocked}`);
+   if(ai.blocked>0)failures++;
+  }
   if(process.env.CHESS_CALENDAR_SYNC_ENABLED==="true"){
    const calendarUrl=new URL("/api/chess/calendar-sync/run",base);
    calendarUrl.searchParams.set("t",slug);
