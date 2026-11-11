@@ -67,8 +67,8 @@ export default function CalendarConsent({
   <section className="space-y-3 border-t border-slate-200 pt-4">
    <h3 className="font-semibold">Appointment calendar events</h3>
    <p className="text-sm text-slate-700">This is separate from work-item consent.
-    With your permission, CHESS may share an appointment's start and end time and
-    the generic title "CHESS appointment". The appointment subject and client
+    With your permission, CHESS may share appointment start and end times and
+    the generic title CHESS appointment. The appointment subject and client
     information remain inside the authorized CHESS workspace.</p>
    <p className="text-sm font-semibold">Appointment sharing: {appointmentsEnabled?"Consented":"Off"}</p>
    {!appointmentsEnabled&&enabled&&<label className="flex items-start gap-2 text-sm">
