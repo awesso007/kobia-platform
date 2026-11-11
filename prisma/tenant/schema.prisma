@@ -4294,3 +4294,16 @@ model ChessAppointmentCalendarOutbox {
   @@index([businessId,status])
   @@index([recipientClerkUserId,status])
 }
+
+
+// M8 atomic, tenant-schema-local quotas. Store only hashed actor references.
+// The private scheduler removes expired windows after seven days.
+model ChessRequestRateWindow {
+  scope String @db.VarChar(64)
+  subjectDigest String @db.Char(64)
+  windowStart DateTime @db.Timestamptz(3)
+  hits Int @default(0)
+
+  @@id([scope, subjectDigest, windowStart])
+  @@index([windowStart])
+}

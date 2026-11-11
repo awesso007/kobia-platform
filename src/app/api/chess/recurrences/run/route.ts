@@ -4,6 +4,7 @@ import {isAuthorizedRecurrenceWorker,runDueChessRecurrences} from "@/lib/chess/r
 import {runChessOverdueAlerts} from "@/lib/chess/overdue-alerts";
 import {runChessAppointmentReminders} from "@/lib/chess/appointment-reminders";
 import {recordChessWorkerRun} from "@/lib/chess/worker-health";
+import {pruneOldChessRateWindows} from "@/lib/chess/api-rate-limit";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 /** Machine-only scheduler. The `t` tenant is validated and injected by middleware.
@@ -15,6 +16,7 @@ export async function POST(request:Request){
  }
  try{
   assertAuthorizedWorkflowTenant(false);
+  const rateWindowsPruned=await pruneOldChessRateWindows();
   const result=await runDueChessRecurrences();
   const overdue=await runChessOverdueAlerts();
   const appointments=await runChessAppointmentReminders();
@@ -23,7 +25,7 @@ export async function POST(request:Request){
    processed:result.generated+overdue.inserted+appointments.inserted,
    blocked:result.blocked,
   });
-  return NextResponse.json({...result,overdue,appointments},{headers:{"Cache-Control":"no-store"}});
+  return NextResponse.json({...result,overdue,appointments,rateWindowsPruned},{headers:{"Cache-Control":"no-store"}});
  }catch{
   try{await recordChessWorkerRun("RECURRING_WORK",{
    examined:0,processed:0,blocked:0,failed:true,

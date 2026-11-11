@@ -1,5 +1,6 @@
 import {NextResponse} from "next/server";
 import {getChessOperationsReport} from "@/lib/chess/operations-reporting";
+import {assertChessRateLimit,ChessRateLimitError} from "@/lib/chess/api-rate-limit";
 import {PermissionError} from "@/lib/rbac/require-permission";
 import {z} from "zod";
 export const runtime="nodejs";
@@ -16,6 +17,7 @@ export async function GET(request:Request){
   const format=q.get("format")??"json";
   if(!["json","csv"].includes(format))
    return NextResponse.json({error:"Unsupported report format"},{status:400});
+  await assertChessRateLimit("report_read");
   const report=await getChessOperationsReport({businessId,month});
   if(format==="json")return NextResponse.json(report,{
    headers:{"Cache-Control":"private, no-store"},
@@ -50,6 +52,11 @@ export async function GET(request:Request){
    "X-Content-Type-Options":"nosniff",
   }});
  }catch(e){
+  if(e instanceof ChessRateLimitError)return NextResponse.json(
+   {error:"Too many requests"},{status:429,headers:{
+    "Retry-After":"60","Cache-Control":"no-store",
+   }});
+
   const status=e instanceof PermissionError?403:e instanceof z.ZodError?400:503;
   return NextResponse.json({error:status===403?"Forbidden":status===400?
    "Invalid report parameters":"Operational report unavailable"},{status});

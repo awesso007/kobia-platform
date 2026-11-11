@@ -1,5 +1,6 @@
 import {afterAll,beforeAll,describe,expect,it} from "vitest";
 import {PrismaClient} from "@/lib/db/generated/tenant";
+import {claimChessRateWindow,ChessRateLimitError,chessRateSubject,chessRateWindow} from "./api-rate-limit";
 
 const integration=process.env.RUN_CHESS_DB_INTEGRATION==="1"?describe:describe.skip;
 integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
@@ -472,6 +473,31 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
   await expect(db.chessAuditArchiveOutbox.delete({
    where:{id:outbox.id},
   })).rejects.toThrow();
+ });
+ it("increments tenant and user quotas atomically, with no partial excess writes",async()=>{
+  const user="rate-integration-"+Date.now();
+  const tenant="ci-tenant";
+  const now=new Date("2026-11-11T08:35:14.000Z");
+  const windowStart=chessRateWindow(now);
+  const subjectDigest=chessRateSubject("user",tenant,user);
+  const tenantDigest=chessRateSubject("tenant",tenant,tenant);
+  try{
+   for(let i=0;i<6;i++)
+    await claimChessRateWindow(db,"billing_delivery",tenant,user,now);
+   await expect(claimChessRateWindow(db,"billing_delivery",tenant,user,now))
+    .rejects.toBeInstanceOf(ChessRateLimitError);
+   const rows=await db.chessRequestRateWindow.findMany({where:{
+    scope:"billing_delivery",windowStart,
+    subjectDigest:{in:[subjectDigest,tenantDigest]},
+   }});
+   expect(rows).toHaveLength(2);
+   expect(rows.every(x=>x.hits===6)).toBe(true);
+  }finally{
+   await db.chessRequestRateWindow.deleteMany({where:{
+    scope:"billing_delivery",windowStart,
+    subjectDigest:{in:[subjectDigest,tenantDigest]},
+   }});
+  }
  });
  it("rejects a service link whose client profile does not exist",async()=>{
   await expect(db.clientServiceLink.create({data:{
