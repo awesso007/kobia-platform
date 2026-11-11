@@ -14,8 +14,10 @@ export function validateDrIsolation(sourceUrl,restoreUrl,allowHost,sslRequired){
   source.pathname==="/"||restored.pathname==="/"||
   source.pathname===restored.pathname)
   throw new Error("DR restore must use a separate named database.");
- if(sslRequired!=="true"||/disable|allow|prefer|no-verify/i.test(
-  restored.searchParams.get("sslmode")??""))
+ if(sslRequired!=="true"||
+  restored.searchParams.get("sslmode")!=="verify-full"||
+  !!restored.hash||restored.searchParams.has("sslrootcert")&&
+  !restored.searchParams.get("sslrootcert"))
   throw new Error("DR restored database requires verified TLS.");
  return {source,restored};
 }

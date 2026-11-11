@@ -87,13 +87,17 @@ try{
   `SELECT count(*)::integer AS count FROM "${schema}"."ChessBusinessUnit"`);
  if(!Number.isInteger(metadata.rows[0]?.count))
   throw new Error("Restored tenant schema is not queryable");
+ const requiredTables=[
+  "ChessClientConsent","ChessClientDocument","ChessSecurityEvent",
+  "ChessAuditArchiveOutbox","ChessBillingInvoice","ChessRegulatedWorkflow",
+  "ChessOperationalPeriodSnapshot","ChessMerchantPaymentEvent",
+ ];
  const tables=await pg.query(
   `SELECT table_name FROM information_schema.tables
-   WHERE table_schema=$1 AND table_name IN
-   ('ChessClientConsent','ChessSecurityEvent','ChessAuditArchiveOutbox',
-    'ChessBillingInvoice','ChessRegulatedWorkflow')`,[schema]);
- if(tables.rows.length!==5)
-  throw new Error("Restored database is missing critical CHESS tenant tables");
+   WHERE table_schema=$1 AND table_name=ANY($2::text[])`,
+  [schema,requiredTables]);
+ if(tables.rows.length!==requiredTables.length)
+  throw new Error("Restored database is missing critical consent, archive, billing or audit tables");
  // The restore validator credential must not have any write authority.
  const perms=await pg.query(
   `SELECT r.rolsuper,r.rolcreatedb,r.rolcreaterole,r.rolreplication,
@@ -110,20 +114,37 @@ try{
     has_table_privilege(current_user,c.oid,'UPDATE') AS update_ok,
     has_table_privilege(current_user,c.oid,'DELETE') AS delete_ok
    FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-   WHERE n.nspname=$1 AND c.relname=ANY($2::text[])`,[schema,
-    ['ChessSecurityEvent','ChessAuditArchiveOutbox','ChessBillingInvoice',
-     'ChessClientConsent','ChessRegulatedWorkflow']]);
- if(mutable.rows.length!==5||mutable.rows.some(row=>
+   WHERE n.nspname=$1 AND c.relname=ANY($2::text[])`,[schema,requiredTables]);
+ if(mutable.rows.length!==requiredTables.length||mutable.rows.some(row=>
    row.insert_ok||row.update_ok||row.delete_ok))
   throw new Error("Restore witness account has mutation privileges.");
+ const requiredTriggers=[
+  "chess_security_event_immutable","chess_audit_archive_receipt_write_once",
+  "chess_consent_evidence_write_once","chess_document_lifecycle_immutable",
+  "chess_operational_snapshot_immutable","chess_merchant_event_immutable",
+ ];
  const triggers=await pg.query(
   `SELECT t.tgname FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
    JOIN pg_namespace n ON n.oid=c.relnamespace
-   WHERE n.nspname=$1 AND NOT t.tgisinternal AND t.tgenabled<>'D'
-     AND t.tgname=ANY($2::text[])`,[schema,
-     ['chess_security_event_immutable','chess_audit_archive_receipt_write_once']]);
- if(triggers.rows.length!==2)
-  throw new Error("Restored audit immutability triggers missing or disabled.");
+   WHERE n.nspname=$1 AND NOT t.tgisinternal AND t.tgenabled='O'
+     AND t.tgname=ANY($2::text[])`,[schema,requiredTriggers]);
+ if(triggers.rows.length!==requiredTriggers.length)
+  throw new Error("Restored consent, document, audit, billing or report triggers missing or disabled.");
+ // Independent record identity witnesses for consent and invoicing
+ // make empty-but-valid restored schemas insufficient to pass the drill.
+ const consentWitness=required("CHESS_DR_WITNESS_CONSENT_ID");
+ const invoiceWitness=required("CHESS_DR_WITNESS_INVOICE_ID");
+ if(!/^[A-Za-z0-9_-]{6,128}$/.test(consentWitness)||
+    !/^[A-Za-z0-9_-]{6,128}$/.test(invoiceWitness))
+  throw new Error("Invalid opaque recovery record witness reference.");
+ const identities=await Promise.all([
+  pg.query(`SELECT id FROM "${schema}"."ChessClientConsent" WHERE id=$1 LIMIT 1`,
+   [consentWitness]),
+  pg.query(`SELECT id FROM "${schema}"."ChessBillingInvoice" WHERE id=$1 LIMIT 1`,
+   [invoiceWitness]),
+ ]);
+ if(identities.some(x=>x.rows.length!==1))
+  throw new Error("Restore is missing the approved consent or invoice evidence witness.");
  await pg.query("ROLLBACK");
  console.log("PASS isolated PostgreSQL restore contains the nominated immutable audit witness and required tenant tables.");
  console.log("PASS operator-reported drill timing within declared RPO/RTO targets "+

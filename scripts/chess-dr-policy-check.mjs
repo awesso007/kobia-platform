@@ -3,7 +3,7 @@ import {strict as assert} from "node:assert";
 import {validateDrIsolation,validateDrBackupMetadata} from "./chess-dr-policy.mjs";
 const now=new Date("2026-11-11T19:00:00.000Z");
 const source="postgresql://service:secret@primary.dr.invalid:5432/live?sslmode=require";
-const clone="postgresql://restore:secret@isolated.dr.invalid:5432/restore?sslmode=require";
+const clone="postgresql://restore:secret@isolated.dr.invalid:5432/restore?sslmode=verify-full";
 const allow="isolated.dr.invalid";
 test("DR requires distinct named databases on isolated hosts and verified TLS",()=>{
  assert.equal(validateDrIsolation(source,clone,allow,"true").restored.hostname,allow);
@@ -11,7 +11,9 @@ test("DR requires distinct named databases on isolated hosts and verified TLS",(
   "postgresql://r:x@primary.dr.invalid/clone", "primary.dr.invalid","true"),
   /separate, isolated database host/);
  assert.throws(()=>validateDrIsolation(source,clone,allow,"false"),/verified TLS/);
- assert.throws(()=>validateDrIsolation(source,clone.replace("require","disable"),
+ assert.throws(()=>validateDrIsolation(source,clone.replace("verify-full","disable"),
+  allow,"true"),/verified TLS/);
+ assert.throws(()=>validateDrIsolation(source,clone.replace("verify-full","require"),
   allow,"true"),/verified TLS/);
  assert.throws(()=>validateDrIsolation(source,clone,"evil.invalid","true"),/allowlist/);
 });
