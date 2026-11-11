@@ -50,11 +50,17 @@ if(process.env.CHESS_AFFILIATION_VERIFICATION_ENABLED==="true"){
  }catch{errors.push("Affiliation registry URL is malformed");}
 }
 if(process.env.CHESS_REGULATED_HANDOFF_ENABLED==="true"){
+ if(process.env.CHESS_REGULATED_RESPONSE_BINDING_REQUIRED!=="true")
+  errors.push("Licensed handoff requires provider-echoed service, partner and workflow binding");
  for(const key of ["CHESS_REGULATED_HANDOFF_API_URL",
   "CHESS_REGULATED_STATUS_API_URL","CHESS_REGULATED_ALLOWED_HOST",
-  "CHESS_REGULATED_API_KEY","CHESS_REGULATED_PARTNER_MORTGAGE",
+  "CHESS_REGULATED_PARTNER_MORTGAGE",
   "CHESS_REGULATED_PARTNER_INSURANCE","CHESS_REGULATED_PARTNER_REAL_ESTATE",
-  "CHESS_REGULATED_PARTNER_INVESTMENTS"]){
+  "CHESS_REGULATED_PARTNER_INVESTMENTS",
+  "CHESS_REGULATED_PARTNER_MORTGAGE_API_KEY",
+  "CHESS_REGULATED_PARTNER_INSURANCE_API_KEY",
+  "CHESS_REGULATED_PARTNER_REAL_ESTATE_API_KEY",
+  "CHESS_REGULATED_PARTNER_INVESTMENTS_API_KEY"]){
   if(!process.env[key])errors.push(`${key} is required for regulated partner handoff`);
  }
  if(process.env.CHESS_AFFILIATION_VERIFICATION_ENABLED!=="true")
@@ -72,6 +78,32 @@ if(process.env.CHESS_REGULATED_HANDOFF_ENABLED==="true"){
     !process.env.CHESS_AFFILIATION_SOURCE_HOSTS)
   errors.push("Regulated handoffs require approved official registry source host allowlists");
 }
+if(process.env.CHESS_DOCUMENT_LIFECYCLE_ENABLED==="true"&&
+ process.env.CHESS_DOCUMENT_RETENTION_POLICY_APPROVED!=="true")
+ errors.push("Document lifecycle cannot activate without approved legal hold/retention policy");
+if(process.env.CHESS_CALENDAR_OAUTH_ENABLED==="true"){
+ if(process.env.CHESS_CALENDAR_OAUTH_PROVIDER_CERTIFIED!=="true")
+  errors.push("Employee OAuth requires separately certified gateway with OAuth PKCE, one-time nonce and revocation");
+ for(const key of ["CHESS_CALENDAR_OAUTH_START_URL",
+  "CHESS_CALENDAR_OAUTH_STATUS_URL","CHESS_CALENDAR_OAUTH_REVOKE_URL",
+  "CHESS_CALENDAR_OAUTH_ALLOWED_HOST","CHESS_CALENDAR_OAUTH_API_KEY"])
+  if(!process.env[key])errors.push(`${key} missing for employee delegated OAuth`);
+ for(const key of ["CHESS_CALENDAR_OAUTH_START_URL",
+  "CHESS_CALENDAR_OAUTH_STATUS_URL","CHESS_CALENDAR_OAUTH_REVOKE_URL"]){
+  const raw=process.env[key];
+  if(raw)try{
+   const url=new URL(raw);
+   if(url.protocol!=="https:"||
+    url.hostname!==process.env.CHESS_CALENDAR_OAUTH_ALLOWED_HOST||
+    url.username||url.password||url.hash||url.port)
+    errors.push(`${key} is not an approved HTTPS gateway URL`);
+  }catch{errors.push(`${key} is malformed`);}
+ }
+}
+if(process.env.CHESS_BANK_FEED_PAGINATION_ENABLED==="true"&&
+ (process.env.CHESS_BANK_FEED_ENABLED!=="true"||
+  process.env.CHESS_BANK_FEED_IMPORT_ENABLED!=="true"))
+ errors.push("Bank feed pagination requires the separately approved and enabled import gateway");
 // M8 exported security events require a separate approved append-only archive.
 // Enabling export without its restricted retention policy is a release blocker.
 // Consent portal is off until legal disclosure text and external

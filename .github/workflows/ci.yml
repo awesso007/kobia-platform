@@ -52,6 +52,11 @@ jobs:
             exit 1
           fi
 
+      - name: Check read-only legacy consent inventory script and policy
+        run: |
+          node --check scripts/chess-consent-legacy-audit.mjs
+          node --test scripts/chess-consent-audit-policy-check.mjs
+
       - name: Validate DR and authenticated security probe scripts
         run: |
           node --check scripts/chess-dr-restore-validate.mjs
