@@ -122,9 +122,20 @@ async function postAppointmentCalendarGateway(
  if(!response.ok)throw new Error(`Calendar gateway HTTP ${response.status}`);
  return response.json() as Promise<unknown>;
 }
+const appointmentGatewayPayload=z.object({
+ tenantSlug:z.string().min(1),
+ businessId:z.string().min(1),
+ appointmentId:z.string().min(1),
+ recipientClerkUserId:z.string().min(1),
+ startsAt:z.string().datetime(),
+ endsAt:z.string().datetime(),
+ summary:z.literal("CHESS appointment"),
+ visibility:z.literal("private"),
+ idempotencyKey:z.string().min(1),
+}).strict();
 export async function submitAppointmentCalendarEvent(input:AppointmentCalendarSubmission){
  return result.parse(await postAppointmentCalendarGateway(
-  process.env.CHESS_CALENDAR_API_URL!,input,input.idempotencyKey,
+  process.env.CHESS_CALENDAR_API_URL!,appointmentGatewayPayload.parse(input),input.idempotencyKey,
  ));
 }
 export async function cancelAppointmentCalendarEvent(input:{
