@@ -85,8 +85,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - name: Install locked dependencies
-        run: npm ci --no-audit --no-fund
+      - name: Install locked dependencies and platform binaries
+        run: npm ci --include=optional --no-audit --no-fund
+
+      - name: Verify Linux Next.js SWC build tool
+        run: |
+          if ! node -e "require('@next/swc-linux-x64-gnu')" >/dev/null 2>&1; then
+            npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund @next/swc-linux-x64-gnu@14.2.15
+          fi
+          node -e "require('@next/swc-linux-x64-gnu')"
       - name: Validate injected configuration
         run: node scripts/chess-deploy-validate.mjs
       - name: Validate external infrastructure (read-only)
