@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { PermissionError } from "@/lib/rbac/require-permission";
 import { createClientProfile, listClientProfiles } from "@/lib/client-profile/service";
