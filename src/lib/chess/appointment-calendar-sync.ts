@@ -1,5 +1,5 @@
 import {getTenantDb} from "@/lib/db/get-tenant-db";
-import {maySyncCalendar} from "./calendar-preferences";
+import {maySyncAppointmentCalendar} from "./calendar-preferences";
 import {
  calendarGatewayConfigured,submitAppointmentCalendarEvent,
  cancelAppointmentCalendarEvent,lookupAppointmentCalendarEvent,
@@ -22,7 +22,8 @@ async function appointmentAllowed(
    businessId,clerkUserId:recipientClerkUserId,
   }},select:{revokedAt:true}}),
   db.chessCalendarPreference.findUnique({where:{clerkUserId:recipientClerkUserId},
-   select:{enabled:true,acknowledgedAt:true,revokedAt:true}}),
+   select:{enabled:true,acknowledgedAt:true,revokedAt:true,
+    appointmentEnabled:true,appointmentAcknowledgedAt:true,appointmentRevokedAt:true}}),
  ]);
  const valid=appointment?.status==="SCHEDULED"&&
   appointment.assignedClerkUserId===recipientClerkUserId&&
@@ -30,7 +31,7 @@ async function appointmentAllowed(
   appointment.endAt.getTime()===endsAt.getTime()&&
   business?.status==="ACTIVE"&&membership?.status==="ACTIVE"&&
   membership.role!=="VIEWER"&&!!assignment&&!assignment.revokedAt;
- return {valid,consent:maySyncCalendar(preference)};
+ return {valid,consent:maySyncAppointmentCalendar(preference)};
 }
 
 export async function syncChessAppointmentCalendars(){
