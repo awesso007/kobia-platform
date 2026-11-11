@@ -30,6 +30,24 @@ if(!["MORTGAGE","INSURANCE","REAL_ESTATE","INVESTMENTS"].includes(service))
 const firm=required("CHESS_M6_SANDBOX_FIRM_REGISTRY_ID");
 const practitioner=required("CHESS_M6_SANDBOX_PRACTITIONER_REGISTRY_ID");
 const jurisdiction=required("CHESS_M6_SANDBOX_JURISDICTION");
+const licenseHost=required("CHESS_LICENSE_ALLOWED_HOST");
+const licenseUrl=approvedUrl(required("CHESS_LICENSE_API_URL"),licenseHost);
+const individualProof=await post(licenseUrl,required("CHESS_LICENSE_API_KEY"),{
+ registryId:practitioner,service,jurisdiction,
+});
+const licenseHosts=required("CHESS_LICENSE_SOURCE_HOSTS").split(",").map(x=>x.trim());
+const individualSource=approvedUrl(individualProof.sourceUrl,
+ new URL(individualProof.sourceUrl).hostname);
+if(!licenseHosts.includes(individualSource.hostname)||
+ individualProof.registryId!==practitioner||individualProof.service!==service||
+ individualProof.jurisdiction.toUpperCase()!==jurisdiction.toUpperCase()||
+ individualProof.status!=="ACTIVE"||
+ !Number.isFinite(Date.parse(individualProof.checkedAt))||
+ Date.now()-Date.parse(individualProof.checkedAt)>24*60*60_000||
+ Date.parse(individualProof.checkedAt)>Date.now()||
+ (individualProof.expiresAt&&Date.parse(individualProof.expiresAt)<=Date.now()))
+ throw new Error("Individual professional's official license proof is missing or stale");
+console.log("PASS: individual professional status validated through official registry sandbox.");
 const registryHost=required("CHESS_AFFILIATION_ALLOWED_HOST");
 const affiliationUrl=approvedUrl(required("CHESS_AFFILIATION_API_URL"),registryHost);
 const proof=await post(affiliationUrl,required("CHESS_AFFILIATION_API_KEY"),{
