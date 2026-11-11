@@ -121,5 +121,5 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Apply versioned tenant migrations
         run: npx prisma migrate deploy --schema=prisma/tenant/schema.prisma
-      - name: Run PostgreSQL isolation tests
-        run: npx vitest run src/lib/chess/schema.integration.test.ts
+      - name: Run PostgreSQL isolation and fictional CHESS demo seed tests
+        run: npx vitest run src/lib/chess/schema.integration.test.ts src/lib/chess/demo-fixtures.integration.test.ts
