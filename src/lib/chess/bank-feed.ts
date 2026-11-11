@@ -2,7 +2,7 @@ import {z} from "zod";
 import {db as ledger} from "@/lib/db";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getTenantBySlug} from "@/lib/tenant";
-import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
+import {PermissionError} from "@/lib/rbac/require-permission";
 import {getClientServiceLink} from "@/lib/client-profile/service";
 import {assertBusinessManager} from "./business-manager";
 import {isUsableConsent} from "./onboarding";
@@ -27,7 +27,7 @@ function requireOwnerAdmin(actor:{role:string;status:string}|null){
  if(!actor || actor.status!=="ACTIVE"||!["OWNER","ADMIN"].includes(actor.role))
   throw new PermissionError("record:update");
 }
-async function authorizeConnection(businessId:string,connectionId:string){
+async function authorizeConnection(businessId:string,connectionId:string,requireConsent=true){
  const actor=await assertBusinessManager(businessId);
  requireOwnerAdmin(actor);
  const {db,tenantId}=getTenantDb();
@@ -50,7 +50,7 @@ async function authorizeConnection(businessId:string,connectionId:string){
  },select:{status:true,expiresAt:true,consentedAt:true,
   acceptedByClerkUserId:true,verifiedEmailDigest:true,
   acceptanceEvidenceDigest:true}});
- if(!consents.some(x=>isUsableConsent(x)))throw new PermissionError("record:read");
+ if(requireConsent&&!consents.some(x=>isUsableConsent(x)))throw new PermissionError("record:read");
  const bank=await ledger.bankAccount.findFirst({where:{
   id:conn.legacyBankAccountId,tenantId:tenant.id,
   entityId:conn.legacyEntityId,isActive:true,currency:"USD",
@@ -103,7 +103,7 @@ export async function registerChessBankFeed(value:unknown){
 }
 export async function activateChessBankFeed(value:unknown,active:boolean){
  const data=operation.parse(value);
- const authorized=await authorizeConnection(data.businessId,data.connectionId);
+ const authorized=await authorizeConnection(data.businessId,data.connectionId,active);
  if(active&&!bankFeedImportConfigured())throw new Error("Bank feed integration not configured.");
  return authorized.db.$transaction(async tx=>{
   const updated=await tx.chessBankFeedConnection.updateMany({where:{
