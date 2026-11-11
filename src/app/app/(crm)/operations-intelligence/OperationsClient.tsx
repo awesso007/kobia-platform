@@ -1,5 +1,5 @@
-import {formatChessUsdCents} from "@/lib/chess/report-format";
 "use client";
+import {formatChessUsdCents} from "@/lib/chess/report-format";
 import {useState,type FormEvent} from "react";
 import {useRouter} from "next/navigation";
 
