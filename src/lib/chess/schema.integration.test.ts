@@ -444,6 +444,30 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    expect(again.count).toBe(0);
   }finally{await db.chessBillingInvoice.delete({where:{id:invoice.id}});}
  });
+ it("allows an unsent invoice to be voided once, without a provider reference",async()=>{
+  const invoice=await db.chessBillingInvoice.create({data:{
+   businessId:"m7-void-test",clientProfileId:"fictional-client",
+   serviceCaseId:"void-case-"+Date.now(),service:"ACCOUNTING",
+   requestKey:"void-request-"+Date.now(),descriptionCode:"ACCOUNTING_MONTHLY",
+   amountCents:2000n,sourceDigest:"f".repeat(64),idempotencyKey:
+    "void-"+Date.now()+"-".repeat(46),
+   createdByClerkUserId:"creator",
+  }});
+  try{
+   const first=await db.chessBillingInvoice.updateMany({where:{
+    id:invoice.id,status:"DRAFT",updatedAt:invoice.updatedAt,
+    providerInvoiceId:null,sentAt:null,sentByClerkUserId:null,
+   },data:{status:"VOID",lastErrorCode:"CLIENT_REQUEST"}});
+   expect(first.count).toBe(1);
+   const replay=await db.chessBillingInvoice.updateMany({where:{
+    id:invoice.id,status:"DRAFT",updatedAt:invoice.updatedAt,
+   },data:{status:"VOID"}});
+   expect(replay.count).toBe(0);
+   const fetched=await db.chessBillingInvoice.findUnique({where:{id:invoice.id}});
+   expect(fetched?.status).toBe("VOID");
+   expect(fetched?.providerInvoiceId).toBeNull();
+  }finally{await db.chessBillingInvoice.delete({where:{id:invoice.id}});}
+ });
  it("enforces one verified archive delivery receipt per immutable security event",async()=>{
   const event=await db.chessSecurityEvent.create({data:{
    action:"TEST_ARCHIVE_EXPORT",resourceType:"INTEGRATION",

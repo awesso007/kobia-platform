@@ -1,7 +1,7 @@
 import {afterEach,describe,expect,it,vi} from "vitest";
 import {billingProviderConfigured,deliverChessInvoice,
  checkChessInvoiceStatus} from "./billing-provider";
-import {canApproveInvoice,canSendApprovedInvoice,invoiceDeliveryState,invoiceDigest} from "./billing";
+import {canApproveInvoice,canSendApprovedInvoice,canVoidUnsentInvoice,invoiceDeliveryState,invoiceDigest} from "./billing";
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});
 function configure(){
  vi.stubEnv("CHESS_BILLING_DELIVERY_ENABLED","true");
@@ -34,6 +34,10 @@ describe("M7 invoice delivery and approval boundaries",()=>{
    "independent-sender")).toBe(false);
   expect(canSendApprovedInvoice({...invoice,approvedByClerkUserId:null},
    "independent-sender")).toBe(false);
+ });
+ it("allows explicit pre-delivery voids but forbids unknown or sent outcomes",()=>{
+  expect(["DRAFT","APPROVED","REJECTED"].every(canVoidUnsentInvoice)).toBe(true);
+  expect(["SUBMITTING","SENT","UNKNOWN","VOID"].some(canVoidUnsentInvoice)).toBe(false);
  });
  it("uses content-bound, tenant-isolated invoice fingerprints",()=>{
   const src={tenantSlug:"tenant",businessId:"business",

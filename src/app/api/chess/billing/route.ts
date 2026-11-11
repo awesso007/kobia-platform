@@ -3,7 +3,7 @@ import {z} from "zod";
 import {assertMutationOrigin} from "@/lib/chess/request-security";
 import {assertChessRateLimit,ChessRateLimitError} from "@/lib/chess/api-rate-limit";
 import {PermissionError} from "@/lib/rbac/require-permission";
-import {draftChessInvoice,reviewChessInvoice,listChessInvoices}
+import {draftChessInvoice,reviewChessInvoice,listChessInvoices,voidChessInvoice}
  from "@/lib/chess/billing";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -39,6 +39,17 @@ export async function PATCH(req:Request){
   assertMutationOrigin(req);
   await assertChessRateLimit("billing_write");
   return NextResponse.json(await reviewChessInvoice(await req.json()),{
+   headers:{"Cache-Control":"no-store"},
+  });
+ }catch(e){return fail(e);}
+}
+
+/** Voiding is a state transition, not a record deletion or a provider action. */
+export async function DELETE(req:Request){
+ try{
+  assertMutationOrigin(req);
+  await assertChessRateLimit("billing_write");
+  return NextResponse.json(await voidChessInvoice(await req.json()),{
    headers:{"Cache-Control":"no-store"},
   });
  }catch(e){return fail(e);}

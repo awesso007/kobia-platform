@@ -32,6 +32,17 @@ const review=z.object({
  expectedUpdatedAt:z.string().datetime(),
 }).strict();
 const action=z.object({businessId:ref,invoiceId:ref}).strict();
+const voidInput=z.object({
+ businessId:ref,invoiceId:ref,expectedUpdatedAt:z.string().datetime(),
+ reasonCode:z.enum(["CLIENT_REQUEST","SERVICE_CANCELLED",
+  "INCORRECT_DRAFT","COMPLIANCE_HOLD"]),
+}).strict();
+/** An invoice can be voided only before an external delivery is attempted.
+ * SENT/UNKNOWN/SUBMITTING remain immutable evidence of a possible submission. */
+export function canVoidUnsentInvoice(status:string):boolean{
+ return status==="DRAFT"||status==="APPROVED"||status==="REJECTED";
+}
+
 export function invoiceDigest(input:{tenantSlug:string;businessId:string;
  clientProfileId:string;serviceCaseId:string;service:string;
  descriptionCode:string;amountCents:string;requestKey:string;}):string{
@@ -157,6 +168,33 @@ export async function reviewChessInvoice(input:unknown){
    resourceId:invoice.id,decision:next==="APPROVED"?"ALLOW":"DENY",
   }});
   return {id:invoice.id,status:next};
+ });
+}
+
+/** Revoke an unsent internal draft without contacting a billing provider,
+ * charging a client or deleting the audit record. A previously approved
+ * invoice needs another manager rather than its creator to void it. */
+export async function voidChessInvoice(input:unknown){
+ const data=voidInput.parse(input);
+ const {actor,db,invoice}=await accessInvoice(data.businessId,data.invoiceId);
+ if(!canVoidUnsentInvoice(invoice.status)||
+  (invoice.status==="APPROVED"&&
+   actor.clerkUserId===invoice.createdByClerkUserId)||
+  invoice.updatedAt.getTime()!==new Date(data.expectedUpdatedAt).getTime())
+  throw new PermissionError("record:update");
+ return db.$transaction(async tx=>{
+  const changed=await tx.chessBillingInvoice.updateMany({where:{
+   id:invoice.id,businessId:data.businessId,
+   status:invoice.status,updatedAt:invoice.updatedAt,
+   providerInvoiceId:null,sentAt:null,sentByClerkUserId:null,
+  },data:{status:"VOID",lastErrorCode:data.reasonCode}});
+  if(changed.count!==1)throw new PermissionError("record:update");
+  await tx.chessSecurityEvent.create({data:{
+   businessId:data.businessId,actorClerkUserId:actor.clerkUserId,
+   action:"BILLING_INVOICE_VOIDED",resourceType:"ChessBillingInvoice",
+   resourceId:invoice.id,decision:"ALLOW",
+  }});
+  return {id:invoice.id,status:"VOID" as const,paid:false};
  });
 }
 export function invoiceDeliveryState(status:string):"SENT"|"UNKNOWN"|"REJECTED"{
