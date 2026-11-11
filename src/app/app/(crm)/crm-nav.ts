@@ -27,6 +27,7 @@ import {
   Rss,
   Users2,
   Settings,
+  LayoutDashboard,
 } from "lucide-react";
 
 export type CrmNavItem = {
@@ -37,6 +38,7 @@ export type CrmNavItem = {
 };
 
 export const crmNav: CrmNavItem[] = [
+  { key: "overview", label: "Overview", href: "/app/overview", icon: LayoutDashboard },
   { key: "leads", label: "Leads", href: "/app/leads", icon: Users },
   { key: "deals", label: "Deals", href: "/app/deals", icon: Handshake },
   { key: "contacts", label: "Contacts", href: "/app/contacts", icon: Contact },
