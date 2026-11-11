@@ -7,6 +7,51 @@ KOBIA is the independent platform. The code below is a CHESS-specific
 business-operations layer within an isolated KOBIA tenant, not an assertion
 that a single legal entity holds all operating licenses.
 
+
+## Verified milestone status — Round 14 reconciliation (2026-11-11)
+
+**Authoritative current status.** The original M1-M8 milestone summaries
+immediately below are historical baseline notes, NOT current feature
+inventories. Later rounds supersede their "not implemented" statements.
+This table reconciles the branch through Round 13 against committed code
+and the successful GitHub Actions build and PostgreSQL integration checks
+on commit `a9996501cd48bc40203937829afcc74426f2bdf9`:
+https://github.com/awesso007/kobia-platform/actions/runs/43046288490 .
+It does **not** establish that any live provider, signature, sandbox,
+accessibility audit, backup/restore drill, deployment or production
+compliance sign-off has passed.
+
+| Milestone | Verified development state | Not complete / evidence needed | Production status |
+|---|---|---|---|
+| **M1 Client profile** | Tenant-local profiles, employee directory, business/service links, explicit per-user grants and revocation; Round 13 service-grant UI. Unit/DB/CI evidence. | Comprehensive audit of authorized and denied service record reads, real authenticated 2-tenant/2-business grant-revoke E2E, legal/privacy review; optional cross-tenant identity matching intentionally deferred. | **PARTIAL / BLOCKED** |
+| **M2 Business units and staff** | Tenant-local units, assignment/revocation guards, owner/admin provisioning UI, credential/affiliation verification adapters; CI build. | Legal-entity mapping and independently verified staff/firm licensing, assignment/renewal evidence and signed-in revocation tests. | **PARTIAL / BLOCKED** |
+| **M3 Consent, onboarding, documents** | Purpose/version consent with Clerk email match, immutable acceptance metadata, withdrawal and DB write-once trigger; disabled-by-default self-service consent portal; version-pinned S3 quarantine/scanning adapters and authorized employee document UI. CI/PG checks. | E-sign provider where required, legal text approval, real Clerk customer E2E, S3/KMS/ClamAV credentials, retention/legal holds, real scanner tests and signed production migration rehearsal. | **PARTIAL / BLOCKED** |
+| **M4 Work management and scheduling** | Employee tasks, manager queues, recurrences, appointments/collision guards, consent-gated calendar outboxes, alerts, worker status and UI. CI/PG checks. | Real approved employee OAuth/calendar gateway, provider create/status/cancel sandbox, scheduler operations/alerts, privacy and accessibility acceptance. | **PARTIAL / BLOCKED** |
+| **M5 Accounting, bookkeeping, payroll, tax** | Explicit existing-entity finance link and read-only ledger/employee counters, bank feed UNMATCHED import/review, tax workpaper review, payroll vendor status and employee screens; CI/PG checks. | Approved ledger journal posting/reconciliation, real bank feed consent/webhooks, certified payroll funding/tax remittance and verified deposits, actual tax preparation/e-file receipts and independent provider sandboxes. | **PARTIAL / BLOCKED** |
+| **M6 Mortgage, insurance, real estate, investments** | Credential and affiliation status gates, service-case consent, licensed handoff coordination, intake/checklists, employee case and registry UI; CI/PG checks. | Official registries/partner agreements, live credential and firm affiliation evidence, regulator-approved disclosures, licensed origination/binding/agency/advisory/trading systems and independent supervision. | **PARTIAL / BLOCKED** |
+| **M7 AI, billing, reporting** | Guarded AI task suggestions with human review, digest-only independent approvals, draft invoice approval/void/delivery adapters, operational reports, review UI and worker metrics; CI/PG checks. | Contracted AI and invoice providers, production payment/subscription/settlement, ledger-posting controls, period close/consolidated financial reports, audited figures and sandbox/consent/legal acceptance. | **PARTIAL / BLOCKED** |
+| **M8 Security and release** | Versioned tenant migrations, append-only audit/consent DB triggers, scoped response/request protections, CI and PostgreSQL integration, security smoke, protected manual staging/E2E/DR scripts, WORM archive placeholder; CI passed on Round 13 SHA. | Protected actual staging run, real signed-in E2E, independent WORM/backup restore RPO/RTO, least-privilege infrastructure, production dependency review, accessibility/load/penetration tests, incidents/on-call and signed production go/no-go. | **PARTIAL / BLOCKED** |
+
+**CI verified:** branch SHA `a9996501cd48bc40203937829afcc74426f2bdf9`
+had completed/success `build` and `chess-db-integration` jobs
+(GitHub Actions run `43046288490`). Subsequent Round 14 commits
+require their OWN CI verification; this paragraph is a dated baseline.
+
+**Remaining-item IDs and acceptance:** 
+`docs/CHESS_CORP_2_ROUND11_OPEN_ITEMS.md` (updated for new
+Round 12/13 code as documented later in this file).
+Round 13 screen inventory and provider inputs:
+`docs/CHESS_CORP_2_M8_ROUND13_EMPLOYEE_SCREENS.md`.
+The release hold applies to all eight milestones; no item should be
+described as production complete on the basis of green CI alone.
+
+**Next open engineering item chosen:** M1-02 / M8-09, systematic
+privacy-minimal security events for actual, allowed and denied
+sensitive client-service link reads. Granted/revoked access changes
+already have atomic audit writes; service read decisions still need
+a verified audit path and tests. Completion of this code subtask
+will NOT close signed-in E2E, external WORM, privacy or production gates.
+
 ## Milestone 1 - Unified Client Profile: development implementation
 - Tenant-local profile, separately permissioned service links and grants.
 - Business-scoped service links, explicit revocation and CRM directory.
