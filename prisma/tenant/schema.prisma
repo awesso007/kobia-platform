@@ -3922,6 +3922,69 @@ model ChessFinancialLink {
   @@index([legacyTenantId,legacyEntityId])
 }
 
+// Milestone 5: bank review only - all raw banking data stays in the
+// existing entity's tenant-scoped ledger. This stores opaque references and
+// evidence of a human decision; approval never posts journal entries.
+enum ChessBankReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  STALE
+}
+model ChessBankReview {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  serviceCaseId String
+  legacyTenantId String
+  legacyEntityId String
+  legacyBankTransactionId String
+  transactionDigest String
+  suggestedAccountId String?
+  confidenceBasisPoints Int?
+  approvedAccountId String?
+  status ChessBankReviewStatus @default(PENDING)
+  createdByClerkUserId String
+  reviewedByClerkUserId String?
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([serviceCaseId,legacyBankTransactionId])
+  @@index([businessId,status,createdAt])
+}
+
+enum ChessTaxWorkpaperStatus {
+  DRAFT
+  REVIEWED
+  APPROVED
+  SUPERSEDED
+}
+model ChessTaxWorkpaper {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  serviceCaseId String
+  legacyTenantId String
+  legacyEntityId String
+  taxYear Int
+  startAt DateTime
+  endAt DateTime
+  snapshotDigest String
+  sourceEntryCount Int
+  status ChessTaxWorkpaperStatus @default(DRAFT)
+  createdByClerkUserId String
+  reviewedByClerkUserId String?
+  reviewedAt DateTime?
+  approvedByClerkUserId String?
+  approvedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([serviceCaseId,taxYear,snapshotDigest])
+  @@index([businessId,taxYear,status])
+}
+
 // External payroll execution queue. Provider may reject incomplete tax/onboarding
 // information. No ACH details or worker PII are stored in the CHESS registry.
 enum ChessPayrollDispatchStatus {
@@ -3930,6 +3993,8 @@ enum ChessPayrollDispatchStatus {
   SUBMITTED
   REJECTED
   UNKNOWN
+  PROVIDER_PAID
+  PROVIDER_FAILED
 }
 model ChessPayrollDispatch {
   id String @id @default(cuid())
@@ -3944,6 +4009,7 @@ model ChessPayrollDispatch {
   status ChessPayrollDispatchStatus @default(READY)
   lastErrorCode String?
   submittedAt DateTime?
+  providerCheckedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@unique([businessId,legacyPayRunId])
