@@ -14,7 +14,7 @@ describe("regulated service gates",()=>{
   expect(credentialAllowsAssignment({status:"VERIFIED",expiresAt:null})).toBe(false);
  });
  it("accepts active verified credentials",()=>{
-  expect(credentialAllowsAssignment({status:"VERIFIED",expiresAt:new Date("2099-01-01"),verifiedAt:new Date("2026-01-01"),verifiedByClerkUserId:"reviewer",verificationSource:"official-registry",registryCheckedAt:new Date("2026-01-01")})).toBe(true);
+  expect(credentialAllowsAssignment({status:"VERIFIED",expiresAt:new Date("2099-01-01"),verifiedAt:new Date("2026-01-01"),verifiedByClerkUserId:"reviewer",verificationSource:"official-registry",registryCheckedAt:new Date("2026-01-01")},new Date("2026-01-02T00:00:00.000Z"))).toBe(true);
  });
 });
 
