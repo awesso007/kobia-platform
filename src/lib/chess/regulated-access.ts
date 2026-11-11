@@ -79,7 +79,7 @@ export async function assertRegulatedProfessionalReady(
    practitionerRegistryId:true,jurisdiction:true}}),
  ]);
  if(member?.status!=="ACTIVE"||!assignment||assignment.revokedAt||
-  !validAffiliation(affiliation,now)||
+  !affiliation||!validAffiliation(affiliation,now)||
   !sourceHostApproved(affiliation.sourceUrl,process.env.CHESS_AFFILIATION_SOURCE_HOSTS))
   throw new PermissionError("record:update");
  const eligible=licenses.some(license=>credentialAllowsAssignment(license,now)&&
