@@ -6,6 +6,7 @@ import WorkItemsClient from "./WorkItemsClient";
 import RecurrencesClient from "./RecurrencesClient";
 import EmployeeAlerts from "./EmployeeAlerts";
 import CalendarConsent from "./CalendarConsent";
+import DelegatedCalendarConnection from "./DelegatedCalendarConnection";
 import AppointmentsClient from "./AppointmentsClient";
 import ManagerQueueClient from "./ManagerQueueClient";
 import {listChessAppointments,listChessAssignableStaff} from "@/lib/chess/appointments";
@@ -58,6 +59,7 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
    <h2 className="text-xl font-semibold">Calendar sharing</h2>
    <CalendarConsent initialEnabled={calendarPreference.enabled}
     initialAppointmentsEnabled={calendarPreference.appointmentsEnabled}/>
+   <DelegatedCalendarConnection/>
   </section>
   <section className="space-y-3">
    <h2 className="text-xl font-semibold">My notifications</h2>
