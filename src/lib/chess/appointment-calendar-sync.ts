@@ -6,7 +6,9 @@ import {
 } from "./calendar-provider";
 import {decideCalendarReconciliation} from "./calendar-reconciliation";
 
-type CalendarDb=ReturnType<typeof getTenantDb>["db"];
+type CalendarDb=Pick<ReturnType<typeof getTenantDb>["db"],
+ "chessAppointment"|"chessBusinessUnit"|"membership"|
+ "chessEmployeeAssignment"|"chessCalendarPreference">;
 
 async function appointmentAllowed(
  db:CalendarDb,businessId:string,appointmentId:string,recipientClerkUserId:string,
@@ -163,21 +165,25 @@ export async function syncChessAppointmentCalendars(){
     summary:"CHESS appointment",visibility:"private",
     idempotencyKey:entry.idempotencyKey,
    });
-   const updatedAccess=await appointmentAllowed(db,entry.businessId,entry.appointmentId,
-    entry.recipientClerkUserId,entry.startsAt,entry.endsAt);
-   const next=remote.status==="rejected"?"REJECTED":
-    updatedAccess.valid&&updatedAccess.consent?"SYNCED":"CANCEL_PENDING";
-   await db.$transaction(async tx=>{
+   // Serializable with employee opt-out: an event cannot be accepted on
+   // the basis of stale consent while an opt-out transaction commits.
+   const next=await db.$transaction(async tx=>{
+    const updatedAccess=await appointmentAllowed(tx,entry.businessId,entry.appointmentId,
+     entry.recipientClerkUserId,entry.startsAt,entry.endsAt);
+    const state=remote.status==="rejected"?"REJECTED" as const:
+     updatedAccess.valid&&updatedAccess.consent?"SYNCED" as const:"CANCEL_PENDING" as const;
     const changed=await tx.chessAppointmentCalendarOutbox.updateMany({
      where:{id:entry.id,status:"SUBMITTING"},
-     data:{status:next,providerEventId:remote.id,lastErrorCode:null},
+     data:{status:state,providerEventId:remote.id,lastErrorCode:null},
     });
-    if(changed.count)await tx.chessSecurityEvent.create({data:{
+    if(changed.count!==1)throw new Error("Appointment calendar claim changed.");
+    await tx.chessSecurityEvent.create({data:{
      businessId:entry.businessId,action:"APPOINTMENT_CALENDAR_CREATE_RESULT",
      resourceType:"ChessAppointmentCalendarOutbox",resourceId:entry.id,
-     decision:next==="SYNCED"?"ALLOW":"REVIEW",
+     decision:state==="SYNCED"?"ALLOW":"REVIEW",
     }});
-   });
+    return state;
+   },{isolationLevel:"Serializable"});
    if(next==="SYNCED")synced++;else if(next==="REJECTED")rejected++;else unknown++;
   }catch{
    await db.chessAppointmentCalendarOutbox.updateMany({
