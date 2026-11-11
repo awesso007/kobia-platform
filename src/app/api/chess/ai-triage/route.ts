@@ -3,7 +3,7 @@ import {z} from "zod";
 import {assertMutationOrigin} from "@/lib/chess/request-security";
 import {PermissionError} from "@/lib/rbac/require-permission";
 import {suggestChessWorkItemTriage,reviewChessWorkItemTriage,
- listChessWorkItemTriage} from "@/lib/chess/ai-triage";
+ listChessWorkItemTriage,applyChessWorkItemAdvice} from "@/lib/chess/ai-triage";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 function fail(e:unknown){
@@ -31,6 +31,15 @@ export async function PATCH(req:Request){
  try{
   assertMutationOrigin(req);
   return NextResponse.json(await reviewChessWorkItemTriage(await req.json()),{
+   headers:{"Cache-Control":"no-store"},
+  });
+ }catch(e){return fail(e);}
+}
+
+export async function PUT(req:Request){
+ try{
+  assertMutationOrigin(req);
+  return NextResponse.json(await applyChessWorkItemAdvice(await req.json()),{
    headers:{"Cache-Control":"no-store"},
   });
  }catch(e){return fail(e);}
