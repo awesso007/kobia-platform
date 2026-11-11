@@ -60,7 +60,10 @@ export async function withdrawClientConsent(consentId: string,businessId: string
 }
 
 export function isUsableConsent(consent: {status:string; expiresAt:Date|null; consentedAt?:Date|null; acceptedByClerkUserId?:string|null; verifiedEmailDigest?:string|null; acceptanceEvidenceDigest?:string|null},now=new Date()) {
- return consent.status==="GRANTED" && !!consent.consentedAt && consent.consentedAt<=now &&
-  !!consent.acceptedByClerkUserId && !!consent.verifiedEmailDigest &&
-  !!consent.acceptanceEvidenceDigest && (!consent.expiresAt || consent.expiresAt>now);
+ const digest=/^[a-f0-9]{64}$/;
+ return consent.status==="GRANTED" && !!consent.consentedAt &&
+  consent.consentedAt<=now && !!consent.acceptedByClerkUserId &&
+  digest.test(consent.verifiedEmailDigest??"") &&
+  digest.test(consent.acceptanceEvidenceDigest??"") &&
+  (!consent.expiresAt || consent.expiresAt>now);
 }
