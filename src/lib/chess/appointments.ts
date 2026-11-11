@@ -3,6 +3,7 @@ import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
 import {assertBusinessManager} from "./business-manager";
 import {assertBusinessAccess} from "./business-units";
+import {maySyncCalendar} from "./calendar-preferences";
 
 export const appointmentInput=z.object({
  businessId:z.string().min(1).max(128),
@@ -61,6 +62,17 @@ export async function createChessAppointment(input:unknown){
    startAt,endAt,createdByClerkUserId:actor.clerkUserId,
   },select:{id:true,businessId:true,subject:true,status:true,
    assignedClerkUserId:true,startAt:true,endAt:true,updatedAt:true}});
+  const employeeConsent=await tx.chessCalendarPreference.findUnique({
+   where:{clerkUserId:data.assignedClerkUserId},
+   select:{enabled:true,acknowledgedAt:true,revokedAt:true},
+  });
+  await tx.chessAppointmentCalendarOutbox.create({data:{
+   businessId:data.businessId,appointmentId:appointment.id,
+   recipientClerkUserId:data.assignedClerkUserId,
+   startsAt:startAt,endsAt:endAt,
+   idempotencyKey:`appointment-calendar:${appointment.id}`,
+   status:maySyncCalendar(employeeConsent)?"PENDING":"WAITING_CONSENT",
+  }});
   await tx.chessSecurityEvent.create({data:{
    businessId:data.businessId,actorClerkUserId:actor.clerkUserId,
    action:"APPOINTMENT_CREATED",resourceType:"ChessAppointment",
@@ -108,6 +120,15 @@ export async function cancelChessAppointment(input:unknown){
    status:"SCHEDULED",updatedAt:version,
   },data:{status:"CANCELLED",updatedAt:new Date()}});
   if(changed.count!==1)return {updated:false};
+  await tx.chessAppointmentCalendarOutbox.updateMany({
+   where:{appointmentId:data.appointmentId,
+    status:{in:["PENDING","WAITING_CONSENT"]}},
+   data:{status:"CANCELLED"},
+  });
+  await tx.chessAppointmentCalendarOutbox.updateMany({
+   where:{appointmentId:data.appointmentId,status:"SYNCED"},
+   data:{status:"CANCEL_PENDING"},
+  });
   await tx.chessEmployeeAlert.create({data:{
    businessId:data.businessId,recipientClerkUserId:appointment.assignedClerkUserId,
    type:"APPOINTMENT_CANCELLED",message:"A scheduled CHESS appointment was cancelled.",
