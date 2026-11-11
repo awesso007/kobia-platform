@@ -3667,10 +3667,55 @@ enum ChessWorkStatus {
   COMPLETED
   CANCELLED
 }
+enum ChessRecurrenceFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+model ChessWorkRecurrence {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String?
+  title String
+  assignedClerkUserId String?
+  frequency ChessRecurrenceFrequency
+  interval Int @default(1)
+  anchorDay Int
+  nextRunAt DateTime
+  lastRunAt DateTime?
+  active Boolean @default(true)
+  createdByClerkUserId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  generatedTasks ChessWorkItem[]
+
+  @@index([active,nextRunAt])
+  @@index([businessId,active])
+}
+
+model ChessEmployeeAlert {
+  id String @id @default(cuid())
+  businessId String
+  recipientClerkUserId String
+  workItemId String?
+  type String
+  message String
+  dedupeKey String @unique
+  readAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([recipientClerkUserId,readAt,createdAt])
+  @@index([businessId,createdAt])
+}
+
 model ChessWorkItem {
   id String @id @default(cuid())
   businessId String
   clientProfileId String?
+  recurrenceId String?
+  scheduledFor DateTime?
+  recurrence ChessWorkRecurrence? @relation(fields: [recurrenceId], references: [id], onDelete: Restrict)
   title String
   status ChessWorkStatus @default(TODO)
   assignedClerkUserId String?
@@ -3680,6 +3725,7 @@ model ChessWorkItem {
   updatedAt DateTime @updatedAt
   @@index([businessId,status,dueAt])
   @@index([assignedClerkUserId,status])
+  @@unique([recurrenceId,scheduledFor])
 }
 
 // CHESS CORP 2 M5 - service orchestration metadata, NOT a general ledger,
