@@ -47,11 +47,14 @@ async function authorizeConnection(businessId:string,connectionId:string,require
  if(!grant)throw new PermissionError("record:read");
  const consents=await db.chessClientConsent.findMany({where:{
   businessId,clientProfileId:conn.clientProfileId,
-  purpose:`bank_feed:${serviceCase.service}`,
- },select:{status:true,expiresAt:true,consentedAt:true,
+  purpose:{in:[`bank_feed:${serviceCase.service}`,`service:${serviceCase.service}`]},
+ },select:{purpose:true,status:true,expiresAt:true,consentedAt:true,
   acceptedByClerkUserId:true,verifiedEmailDigest:true,
   acceptanceEvidenceDigest:true}});
- if(requireConsent&&!consents.some(x=>isUsableConsent(x)))throw new PermissionError("record:read");
+ if(requireConsent&&![
+  `bank_feed:${serviceCase.service}`,`service:${serviceCase.service}`,
+ ].every(purpose=>consents.some(x=>x.purpose===purpose&&isUsableConsent(x))))
+  throw new PermissionError("record:read");
  const bank=await ledger.bankAccount.findFirst({where:{
   id:conn.legacyBankAccountId,tenantId:tenant.id,
   entityId:conn.legacyEntityId,isActive:true,currency:"USD",
