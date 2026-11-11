@@ -98,3 +98,52 @@ export async function lookupCalendarEvent(input:{
   throw new Error("Provider accepted event without an event identifier.");
  return parsed;
 }
+
+/** Separate appointment contract: sends only an opaque reference, generic
+ * title and UTC times. No subject, client or regulated-service details. */
+export type AppointmentCalendarSubmission={
+ tenantSlug:string;businessId:string;appointmentId:string;
+ recipientClerkUserId:string;startsAt:string;endsAt:string;
+ summary:"CHESS appointment";visibility:"private";idempotencyKey:string;
+};
+async function postAppointmentCalendarGateway(
+ url:string,input:unknown,idempotencyKey?:string,
+){
+ if(!calendarGatewayConfigured())throw new Error("Calendar gateway is disabled.");
+ const response=await fetch(url,{
+  method:"POST",cache:"no-store",redirect:"error",
+  headers:{
+   Authorization:`Bearer ${process.env.CHESS_CALENDAR_API_KEY!}`,
+   "Content-Type":"application/json",
+   ...(idempotencyKey?{"Idempotency-Key":idempotencyKey}:{}),
+  },
+  body:JSON.stringify(input),signal:AbortSignal.timeout(10000),
+ });
+ if(!response.ok)throw new Error(`Calendar gateway HTTP ${response.status}`);
+ return response.json() as Promise<unknown>;
+}
+export async function submitAppointmentCalendarEvent(input:AppointmentCalendarSubmission){
+ return result.parse(await postAppointmentCalendarGateway(
+  process.env.CHESS_CALENDAR_API_URL!,input,input.idempotencyKey,
+ ));
+}
+export async function cancelAppointmentCalendarEvent(input:{
+ tenantSlug:string;businessId:string;appointmentId:string;
+ recipientClerkUserId:string;providerEventId:string;idempotencyKey:string;
+}){
+ return result.parse(await postAppointmentCalendarGateway(
+  process.env.CHESS_CALENDAR_CANCEL_API_URL!,input,input.idempotencyKey,
+ ));
+}
+export async function lookupAppointmentCalendarEvent(input:{
+ tenantSlug:string;businessId:string;appointmentId:string;
+ idempotencyKey:string;providerEventId:string|null;
+ action:"CREATE"|"CANCEL";
+}){
+ const parsed=lookupResult.parse(await postAppointmentCalendarGateway(
+  process.env.CHESS_CALENDAR_STATUS_API_URL!,input,
+ ));
+ if(parsed.status==="accepted" && input.action==="CREATE" && !parsed.id)
+  throw new Error("Calendar gateway did not return an appointment event identifier.");
+ return parsed;
+}
