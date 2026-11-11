@@ -348,3 +348,19 @@ manufacture evidence for legacy clients.
   unimplemented. A fictional seed never counts as a general-ledger posting,
   payroll settlement or tax preparation/filing.
 - **M8-01 through M8-12** retain their prior release-blocked statuses.
+
+
+## Round 18 continued - M5-06 accounting execution readiness
+
+- **M5-06 remains CODE/BOTH, not complete:** a new read-only balanced bank
+  posting proposal can be displayed only after a CHESS reviewer approves an
+  unmodified unmatched bank transaction and a **third distinct** authorized
+  owner/admin requests the preview. The source bank transaction fingerprint,
+  current client grant/consent, case, entity mapping, bank account and offset
+  account are verified again on each read. A 2-line debit/credit preview
+  never mutates the GL, changes bank status or records settlement.
+- Actual posting is NOT enabled: an approval-gated atomic ledger execution
+  and source-transaction reconciliation bridge, replay/UNKNOWN recovery,
+  independently signed approval policy, bank provider and month-end tests
+  remain required before production release. No financial capability or
+  provider approval can be inferred from the new preview.

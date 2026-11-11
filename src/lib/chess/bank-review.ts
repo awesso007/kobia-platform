@@ -7,6 +7,7 @@ import {PermissionError,getCurrentMembership} from "@/lib/rbac/require-permissio
 import {getClientServiceLink} from "@/lib/client-profile/service";
 import {assertBusinessManager} from "./business-manager";
 import {isUsableConsent} from "./onboarding";
+import {createBankPostingPreview,BankPostingPreviewError} from "./bank-posting-preview";
 
 const accountService=z.enum(["ACCOUNTING","BOOKKEEPING"]);
 const contextSchema=z.object({
@@ -229,4 +230,40 @@ export async function listChessBankReviewCandidates(raw:unknown){
   id:t.id,postedDate:t.postedDate,description:t.description,
   amountCents:t.amountCents.toString(),bankAccountId:t.bankAccountId,
  })),accounts};
+}
+
+
+const postingPreviewContext=contextSchema.extend({
+ reviewId:z.string().min(1).max(128),
+}).strict();
+
+/** Three distinct signed-in humans, current client consent/service grant,
+ * approved mapping, scoped bank/GL accounts, and an unchanged fingerprint
+ * are necessary to PREVIEW proposed journal lines. No database mutations. */
+export async function previewChessApprovedBankPosting(input:unknown){
+ const data=postingPreviewContext.parse(input);
+ const state=await context({businessId:data.businessId,
+  clientProfileId:data.clientProfileId,serviceCaseId:data.serviceCaseId,
+  service:data.service});
+ const review=await state.db.chessBankReview.findFirst({where:{
+  id:data.reviewId,businessId:data.businessId,clientProfileId:data.clientProfileId,
+  serviceCaseId:data.serviceCaseId,legacyTenantId:state.legacyTenantId,
+  legacyEntityId:state.legacyEntityId,status:"APPROVED",
+ },select:{status:true,createdByClerkUserId:true,reviewedByClerkUserId:true,
+  approvedAccountId:true,transactionDigest:true,legacyBankTransactionId:true}});
+ if(!review||!review.approvedAccountId)throw new PermissionError("record:read");
+ const txn=await loadTxn(state.legacyTenantId,state.legacyEntityId,
+  review.legacyBankTransactionId);
+ await assertOffsetAccount(state.legacyTenantId,state.legacyEntityId,
+  review.approvedAccountId,txn.bankAccount.glAccountId);
+ try{
+  return createBankPostingPreview(review,{
+   id:txn.id,bankAccountGlId:txn.bankAccount.glAccountId,
+   amountCents:txn.amountCents,status:txn.status,
+   fingerprint:bankTransactionFingerprint(txn,state.legacyTenantId,state.legacyEntityId),
+  },state.actor);
+ }catch(error){
+  if(error instanceof BankPostingPreviewError)throw new PermissionError("record:read");
+  throw error;
+ }
 }

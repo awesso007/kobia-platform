@@ -62,6 +62,31 @@ export default function BankReviewClient({
   }catch(e){setError(e instanceof Error?e.message:"Review failed.");}
   finally{setBusy(null);}
  }
+ async function preview(review:Review){
+  setBusy(review.id);setError("");setNotice("");
+  try{
+   const query=new URLSearchParams({businessId,clientProfileId,
+    serviceCaseId,service,reviewId:review.id});
+   const response=await fetch("/api/chess/bank-posting-preview?"+query.toString(),{
+    method:"GET",credentials:"same-origin",cache:"no-store",
+   });
+   if(!response.ok)throw new Error(response.status===403?
+    "A third independent authorized owner/admin with current client consent is required.":
+    "The bank transaction or approved review is no longer eligible for a preview.");
+   const result=await response.json() as {
+    lines:{accountId:string;debitCents:string;creditCents:string}[];
+    totalDebitCents:string;totalCreditCents:string;postedToLedger:false;
+   };
+   if(result.postedToLedger!==false || result.lines.length!==2)
+    throw new Error("Unexpected posting preview response.");
+   setNotice("READ-ONLY balanced journal proposal: "+
+    result.lines.map(l=>"account "+l.accountId+" debit "+l.debitCents+
+     " / credit "+l.creditCents+" cents").join("; ")+
+    ". Total debit = total credit = "+result.totalDebitCents+
+    " cents. Nothing was posted or matched.");
+  }catch(e){setError(e instanceof Error?e.message:"Preview unavailable.");}
+  finally{setBusy(null);}
+ }
  return <section className="space-y-4">
   <h2 className="text-xl font-semibold">Bank transaction categorization</h2>
   <p className="text-sm text-slate-600">Existing unmatched ledger transactions only.
@@ -93,6 +118,11 @@ export default function BankReviewClient({
       {!review&&<button disabled={busy!==null} onClick={()=>suggest(txn)}
        className="rounded-md bg-emerald-800 px-3 py-2 text-sm font-semibold text-white disabled:opacity-40">
        Propose category
+      </button>}
+      {review?.status==="APPROVED"&&<button disabled={busy!==null}
+       onClick={()=>preview(review)}
+       className="rounded-md border border-blue-600 px-3 py-2 text-sm font-semibold text-blue-800 disabled:opacity-40">
+       Preview balanced entry (no posting)
       </button>}
       {review?.status==="PENDING"&&<>
        <button disabled={busy!==null} onClick={()=>decide(review,"APPROVED")}
