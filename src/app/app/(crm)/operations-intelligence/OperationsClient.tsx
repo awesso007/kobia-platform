@@ -64,7 +64,7 @@ export default function OperationsClient({
  return <div className="space-y-8">
   {error&&<p role="alert" className="rounded-lg border border-red-200 p-3 text-sm text-red-800">{error}</p>}
   {notice&&<p role="status" className="rounded-lg border border-emerald-200 p-3 text-sm text-emerald-800">{notice}</p>}
-  <section className="space-y-3">
+  {(view==="all"||view==="ai")&&<section className="space-y-3">
    <h2 className="text-xl font-semibold">AI-assisted task triage</h2>
    <p className="text-sm text-slate-600">
     Only task status, deadline category and assignment presence are sent to an
