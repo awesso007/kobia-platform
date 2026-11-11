@@ -320,6 +320,60 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    }finally{await db.chessBankFeedSyncRun.delete({where:{id:run.id}});}
   }finally{await db.chessBankFeedConnection.delete({where:{id:conn.id}});}
  });
+ it("isolates regulated professional affiliations and uniquely keyed workflows in PostgreSQL",async()=>{
+  const suffix=Date.now().toString(36);
+  const business="m6-business-"+suffix;
+  const caseId="m6-case-"+suffix;
+  const professional="staff-"+suffix;
+  const affiliation=await db.chessRegulatedAffiliation.create({data:{
+   businessId:business,clerkUserId:professional,
+   service:"MORTGAGE",jurisdiction:"CA",
+   practitionerRegistryId:"TEST-INDIVIDUAL",firmRegistryId:"TEST-FIRM",
+  }});
+  try{
+   expect(affiliation.status).toBe("UNVERIFIED");
+   await expect(db.chessRegulatedAffiliation.create({data:{
+    businessId:business,clerkUserId:professional,
+    service:"MORTGAGE",jurisdiction:"CA",
+    practitionerRegistryId:"OTHER",firmRegistryId:"OTHER",
+   }})).rejects.toThrow();
+   const workflow=await db.chessRegulatedWorkflow.create({data:{
+    businessId:business,clientProfileId:"fictional-client",
+    serviceCaseId:caseId,service:"MORTGAGE",
+    kind:"MORTGAGE_DOCUMENT_INTAKE",requestKey:"request-"+suffix,
+    idempotencyKey:"m6-idempotency-"+suffix,
+    createdByClerkUserId:professional,
+   }});
+   try{
+    expect(workflow.status).toBe("DRAFT");
+    const item=await db.chessRegulatedChecklistItem.create({data:{
+     workflowId:workflow.id,itemKey:"CLIENT_SCOPE_DISCLOSED",
+    }});
+    await expect(db.chessRegulatedChecklistItem.create({data:{
+     workflowId:workflow.id,itemKey:"CLIENT_SCOPE_DISCLOSED",
+    }})).rejects.toThrow();
+    await expect(db.chessRegulatedWorkflow.create({data:{
+     businessId:business,clientProfileId:"fictional-client",serviceCaseId:caseId,
+     service:"MORTGAGE",kind:"MORTGAGE_DOCUMENT_INTAKE",
+     requestKey:"request-"+suffix,idempotencyKey:"m6-different-"+suffix,
+     createdByClerkUserId:professional,
+    }})).rejects.toThrow();
+    const reviewed=await db.chessRegulatedWorkflow.updateMany({where:{
+     id:workflow.id,status:"DRAFT",updatedAt:workflow.updatedAt,
+    },data:{status:"REVIEW",reviewedByClerkUserId:"independent-reviewer",
+     reviewedAt:new Date()}});
+    expect(reviewed.count).toBe(1);
+    const stale=await db.chessRegulatedWorkflow.updateMany({where:{
+     id:workflow.id,status:"DRAFT",updatedAt:workflow.updatedAt,
+    },data:{status:"APPROVED"}});
+    expect(stale.count).toBe(0);
+    await db.chessRegulatedChecklistItem.delete({where:{id:item.id}});
+   }finally{
+    await db.chessRegulatedChecklistItem.deleteMany({where:{workflowId:workflow.id}});
+    await db.chessRegulatedWorkflow.delete({where:{id:workflow.id}});
+   }
+  }finally{await db.chessRegulatedAffiliation.delete({where:{id:affiliation.id}});}
+ });
  it("rejects a service link whose client profile does not exist",async()=>{
   await expect(db.clientServiceLink.create({data:{
    profileId:"missing-profile-id",businessId,service:"TAX",
