@@ -14,10 +14,10 @@ describe("M5 tax workpaper evidence",()=>{
   ]}])).toBe(false);
  });
  it("changes the snapshot digest when an accounting amount changes",()=>{
-  const hash=taxSnapshotDigest([row],"tenant","entity",new Date("2026-01-01Z"),new Date("2027-01-01Z"));
+  const hash=taxSnapshotDigest([row],"tenant","entity",new Date("2026-01-01T00:00:00Z"),new Date("2027-01-01T00:00:00Z"));
   expect(hash).toMatch(/^[0-9a-f]{64}$/);
   const altered={...row,lines:[{...row.lines[0]!,debitCents:30001n},row.lines[1]!]};
-  expect(hash).not.toBe(taxSnapshotDigest([altered],"tenant","entity",new Date("2026-01-01Z"),new Date("2027-01-01Z")));
+  expect(hash).not.toBe(taxSnapshotDigest([altered],"tenant","entity",new Date("2026-01-01T00:00:00Z"),new Date("2027-01-01T00:00:00Z")));
  });
  it("requires distinct human creator, reviewer and final approver",()=>{
   const draft={status:"DRAFT",createdByClerkUserId:"creator",reviewedByClerkUserId:null};
