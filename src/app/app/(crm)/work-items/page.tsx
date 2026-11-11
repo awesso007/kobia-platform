@@ -6,6 +6,8 @@ import WorkItemsClient from "./WorkItemsClient";
 import RecurrencesClient from "./RecurrencesClient";
 import EmployeeAlerts from "./EmployeeAlerts";
 import CalendarConsent from "./CalendarConsent";
+import AppointmentsClient from "./AppointmentsClient";
+import {listChessAppointments,listChessAssignableStaff} from "@/lib/chess/appointments";
 import {getMyCalendarPreference} from "@/lib/chess/calendar-preferences";
 import {listChessRecurrences} from "@/lib/chess/recurring-work";
 export const dynamic="force-dynamic";
@@ -17,12 +19,14 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
  const requested=searchParams.businessId;
  const selected=businesses.find(b=>b.id===requested)??businesses[0];
  if(!selected)return <main className="mx-auto max-w-4xl p-8">No active business assignment is available.</main>;
- const [tasks,alerts,manager,recurrences,calendarPreference]=await Promise.all([
+ const [tasks,alerts,manager,recurrences,calendarPreference,appointments,staff]=await Promise.all([
   listChessWorkItems(selected.id).catch(()=>[]),
   listChessEmployeeAlerts(selected.id).catch(()=>[]),
   getChessManagerQueue(selected.id).catch(()=>null),
   listChessRecurrences(selected.id).catch(()=>null),
   getMyCalendarPreference().catch(()=>({enabled:false,acknowledgedAt:null})),
+  listChessAppointments(selected.id).catch(()=>null),
+  listChessAssignableStaff(selected.id).catch(()=>null),
  ]);
  const serialize=tasks.map(t=>({...t,
   dueAt:t.dueAt?.toISOString()??null,updatedAt:t.updatedAt.toISOString(),
@@ -67,6 +71,15 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
     <li key={item.id} className="rounded-lg border border-orange-200 bg-white p-3 text-sm">
      <strong>{item.title}</strong> · {item.status.replaceAll("_"," ")}
     </li>)}</ul>
+  </section>}
+  {appointments&&staff&&<section className="space-y-3">
+   <h2 className="text-xl font-semibold">Appointments</h2>
+   <p className="text-sm text-slate-600">Time slots are protected against overlapping staff bookings.</p>
+   <AppointmentsClient businessId={selected.id} staff={staff}
+    initialAppointments={appointments.map(item=>({
+     ...item,startAt:item.startAt.toISOString(),endAt:item.endAt.toISOString(),
+     updatedAt:item.updatedAt.toISOString(),
+    }))}/>
   </section>}
   {recurrences&&<section className="space-y-3">
    <h2 className="text-xl font-semibold">Recurring schedules</h2>
