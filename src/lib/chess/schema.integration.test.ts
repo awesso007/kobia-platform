@@ -91,6 +91,17 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
     title:"Monthly financial close",dueAt:due,
    }});
    expect(task.recurrenceId).toBe(schedule.id);
+   const calendar=await db.chessCalendarOutbox.create({data:{
+    businessId:business.id,workItemId:task.id,
+    recipientClerkUserId:"integration-user",scheduledFor:due,
+    idempotencyKey:"calendar:"+task.id,
+   }});
+   expect(calendar.status).toBe("PENDING");
+   await expect(db.chessCalendarOutbox.create({data:{
+    businessId:business.id,workItemId:task.id,
+    recipientClerkUserId:"integration-user",scheduledFor:due,
+    idempotencyKey:calendar.idempotencyKey,
+   }})).rejects.toThrow();
    await expect(db.chessWorkItem.create({data:{
     businessId:business.id,recurrenceId:schedule.id,scheduledFor:due,
     title:"Duplicate attempt",dueAt:due,
@@ -106,9 +117,11 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
     dedupeKey:alert.dedupeKey,
    }})).rejects.toThrow();
    await db.chessEmployeeAlert.delete({where:{id:alert.id}});
+   await db.chessCalendarOutbox.delete({where:{id:calendar.id}});
    await db.chessWorkItem.delete({where:{id:task.id}});
    await db.chessWorkRecurrence.delete({where:{id:schedule.id}});
   } finally {
+   await db.chessCalendarOutbox.deleteMany({where:{businessId:business.id}});
    await db.chessEmployeeAlert.deleteMany({where:{businessId:business.id}});
    await db.chessWorkItem.deleteMany({where:{businessId:business.id}});
    await db.chessWorkRecurrence.deleteMany({where:{businessId:business.id}});
