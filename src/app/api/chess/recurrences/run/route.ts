@@ -1,4 +1,5 @@
 import {NextResponse} from "next/server";
+import {assertAuthorizedWorkflowTenant} from "@/lib/chess/worker-authorization";
 import {isAuthorizedRecurrenceWorker,runDueChessRecurrences} from "@/lib/chess/recurring-work";
 import {runChessOverdueAlerts} from "@/lib/chess/overdue-alerts";
 export const runtime="nodejs";
@@ -11,6 +12,7 @@ export async function POST(request:Request){
   return NextResponse.json({error:"Forbidden"},{status:403});
  }
  try{
+  assertAuthorizedWorkflowTenant(false);
   const result=await runDueChessRecurrences();
   const overdue=await runChessOverdueAlerts();
   return NextResponse.json({...result,overdue},{headers:{"Cache-Control":"no-store"}});
