@@ -162,7 +162,7 @@ export async function runChessRecurringInvoiceDrafts(now=new Date()){
      current.approvedByClerkUserId===current.createdByClerkUserId||
      !(current.service in productCodes))
      throw new Error("Recurring plan approval or claim has changed.");
-    const [business,record,author,reviewer,grants,consents]=await Promise.all([
+    const [business,record,author,reviewer,grants,consents,assignments]=await Promise.all([
      tx.chessBusinessUnit.findFirst({where:{
       id:current.businessId,status:"ACTIVE",
      },select:{id:true}}),
@@ -193,12 +193,20 @@ export async function runChessRecurringInvoiceDrafts(now=new Date()){
      },select:{purpose:true,status:true,expiresAt:true,consentedAt:true,
       acceptedByClerkUserId:true,verifiedEmailDigest:true,
       acceptanceEvidenceDigest:true}}),
+     tx.chessEmployeeAssignment.findMany({where:{
+      businessId:current.businessId,revokedAt:null,
+      clerkUserId:{in:[current.createdByClerkUserId,
+       current.approvedByClerkUserId]},
+     },select:{clerkUserId:true}}),
     ]);
     const purposes=[`service:${current.service}`,`billing:${current.service}`];
     const grantsOk=[current.createdByClerkUserId,
      current.approvedByClerkUserId].every(id=>
       grants?.grants.some(g=>g.clerkUserId===id));
-    const authorized=!!business&&!!record&&grantsOk&&
+    const assignmentsOk=[current.createdByClerkUserId,
+     current.approvedByClerkUserId].every(id=>
+      assignments.some(a=>a.clerkUserId===id));
+    const authorized=!!business&&!!record&&grantsOk&&assignmentsOk&&
      author?.status==="ACTIVE"&&reviewer?.status==="ACTIVE"&&
      ["OWNER","ADMIN"].includes(author.role)&&
      ["OWNER","ADMIN"].includes(reviewer.role)&&
