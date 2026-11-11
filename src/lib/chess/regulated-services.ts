@@ -10,9 +10,11 @@ export function needsVerifiedLicense(service:ClientService):boolean {
  return (regulatedServices as readonly string[]).includes(service);
 }
 export function credentialAllowsAssignment(
- credential:{status:string,expiresAt:Date|null}|null,now=new Date(),
+ credential:{status:string,expiresAt:Date|null,verifiedAt?:Date|null,verifiedByClerkUserId?:string|null,verificationSource?:string|null,registryCheckedAt?:Date|null}|null,now=new Date(),
 ):boolean {
- return !!credential && credential.status==="VERIFIED" && (!credential.expiresAt||credential.expiresAt>now);
+ return !!credential && credential.status==="VERIFIED" && !!credential.verifiedAt &&
+  !!credential.verifiedByClerkUserId && !!credential.verificationSource && !!credential.registryCheckedAt &&
+  credential.registryCheckedAt<=now && (!credential.expiresAt||credential.expiresAt>now);
 }
 
 const createCase=z.object({
@@ -48,7 +50,7 @@ export async function openChessServiceCase(input:unknown) {
   if (!data.ownerClerkUserId) throw new PermissionError("record:create");
   const credentials=await db.chessPractitionerCredential.findMany({
    where:{businessId:data.businessId,clerkUserId:data.ownerClerkUserId,service:data.service},
-   select:{status:true,expiresAt:true},
+   select:{status:true,expiresAt:true,verifiedAt:true,verifiedByClerkUserId:true,verificationSource:true,registryCheckedAt:true},
   });
   if (!credentials.some(c=>credentialAllowsAssignment(c))) throw new PermissionError("record:create");
  }
