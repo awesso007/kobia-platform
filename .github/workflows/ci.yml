@@ -37,5 +37,5 @@ jobs:
         run: npm run build
         env:
           DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_placeholder"
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_ZXhhbXBsZS5jb20k"
           CLERK_SECRET_KEY: "sk_test_placeholder"
