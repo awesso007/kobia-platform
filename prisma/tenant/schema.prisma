@@ -3700,3 +3700,18 @@ model ChessPractitionerCredential {
   updatedAt DateTime @updatedAt
   @@index([businessId,service,clerkUserId,status])
 }
+
+// CHESS CORP 2 M7 - AI and financial action approvals; no direct execution.
+enum ChessApprovalStatus { PENDING APPROVED REJECTED CANCELLED }
+model ChessActionApproval {
+  id String @id @default(cuid())
+  businessId String
+  actionType String
+  payloadDigest String // sha256 or equivalent; not the underlying sensitive payload
+  requestedBy String
+  reviewedBy String?
+  status ChessApprovalStatus @default(PENDING)
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([businessId,status,createdAt])
+}
