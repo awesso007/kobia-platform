@@ -173,7 +173,7 @@ export async function listMyChessAppointmentTimes(businessId:string){
  const {db}=getTenantDb();
  return db.chessAppointment.findMany({
   where:{businessId,assignedClerkUserId:actor.clerkUserId,status:"SCHEDULED"},
-  select:{id:true,startAt:true,status:true},
+  select:{id:true,startAt:true,endAt:true,status:true},
   orderBy:{startAt:"asc"},take:100,
  });
 }
