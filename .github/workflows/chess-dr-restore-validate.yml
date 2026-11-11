@@ -26,6 +26,8 @@ jobs:
       CHESS_DR_BACKUP_SECRET_ACCESS_KEY: ${{ secrets.CHESS_DR_BACKUP_SECRET_ACCESS_KEY }}
       CHESS_DR_MAX_BACKUP_AGE_HOURS: ${{ vars.CHESS_DR_MAX_BACKUP_AGE_HOURS }}
       CHESS_DR_REQUIRE_PG_SSL: "true"
+      # The restorer must provision a DISTINCT host and a SELECT-only user.
+      CHESS_DR_SOURCE_DATABASE_URL_CONTEXT: "metadata-only"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,6 +35,8 @@ jobs:
           node-version: "20"
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
+      - name: Test DR validation contract (no credentials or network calls)
+        run: node --test scripts/chess-dr-policy-check.mjs
       - name: Verify isolated restore and immutable backup artifact (read-only)
         run: node scripts/chess-dr-restore-validate.mjs
 
