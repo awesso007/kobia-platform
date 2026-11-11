@@ -3638,6 +3638,9 @@ model ChessClientConsent {
   policyVersion String
   status ChessConsentStatus @default(PENDING)
   consentedAt DateTime?
+  acceptedByClerkUserId String?
+  verifiedEmailDigest String?
+  acceptanceEvidenceDigest String?
   withdrawnAt DateTime?
   expiresAt DateTime?
   createdAt DateTime @default(now())
@@ -3758,4 +3761,30 @@ model ChessSecurityEvent {
   occurredAt DateTime @default(now())
   @@index([businessId,occurredAt])
   @@index([actorClerkUserId,occurredAt])
+}
+
+// M3 document storage metadata. Bytes are stored in private object storage.
+// Uploads are QUARANTINED until size, MIME and anti-malware scanning complete.
+enum ChessDocumentStatus {
+  PENDING
+  QUARANTINED
+  READY
+  REJECTED
+}
+model ChessClientDocument {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  service ClientServiceArea
+  storageKey String @unique
+  fileName String
+  mimeType String
+  maxBytes Int
+  actualBytes Int?
+  checksumSha256 String?
+  status ChessDocumentStatus @default(PENDING)
+  uploadedByClerkUserId String
+  createdAt DateTime @default(now())
+  verifiedAt DateTime?
+  @@index([businessId,clientProfileId,service,status])
 }
