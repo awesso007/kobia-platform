@@ -110,8 +110,12 @@ export async function transitionChessWorkItem(data:unknown){
    // Pending calendar pushes were never sent. Already-synced events require
    // an explicit remote cancellation workflow before any further changes.
    await tx.chessCalendarOutbox.updateMany({
-    where:{workItemId:existing.id,status:"PENDING"},
+    where:{workItemId:existing.id,status:{in:["PENDING","WAITING_CONSENT"]}},
     data:{status:"CANCELLED"},
+   });
+   await tx.chessCalendarOutbox.updateMany({
+    where:{workItemId:existing.id,status:"SYNCED"},
+    data:{status:"CANCEL_PENDING"},
    });
   }
   await tx.chessSecurityEvent.create({data:{
