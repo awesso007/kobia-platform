@@ -63,7 +63,7 @@ describe("M8 external audit archive isolation and integrity",()=>{
    .toBe(envelope.digest);
   expect(JSON.stringify(options.body)).not.toContain("private-user");
   await checkAuditArchive(envelope);
-  expect(http.mock.calls[1][0]).toBe("https://archive.test.example/status");
+  expect(http.mock.calls[1]?.[0]).toBe("https://archive.test.example/status");
   vi.stubGlobal("fetch",vi.fn().mockResolvedValue({ok:true,json:async()=>({
    eventId:envelope.eventId,digest:"f".repeat(64),
    status:"archived",receiptId:"wrong",
