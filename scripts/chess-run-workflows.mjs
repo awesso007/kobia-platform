@@ -43,7 +43,7 @@ for(const slug of slugs){
    if(calendar.disabled || typeof calendar.unknown!=="number")
     throw new Error("Calendar synchronization has not been configured.");
    console.log(`CHESS ${slug}: calendar synced ${calendar.synced}; cancelled ${calendar.cancelled}; unknown ${calendar.unknown}; cancellation unknown ${calendar.cancelUnknown}`);
-   if(calendar.unknown>0||calendar.cancelUnknown>0)failures++;
+   if(calendar.unknown>0||calendar.cancelUnknown>0||calendar.reconciliationUnresolved>0)failures++;
   }
  }catch(error){
   failures++;
