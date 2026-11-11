@@ -1,6 +1,9 @@
 import Link from "next/link";
 import {listBusinessUnits} from "@/lib/chess/business-units";
 import {getChessFinanceDashboard,listChessAuthorizedFinanceCases} from "@/lib/chess/finance-dashboard";
+import {listChessBankFeedConnections} from "@/lib/chess/bank-feed";
+import {bankFeedImportConfigured} from "@/lib/chess/bank-feed-provider";
+import FinanceBankFeedClient from "./FinanceBankFeedClient";
 export const dynamic="force-dynamic";
 
 export default async function ChessFinanceOperationsPage({
@@ -23,6 +26,13 @@ export default async function ChessFinanceOperationsPage({
    Finance operations require an active business manager assignment.
   </main>;
  }
+ let bankConnections:Awaited<ReturnType<typeof listChessBankFeedConnections>>|null=null;
+ try{bankConnections=await listChessBankFeedConnections(selected.id);}
+ catch{/* Manager without owner/admin rights cannot administer bank feeds. */}
+ const bankCases=cases.filter(c=>
+  c.service==="ACCOUNTING"||c.service==="BOOKKEEPING")
+  .map(c=>({id:c.id,clientProfileId:c.clientProfileId,
+   service:c.service as "ACCOUNTING"|"BOOKKEEPING"}));
  const metrics=[
   ["Accounting cases",report.cases.accounting],
   ["Bookkeeping cases",report.cases.bookkeeping],
@@ -83,6 +93,13 @@ export default async function ChessFinanceOperationsPage({
      </Link>
     </li>)}</ul>}
   </section>
+  {bankConnections&&<FinanceBankFeedClient
+   businessId={selected.id} providerConfigured={bankFeedImportConfigured()}
+   cases={bankCases}
+   connections={bankConnections.map(c=>({
+    ...c,createdAt:c.createdAt.toISOString(),
+    updatedAt:c.updatedAt.toISOString(),
+   }))}/>}
   <section className="space-y-2 rounded-xl border border-slate-200 p-5">
    <h2 className="font-semibold">Financial controls and activation</h2>
    <p className="text-sm text-slate-600">
