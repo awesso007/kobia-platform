@@ -1,7 +1,7 @@
 import {afterEach,describe,expect,it,vi} from "vitest";
 import {billingProviderConfigured,deliverChessInvoice,
  checkChessInvoiceStatus} from "./billing-provider";
-import {canApproveInvoice,invoiceDeliveryState,invoiceDigest} from "./billing";
+import {canApproveInvoice,canSendApprovedInvoice,invoiceDeliveryState,invoiceDigest} from "./billing";
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});
 function configure(){
  vi.stubEnv("CHESS_BILLING_DELIVERY_ENABLED","true");
@@ -24,6 +24,16 @@ describe("M7 invoice delivery and approval boundaries",()=>{
   expect(invoiceDeliveryState("pending")).toBe("UNKNOWN");
   expect(invoiceDeliveryState("not_found")).toBe("UNKNOWN");
   expect(invoiceDeliveryState("rejected")).toBe("REJECTED");
+ });
+ it("requires three different active roles in invoice author, approver and sender sequence",()=>{
+  const invoice={createdByClerkUserId:"creator",approvedByClerkUserId:"reviewer"};
+  expect(canSendApprovedInvoice(invoice,"creator")).toBe(false);
+  expect(canSendApprovedInvoice(invoice,"reviewer")).toBe(false);
+  expect(canSendApprovedInvoice(invoice,"independent-sender")).toBe(true);
+  expect(canSendApprovedInvoice({...invoice,approvedByClerkUserId:"creator"},
+   "independent-sender")).toBe(false);
+  expect(canSendApprovedInvoice({...invoice,approvedByClerkUserId:null},
+   "independent-sender")).toBe(false);
  });
  it("uses content-bound, tenant-isolated invoice fingerprints",()=>{
   const src={tenantSlug:"tenant",businessId:"business",
