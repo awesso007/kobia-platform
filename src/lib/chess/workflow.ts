@@ -30,9 +30,24 @@ export async function createChessWorkItem(data:unknown) {
   const p=await db.clientProfile.findUnique({where:{id:parsed.clientProfileId},select:{id:true}});
   if (!p) throw new PermissionError("record:read");
  }
- return db.chessWorkItem.create({data:parsed,select:{
-  id:true,businessId:true,title:true,status:true,assignedClerkUserId:true,dueAt:true,updatedAt:true,
- }});
+ return db.$transaction(async tx=>{
+  const item=await tx.chessWorkItem.create({data:parsed,select:{
+   id:true,businessId:true,title:true,status:true,assignedClerkUserId:true,dueAt:true,updatedAt:true,
+  }});
+  if(parsed.assignedClerkUserId){
+   await tx.chessEmployeeAlert.create({data:{
+    businessId:parsed.businessId,recipientClerkUserId:parsed.assignedClerkUserId,
+    workItemId:item.id,type:"WORK_ASSIGNED",
+    message:"A CHESS work item has been assigned to you.",
+    dedupeKey:`work:${item.id}:assigned`,
+   }});
+  }
+  await tx.chessSecurityEvent.create({data:{
+   businessId:parsed.businessId,actorClerkUserId:actor.clerkUserId,
+   action:"WORK_ITEM_CREATED",resourceType:"ChessWorkItem",resourceId:item.id,decision:"ALLOW",
+  }});
+  return item;
+ });
 }
 export async function listChessWorkItems(businessId:string) {
  await assertBusinessAccess(businessId);
