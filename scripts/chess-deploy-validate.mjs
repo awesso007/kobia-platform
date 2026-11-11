@@ -47,6 +47,7 @@ if(process.env.CHESS_SCHEDULER_ENABLED==="true"){
 }
 if(process.env.CHESS_CALENDAR_SYNC_ENABLED==="true"){
  for(const key of ["CHESS_CALENDAR_API_URL","CHESS_CALENDAR_CANCEL_API_URL",
+  "CHESS_CALENDAR_STATUS_API_URL",
   "CHESS_CALENDAR_ALLOWED_HOST","CHESS_CALENDAR_API_KEY"]){
   if(!process.env[key])errors.push(`${key} is required for calendar sync`);
  }
