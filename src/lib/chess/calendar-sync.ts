@@ -9,6 +9,17 @@ import {reconcileUncertainChessCalendarEvents} from "./calendar-reconciliation";
 export async function syncChessPendingCalendarEvents(){
  if(!calendarGatewayConfigured())return {disabled:true,examined:0,synced:0,rejected:0,unknown:0,cancelled:0,cancelUnknown:0,reconciliationUnresolved:0};
  const {db,tenantId}=getTenantDb();
+ const stale=new Date(Date.now()-2*60*1000);
+ await Promise.all([
+  db.chessCalendarOutbox.updateMany({
+   where:{status:"SUBMITTING",updatedAt:{lt:stale}},
+   data:{status:"UNKNOWN",lastErrorCode:"STALE_CREATE_CLAIM"},
+  }),
+  db.chessCalendarOutbox.updateMany({
+   where:{status:"CANCEL_SUBMITTING",updatedAt:{lt:stale}},
+   data:{status:"CANCEL_UNKNOWN",lastErrorCode:"STALE_CANCEL_CLAIM"},
+  }),
+ ]);
  const reconciliation=await reconcileUncertainChessCalendarEvents();
  let cancelled=0,cancelUnknown=0;
  const cancellations=await db.chessCalendarOutbox.findMany({
