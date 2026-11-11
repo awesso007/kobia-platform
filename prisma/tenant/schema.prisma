@@ -3584,3 +3584,38 @@ model ClientServiceGrant {
   @@unique([linkId, clerkUserId])
   @@index([clerkUserId, revokedAt])
 }
+
+
+// CHESS CORP 2 Milestone 2 - business units and employee assignments.
+// Each unit is local to the active tenant, not a separate legal entity registry.
+enum BusinessUnitStatus {
+  ACTIVE
+  INACTIVE
+}
+enum BusinessAssignmentRole {
+  MANAGER
+  PRACTITIONER
+  SUPPORT
+}
+model ChessBusinessUnit {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  legalName   String?
+  status      BusinessUnitStatus @default(ACTIVE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  assignments ChessEmployeeAssignment[]
+}
+model ChessEmployeeAssignment {
+  id           String @id @default(cuid())
+  businessId   String
+  clerkUserId  String
+  role         BusinessAssignmentRole @default(SUPPORT)
+  assignedAt   DateTime @default(now())
+  revokedAt    DateTime?
+  business     ChessBusinessUnit @relation(fields: [businessId], references: [id], onDelete: Restrict)
+
+  @@unique([businessId, clerkUserId])
+  @@index([clerkUserId, revokedAt])
+}
