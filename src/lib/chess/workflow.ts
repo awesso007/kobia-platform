@@ -42,6 +42,13 @@ export async function createChessWorkItem(data:unknown) {
     dedupeKey:`work:${item.id}:assigned`,
    }});
   }
+  if(parsed.dueAt && parsed.assignedClerkUserId){
+   await tx.chessCalendarOutbox.create({data:{
+    businessId:parsed.businessId,workItemId:item.id,
+    recipientClerkUserId:parsed.assignedClerkUserId,scheduledFor:parsed.dueAt,
+    idempotencyKey:`calendar:${item.id}`,
+   }});
+  }
   await tx.chessSecurityEvent.create({data:{
    businessId:parsed.businessId,actorClerkUserId:actor.clerkUserId,
    action:"WORK_ITEM_CREATED",resourceType:"ChessWorkItem",resourceId:item.id,decision:"ALLOW",
