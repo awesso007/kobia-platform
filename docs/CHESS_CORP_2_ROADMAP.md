@@ -814,3 +814,28 @@ signatures when required, legal/identity review, data retention,
 full document portal, staged migration deployment and licensed
 provider approval remain mandatory. The draft PR must not be merged
 or deployed to live client processing on ordinary CI alone.
+
+
+## Round 13 - employee screens for previously backend-only workflows
+
+Implemented employee and administrator UI for CHESS business-unit
+creation/assignments, unified client profile creation, service
+provisioning and grant revocation, signed-consent request/status,
+consent-gated service case opening/status progression, independent
+generic action approvals, protected document upload/quarantine/
+READY download, bank-feed registration/pause/import, finance
+ledger-entity mappings and official practitioner license checks.
+
+The screens are routed and available through scoped CRM pages;
+security-critical external actions remain disabled by default and
+their API-level role/consent/license checks are not bypassed.
+
+**Acceptance and exact outstanding vendor/credential inputs:**
+`docs/CHESS_CORP_2_M8_ROUND13_EMPLOYEE_SCREENS.md`.
+
+Machine-only workers, encrypted audit exports, document scanner
+callbacks, unsupervised payroll funds/disbursement, tax filing,
+insurance binding and investment transactions deliberately are
+not represented as ordinary employee send buttons. All remaining
+M1-M8 provider, staging, E2E, legal and release gates still apply.
+This is development branch work only, not a live service launch.

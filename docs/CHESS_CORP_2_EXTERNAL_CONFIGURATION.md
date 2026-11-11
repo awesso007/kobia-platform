@@ -770,3 +770,33 @@ environment variable names and expected test fixtures.
 - See `docs/CHESS_CORP_2_M3_ROUND12_PORTAL.md` for test scenarios.
   This UI does not deliver legal e-signatures or document intake,
   so M3-01 and M3-02 are not independently release-complete.
+
+
+## Round 13 - employee screen rollout inputs
+
+Before releasing the new employee pages, supply separate fictional
+Clerk test identities for owner/admin, staff, licensed practitioner
+and client; verify the per-business assignment and explicit service
+grant boundary in both approved staging tenants.
+
+- Secure direct-to-S3 employee document upload additionally needs
+  private **bucket CORS PUT** permissions for the exact approved
+  application HTTPS origin, versioning/retention, malware worker
+  and confirmed scanner quarantine-to-READY behavior. No client
+  document may be downloaded while unscanned or access-revoked.
+- Official license review UI requires the preexisting independent
+  registry credentials (`CHESS_LICENSE_API_URL`,
+  `CHESS_LICENSE_ALLOWED_HOST`, `CHESS_LICENSE_API_KEY`,
+  `CHESS_LICENSE_SOURCE_HOSTS`) and evidence reviewed by
+  an administrator distinct from the practitioner.
+- Bank-feed employee setup needs the existing disabled-by-default
+  `CHESS_BANK_FEED_*` gateway variables, a fictional authorized
+  Plaid account, approved provider account reference, mapped
+  active legacy ledger entity and bank-account records and
+  both purpose-bound client consents. No provider sends funds
+  from these screens.
+- Consent requests require current exact approved policy text
+  and separately verified client acceptance; generic operational
+  approvals never substitute for payment/regulated authorization.
+- Full named UI inventory and separate staging acceptance:
+  `docs/CHESS_CORP_2_M8_ROUND13_EMPLOYEE_SCREENS.md`.
