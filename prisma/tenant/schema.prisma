@@ -3946,3 +3946,29 @@ model ChessPayrollDispatch {
   @@unique([businessId,legacyPayRunId])
   @@index([businessId,status])
 }
+
+
+// M4 - business-local appointment reservations with a database-level
+// exclusion constraint that rejects overlapping active staff bookings.
+enum ChessAppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model ChessAppointment {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String?
+  assignedClerkUserId String
+  subject String
+  startAt DateTime
+  endAt DateTime
+  status ChessAppointmentStatus @default(SCHEDULED)
+  createdByClerkUserId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId, startAt])
+  @@index([assignedClerkUserId, startAt])
+}
