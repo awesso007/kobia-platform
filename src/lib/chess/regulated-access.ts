@@ -4,7 +4,7 @@ import {getClientServiceLink} from "@/lib/client-profile/service";
 import {assertBusinessAccess} from "./business-units";
 import {isUsableConsent} from "./onboarding";
 import {credentialAllowsAssignment} from "./regulated-services";
-import {validAffiliation,workflowService} from "./regulated-policy";
+import {validAffiliation} from "./regulated-policy";
 import type {RegulatedService} from "./regulated-policy";
 
 export function sourceHostApproved(source:string|null,envValue:string|undefined):boolean{
