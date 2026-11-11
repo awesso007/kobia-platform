@@ -7,6 +7,7 @@ import RecurrencesClient from "./RecurrencesClient";
 import EmployeeAlerts from "./EmployeeAlerts";
 import CalendarConsent from "./CalendarConsent";
 import AppointmentsClient from "./AppointmentsClient";
+import ManagerQueueClient from "./ManagerQueueClient";
 import {listChessAppointments,listChessAssignableStaff} from "@/lib/chess/appointments";
 import {getMyCalendarPreference} from "@/lib/chess/calendar-preferences";
 import {getChessWorkerHealth} from "@/lib/chess/worker-health";
@@ -65,14 +66,19 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
     createdAt:a.createdAt.toISOString(),
    }))}/>
   </section>
-  {manager&&<section className="space-y-3">
+  {manager&&staff&&<section className="space-y-3">
    <h2 className="text-xl font-semibold">Manager oversight</h2>
-   <p className="text-sm text-slate-600">Blocked: {manager.blocked.length} ·
-    Unassigned: {manager.unassigned.length} · Overdue: {manager.overdue.length}</p>
-   <ul className="space-y-2">{manager.overdue.slice(0,20).map(item=>
-    <li key={item.id} className="rounded-lg border border-orange-200 bg-white p-3 text-sm">
-     <strong>{item.title}</strong> · {item.status.replaceAll("_"," ")}
-    </li>)}</ul>
+   <ManagerQueueClient businessId={selected.id} staff={staff} initialQueue={{
+    blocked:manager.blocked.map(item=>({...item,
+     dueAt:item.dueAt?.toISOString()??null,updatedAt:item.updatedAt.toISOString(),
+    })),
+    unassigned:manager.unassigned.map(item=>({...item,
+     dueAt:item.dueAt?.toISOString()??null,updatedAt:item.updatedAt.toISOString(),
+    })),
+    overdue:manager.overdue.map(item=>({...item,
+     dueAt:item.dueAt?.toISOString()??null,updatedAt:item.updatedAt.toISOString(),
+    })),
+   }}/>
   </section>}
   {appointments&&staff&&<section className="space-y-3">
    <h2 className="text-xl font-semibold">Appointments</h2>
