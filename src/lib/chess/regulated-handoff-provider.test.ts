@@ -4,6 +4,9 @@ import {regulatedHandoffConfigured,submitRegulatedHandoff,
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});
 function config(){
  vi.stubEnv("CHESS_REGULATED_HANDOFF_ENABLED","true");
+ vi.stubEnv("CHESS_AFFILIATION_VERIFICATION_ENABLED","true");
+ vi.stubEnv("CHESS_LICENSE_SOURCE_HOSTS","official.test.gov");
+ vi.stubEnv("CHESS_AFFILIATION_SOURCE_HOSTS","official.test.gov");
  vi.stubEnv("CHESS_REGULATED_HANDOFF_API_URL","https://partner.example.test/create");
  vi.stubEnv("CHESS_REGULATED_STATUS_API_URL","https://partner.example.test/status");
  vi.stubEnv("CHESS_REGULATED_ALLOWED_HOST","partner.example.test");
