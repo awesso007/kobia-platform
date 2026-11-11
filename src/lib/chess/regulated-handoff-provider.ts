@@ -13,11 +13,14 @@ function permittedUrl(raw:string|undefined,host:string|undefined):boolean{
  try{
   const parsed=new URL(raw);
   return parsed.protocol==="https:"&&parsed.hostname===host&&
-   !parsed.username&&!parsed.password&&!parsed.hash;
+   !parsed.username&&!parsed.password&&!parsed.hash&&!parsed.port;
  }catch{return false;}
 }
 export function regulatedHandoffConfigured(service:RegulatedService):boolean{
- if(!services.includes(service)||process.env.CHESS_REGULATED_HANDOFF_ENABLED!=="true")
+ if(!services.includes(service)||process.env.CHESS_REGULATED_HANDOFF_ENABLED!=="true"||
+    process.env.CHESS_AFFILIATION_VERIFICATION_ENABLED!=="true"||
+    !process.env.CHESS_LICENSE_SOURCE_HOSTS||
+    !process.env.CHESS_AFFILIATION_SOURCE_HOSTS)
   return false;
  return !!process.env.CHESS_REGULATED_API_KEY&&
   !!process.env[partnerKey(service)]&&
