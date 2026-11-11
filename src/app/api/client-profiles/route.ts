@@ -1,3 +1,4 @@
+import {assertMutationOrigin} from "@/lib/chess/request-security";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { ZodError } from "zod";
@@ -22,7 +23,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  try {
+ try { assertMutationOrigin(request);
     const body: unknown = await request.json();
     const profile = await createClientProfile(body);
     return NextResponse.json({ profile }, { status: 201 });
