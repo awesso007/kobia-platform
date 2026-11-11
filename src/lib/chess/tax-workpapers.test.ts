@@ -8,15 +8,15 @@ describe("M5 tax workpaper evidence",()=>{
   ]};
  it("requires balanced posted ledger lines",()=>{
   expect(isBalancedTaxSnapshot([row])).toBe(true);
-  expect(isBalancedTaxSnapshot([{...row,lines:[row.lines[0]]}])).toBe(false);
+  expect(isBalancedTaxSnapshot([{...row,lines:[row.lines[0]!]}])).toBe(false);
   expect(isBalancedTaxSnapshot([{...row,lines:[
-   {...row.lines[0],debitCents:30001n},row.lines[1],
+   {...row.lines[0]!,debitCents:30001n},row.lines[1]!,
   ]}])).toBe(false);
  });
  it("changes the snapshot digest when an accounting amount changes",()=>{
   const hash=taxSnapshotDigest([row],"tenant","entity",new Date("2026-01-01Z"),new Date("2027-01-01Z"));
   expect(hash).toMatch(/^[0-9a-f]{64}$/);
-  const altered={...row,lines:[{...row.lines[0],debitCents:30001n},row.lines[1]]};
+  const altered={...row,lines:[{...row.lines[0]!,debitCents:30001n},row.lines[1]!]};
   expect(hash).not.toBe(taxSnapshotDigest([altered],"tenant","entity",new Date("2026-01-01Z"),new Date("2027-01-01Z")));
  });
  it("requires distinct human creator, reviewer and final approver",()=>{
