@@ -6,6 +6,9 @@ import {billingProviderConfigured} from "@/lib/chess/billing-provider";
 import {merchantWebhookConfigured,listChessMerchantObservations}
  from "@/lib/chess/merchant-observations";
 import MerchantEventsPanel from "./MerchantEventsPanel";
+import {listChessRecurringPlans,recurringInvoiceDraftsEnabled}
+ from "@/lib/chess/recurring-billing";
+import RecurringPlansPanel from "./RecurringPlansPanel";
 export const dynamic="force-dynamic";
 export default async function ServiceBillingPage({searchParams}:{
  searchParams:{businessId?:string};
@@ -14,9 +17,10 @@ export default async function ServiceBillingPage({searchParams}:{
   const units=await listBusinessUnits();
   const selected=units.find(u=>u.id===searchParams.businessId)??units[0];
   if(!selected)return <main role="status">No active billing business unit available.</main>;
-  const [invoices,cases,merchantEvents]=await Promise.all([
+  const [invoices,cases,merchantEvents,plans]=await Promise.all([
    listChessInvoices(selected.id),listChessBillableCases(selected.id),
    listChessMerchantObservations(selected.id),
+   listChessRecurringPlans(selected.id),
   ]);
   const drafts=invoices.filter(x=>x.status==="DRAFT").length;
   const approvals=invoices.filter(x=>x.status==="APPROVED").length;
@@ -55,6 +59,15 @@ export default async function ServiceBillingPage({searchParams}:{
      updatedAt:i.updatedAt.toISOString()}))}
     suggestions={[]} tasks={[]} aiReady={false}
     billingReady={billingProviderConfigured()}/>
+   <RecurringPlansPanel businessId={selected.id} cases={cases}
+    schedulerEnabled={recurringInvoiceDraftsEnabled()}
+    plans={plans.map(p=>({
+     ...p,nextDraftAt:p.nextDraftAt.toISOString(),
+     lastDraftAt:p.lastDraftAt?.toISOString()??null,
+     approvedAt:p.approvedAt?.toISOString()??null,
+     createdAt:p.createdAt.toISOString(),
+     updatedAt:p.updatedAt.toISOString(),
+    }))}/>
    <MerchantEventsPanel configured={merchantWebhookConfigured()}
     events={merchantEvents.map(e=>({
      ...e,occurredAt:e.occurredAt.toISOString(),
