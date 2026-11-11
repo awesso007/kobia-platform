@@ -14,7 +14,8 @@ export function credentialAllowsAssignment(
 ):boolean {
  return !!credential && credential.status==="VERIFIED" && !!credential.verifiedAt &&
   !!credential.verifiedByClerkUserId && !!credential.verificationSource && !!credential.registryCheckedAt &&
-  credential.registryCheckedAt<=now && (!credential.expiresAt||credential.expiresAt>now);
+  credential.registryCheckedAt<=now && now.getTime()-credential.registryCheckedAt.getTime()<24*60*60*1000 &&
+  (!credential.expiresAt||credential.expiresAt>now);
 }
 
 const createCase=z.object({
