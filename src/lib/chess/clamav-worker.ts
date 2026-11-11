@@ -66,22 +66,25 @@ export async function scanPendingChessDocuments(limit=5){
  let clean=0,infected=0,errors=0;
  for(const document of docs){
   try{
-   const head=await headObject(document.storageKey);
-   if(!head || head.size!==document.actualBytes || head.size<1 ||
+   if(!document.storageVersionId || !document.storageETag) throw new Error("Document has no pinned object version.");
+   const head=await headObject(document.storageKey,document.storageVersionId);
+   if(!head || head.versionId!==document.storageVersionId || head.etag!==document.storageETag ||
+    head.size!==document.actualBytes || head.size<1 ||
     head.size>document.maxBytes || head.size>MAX_BYTES || head.mimeType!==document.mimeType){
     await db.chessClientDocument.updateMany({
      where:{id:document.id,status:"QUARANTINED"},data:{status:"REJECTED"},
     });
     infected++;continue;
    }
-   const body=await getObjectBody(document.storageKey);
+   const body=await getObjectBody(document.storageKey,document.storageVersionId);
    const bytes=Buffer.from(await body.transformToByteArray());
    if(bytes.length!==head.size)throw new Error("Object length changed during scan.");
    const result=await scanWithClamAv(bytes);
    const checksumSha256=createHash("sha256").update(bytes).digest("hex");
    // Recheck storage metadata immediately before release.
-   const headAgain=await headObject(document.storageKey);
-   if(!headAgain || headAgain.size!==head.size || headAgain.mimeType!==head.mimeType)
+   const headAgain=await headObject(document.storageKey,document.storageVersionId);
+   if(!headAgain || headAgain.versionId!==document.storageVersionId ||
+    headAgain.etag!==document.storageETag || headAgain.size!==head.size || headAgain.mimeType!==head.mimeType)
     throw new Error("Object changed after scanning.");
    await db.chessClientDocument.updateMany({
     where:{id:document.id,status:"QUARANTINED"},data:{
