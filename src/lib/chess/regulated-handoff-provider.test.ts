@@ -4,13 +4,14 @@ import {regulatedHandoffConfigured,submitRegulatedHandoff,
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});
 function config(){
  vi.stubEnv("CHESS_REGULATED_HANDOFF_ENABLED","true");
+ vi.stubEnv("CHESS_REGULATED_RESPONSE_BINDING_REQUIRED","true");
  vi.stubEnv("CHESS_AFFILIATION_VERIFICATION_ENABLED","true");
  vi.stubEnv("CHESS_LICENSE_SOURCE_HOSTS","official.test.gov");
  vi.stubEnv("CHESS_AFFILIATION_SOURCE_HOSTS","official.test.gov");
  vi.stubEnv("CHESS_REGULATED_HANDOFF_API_URL","https://partner.example.test/create");
  vi.stubEnv("CHESS_REGULATED_STATUS_API_URL","https://partner.example.test/status");
  vi.stubEnv("CHESS_REGULATED_ALLOWED_HOST","partner.example.test");
- vi.stubEnv("CHESS_REGULATED_API_KEY","sandbox");
+ vi.stubEnv("CHESS_REGULATED_PARTNER_MORTGAGE_API_KEY","mortgage-only-sandbox");
  vi.stubEnv("CHESS_REGULATED_PARTNER_MORTGAGE","licensed_partner_test");
 }
 const handoff={tenantSlug:"test",businessId:"unit",serviceCaseId:"case",
@@ -32,6 +33,7 @@ describe("M6 regulated coordination handoff safety",()=>{
   config();
   const http=vi.fn().mockResolvedValue({ok:true,json:async()=>({
    id:"provider-ref",status:"accepted",workflowId:"workflow",
+   service:"MORTGAGE",partnerId:"licensed_partner_test",
   })});
   vi.stubGlobal("fetch",http);
   const result=await submitRegulatedHandoff(handoff);
@@ -46,14 +48,37 @@ describe("M6 regulated coordination handoff safety",()=>{
   expect(body).not.toHaveProperty("tradeOrder");
   expect((options.headers as Record<string,string>)["Idempotency-Key"]).toBe("digest");
  });
+ it("rejects a cross-service or cross-partner acknowledgment",async()=>{
+  config();
+  const fake=vi.fn().mockResolvedValueOnce({ok:true,json:async()=>({
+   workflowId:"workflow",service:"INSURANCE",partnerId:"licensed_partner_test",
+   status:"accepted",id:"provider-ref",
+  })}).mockResolvedValueOnce({ok:true,json:async()=>({
+   workflowId:"workflow",service:"MORTGAGE",partnerId:"other_partner",
+   status:"accepted",id:"provider-ref",
+  })});
+  vi.stubGlobal("fetch",fake);
+  await expect(submitRegulatedHandoff(handoff)).rejects.toThrow();
+  await expect(submitRegulatedHandoff(handoff)).rejects.toThrow();
+ });
+ it("requires distinct scoped service key and response contract before activation",()=>{
+  config();
+  vi.stubEnv("CHESS_REGULATED_PARTNER_MORTGAGE_API_KEY","");
+  expect(regulatedHandoffConfigured("MORTGAGE")).toBe(false);
+  vi.stubEnv("CHESS_REGULATED_PARTNER_MORTGAGE_API_KEY","mortgage-only-sandbox");
+  vi.stubEnv("CHESS_REGULATED_RESPONSE_BINDING_REQUIRED","false");
+  expect(regulatedHandoffConfigured("MORTGAGE")).toBe(false);
+ });
  it("rejects a wrong workflow and unknown remote status",async()=>{
   config();
   vi.stubGlobal("fetch",vi.fn().mockResolvedValue({ok:true,json:async()=>({
    id:"ref",status:"accepted",workflowId:"wrong-workflow",
+   service:"MORTGAGE",partnerId:"licensed_partner_test",
   })}));
   await expect(submitRegulatedHandoff(handoff)).rejects.toThrow();
   vi.stubGlobal("fetch",vi.fn().mockResolvedValue({ok:true,json:async()=>({
    id:"wrong-provider-ref",status:"accepted",workflowId:"workflow",
+   service:"MORTGAGE",partnerId:"licensed_partner_test",
   })}));
   await expect(lookupRegulatedHandoff({
    tenantSlug:"test",businessId:"unit",serviceCaseId:"case",

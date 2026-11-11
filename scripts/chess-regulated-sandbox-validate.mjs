@@ -70,7 +70,9 @@ const host=required("CHESS_REGULATED_ALLOWED_HOST");
 const createUrl=approvedUrl(required("CHESS_REGULATED_HANDOFF_API_URL"),host);
 const statusUrl=approvedUrl(required("CHESS_REGULATED_STATUS_API_URL"),host);
 const partnerId=required("CHESS_REGULATED_PARTNER_"+service);
-const token=required("CHESS_REGULATED_API_KEY");
+const token=required("CHESS_REGULATED_PARTNER_"+service+"_API_KEY");
+if(process.env.CHESS_REGULATED_RESPONSE_BINDING_REQUIRED!=="true")
+ throw new Error("Regulated partner response echo contract has not been approved.");
 const workflowId="sandbox-"+randomUUID();
 const kind=({
  MORTGAGE:"MORTGAGE_DOCUMENT_INTAKE",
@@ -88,7 +90,8 @@ const context={
 // The provider must confirm that these synthetic identifiers cannot trigger
 // real underwriting, policy issuance, brokerage or investment execution.
 const submitted=await post(createUrl,token,context,idempotencyKey);
-if(submitted.workflowId!==workflowId||submitted.status!=="accepted"||
+if(submitted.workflowId!==workflowId||submitted.service!==service||
+ submitted.partnerId!==partnerId||submitted.status!=="accepted"||
  typeof submitted.id!=="string"||!submitted.id)
  throw new Error("Sandbox coordination ticket was not independently acknowledged.");
 const checked=await post(statusUrl,token,{
@@ -96,7 +99,8 @@ const checked=await post(statusUrl,token,{
  serviceCaseId:context.serviceCaseId,workflowId,
  service,idempotencyKey,providerRequestId:submitted.id,partnerId,
 });
-if(checked.workflowId!==workflowId||checked.status!=="accepted"||
+if(checked.workflowId!==workflowId||checked.service!==service||
+ checked.partnerId!==partnerId||checked.status!=="accepted"||
  checked.id!==submitted.id)
  throw new Error("Read-only status lookup does not reconcile the same ticket.");
 console.log("PASS: test-only regulated coordination create and reconciliation for "+service+
