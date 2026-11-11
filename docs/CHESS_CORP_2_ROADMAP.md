@@ -486,3 +486,66 @@ their separate legal scopes and data-sharing permissions.
 **M6 is code-implemented for internal metadata coordination only, not a
 production-approved end-to-end regulated execution platform. Green CI alone
 does not satisfy the five mandatory gates above.**
+
+
+## Round 7 - supervised AI, invoice billing and operational reporting
+
+**Development implementation (NOT production service activation):**
+- **AI assistance:** approved, host-pinned API accepts only generic work-item
+  status, deadline bucket and assignment-presence flags. It returns strict
+  enumerated priority/action/rationale metadata; no prompts, client IDs,
+  case descriptions, payroll details or tax content are sent.
+  Proposals are deduplicated against a SHA-256 digest of the current
+  tenant/business/task state. A changed task invalidates stale advice.
+  Separate active administrators review all results. Acceptance does NOT
+  modify source work or authorize any financial execution.
+- **Scheduled AI:** existing tenant-allowlisted, bearer-token-verified
+  scheduler can generate a maximum of 25 unapproved proposals per tenant
+  run, only when the data-sharing/vendor/scheduler gates have been explicitly
+  approved. A failed suggestion leaves the source work item unchanged.
+- **Billing:** active accounting, bookkeeping, payroll or tax service
+  cases with an explicit per-client write grant and separate
+  `service:<SERVICE>` and `billing:<SERVICE>` signed consents may create
+  typed USD invoice drafts. Fixed service codes, amount ceilings, source
+  fingerprints, unique request keys and serial state transitions prevent
+  ordinary duplicate invoice requests. An independent administrator
+  approves the draft; a different active sender may request an opaque
+  invoice-delivery ticket. Delivery UNKNOWN is reconciled by the original
+  key and confirmed provider ID, never automatically submitted twice.
+  No payment, card charge, ACH, debt collection or ledger posting occurs.
+- **Reporting:** new `/app/operations-intelligence` page and
+  `/api/chess/operations-report` JSON/CSV endpoint report business-unit
+  service-case, task, supervised AI, consent and licensed coordination
+  counts, plus invoice counts and total invoice amounts by vendor
+  delivery status. Reports contain no per-client records or banking data.
+  They are operational statistics, not booked GL income, settled payments,
+  month-end position or consolidated statutory statements.
+- **Controls and tests:** tenant-local AI/invoice Prisma models and a
+  versioned PostgreSQL migration; database uniqueness and positivity
+  constraints; independent-approval and constrained-output contract tests;
+  anonymized HTTP auth smoke probes; disabled-by-default external AI
+  and billing gateways; compliance-aware deployment preflight; optional
+  manual-only fictional-provider sandbox contract workflow.
+- **Launch status:** Ordinary CI exercises mock external vendors and the
+  PostgreSQL tenant schema. It does not establish actual AI API uptime,
+  electronic invoice receipt, bank or tax settlement, billing licensing,
+  cross-company consolidated reports, or a live deployment.
+
+### Mandatory Round 7 external blockers
+1. Contracted, reviewed AI provider with an approved HTTPS gateway, scoped
+   key, signed privacy/DPA and explicit triage-only data-sharing release.
+2. Contracted invoice-only billing provider, client invoice-contact mapping,
+   confirmed purpose-bound billing consent, DPA, fee/tax policy, approved
+   vendor API and no-payment-charge sandbox. Independent staff must approve.
+3. Real payment collection and webhook-backed settlement, merchant
+   underwriting, AR postings and subscription management (separate future
+   financial execution; NOT enabled by invoice delivery).
+4. Historical month-end accounting statements, consolidated financial
+   elimination logic, cash reconciliation and report reviewer sign-off.
+5. Authorized test tenants and a full staging deployment/security/restore
+   pilot plus real provider sandbox evidence before enabling any live job.
+
+**Milestone 7 development code is implemented for restricted, human-reviewed
+assistance and invoice coordination, but complete end-to-end production
+billing, supervised financial AI and audited accounting reports remain
+blocked pending provider configuration and independent release controls.**
