@@ -5,11 +5,17 @@ import {assertAuthorizedWorkflowTenant} from "./worker-authorization";
 /** Dedicated read-only monitoring credential, never a tenant Clerk cookie or
  * the powerful scheduling/scan worker token. External monitor owns paging. */
 export function incidentMonitorAuthorized(authorization:string|null,
- env:{CHESS_INCIDENT_MONITOR_ENABLED?:string;CHESS_INCIDENT_MONITOR_TOKEN?:string;}=process.env,
+ env:{CHESS_INCIDENT_MONITOR_ENABLED?:string;CHESS_INCIDENT_MONITOR_TOKEN?:string;
+ CHESS_INCIDENT_MONITOR_OPS_APPROVED?:string;
+ CHESS_WORKFLOW_WORKER_TOKEN?:string;}=process.env,
 ):boolean{
- if(env.CHESS_INCIDENT_MONITOR_ENABLED!=="true"||!authorization||
+ if(env.CHESS_INCIDENT_MONITOR_ENABLED!=="true"||
+  env.CHESS_INCIDENT_MONITOR_OPS_APPROVED!=="true"||!authorization||
   !env.CHESS_INCIDENT_MONITOR_TOKEN||
-  env.CHESS_INCIDENT_MONITOR_TOKEN.length<32)return false;
+  env.CHESS_INCIDENT_MONITOR_TOKEN.length<32||
+  (env.CHESS_WORKFLOW_WORKER_TOKEN!==undefined&&
+   env.CHESS_INCIDENT_MONITOR_TOKEN===env.CHESS_WORKFLOW_WORKER_TOKEN))
+  return false;
  const a=Buffer.from(authorization,"utf8");
  const b=Buffer.from("Bearer "+env.CHESS_INCIDENT_MONITOR_TOKEN,"utf8");
  return a.length===b.length&&timingSafeEqual(a,b);

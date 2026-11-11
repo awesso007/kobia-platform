@@ -2,10 +2,15 @@ import {describe,it,expect} from "vitest";
 import {incidentMonitorAuthorized,incidentSignalCodes} from "./incident-monitor";
 describe("M8 privacy-reduced read-only monitor",()=>{
  const config={CHESS_INCIDENT_MONITOR_ENABLED:"true",
+  CHESS_INCIDENT_MONITOR_OPS_APPROVED:"true",
   CHESS_INCIDENT_MONITOR_TOKEN:"n".repeat(48)};
  it("requires independent lengthy token and explicit enabled flag",()=>{
   expect(incidentMonitorAuthorized("Bearer "+"n".repeat(48),config)).toBe(true);
   expect(incidentMonitorAuthorized(null,config)).toBe(false);
+  expect(incidentMonitorAuthorized("Bearer "+"n".repeat(48),{
+   ...config,CHESS_INCIDENT_MONITOR_OPS_APPROVED:"false"})).toBe(false);
+  expect(incidentMonitorAuthorized("Bearer "+"n".repeat(48),{
+   ...config,CHESS_WORKFLOW_WORKER_TOKEN:"n".repeat(48)})).toBe(false);
   expect(incidentMonitorAuthorized("Bearer "+"x".repeat(48),config)).toBe(false);
   expect(incidentMonitorAuthorized("Bearer "+"n".repeat(48),{
    ...config,CHESS_INCIDENT_MONITOR_ENABLED:"false"})).toBe(false);

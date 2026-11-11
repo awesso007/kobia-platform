@@ -104,6 +104,15 @@ if(process.env.CHESS_BANK_FEED_PAGINATION_ENABLED==="true"&&
  (process.env.CHESS_BANK_FEED_ENABLED!=="true"||
   process.env.CHESS_BANK_FEED_IMPORT_ENABLED!=="true"))
  errors.push("Bank feed pagination requires the separately approved and enabled import gateway");
+// Only a separately approved read-only ops monitor may be enabled.
+if(process.env.CHESS_INCIDENT_MONITOR_ENABLED==="true"){
+ if(process.env.CHESS_INCIDENT_MONITOR_OPS_APPROVED!=="true")
+  errors.push("Incident polling requires an approved on-call escalation and response policy");
+ if(!process.env.CHESS_INCIDENT_MONITOR_TOKEN||
+  process.env.CHESS_INCIDENT_MONITOR_TOKEN.length<32||
+  process.env.CHESS_INCIDENT_MONITOR_TOKEN===process.env.CHESS_WORKFLOW_WORKER_TOKEN)
+  errors.push("Incident monitor requires its own vault-held, distinct 32+ character token");
+}
 // M8 exported security events require a separate approved append-only archive.
 // Enabling export without its restricted retention policy is a release blocker.
 // Consent portal is off until legal disclosure text and external
