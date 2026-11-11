@@ -4,6 +4,7 @@ import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {PermissionError,getCurrentMembership} from "@/lib/rbac/require-permission";
 import {assertBusinessAccess} from "./business-units";
 import {getClientServiceLink} from "@/lib/client-profile/service";
+import {getTenantBySlug} from "@/lib/tenant";
 
 const input=z.object({
  businessId:z.string().min(1),clientProfileId:z.string().min(1),
@@ -25,11 +26,13 @@ export async function linkChessFinancialEntity(value:unknown) {
   select:{id:true},
  });
  if(!serviceCase)throw new PermissionError("record:update");
+ const legacyTenant=await getTenantBySlug(ctx.tenantId);
+ if(!legacyTenant)throw new PermissionError("record:update");
  const entity=await legacyDb.entity.findFirst({
-  where:{id:data.legacyEntityId,tenantId:ctx.tenantId,isActive:true},select:{id:true,tenantId:true},
+  where:{id:data.legacyEntityId,tenantId:legacyTenant.id,isActive:true},select:{id:true,tenantId:true},
  });
  if(!entity)throw new PermissionError("record:update");
- return ctx.db.chessFinancialLink.create({data:{...data,legacyTenantId:ctx.tenantId},
+ return ctx.db.chessFinancialLink.create({data:{...data,legacyTenantId:legacyTenant.id},
   select:{id:true,businessId:true,service:true,legacyEntityId:true}});
 }
 
@@ -40,17 +43,19 @@ export async function financialOperationalSummary(businessId:string,clientProfil
  const access=await getClientServiceLink(clientProfileId,businessId,service);
  if(!access)throw new PermissionError("record:read");
  const {db,tenantId}=getTenantDb();
+ const legacyTenant=await getTenantBySlug(tenantId);
+ if(!legacyTenant)throw new PermissionError("record:read");
  const mapping=await db.chessFinancialLink.findFirst({
-  where:{businessId,clientProfileId,service,legacyTenantId:tenantId},
+  where:{businessId,clientProfileId,service,legacyTenantId:legacyTenant.id},
   select:{legacyEntityId:true},
  });
  if(!mapping)return {linked:false};
- const entity=await legacyDb.entity.findFirst({where:{id:mapping.legacyEntityId,tenantId,isActive:true},
+ const entity=await legacyDb.entity.findFirst({where:{id:mapping.legacyEntityId,tenantId:legacyTenant.id,isActive:true},
   select:{id:true}});
  if(!entity)throw new PermissionError("record:read");
  if(service==="PAYROLL") {
   const [employees,payRuns]=await Promise.all([
-   legacyDb.employee.count({where:{tenantId,entityId:entity.id,isActive:true}}),
+   legacyDb.employee.count({where:{tenantId:legacyTenant.id,entityId:entity.id,isActive:true}}),
    legacyDb.payRun.count({where:{tenantId,entityId:entity.id}}),
   ]);
   return {linked:true,service,employees,payRuns};
