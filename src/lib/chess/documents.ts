@@ -70,3 +70,23 @@ export async function confirmChessDocumentUpload(documentId:string,businessId:st
  });
  return {status:"QUARANTINED" as const};
 }
+
+/** Downloads are available only after a trusted malware scan declares READY.
+ * The presigned URL is short-lived and requires an explicit service grant. */
+export async function getChessDocumentDownload(
+ documentId:string,businessId:string,clientProfileId:string,service:z.infer<typeof request>["service"],
+) {
+ const member=await getCurrentMembership();
+ if(!member || member.status!=="ACTIVE")throw new PermissionError("record:read");
+ const link=await getClientServiceLink(clientProfileId,businessId,service);
+ if(!link)throw new PermissionError("record:read");
+ const {db}=getTenantDb();
+ const document=await db.chessClientDocument.findFirst({where:{
+  id:documentId,businessId,clientProfileId,service,status:"READY",
+ },select:{storageKey:true,fileName:true}});
+ if(!document)throw new PermissionError("record:read");
+ const url=await s3.createPresignedDownloadUrl(document.storageKey,{
+  expiresIn:60,contentDisposition:"attachment",
+ });
+ return {url,expiresInSeconds:60};
+}
