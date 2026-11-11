@@ -17,10 +17,20 @@ export async function requestChessApproval(input:unknown) {
  const data=request.parse(input);
  await assertBusinessAccess(data.businessId);
  const actor=await getCurrentMembership();
- if (!actor) throw new PermissionError("record:create");
+ if (!actor || actor.status!=="ACTIVE") throw new PermissionError("record:create");
  const {db}=getTenantDb();
- return db.chessActionApproval.create({data:{...data,requestedBy:actor.clerkUserId},
-  select:{id:true,businessId:true,actionType:true,status:true}});
+ return db.$transaction(async tx=>{
+  const row=await tx.chessActionApproval.create({
+   data:{...data,requestedBy:actor.clerkUserId},
+   select:{id:true,businessId:true,actionType:true,status:true},
+  });
+  await tx.chessSecurityEvent.create({data:{
+   businessId:data.businessId,actorClerkUserId:actor.clerkUserId,
+   action:"ACTION_APPROVAL_REQUESTED",resourceType:"ChessActionApproval",
+   resourceId:row.id,decision:"REVIEW",
+  }});
+  return row;
+ });
 }
 
 /** An approval is a recorded decision, never permission to run an automation
@@ -28,7 +38,7 @@ export async function requestChessApproval(input:unknown) {
 export async function reviewChessApproval(id:string,businessId:string,decision:"APPROVED"|"REJECTED") {
  await assertBusinessAccess(businessId);
  const actor=await getCurrentMembership();
- if (!actor) throw new PermissionError("record:update");
+ if (!actor || actor.status!=="ACTIVE") throw new PermissionError("record:update");
  const {db}=getTenantDb();
  const approval=await db.chessActionApproval.findFirst({
   where:{id,businessId},select:{requestedBy:true,status:true},
@@ -37,8 +47,40 @@ export async function reviewChessApproval(id:string,businessId:string,decision:"
      !canReviewAction(approval.requestedBy,actor.clerkUserId,actor.role)) {
   throw new PermissionError("record:update");
  }
- return db.chessActionApproval.updateMany({
-  where:{id,businessId,status:"PENDING"},
-  data:{status:decision,reviewedBy:actor.clerkUserId,reviewedAt:new Date()},
+ return db.$transaction(async tx=>{
+  const changed=await tx.chessActionApproval.updateMany({
+   where:{id,businessId,status:"PENDING"},
+   data:{status:decision,reviewedBy:actor.clerkUserId,reviewedAt:new Date()},
+  });
+  if(changed.count!==1)throw new PermissionError("record:update");
+  await tx.chessSecurityEvent.create({data:{
+   businessId,actorClerkUserId:actor.clerkUserId,
+   action:"ACTION_APPROVAL_DECIDED",resourceType:"ChessActionApproval",
+   resourceId:id,decision:decision==="APPROVED"?"ALLOW":"DENY",
+  }});
+  return changed;
  });
+}
+
+
+/** Review queue exposes operational action type and actors only. The
+ * digest is never returned to an employee screen. Staff see their own
+ * requests; independent tenant admins can view the whole unit queue. */
+export async function listChessActionApprovals(businessId:string){
+ const id=z.string().min(1).max(128).parse(businessId);
+ await assertBusinessAccess(id);
+ const actor=await getCurrentMembership();
+ if(!actor||actor.status!=="ACTIVE")throw new PermissionError("record:read");
+ const reviewer=["OWNER","ADMIN"].includes(actor.role);
+ const {db}=getTenantDb();
+ const rows=await db.chessActionApproval.findMany({
+  where:{businessId:id,...(!reviewer?{requestedBy:actor.clerkUserId}:{})},
+  select:{id:true,actionType:true,requestedBy:true,reviewedBy:true,
+   status:true,createdAt:true,reviewedAt:true},
+  orderBy:{createdAt:"desc"},take:100,
+ });
+ return rows.map(row=>({...row,
+  canReview:row.status==="PENDING"&&canReviewAction(
+   row.requestedBy,actor.clerkUserId,actor.role),
+ }));
 }
