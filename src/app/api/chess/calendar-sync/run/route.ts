@@ -2,6 +2,7 @@ import {NextResponse} from "next/server";
 import {assertAuthorizedWorkflowTenant} from "@/lib/chess/worker-authorization";
 import {isAuthorizedRecurrenceWorker} from "@/lib/chess/recurring-work";
 import {syncChessPendingCalendarEvents} from "@/lib/chess/calendar-sync";
+import {syncChessAppointmentCalendars} from "@/lib/chess/appointment-calendar-sync";
 import {recordChessWorkerRun} from "@/lib/chess/worker-health";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -14,12 +15,15 @@ export async function POST(request:Request){
  try{
   assertAuthorizedWorkflowTenant(true);
   const result=await syncChessPendingCalendarEvents();
-  if(result.disabled)throw new Error("Calendar gateway disabled");
+  const appointments=await syncChessAppointmentCalendars();
+  if(result.disabled||appointments.disabled)throw new Error("Calendar gateway disabled");
   await recordChessWorkerRun("CALENDAR_SYNC",{
-   examined:result.examined,processed:result.synced+result.cancelled,
-   blocked:result.rejected+result.unknown+result.cancelUnknown+result.reconciliationUnresolved,
+   examined:result.examined+appointments.examined,
+   processed:result.synced+result.cancelled+appointments.synced+appointments.cancelled,
+   blocked:result.rejected+result.unknown+result.cancelUnknown+
+    result.reconciliationUnresolved+appointments.rejected+appointments.unknown+appointments.unresolved,
   });
-  return NextResponse.json(result,{headers:{"Cache-Control":"no-store"}});
+  return NextResponse.json({...result,appointments},{headers:{"Cache-Control":"no-store"}});
  }catch{
   try{await recordChessWorkerRun("CALENDAR_SYNC",{
    examined:0,processed:0,blocked:0,failed:true,
