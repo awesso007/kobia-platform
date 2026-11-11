@@ -1,3 +1,4 @@
+import {assertMutationOrigin} from "@/lib/chess/request-security";
 import {NextResponse} from "next/server";
 import {z} from "zod";
 import {createChessWorkItem,listChessWorkItems} from "@/lib/chess/workflow";
@@ -10,7 +11,7 @@ export async function GET(req:Request){
   return NextResponse.json({workItems:await listChessWorkItems(businessId)});
  }catch(e){return failure(e);}
 }
-export async function POST(req:Request){
- try{return NextResponse.json({workItem:await createChessWorkItem(await req.json())},{status:201});}
+export async function POST(req: Request) {
+ try { assertMutationOrigin(req);return NextResponse.json({workItem:await createChessWorkItem(await req.json())},{status:201});}
  catch(e){return failure(e);}
 }
