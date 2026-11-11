@@ -351,3 +351,74 @@ or regulated production readiness.
 - Automated unit/integration coverage verifies default denial and revocation.
 - Actual OAuth/delegated calendar connection and provider acceptance must
   still be tested with authorized sandbox credentials.
+
+
+## Round 5 - Accounting, bookkeeping, payroll, and tax integration (development)
+- **Accounting + TAX service mappings:** existing entity-ledger bridge accepts
+  ACCOUNTING, BOOKKEEPING, PAYROLL and TAX, tied to the current tenant,
+  an ACTIVE service case, a service grant and current signed client consent.
+  Financial operational summaries never return individual payroll amounts.
+- **Bookkeeping bank review:** auditors can propose an offset general-ledger
+  account for an unmatched, same-tenant legacy bank transaction; reviews
+  include a cryptographic fingerprint of original bank evidence. Different
+  active staff members must propose and approve. A stale or changed bank
+  transaction is not eligible. No automatic journal posting or matching occurs.
+- **Optional bank feed:** explicit inactive-by-default bank/account mapping,
+  consent checks for BOTH business service and bank-feed purpose, approved
+  host-pinned Plaid gateway adapter, narrow 90-day import window, strict USD
+  posted transaction schema, per-tenant/bank/provider-ID idempotent imports,
+  records initially UNMATCHED in the legacy ledger only. Sync attempts are
+  auditable and retry-safe; no passwords or provider tokens are stored in the
+  CHESS CRM schema.
+- **Tax workpapers:** posted general-ledger entries are read in bounded
+  source snapshots; unbalanced entries are rejected, cryptographic evidence
+  is recorded, and a separate creator, reviewer and final approving admin
+  must be used. If source evidence changes the snapshot is SUPERSEDED.
+  Tax workpaper APPROVED means internal evidence review, NOT a tax return,
+  e-file, electronic signature or taxing-authority acknowledgment.
+- **Payroll outcome status:** separate disabled-by-default read-only provider
+  status adapter polls opaque existing submissions. Vendor 'accepted' is
+  SUBMITTED, vendor 'paid' is PROVIDER_PAID (not confirmed settlement),
+  failed is PROVIDER_FAILED, and uncertain remains UNKNOWN. Status responses
+  must match pay-run and provider request references; stale timestamps may
+  not override later evidence. The worker cannot submit a new payroll run.
+- **Payroll execution hardening:** before any approved dispatch, the code now
+  rechecks payroll client consent, active case/service grant, mapped entity,
+  and the continued active status and manager/admin role of the independent
+  approver. Existing real execution remains disabled until certified.
+- **UI:** /app/finance-operations shows separate business scoped queue metrics,
+  authenticated and service-granted finance cases; per-case views allow
+  human bookkeeping review and tax workpaper review or read-only payroll
+  reporting without client data crossing service boundaries.
+- **Testing:** unit tests for bank transaction source digests, tax balanced
+  books and independent review, bank provider contract/idempotency, and
+  payroll outcomes. PostgreSQL CI validates unique bank decisions, workpaper
+  evidence versions, feed mappings, import history and provider status.
+  HTTP smoke probes unauthenticated finance routes and machine-only status API.
+- **Provider validation:** bank feed sandbox contract workflow is manual-only,
+  read-only and uses an isolated fake bank account. Calendar and payroll
+  provider credentials are not available in CI; live integrations are not
+  exercised.
+
+### Remaining mandatory M5 release gates
+1. Active KOBIA ledger with customer entities, chart of accounts, bank
+   accounts, posted journal entries and a tested reconciliation/posting
+   engine; independent approval must be enforced in that engine.
+2. Plaid-backed (or separately adapted) provider contract, verified customer
+   bank consent, scoped vault credentials, production webhooks, sandbox
+   account mappings, reliable incremental pagination and audit/retention.
+   Provider-backed import is OFF pending these requirements.
+3. Contracted payroll processor with certified wages/tax computation,
+   funding controls, ACH approvals, disbursement reconciliation, state/federal
+   tax filing and remittance, employee onboarding and settlement evidence.
+   Vendor 'paid' alone does NOT prove bank or tax settlement.
+4. Contracted professional tax preparation/filing software, valid preparer
+   authorizations, reviewed tax computations and actual federal/state e-file
+   acknowledgments. Internal CHESS workpapers are not a tax preparation engine.
+5. Live provider sandbox end-to-end tests, realistic staff/consent role tests,
+   independent security/compliance review, tenant migrations to staging,
+   disaster recovery and verified production deployment.
+
+These are production blockers, NOT items silently marked complete by code or
+green GitHub CI. CHESS and each licensed operating company must preserve
+their separate legal scopes and data-sharing permissions.
