@@ -13,7 +13,7 @@ export function sourceHostApproved(source:string|null,envValue:string|undefined)
   const url=new URL(source);
   const allow=envValue.split(",").map(x=>x.trim()).filter(Boolean);
   return url.protocol==="https:"&&!url.username&&!url.password&&
-   allow.includes(url.hostname);
+   !url.port&&allow.includes(url.hostname);
  }catch{return false;}
 }
 export async function regulatedCaseAccess(businessId:string,serviceCaseId:string,
