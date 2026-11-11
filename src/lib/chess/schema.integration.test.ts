@@ -2,6 +2,7 @@ import {afterAll,beforeAll,describe,expect,it} from "vitest";
 import {PrismaClient} from "@/lib/db/generated/tenant";
 import {claimChessRateWindow,ChessRateLimitError,chessRateSubject,chessRateWindow} from "./api-rate-limit";
 import {auditedClientServiceRead} from "@/lib/client-profile/service-access-audit";
+import {claimChessAiDailyCall} from "./ai-daily-budget";
 
 const integration=process.env.RUN_CHESS_DB_INTEGRATION==="1"?describe:describe.skip;
 integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
@@ -653,6 +654,52 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
   }finally{
    await db.chessBillingInvoice.delete({where:{id:invoice.id}});
   }
+ });
+ it("reserves independent business AI daily budget slots atomically",async()=>{
+  const business="fictional-ai-budget-"+Date.now();
+  const day=new Date("2026-11-11T01:00:00.000Z");
+  try{
+   const first=await claimChessAiDailyCall(db,business,day,2);
+   expect(first.callCount).toBe(1);
+   const second=await claimChessAiDailyCall(db,business,day,2);
+   expect(second.callCount).toBe(2);
+   await expect(claimChessAiDailyCall(db,business,day,2)).rejects.toThrow();
+   const next=await claimChessAiDailyCall(db,business,
+    new Date("2026-11-12T01:00:00.000Z"),2);
+   expect(next.callCount).toBe(1);
+  }finally{
+   await db.chessAiUsageDaily.deleteMany({where:{businessId:business}});
+  }
+ });
+ it("requires separately approved subscription schedule and immutable scope",async()=>{
+  const ref="fictional_sub_"+Date.now();
+  const start=new Date("2027-01-01T00:00:00.000Z");
+  const record=await db.chessBillingSubscriptionPlan.create({data:{
+   businessId:"fictional-plan-business",clientProfileId:"fictional-client",
+   serviceCaseId:ref,service:"BOOKKEEPING",
+   descriptionCode:"BOOKKEEPING_MONTHLY",amountCents:10000n,
+   nextDraftAt:start,createdByClerkUserId:"fictional-creator",
+  }});
+  expect(record.status).toBe("PENDING");
+  await expect(db.chessBillingSubscriptionPlan.update({where:{id:record.id},
+   data:{status:"ACTIVE",approvedByClerkUserId:"fictional-creator",
+    approvedAt:new Date()},
+  })).rejects.toThrow();
+  await db.chessBillingSubscriptionPlan.update({where:{id:record.id},data:{
+   status:"ACTIVE",approvedByClerkUserId:"fictional-reviewer",
+   approvedAt:new Date(),
+  }});
+  const advanced=await db.chessBillingSubscriptionPlan.update({
+   where:{id:record.id},data:{
+    nextDraftAt:new Date("2027-02-01T00:00:00.000Z"),
+    lastDraftAt:start,
+   }});
+  expect(advanced.lastDraftAt?.toISOString()).toBe(start.toISOString());
+  await expect(db.chessBillingSubscriptionPlan.update({
+   where:{id:record.id},data:{amountCents:20000n},
+  })).rejects.toThrow();
+  await expect(db.chessBillingSubscriptionPlan.delete({where:{id:record.id}}))
+   .rejects.toThrow();
  });
  it("freezes month-end operational evidence and enforces distinct review and immutability",async()=>{
   const snapshot=await db.chessOperationalPeriodSnapshot.create({data:{
