@@ -50,7 +50,8 @@ export function auditArchiveEnvelope(tenantSlug:string,event:EventInput){
  const metadata={
   tenantSlug,eventId:event.id,
   occurredAt:event.occurredAt.toISOString(),
-  action:event.action,resourceType:event.resourceType,
+  actionTag:pseudonym("ACTION",event.action),
+  resourceTypeTag:pseudonym("RESOURCE_TYPE",event.resourceType),
   decision:event.decision,
   businessTag:pseudonym("BUSINESS",event.businessId),
   actorTag:pseudonym("ACTOR",event.actorClerkUserId),
