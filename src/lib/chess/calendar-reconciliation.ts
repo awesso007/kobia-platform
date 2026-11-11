@@ -29,6 +29,8 @@ export async function reconcileUncertainChessCalendarEvents(){
  });
  let resolved=0,unresolved=0;
  for(const entry of queued){
+  // Prisma type inference does not narrow enum unions from findMany filters.
+  if(entry.status!=="UNKNOWN"&&entry.status!=="CANCEL_UNKNOWN")continue;
   const isCancel=entry.status==="CANCEL_UNKNOWN";
   try{
    const result=await lookupCalendarEvent({
