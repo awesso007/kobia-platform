@@ -48,6 +48,69 @@ Each KOBIA tenant gets:
 
 ---
 
+## CHESS Corporation fictional demo (Round 18, feature branch only)
+
+**Never merge this feature branch or point it at the production database.**
+The production Vercel site continues to use main. This setup is for your own
+GitHub Codespace on feature/operations-overview, a **separate Neon database
+named exactly chess_demo**, and a **Clerk test instance**. No customer data,
+money, payroll, tax returns, e-signatures, license verification, or regulated
+transactions are seeded or sent anywhere.
+
+1. Open GitHub > **Code > Codespaces > ... > New with options**, select
+   branch **feature/operations-overview**, then create the Codespace.
+   Verify by running **git branch --show-current** before using any database keys.
+2. In [Neon](https://neon.tech), create an independent sandbox database
+   named **chess_demo**. Copy its **non-pooled** PostgreSQL connection string,
+   including sslmode=require. **Do not use the production Neon URL.**
+   In [Clerk](https://clerk.com), create/use a development/test instance,
+   copy both test API keys and create one verified test user whose email
+   you control. Configure the Codespaces preview origin in Clerk's development
+   application's allowed/redirect origins as required.
+3. In the terminal, run **npm ci**, then **cp .env.example .env.local**.
+   Edit only the local untracked **.env.local**. Paste these three keys/connection
+   values plus your verified test-user email:
+
+   | Setting | Value |
+   |---|---|
+   | DATABASE_URL | Neon non-pooled PostgreSQL connection string to chess_demo with sslmode=require |
+   | NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY | Clerk test publishable key (pk_test_...) |
+   | CLERK_SECRET_KEY | Clerk test secret key (sk_test_...) |
+   | CHESS_DEMO_OWNER_EMAIL | Verified email of the Clerk test user (not a secret key) |
+   | NODE_ENV | development |
+   | CHESS_DEMO_MODE | true |
+   | NEXT_PUBLIC_DEFAULT_TENANT | chess-demo |
+   | NEXT_PUBLIC_ROOT_DOMAIN | kobia.ai |
+   | NEXT_PUBLIC_APP_URL | http://localhost:3000 |
+
+   **Do not paste credentials into GitHub issues, pull requests, or ChatGPT.**
+   No DIRECT_URL, Stripe, banking, tax, mortgage, calendar, AI or payment
+   keys are required for the limited demo. The setup command uses the
+   non-pooled DATABASE_URL as the migration connection.
+4. Run **npm run demo:setup** once. It runs the platform migrations,
+   creates only the tenant_chess_demo schema, deploys tenant migrations into
+   that schema, and idempotently seeds 8 invented business units, 3 invented
+   employees, 5 invented clients and example work items.
+5. Run **npm run dev -- -H 0.0.0.0**. Forward port **3000** and open the
+   Codespaces preview URL. Browse to **/chess-demo/login** and sign in as
+   the verified Clerk test user matching CHESS_DEMO_OWNER_EMAIL.
+   The first visit to **/app/overview** attaches that authenticated test
+   identity as OWNER only for the fictional demo tenant.
+6. Use the CHESS Corporation - FICTIONAL DEMO links on /app/overview to explore
+   business units, staff, client profiles, tasks, finance and regulatory
+   coordination, and reports. Client-service grants are intentionally absent;
+   the demo does NOT enable cross-business sensitive records or externally
+   executing actions.
+
+**Safety checks:** npm run demo:setup refuses NODE_ENV=production, live Clerk
+credentials, pooled Neon URLs, any database name other than chess_demo,
+missing test-owner allowlist and mismatched default tenant. Setting
+CHESS_DEMO_MODE=true does not bypass the independent service release gates.
+
+See [Round 18 demo acceptance](docs/CHESS_CORP_2_ROUND18_DEMO.md).
+
+---
+
 ## Getting Started
 
 ### Option A — GitHub Codespaces (recommended for Wilfred, no laptop setup)

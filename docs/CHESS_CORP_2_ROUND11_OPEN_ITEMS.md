@@ -335,3 +335,16 @@ application DB role restrictions and independent consent legal review.
 The database migration must be applied under an approved rollout after
 reviewing the history of existing consent records; no migration may
 manufacture evidence for legacy clients.
+
+
+## Round 18 - isolated CHESS Codespaces preview
+
+- **DEMO-01 [EXTERNAL]** Owner supplies a separate Neon chess_demo database,
+  Clerk TEST keys, verified test-user email, and allowed Codespaces origin.
+- **DEMO-02 [BOTH]** Fictional seeding, sandbox guards and demo sign-in have
+  source-level implementations. Actual Codespaces/Neon/Clerk browser acceptance
+  remains pending and cannot be claimed from CI.
+- **M5-06 [CODE]** Production ledger posting and reconciliation bridges remain
+  unimplemented. A fictional seed never counts as a general-ledger posting,
+  payroll settlement or tax preparation/filing.
+- **M8-01 through M8-12** retain their prior release-blocked statuses.
