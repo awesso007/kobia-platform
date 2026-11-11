@@ -175,7 +175,26 @@ export async function getClientProvisioning(profileId:string){
    orderBy:{createdAt:"desc"},take:100}),
  ]);
  const active=new Set(businesses.map(x=>x.id));
- return {profile,businesses,members,
+ // Only list service-case metadata for this specific admin's explicit
+ // current service grants; workspace administration is not record access.
+ const accessible=links.filter(l=>active.has(l.businessId)&&
+  l.grants.some(g=>g.clerkUserId===actor.clerkUserId&&
+   g.canRead&&!g.revokedAt));
+ const [cases,assignments]=await Promise.all([
+  accessible.length?db.chessServiceCase.findMany({
+   where:{clientProfileId:profile.id,OR:accessible.map(l=>({
+    businessId:l.businessId,service:l.service,
+   }))},
+   select:{id:true,businessId:true,service:true,status:true,
+    ownerClerkUserId:true,createdAt:true},
+   orderBy:{createdAt:"desc"},take:100,
+  }):Promise.resolve([]),
+  db.chessEmployeeAssignment.findMany({where:{
+   businessId:{in:Array.from(active)},revokedAt:null,
+  },select:{businessId:true,clerkUserId:true},take:1000}),
+ ]);
+ return {profile,businesses,members,viewerId:actor.clerkUserId,
   links:links.filter(l=>active.has(l.businessId)),
-  consents:consents.filter(c=>active.has(c.businessId))};
+  consents:consents.filter(c=>active.has(c.businessId)),
+  cases,assignments};
 }
