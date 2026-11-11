@@ -695,3 +695,29 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
 Staging validation is a preflight, not a deployment. External provider credentials,
 legal/compliance authorization and production infrastructure are NOT provisioned
 by GitHub commits.
+
+
+## 5D. Round 10 M8 protected deployment evidence
+
+Read `docs/CHESS_CORP_2_M8_ROUND10_ACCEPTANCE.md` for the exact new
+environment variable names and expected test fixtures.
+- Staging deployed app requires `CHESS_STAGING_ATTESTATION_ENABLED`,
+  `CHESS_STAGING_ATTESTATION_TOKEN`, `CHESS_RELEASE_SHA`.
+  The protected `chess-staging` workflow also requires
+  `CHESS_STAGING_VALIDATE`, `CHESS_STAGING_BASE_URL` and
+  `CHESS_STAGING_ALLOWED_HOST`. Its expected SHA is `github.sha`.
+  An external platform must actually deploy the reviewed code first.
+- Authenticated E2E now additionally requires a fictional independent
+  tenant-B manager cookie, a tenant-B business ID and a synthetic
+  tenant-A revoked-consent case ID. It never creates fixtures.
+- DR now additionally requires independent host isolation, a SELECT-only
+  witness account and operator-witnessed RPO/RTO timestamp evidence
+  (`CHESS_DR_DRILL_STARTED_AT`, `CHESS_DR_RESTORE_READY_AT`,
+  `CHESS_DR_SOURCE_LATEST_AT`, `CHESS_DR_RESTORED_LATEST_AT`,
+  `CHESS_DR_RTO_TARGET_MINUTES`, `CHESS_DR_RPO_TARGET_MINUTES`,
+  `CHESS_DR_EVIDENCE_TICKET`). Providing timestamps alone is not
+  independent recovery validation.
+- Staging invokes `npm audit --omit=dev --audit-level=high` and fails
+  for unresolved high/critical production dependencies.
+- External audit WORM, sandbox vendors, security review and signed
+  legal/compliance approval remain release blockers.

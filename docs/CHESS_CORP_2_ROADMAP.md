@@ -711,3 +711,35 @@ development branch only, not a production release.
   persistence remains available. No vendor has been activated by this code.
 
 **External gateway and production release restrictions remain in force.**
+
+
+## Round 10 - Milestone 8 security, E2E, DR and staging hardening
+
+The implementation and operator inputs are documented in
+`docs/CHESS_CORP_2_M8_ROUND10_ACCEPTANCE.md`.
+
+- Deployed staging build attestation endpoint and strict, short-lived,
+  HTTPS-host-allowlisted manual verifier; anonymous access denied and
+  exact expected commit checked. The GitHub protected staging workflow
+  also fails on high/critical production dependency audit findings.
+- Private app/API no-store, no-referrer, nosniff, anti-frame and
+  restrictive browser security response headers; production browser
+  mutations require configured canonical `CHESS_PUBLIC_ORIGIN`,
+  proper JSON media type and non-cross-site Fetch Metadata.
+- Expanded manual-only signed-in 2-tenant/3-session E2E harness
+  checks independent access, current consent, service grants,
+  authorized reports and forged-origin mutation denial.
+- Independent read-only DR check strengthened with separately
+  hosted/named restore, verified TLS, nonmutating operator role,
+  mandatory restored archive triggers, pinned WORM witness, and
+  bounded RTO/RPO operator evidence. No backup or restore is performed
+  by a CI job; measured RPO/RTO still require independent proof.
+- CI includes new Vitest + Node-native negative/security policy
+  tests and existing PostgreSQL integration/security smoke.
+
+**INCOMPLETE RELEASE GATES:** Deployed staging/provider credentials,
+real signed-in test sessions, actual backup/restored clone, independent
+restoration observation and signing, archival DPA/WORM, independent
+vulnerability/accessibility/pen tests, all provider integrations,
+compliance/regulated-service legal sign-offs and authorized production
+cutover are still outstanding. Do NOT merge or deploy production.

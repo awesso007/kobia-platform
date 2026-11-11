@@ -87,3 +87,23 @@ service by service, especially for tax, payroll and regulated businesses.
 
 **Do not merge, enable production workers, or process real regulated client
 data until every applicable release gate is independently verified.**
+
+
+## Round 10 development-only release validation
+
+See `docs/CHESS_CORP_2_M8_ROUND10_ACCEPTANCE.md` for confidential
+configuration placeholders and required independent evidence.
+
+Use a pinned release SHA, private staging deployment with synthetic
+data, protected attestation token, exact approved HTTPS hostname,
+owner-approved E2E sessions for two tenants, and a fully isolated
+read-only database restore from an independently provisioned locked,
+versioned backup. The revised manual staging workflow checks the actual
+deployed SHA and dependency vulnerabilities but does not deploy code.
+The revised DR verifier rejects an unprivileged-evidence-account bypass,
+missing audit triggers, a witness newer than the snapshot, impossible
+recovery timestamps, or operator-reported metrics outside targets.
+
+**No release approval, signed DR evidence, staging deployment, live
+vendor check or independent penetration test has been performed by
+writing these code and runbook files.**
