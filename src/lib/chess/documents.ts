@@ -96,3 +96,30 @@ export async function getChessDocumentDownload(
  });
  return {url,expiresInSeconds:60};
 }
+
+
+/** Employee-facing document inventory is scoped to a currently readable
+ * service link. Never return S3 keys, raw bytes or presigned URLs in lists. */
+export async function listChessServiceDocuments(
+ businessId:string,clientProfileId:string,service:z.infer<typeof request>["service"],
+){
+ const actor=await getCurrentMembership();
+ if(!actor||actor.status!=="ACTIVE"||actor.role==="VIEWER")
+  throw new PermissionError("record:read");
+ const link=await getClientServiceLink(clientProfileId,businessId,service);
+ if(!link)throw new PermissionError("record:read");
+ const {db}=getTenantDb();
+ const grant=await db.clientServiceGrant.findFirst({
+  where:{linkId:link.id,clerkUserId:actor.clerkUserId,
+   canRead:true,revokedAt:null},
+  select:{canWrite:true},
+ });
+ if(!grant)throw new PermissionError("record:read");
+ const records=await db.chessClientDocument.findMany({
+  where:{businessId,clientProfileId,service},
+  select:{id:true,fileName:true,mimeType:true,status:true,
+   actualBytes:true,createdAt:true,verifiedAt:true},
+  orderBy:{createdAt:"desc"},take:100,
+ });
+ return {canUpload:grant.canWrite,records};
+}
