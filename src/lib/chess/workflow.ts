@@ -2,6 +2,7 @@ import {z} from "zod";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
 import {assertBusinessAccess} from "./business-units";
+import {isAllowedWorkTransition} from "./work-item-transitions";
 
 const input=z.object({
  businessId:z.string().min(1).max(128),
@@ -30,7 +31,7 @@ export async function createChessWorkItem(data:unknown) {
   if (!p) throw new PermissionError("record:read");
  }
  return db.chessWorkItem.create({data:parsed,select:{
-  id:true,businessId:true,title:true,status:true,assignedClerkUserId:true,dueAt:true,
+  id:true,businessId:true,title:true,status:true,assignedClerkUserId:true,dueAt:true,updatedAt:true,
  }});
 }
 export async function listChessWorkItems(businessId:string) {
@@ -40,7 +41,54 @@ export async function listChessWorkItems(businessId:string) {
  const {db}=getTenantDb();
  return db.chessWorkItem.findMany({
   where:{businessId,...(!["OWNER","ADMIN"].includes(actor.role)&&{assignedClerkUserId:actor.clerkUserId})},
-  select:{id:true,title:true,status:true,dueAt:true,assignedClerkUserId:true},
+  select:{id:true,title:true,status:true,dueAt:true,assignedClerkUserId:true,updatedAt:true},
   take:100,orderBy:{createdAt:"desc"},
+ });
+}
+
+
+export class WorkItemConflictError extends Error {
+ constructor(){super("Work item changed since it was last loaded.");this.name="WorkItemConflictError";}
+}
+const statusInput=z.object({
+ id:z.string().min(1).max(128),
+ businessId:z.string().min(1).max(128),
+ status:z.enum(["TODO","IN_PROGRESS","BLOCKED","COMPLETED","CANCELLED"]),
+ expectedUpdatedAt:z.string().datetime(),
+}).strict();
+
+/** Optimistic update prevents overwriting another employee's changes.
+ * The audit event commits atomically with the state transition. */
+export async function transitionChessWorkItem(data:unknown){
+ const parsed=statusInput.parse(data);
+ await assertBusinessAccess(parsed.businessId);
+ const actor=await getCurrentMembership();
+ if(!actor || actor.status!=="ACTIVE")throw new PermissionError("record:update");
+ const {db}=getTenantDb();
+ const existing=await db.chessWorkItem.findFirst({
+  where:{id:parsed.id,businessId:parsed.businessId},
+  select:{id:true,status:true,updatedAt:true,assignedClerkUserId:true},
+ });
+ if(!existing)throw new PermissionError("record:update");
+ if(!["OWNER","ADMIN"].includes(actor.role) && existing.assignedClerkUserId!==actor.clerkUserId)
+  throw new PermissionError("record:update");
+ const version=new Date(parsed.expectedUpdatedAt);
+ if(existing.updatedAt.getTime()!==version.getTime())throw new WorkItemConflictError();
+ if(!isAllowedWorkTransition(existing.status,parsed.status))
+  throw new PermissionError("record:update");
+ const now=new Date();
+ return db.$transaction(async tx=>{
+  const changed=await tx.chessWorkItem.updateMany({
+   where:{id:existing.id,businessId:parsed.businessId,status:existing.status,updatedAt:version},
+   data:{status:parsed.status,updatedAt:now,
+    completedAt:parsed.status==="COMPLETED"?now:null},
+  });
+  if(changed.count!==1)throw new WorkItemConflictError();
+  await tx.chessSecurityEvent.create({data:{
+   businessId:parsed.businessId,actorClerkUserId:actor.clerkUserId,
+   action:"WORK_ITEM_STATUS_CHANGED",resourceType:"ChessWorkItem",
+   resourceId:existing.id,decision:"ALLOW",
+  }});
+  return {id:existing.id,status:parsed.status,updatedAt:now};
  });
 }
