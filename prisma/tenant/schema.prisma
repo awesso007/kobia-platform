@@ -3636,6 +3636,7 @@ model ChessClientConsent {
   businessId String
   purpose String
   policyVersion String
+  policyText String @default("")
   status ChessConsentStatus @default(PENDING)
   consentedAt DateTime?
   acceptedByClerkUserId String?
