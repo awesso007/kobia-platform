@@ -149,3 +149,33 @@ export async function revokeClientServiceGrant(linkId: string, clerkUserId: stri
     return result;
   });
 }
+
+
+/** Restricted provisioning metadata, not access to underlying service
+ * records or financial/legal documents. All actions are checked again
+ * by the existing service-specific mutation APIs. */
+export async function getClientProvisioning(profileId:string){
+ const actor=await currentActor();
+ if(actor.role!=="OWNER"&&actor.role!=="ADMIN")
+  throw new PermissionError("member:manage");
+ const profile=await getClientProfile(idInput.parse(profileId));
+ const {db}=getTenantDb();
+ const [businesses,members,links,consents]=await Promise.all([
+  db.chessBusinessUnit.findMany({where:{status:"ACTIVE"},
+   select:{id:true,name:true,slug:true},orderBy:{name:"asc"},take:100}),
+  db.membership.findMany({where:{status:"ACTIVE",role:{not:"VIEWER"}},
+   select:{clerkUserId:true,displayName:true,role:true},take:100}),
+  db.clientServiceLink.findMany({where:{profileId:profile.id},
+   select:{id:true,businessId:true,service:true,
+    grants:{select:{id:true,clerkUserId:true,canRead:true,canWrite:true,revokedAt:true}}},
+   orderBy:{createdAt:"desc"},take:100}),
+  db.chessClientConsent.findMany({where:{clientProfileId:profile.id},
+   select:{id:true,businessId:true,purpose:true,policyVersion:true,status:true,
+    createdAt:true,expiresAt:true,consentedAt:true,withdrawnAt:true},
+   orderBy:{createdAt:"desc"},take:100}),
+ ]);
+ const active=new Set(businesses.map(x=>x.id));
+ return {profile,businesses,members,
+  links:links.filter(l=>active.has(l.businessId)),
+  consents:consents.filter(c=>active.has(c.businessId))};
+}
