@@ -1,11 +1,19 @@
 import Link from "next/link";
-import {listBusinessUnits} from "@/lib/chess/business-units";
+import {listBusinessUnits,getChessBusinessAssignmentAdmin} from "@/lib/chess/business-units";
+import {getCurrentMembership} from "@/lib/rbac/require-permission";
+import BusinessUnitAdmin from "./BusinessUnitAdmin";
 export const dynamic="force-dynamic";
 
-export default async function ChessBusinessUnitsPage() {
+export default async function ChessBusinessUnitsPage({searchParams}:{searchParams:{businessId?:string}}) {
  let units: Awaited<ReturnType<typeof listBusinessUnits>>=[];
  let denied=false;
  try {units=await listBusinessUnits();} catch {denied=true;}
+ const actor=await getCurrentMembership().catch(()=>null);
+ const canManage=actor?.status==="ACTIVE"&&["OWNER","ADMIN"].includes(actor.role);
+ const selected=units.find(u=>u.id===searchParams.businessId)??units[0];
+ const admin=canManage&&selected
+  ?await getChessBusinessAssignmentAdmin(selected.id).catch(()=>null)
+  :null;
  return <main className="mx-auto max-w-6xl space-y-6 px-6 py-8">
   <header>
    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">CHESS CORP 2</p>
@@ -23,6 +31,26 @@ export default async function ChessBusinessUnitsPage() {
     <span className="mt-3 inline-block text-xs font-semibold uppercase text-emerald-700">{unit.status}</span>
    </li>)}
   </ul>}
+  {canManage&&<section className="space-y-3">
+    <h2 className="text-xl font-semibold text-slate-950">Manage business units and staff</h2>
+    <p className="text-sm text-slate-600">
+      Only tenant owners and admins can provision workspace access. Service-level
+      client records require separate explicit grants.
+    </p>
+    <nav aria-label="Manage a business" className="flex flex-wrap gap-2">
+      {units.map(unit=><Link key={unit.id}
+        href={`/app/business-units?businessId=${encodeURIComponent(unit.id)}`}
+        className={`rounded-lg border px-3 py-2 text-sm font-medium ${unit.id===selected?.id?"bg-emerald-800 text-white":"border-slate-300 text-slate-800"}`}>
+        {unit.name}
+      </Link>)}
+    </nav>
+    <BusinessUnitAdmin selectedBusiness={selected?{id:selected.id,name:selected.name}:null}
+      directory={admin?{
+        members:admin.members,assignments:admin.assignments.map(a=>({
+          ...a,assignedAt:a.assignedAt.toISOString(),
+        })),
+      }:null}/>
+  </section>}
   <Link className="text-sm font-medium text-emerald-700 hover:underline" href="/app/overview">Return to overview</Link>
  </main>;
 }
