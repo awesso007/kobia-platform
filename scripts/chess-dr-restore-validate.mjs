@@ -14,6 +14,8 @@ if(process.env.CHESS_DR_VALIDATE!=="true"||
  throw new Error("Independent DR restore verification has not been authorized.");
 const source=new URL(required("DIRECT_URL"));
 const restored=new URL(required("CHESS_DR_RESTORE_DATABASE_URL"));
+if(restored.hostname!==required("CHESS_DR_RESTORE_ALLOWED_HOST"))
+ throw new Error("Restore URL does not match the approved isolated PostgreSQL host");
 if(source.protocol!=="postgresql:"&&source.protocol!=="postgres:")
  throw new Error("Source DB URL has invalid protocol.");
 if(restored.protocol!=="postgresql:"&&restored.protocol!=="postgres:")
@@ -32,10 +34,18 @@ if(!/^[a-z0-9_-]{6,128}$/i.test(witness))
 const bucket=required("CHESS_DR_BACKUP_BUCKET");
 const key=required("CHESS_DR_BACKUP_OBJECT_KEY");
 const version=required("CHESS_DR_BACKUP_OBJECT_VERSION");
+const endpoint=process.env.CHESS_DR_BACKUP_ENDPOINT;
+if(endpoint){
+ const parsed=new URL(endpoint);
+ if(parsed.protocol!=="https:"||
+   parsed.hostname!==required("CHESS_DR_BACKUP_ALLOWED_HOST")||
+   parsed.username||parsed.password||parsed.hash)
+  throw new Error("DR backup endpoint is not an approved HTTPS host");
+}
 const client=new S3Client({
  region:required("CHESS_DR_BACKUP_REGION"),
- endpoint:process.env.CHESS_DR_BACKUP_ENDPOINT||undefined,
- forcePathStyle:!!process.env.CHESS_DR_BACKUP_ENDPOINT,
+ endpoint:endpoint||undefined,
+ forcePathStyle:!!endpoint,
  credentials:{accessKeyId:required("CHESS_DR_BACKUP_ACCESS_KEY_ID"),
   secretAccessKey:required("CHESS_DR_BACKUP_SECRET_ACCESS_KEY")},
 });
