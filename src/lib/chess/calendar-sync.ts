@@ -1,5 +1,6 @@
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {calendarGatewayConfigured,submitCalendarEvent} from "./calendar-provider";
+import {maySyncCalendar} from "./calendar-preferences";
 
 /** Drain a bounded tenant-local calendar outbox. Unknown provider outcomes
  * are never retried automatically. A reconciler must query the gateway by
@@ -12,7 +13,7 @@ export async function syncChessPendingCalendarEvents(){
  });
  let synced=0,rejected=0,unknown=0;
  for(const outbox of pending){
-  const [task,business,member,assignment]=await Promise.all([
+  const [task,business,member,assignment,preference]=await Promise.all([
    db.chessWorkItem.findFirst({
     where:{id:outbox.workItemId,businessId:outbox.businessId},
     select:{status:true,dueAt:true,assignedClerkUserId:true},
@@ -22,6 +23,10 @@ export async function syncChessPendingCalendarEvents(){
    db.chessEmployeeAssignment.findUnique({where:{businessId_clerkUserId:{
     businessId:outbox.businessId,clerkUserId:outbox.recipientClerkUserId,
    }},select:{revokedAt:true}}),
+   db.chessCalendarPreference.findUnique({
+    where:{clerkUserId:outbox.recipientClerkUserId},
+    select:{enabled:true,acknowledgedAt:true,revokedAt:true},
+   }),
   ]);
   const valid=business?.status==="ACTIVE"&&member?.status==="ACTIVE"&&
    !!assignment&&!assignment.revokedAt&&!!task&&
@@ -33,6 +38,12 @@ export async function syncChessPendingCalendarEvents(){
     where:{id:outbox.id,status:"PENDING"},data:{status:"REJECTED",lastErrorCode:"ACCESS_OR_TASK_CHANGED"},
    });
    if(changed.count)rejected++;
+   continue;
+  }
+  if(!maySyncCalendar(preference)){
+   await db.chessCalendarOutbox.updateMany({
+    where:{id:outbox.id,status:"PENDING"},data:{status:"WAITING_CONSENT"},
+   });
    continue;
   }
   const claim=await db.chessCalendarOutbox.updateMany({
