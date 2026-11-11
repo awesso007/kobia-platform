@@ -14,7 +14,7 @@ export type StoredObjectMetadata = {
  mimeType:string|null;
 };
 export function matchesPinnedDocument(doc:PinnedDocument,head:StoredObjectMetadata|null):boolean {
- return !!head && !!doc.storageVersionId && !!doc.storageETag &&
+ return !!head && !!doc.storageVersionId && doc.storageVersionId!=="null" && !!doc.storageETag &&
   head.versionId===doc.storageVersionId && head.etag===doc.storageETag &&
   doc.actualBytes!==null && head.size===doc.actualBytes &&
   head.size>0 && head.size<=doc.maxBytes &&
