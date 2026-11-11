@@ -24,6 +24,10 @@ async function main() {
  await probe("/api/chess/recurrences/run?t=demo",{
   method:"POST",headers:{"Content-Type":"application/json"},body:"{}",
  },new Set([403]));
+ await probe("/api/chess/ai-triage/run?t=demo",{
+  method:"POST",headers:{"Content-Type":"application/json"},
+  body:"{}",
+ },new Set([403]));
  await probe("/api/chess/payroll-status/run?t=demo",{
   method:"POST",headers:{"Content-Type":"application/json"},body:"{}",
  },new Set([403]));
@@ -42,6 +46,13 @@ async function main() {
  },allowedDenied);
  await probe("/api/chess/tax-workpapers?businessId=unowned",{},allowedDenied);
  await probe("/api/chess/payroll-status?businessId=unowned",{},allowedDenied);
+ await probe("/api/chess/ai-triage?businessId=unowned",{},allowedDenied);
+ await probe("/api/chess/billing?businessId=unowned",{},allowedDenied);
+ await probe("/api/chess/operations-report?businessId=unowned&month=2026-11",{},allowedDenied);
+ await probe("/api/chess/billing-delivery",{
+  method:"POST",headers:{"Content-Type":"application/json",
+   "Origin":"https://attacker.example"},body:"{}",
+ },allowedDenied);
  await probe("/api/chess/worker-health",{},allowedDenied);
  await probe("/api/chess/alerts?businessId=unowned",{},allowedDenied);
  await probe("/api/chess/calendar-preferences",{},allowedDenied);
