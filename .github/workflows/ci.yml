@@ -56,6 +56,7 @@ jobs:
         run: |
           node --check scripts/chess-dr-restore-validate.mjs
           node --test scripts/chess-dr-policy-check.mjs
+          node --test scripts/chess-dr-evidence-check.mjs
           node --check scripts/chess-audit-archive-sandbox.mjs
           node --check scripts/chess-authz-e2e.mjs
           node --test scripts/chess-authz-e2e-check.mjs

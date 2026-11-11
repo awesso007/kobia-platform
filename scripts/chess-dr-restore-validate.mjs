@@ -5,6 +5,7 @@
 import {S3Client,HeadObjectCommand,GetBucketVersioningCommand} from "@aws-sdk/client-s3";
 import {Client as Postgres} from "pg";
 import {validateDrIsolation,validateDrBackupMetadata} from "./chess-dr-policy.mjs";
+import {validateDrRecoveryEvidence} from "./chess-dr-evidence.mjs";
 function required(name){
  const value=process.env[name];
  if(!value)throw new Error(name+" missing from protected DR environment");
@@ -66,6 +67,19 @@ try{
   `SELECT id, "occurredAt" FROM "${schema}"."ChessSecurityEvent" WHERE id=$1 LIMIT 1`,[witness]);
  if(marker.rows.length!==1)
   throw new Error("Known immutable security-event witness absent from restored tenant DB");
+ const drill=validateDrRecoveryEvidence({
+  startedAt:required("CHESS_DR_DRILL_STARTED_AT"),
+  restoreReadyAt:required("CHESS_DR_RESTORE_READY_AT"),
+  sourceLatestAt:required("CHESS_DR_SOURCE_LATEST_AT"),
+  restoredLatestAt:required("CHESS_DR_RESTORED_LATEST_AT"),
+  rtoTargetMinutes:required("CHESS_DR_RTO_TARGET_MINUTES"),
+  rpoTargetMinutes:required("CHESS_DR_RPO_TARGET_MINUTES"),
+  evidenceTicket:required("CHESS_DR_EVIDENCE_TICKET"),
+ });
+ if(marker.rows[0].occurredAt instanceof Date&&
+  marker.rows[0].occurredAt.getTime()>
+   Date.parse(required("CHESS_DR_RESTORED_LATEST_AT")))
+  throw new Error("Restored recovery-point timestamp predates the audit witness.");
  if(!(marker.rows[0].occurredAt instanceof Date)||
   marker.rows[0].occurredAt.getTime()>backupTime.getTime())
   throw new Error("Witness must predate the pinned backup artifact.");
@@ -112,7 +126,10 @@ try{
   throw new Error("Restored audit immutability triggers missing or disabled.");
  await pg.query("ROLLBACK");
  console.log("PASS isolated PostgreSQL restore contains the nominated immutable audit witness and required tenant tables.");
- console.log("WARNING: RPO/RTO, foreign-key/financial reconciliations, restore automation and live failover still require separate signed drill evidence.");
+ console.log("PASS operator-reported drill timing within declared RPO/RTO targets "+
+  "(RTO "+drill.rtoMinutes+" minutes, RPO "+drill.rpoMinutes+" minutes).");
+ console.log("WARNING: timestamps are provided by operators, not independent telemetry. "+
+  "Signed recovery evidence, financial reconciliation and real failover remain external requirements.");
 }catch(error){
  try{await pg.query("ROLLBACK");}catch{/* Connection may be unavailable */}
  throw error;
