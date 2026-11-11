@@ -3,6 +3,8 @@ import {regulatedCaseAccess} from "@/lib/chess/regulated-access";
 import {listChessRegulatedWorkflows} from "@/lib/chess/regulated-workflows";
 import {regulatedHandoffConfigured} from "@/lib/chess/regulated-handoff-provider";
 import RegulatedWorkflowClient from "./RegulatedWorkflowClient";
+import {listChessServiceDocuments} from "@/lib/chess/documents";
+import ServiceDocumentPanel from "../../client-documents/ServiceDocumentPanel";
 export const dynamic="force-dynamic";
 
 export default async function ChessRegulatedCasePage({
@@ -24,6 +26,8 @@ export default async function ChessRegulatedCasePage({
     storageVersionId:{not:null},checksumSha256:{not:null},
    },select:{id:true,fileName:true},orderBy:{createdAt:"desc"},take:50}),
   ]);
+  const documents=await listChessServiceDocuments(
+   businessId,access.record.clientProfileId,access.service);
   if(!profile)return denied;
   return <main className="mx-auto max-w-6xl space-y-7 px-6 py-10">
    <header>
@@ -44,6 +48,14 @@ export default async function ChessRegulatedCasePage({
      checklist:w.checklist.map(item=>({
       ...item,completedAt:item.completedAt?.toISOString()??null,
      })),
+    }))}/>
+   <ServiceDocumentPanel businessId={businessId}
+    clientProfileId={access.record.clientProfileId} service={access.service}
+    canUpload={documents.canUpload}
+    documents={documents.records.map(d=>({
+     ...d,actualBytes:d.actualBytes??null,
+     createdAt:d.createdAt.toISOString(),
+     verifiedAt:d.verifiedAt?.toISOString()??null,
     }))}/>
    <Link className="text-sm font-semibold text-emerald-800"
     href={`/app/regulated-services?businessId=${encodeURIComponent(businessId)}`}>

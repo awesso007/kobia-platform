@@ -7,6 +7,8 @@ import {isUsableConsent} from "@/lib/chess/onboarding";
 import {listChessBankReviews,listChessBankReviewCandidates} from "@/lib/chess/bank-review";
 import {listChessTaxWorkpapers} from "@/lib/chess/tax-workpapers";
 import BankReviewClient from "./BankReviewClient";
+import {listChessServiceDocuments} from "@/lib/chess/documents";
+import ServiceDocumentPanel from "../../client-documents/ServiceDocumentPanel";
 import TaxWorkpaperClient from "./TaxWorkpaperClient";
 export const dynamic="force-dynamic";
 
@@ -39,6 +41,8 @@ export default async function ChessFinanceCasePage({
    getTenantBySlug(tenantId),
   ]);
   if(!profile || !tenant)return denied;
+  const documents=await listChessServiceDocuments(
+   businessId,record.clientProfileId,record.service);
   let content;
   if(record.service==="BOOKKEEPING"||record.service==="ACCOUNTING"){
    try{
@@ -107,6 +111,14 @@ export default async function ChessFinanceCasePage({
     <p className="mt-1 text-sm text-slate-600">Authorized service case {record.id}</p>
    </header>
    {content}
+   <ServiceDocumentPanel businessId={businessId}
+    clientProfileId={record.clientProfileId} service={record.service}
+    canUpload={documents.canUpload}
+    documents={documents.records.map(d=>({
+     ...d,actualBytes:d.actualBytes??null,
+     createdAt:d.createdAt.toISOString(),
+     verifiedAt:d.verifiedAt?.toISOString()??null,
+    }))}/>
    <Link href={`/app/finance-operations?businessId=${encodeURIComponent(businessId)}`}
     className="text-sm font-semibold text-emerald-700 hover:underline">
     Back to finance operations
