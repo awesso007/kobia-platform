@@ -23,8 +23,14 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
 - KOBIA_S3_ACCESS_KEY_ID: short-lived, scoped credentials.
 - KOBIA_S3_SECRET_ACCESS_KEY: secret for that identity.
 - KOBIA_S3_ENDPOINT: optional approved S3-compatible endpoint.
-- Storage credentials need only scoped PutObject, GetObject and HeadObject.
-  Scan worker requires the same private object read access.
+- Storage credentials require tightly scoped PutObject, GetObject,
+  GetObjectVersion, HeadObject and GetBucketVersioning access. The scan worker
+  must read immutable object versions; public access stays blocked.
+- **Bucket versioning must be Enabled**, not Suspended. Upload confirmation,
+  scanning and download fail closed without a version ID and ETag. This prevents
+  a file from being replaced after it has passed malware scanning.
+- For S3-compatible storage, verify that versioned HEAD, GET and presigned GET
+  all work. Do not use a provider without compatible object-version support.
 - Set server-side encryption (SSE-KMS or provider equivalent), key rotation,
   retention/lifecycle, object-versioning, least-privilege IAM, TLS, audit
   logs and an approved data-processing agreement outside the codebase.
@@ -91,7 +97,8 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
 2. In the staging environment with compliant test data, run the manual
    CHESS staging release validation workflow.
 3. Confirm PostgreSQL migration status, read-only connectivity checks to DB,
-   S3 and ClamAV, full unit tests, production build and HTTP auth smoke tests.
+   S3 **with versioning enabled** and ClamAV, full unit tests, production build
+   and HTTP auth smoke tests.
 4. Test live provider *sandbox* requests and full reconciliation; no real ACH.
 5. Run application penetration tests, backup/restore and disaster recovery
    drill, audit event append-only and role-privilege review.
