@@ -14,9 +14,9 @@ describe("M3 restricted document lifecycle",()=>{
   expect(documentDownloadAllowed(null)).toBe(false);
  });
  it("defaults off until policy and operation flags are independently present",()=>{
-  expect(documentLifecycleEnabled({} as NodeJS.ProcessEnv)).toBe(false);
-  expect(documentLifecycleEnabled({CHESS_DOCUMENT_LIFECYCLE_ENABLED:"true"} as NodeJS.ProcessEnv)).toBe(false);
+  expect(documentLifecycleEnabled({})).toBe(false);
+  expect(documentLifecycleEnabled({CHESS_DOCUMENT_LIFECYCLE_ENABLED:"true"})).toBe(false);
   expect(documentLifecycleEnabled({CHESS_DOCUMENT_LIFECYCLE_ENABLED:"true",
-   CHESS_DOCUMENT_RETENTION_POLICY_APPROVED:"true"} as NodeJS.ProcessEnv)).toBe(true);
+   CHESS_DOCUMENT_RETENTION_POLICY_APPROVED:"true"})).toBe(true);
  });
 });

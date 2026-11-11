@@ -16,7 +16,10 @@ const action=z.discriminatedUnion("action",[
  z.object({...base,action:z.literal("SET_RETENTION"),
   retainUntil:z.string().datetime()}).strict(),
 ]);
-export function documentLifecycleEnabled(env=process.env):boolean{
+export function documentLifecycleEnabled(env:{
+ CHESS_DOCUMENT_LIFECYCLE_ENABLED?:string;
+ CHESS_DOCUMENT_RETENTION_POLICY_APPROVED?:string;
+}=process.env):boolean{
  return env.CHESS_DOCUMENT_LIFECYCLE_ENABLED==="true"&&
   env.CHESS_DOCUMENT_RETENTION_POLICY_APPROVED==="true";
 }
