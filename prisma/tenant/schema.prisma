@@ -3788,3 +3788,19 @@ model ChessClientDocument {
   verifiedAt DateTime?
   @@index([businessId,clientProfileId,service,status])
 }
+
+// M5 bridging metadata. Finance rows remain in the legacy tenant-scoped ledger.
+// This table holds identifiers only; no paystubs, tax forms, account balances,
+// or protected personal data are replicated to the CHESS CRM.
+model ChessFinancialLink {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  serviceCaseId String @unique
+  legacyTenantId String
+  legacyEntityId String
+  service ClientServiceArea
+  createdAt DateTime @default(now())
+  @@unique([businessId,clientProfileId,service,legacyEntityId])
+  @@index([legacyTenantId,legacyEntityId])
+}
