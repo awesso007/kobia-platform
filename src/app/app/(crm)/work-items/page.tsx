@@ -4,6 +4,7 @@ import {listChessWorkItems} from "@/lib/chess/workflow";
 import {getChessManagerQueue,listChessEmployeeAlerts} from "@/lib/chess/employee-operations";
 import WorkItemsClient from "./WorkItemsClient";
 import RecurrencesClient from "./RecurrencesClient";
+import EmployeeAlerts from "./EmployeeAlerts";
 import {listChessRecurrences} from "@/lib/chess/recurring-work";
 export const dynamic="force-dynamic";
 export default async function ChessWorkItemsPage({searchParams}:{searchParams:{businessId?:string}}){
@@ -45,11 +46,11 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
   </section>
   <section className="space-y-3">
    <h2 className="text-xl font-semibold">My notifications</h2>
-   {alerts.length===0?<p className="text-sm text-slate-600">No notifications.</p>:
-    <ul className="space-y-2">{alerts.filter(a=>!a.readAt).slice(0,10).map(a=>
-     <li key={a.id} className="rounded-lg border border-slate-200 p-3 text-sm">
-      {a.message} <span className="text-slate-500">· {a.createdAt.toLocaleDateString()}</span>
-     </li>)}</ul>}
+   <EmployeeAlerts businessId={selected.id} initialAlerts={alerts.map(a=>({
+    id:a.id,message:a.message,
+    readAt:a.readAt?.toISOString()??null,
+    createdAt:a.createdAt.toISOString(),
+   }))}/>
   </section>
   {manager&&<section className="space-y-3">
    <h2 className="text-xl font-semibold">Manager oversight</h2>
