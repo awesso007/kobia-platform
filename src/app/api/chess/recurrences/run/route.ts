@@ -1,5 +1,6 @@
 import {NextResponse} from "next/server";
 import {isAuthorizedRecurrenceWorker,runDueChessRecurrences} from "@/lib/chess/recurring-work";
+import {runChessOverdueAlerts} from "@/lib/chess/overdue-alerts";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 /** Machine-only scheduler. The `t` tenant is validated and injected by middleware.
@@ -11,7 +12,8 @@ export async function POST(request:Request){
  }
  try{
   const result=await runDueChessRecurrences();
-  return NextResponse.json(result,{headers:{"Cache-Control":"no-store"}});
+  const overdue=await runChessOverdueAlerts();
+  return NextResponse.json({...result,overdue},{headers:{"Cache-Control":"no-store"}});
  }catch{
   return NextResponse.json({error:"Scheduling unavailable"},{status:503});
  }
