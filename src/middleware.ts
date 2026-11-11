@@ -23,6 +23,8 @@ const isPublicRoute = createRouteMatcher([
   "/api/chess/payroll-status/run",
   "/api/chess/ai-triage/run",
   "/api/chess/audit-archive/run",
+  // Exact token authenticated before returning only the deployed build SHA.
+  "/api/chess/staging-attestation",
   "/api/webhooks(.*)",
   // Public web-to-lead forms (Sprint 5): the hosted form page and its submit
   // endpoint are intentionally unauthenticated. Tenant is resolved from a

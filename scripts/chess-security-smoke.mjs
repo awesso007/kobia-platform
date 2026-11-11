@@ -24,6 +24,9 @@ async function main() {
  await probe("/api/chess/recurrences/run?t=demo",{
   method:"POST",headers:{"Content-Type":"application/json"},body:"{}",
  },new Set([403]));
+ await probe("/api/chess/staging-attestation",{
+  headers:{"Authorization":"Bearer invalid-demo-token"},
+ },new Set([403]));
  await probe("/api/chess/audit-archive/run?t=demo",{
   method:"POST",headers:{"Content-Type":"application/json"},
   body:"{}",

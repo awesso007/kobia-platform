@@ -80,6 +80,13 @@ jobs:
       CHESS_CALENDAR_STATUS_API_URL: ${{ vars.CHESS_CALENDAR_STATUS_API_URL }}
       CHESS_CALENDAR_ALLOWED_HOST: ${{ vars.CHESS_CALENDAR_ALLOWED_HOST }}
       CHESS_CALENDAR_API_KEY: ${{ secrets.CHESS_CALENDAR_API_KEY }}
+      # External deployed staging must independently configure CHESS_RELEASE_SHA,
+      # CHESS_STAGING_ATTESTATION_ENABLED and this separate protected token.
+      CHESS_STAGING_VALIDATE: ${{ vars.CHESS_STAGING_VALIDATE }}
+      CHESS_STAGING_BASE_URL: ${{ vars.CHESS_STAGING_BASE_URL }}
+      CHESS_STAGING_ALLOWED_HOST: ${{ vars.CHESS_STAGING_ALLOWED_HOST }}
+      CHESS_STAGING_EXPECTED_SHA: ${{ github.sha }}
+      CHESS_STAGING_ATTESTATION_TOKEN: ${{ secrets.CHESS_STAGING_ATTESTATION_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -107,6 +114,8 @@ jobs:
           npm run test
       - name: Production artifact build
         run: npm run build
+      - name: Verify independent deployed staging commit identity
+        run: node scripts/chess-staging-verify.mjs
       - name: Security HTTP smoke
         run: |
           npm run start -- -p 3100 > /tmp/chess-staging.log 2>&1 &
