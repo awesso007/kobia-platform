@@ -43,6 +43,20 @@ export default function AppointmentsClient({businessId,initialAppointments,staff
   }catch(e){setError(e instanceof Error?e.message:"Unable to book appointment.");}
   finally{setBusy(false);}
  }
+ async function complete(item:Appointment){
+  setBusy(true);setError("");
+  try{
+   const response=await fetch("/api/chess/appointments",{
+    method:"PATCH",credentials:"same-origin",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({businessId,appointmentId:item.id,expectedUpdatedAt:item.updatedAt}),
+   });
+   if(!response.ok)throw new Error(response.status===409?
+    "Appointment changed or is not yet complete. Refresh and try again.":
+    "Unable to mark appointment completed.");
+   await refresh();
+  }catch(e){setError(e instanceof Error?e.message:"Unable to complete appointment.");}
+  finally{setBusy(false);}
+ }
  async function cancel(item:Appointment){
   setBusy(true);setError("");
   try{
@@ -96,11 +110,18 @@ export default function AppointmentsClient({businessId,initialAppointments,staff
      {staff.find(p=>p.clerkUserId===item.assignedClerkUserId)?.displayName??"Assigned employee"} ·
      {item.status}</p>
    </div>
-   {item.status==="SCHEDULED"&&<button type="button" disabled={busy}
-    onClick={()=>cancel(item)}
-    className="rounded-lg border border-slate-300 px-3 py-2 font-medium disabled:opacity-40">
-    Cancel
-   </button>}
+   {item.status==="SCHEDULED"&&<div className="flex flex-wrap gap-2">
+    {new Date(item.endAt).getTime()<=Date.now()&&<button type="button" disabled={busy}
+     onClick={()=>complete(item)}
+     className="rounded-lg border border-emerald-700 px-3 py-2 font-medium text-emerald-800 disabled:opacity-40">
+     Mark complete
+    </button>}
+    <button type="button" disabled={busy}
+     onClick={()=>cancel(item)}
+     className="rounded-lg border border-slate-300 px-3 py-2 font-medium disabled:opacity-40">
+     Cancel
+    </button>
+   </div>}
   </li>)}</ul>
  </div>;
 }
