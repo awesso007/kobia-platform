@@ -50,6 +50,16 @@ async function main() {
   method:"POST",headers:{"Content-Type":"application/json","Origin":"https://attacker.example"},
   body:"{}",
  },allowedDenied);
+ await probe("/api/chess/regulated-affiliations?businessId=unowned",{},allowedDenied);
+ await probe("/api/chess/regulated-workflows?businessId=unowned&serviceCaseId=unowned",{},allowedDenied);
+ await probe("/api/chess/regulated-handoffs",{
+  method:"POST",headers:{"Content-Type":"application/json",
+   "Origin":"https://attacker.example"},body:"{}",
+ },allowedDenied);
+ await probe("/api/chess/regulated-workflows",{
+  method:"PATCH",headers:{"Content-Type":"application/json",
+   "Origin":"https://attacker.example"},body:"{}",
+ },allowedDenied);
  await probe("/api/chess/license-verify",{
   method:"POST",headers:{"Content-Type":"application/json","Origin":"https://attacker.example"},
   body:"{}",
