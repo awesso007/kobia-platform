@@ -22,6 +22,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/chess/calendar-sync/run",
   "/api/chess/payroll-status/run",
   "/api/chess/ai-triage/run",
+  "/api/chess/audit-archive/run",
   "/api/webhooks(.*)",
   // Public web-to-lead forms (Sprint 5): the hosted form page and its submit
   // endpoint are intentionally unauthenticated. Tenant is resolved from a
