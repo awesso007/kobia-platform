@@ -661,3 +661,40 @@ module is *invoice drafting/delivery coordination only*, not a payment
 processor, financial ledger posting engine, or tax/payroll provider.
 
 **No merge or production deployment is authorized by this development work.**
+
+
+## Round 9 - Milestone 7 UI and approval completion (development)
+
+- Standalone authenticated `/app/ai-operations` workflow page shows
+  business-specific triage queues, model recommendations and explicit
+  independent human review actions. Server-derived action flags prevent
+  offering a requester their own approval button; real authorization is
+  revalidated by the server. No original task or financial action can be
+  executed by an AI suggestion.
+- Standalone `/app/service-billing` page allows purpose-bound draft
+  creation, separate approval, third-person vendor submission, UNKNOWN
+  reconciliation and pre-submission invoice voiding with optimistic
+  locking and immutable audit metadata. A previously approved draft must
+  be voided by an administrator other than its author. Any potential
+  external submission blocks voiding. No money is charged or posted.
+- Standalone `/app/operations-reports` supports UTC month/business
+  selection and owner/admin-only tenant portfolio summaries. Separate
+  JSON/CSV exports are privacy-scoped, CSV formula prefixes are escaped,
+  and invoice face values use exact integer-cent formatting.
+- CRM navigation and combined operations overview link to the focused
+  screens. Regression tests cover invoice role separation and void state,
+  arithmetic and CSV escaping; unauthenticated HTTP probes cover portfolio
+  endpoints and forged-origin AI/VOID mutations. Release acceptance matrix
+  and outstanding provider inputs are documented in
+  `docs/CHESS_CORP_2_M7_ROUND9_ACCEPTANCE.md`.
+
+### M7 and M8 production work still REQUIRED
+No live AI, billing, payment settlement, payroll, licensed transaction,
+client data-sharing or consolidated statutory reports have been approved
+by this code. Actual provider contracts and secrets, signed consent,
+firm/individual licensing, protected sandbox acceptance, authenticated
+two-tenant E2E, independent security/legal review, backup/restore exercise
+and staging pilot remain mandatory. A green CI build verifies the
+development branch only, not a production release.
+
+**Do not merge or deploy regulated live workflows without external gates.**
