@@ -251,3 +251,42 @@ The presence of these commits does not establish production readiness.
   and fleet-scale pagination remain necessary before high-volume production.
 - No real employee email/SMS is transmitted by this code. The employee inbox
   is the delivery channel until a provider is configured and approved.
+
+
+## Round 3: Milestone 4 operational feature completion (development)
+- **Staff appointments:** dedicated business-local booking model, manager-only
+  create/list/cancel APIs and appointment booking UI with active employee
+  dropdowns. PostgreSQL `btree_gist` exclusion constraint rejects overlapping
+  SCHEDULED times for the same employee across business units inside the same
+  tenant. Adjacent slots and rebooking after cancellations are permitted.
+- **Manager assignment UI:** formerly unassigned work can be assigned to an
+  active business-unit employee with optimistic-locking to prevent overwrites.
+- **Calendar reconciliation:** the approved gateway must provide a read-only
+  status endpoint in addition to idempotent event creation and cancellation.
+  UNKNOWN or CANCEL_UNKNOWN events are checked by idempotency key; a missing
+  or pending response is NEVER treated as permission to resend.
+- **Calendar revocation race:** the worker rechecks employee consent and
+  task assignment before marking remote delivery synchronized; delivery that
+  outlives revocation is queued for cancellation rather than accepted silently.
+- **Owner/admin visibility:** operational dashboard shows last worker heartbeat,
+  due recurrence backlog and unresolved calendar outbox counts.
+- **Coverage:** appointment PostgreSQL overlap tests, calendar provider mock
+  status-contract tests, status-decision unit tests and anonymous HTTP
+  endpoint access checks added to CI.
+
+### Remaining non-code rollout gates for Milestone 4
+1. Provide a contracted calendar gateway, its three HTTPS API URLs,
+   host allowlist and API secret; the gateway must separately hold verified
+   delegated employee Google/Microsoft consent. The adapter is disabled.
+2. Run real provider sandbox create, cancel and reconciliation tests with
+   a dedicated test employee; do not connect personal calendars by default.
+3. Approve employee-facing privacy copy and retention policy.
+4. Deploy private scheduler, monitor failures, restore from backups and
+   verify authorized multi-tenant staging workflows with real test accounts.
+5. Appointments are internally booked with overlap protection. They are not
+   automatically transmitted to third-party calendars through the work-item
+   outbox; connecting them requires an approved appointment-specific bridge.
+
+Milestone 4 is feature-implemented in the development branch for internal
+operations, but is not operationally complete in production until the external
+items above are verified. Do not claim a production release.
