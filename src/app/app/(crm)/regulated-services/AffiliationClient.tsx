@@ -3,7 +3,7 @@ import {useState,type FormEvent} from "react";
 import {useRouter} from "next/navigation";
 
 type Service="MORTGAGE"|"INSURANCE"|"REAL_ESTATE"|"INVESTMENTS";
-type Affiliation={id:string;clerkUserId:string;service:Service;status:string;
+type Affiliation={id:string;clerkUserId:string;service:string;status:string;
  jurisdiction:string;firmRegistryId:string;checkedAt:string|null;expiresAt:string|null};
 const options:Service[]=["MORTGAGE","INSURANCE","REAL_ESTATE","INVESTMENTS"];
 export default function AffiliationClient({businessId,affiliations}:{
