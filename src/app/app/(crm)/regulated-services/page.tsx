@@ -6,6 +6,8 @@ import {getClientServiceLink} from "@/lib/client-profile/service";
 import {isUsableConsent} from "@/lib/chess/onboarding";
 import {listChessRegulatedAffiliations} from "@/lib/chess/regulated-affiliations";
 import AffiliationClient from "./AffiliationClient";
+import {listChessLicensesForReview} from "@/lib/chess/license-registry";
+import LicenseReviewClient from "./LicenseReviewClient";
 export const dynamic="force-dynamic";
 
 export default async function ChessRegulatedServicesPage({
@@ -42,10 +44,15 @@ export default async function ChessRegulatedServicesPage({
    if(consents.some(x=>isUsableConsent(x)))authorized.push(item);
   }catch{/* A service without an explicit grant must not appear. */}
  }
+ let licenseQueue:Awaited<ReturnType<typeof listChessLicensesForReview>>|null=null;
  let affiliations:Awaited<ReturnType<typeof listChessRegulatedAffiliations>>=[];
  if(["OWNER","ADMIN"].includes(member.role)){
-  try{affiliations=await listChessRegulatedAffiliations(chosen.id);}
-  catch{/* No fallback to tenant-wide employee data. */}
+  try{
+   [affiliations,licenseQueue]=await Promise.all([
+    listChessRegulatedAffiliations(chosen.id),
+    listChessLicensesForReview(chosen.id),
+   ]);
+  }catch{/* No fallback to tenant-wide professional data. */}
  }
  return <main className="mx-auto max-w-6xl space-y-8 px-6 py-10">
   <header>
@@ -83,6 +90,14 @@ export default async function ChessRegulatedServicesPage({
      </Link>
     </li>)}</ul>}
   </section>
+  {licenseQueue&&<LicenseReviewClient businessId={chosen.id}
+   viewerId={licenseQueue.viewerId}
+   registryConfigured={licenseQueue.registryConfigured}
+   credentials={licenseQueue.records.map(c=>({
+    ...c,verifiedAt:c.verifiedAt?.toISOString()??null,
+    registryCheckedAt:c.registryCheckedAt?.toISOString()??null,
+    expiresAt:c.expiresAt?.toISOString()??null,
+   }))}/>}
   {["OWNER","ADMIN"].includes(member.role)&&<AffiliationClient
    businessId={chosen.id} affiliations={affiliations.map(item=>({
     ...item,checkedAt:item.checkedAt?.toISOString()??null,
