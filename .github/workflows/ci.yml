@@ -33,6 +33,13 @@ jobs:
       - name: Test
         run: npm run test
 
+      - name: Release preflight must fail without production credentials
+        run: |
+          if NODE_ENV=production node scripts/chess-deploy-validate.mjs; then
+            echo "Unsafe: preflight accepted missing secrets" >&2
+            exit 1
+          fi
+
       - name: Build
         run: npm run build
         env:
