@@ -299,6 +299,20 @@ export async function reconcileChessInvoice(input:unknown){
   return {id:invoice.id,status,paid:false};
  });
 }
+export function invoiceUiActions(invoice:{
+ status:string;createdByClerkUserId:string;approvedByClerkUserId:string|null;
+},actor:{clerkUserId:string;role:string}){
+ const isAdmin=["OWNER","ADMIN"].includes(actor.role);
+ return {
+  mayApprove:isAdmin&&invoice.status==="DRAFT"&&
+   canApproveInvoice(invoice.createdByClerkUserId,actor.clerkUserId,actor.role),
+  maySend:isAdmin&&invoice.status==="APPROVED"&&
+   canSendApprovedInvoice(invoice,actor.clerkUserId),
+  mayVoid:isAdmin&&canVoidUnsentInvoice(invoice.status)&&
+   (invoice.status!=="APPROVED"||
+    actor.clerkUserId!==invoice.createdByClerkUserId),
+ };
+}
 export async function listChessInvoices(businessId:string){
  const actor=await assertBusinessManager(businessId);
  if(!["OWNER","ADMIN"].includes(actor.role))
@@ -309,6 +323,7 @@ export async function listChessInvoices(businessId:string){
    id:true,clientProfileId:true,serviceCaseId:true,service:true,
    amountCents:true,descriptionCode:true,status:true,createdAt:true,
    updatedAt:true,providerCheckedAt:true,
+   createdByClerkUserId:true,approvedByClerkUserId:true,
   }});
  const authorized:typeof rows=[];
  for(const row of rows){
@@ -319,7 +334,11 @@ export async function listChessInvoices(businessId:string){
    authorized.push(row);
   }catch{/* No invoice metadata escapes without a live client billing grant. */}
  }
- return authorized.map(row=>({...row,amountCents:row.amountCents.toString()}));
+ return authorized.map(({createdByClerkUserId,approvedByClerkUserId,...row})=>({
+  ...row,amountCents:row.amountCents.toString(),
+  ...invoiceUiActions({status:row.status,createdByClerkUserId,
+   approvedByClerkUserId},actor),
+ }));
 }
 
 

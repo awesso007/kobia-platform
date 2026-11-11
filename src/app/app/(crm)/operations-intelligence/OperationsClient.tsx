@@ -4,7 +4,8 @@ import {useRouter} from "next/navigation";
 
 type Case={id:string;clientProfileId:string;service:string};
 type Invoice={id:string;service:string;descriptionCode:string;amountCents:string;
- status:string;updatedAt:string;clientProfileId:string;serviceCaseId:string};
+ status:string;updatedAt:string;clientProfileId:string;serviceCaseId:string;
+ mayApprove?:boolean;maySend?:boolean;mayVoid?:boolean};
 type Suggestion={id:string;workItemId:string;priority:string;recommendation:string;mayReview?:boolean;mayApply?:boolean;
  rationaleCode:string;status:string;updatedAt:string;appliedAt:string|null;
  followupWorkItemId:string|null};
@@ -25,6 +26,7 @@ export default function OperationsClient({
  const selected=cases.find(c=>c.id===caseId);
  const [code,setCode]=useState("");
  const [amount,setAmount]=useState("");
+ const [voidReason,setVoidReason]=useState("INCORRECT_DRAFT");
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
  const [notice,setNotice]=useState("");
@@ -171,8 +173,28 @@ export default function OperationsClient({
         style:"currency",currency:"USD"})}</strong>
       <p className="text-xs text-slate-600">Status {invoice.status} · Invoice {invoice.id}</p>
      </div>
-     <div className="flex flex-wrap gap-2">
-      {invoice.status==="DRAFT"&&(["APPROVED","REJECTED"] as const).map(decision=>
+     <div className="flex flex-wrap items-center gap-2">
+      {invoice.mayVoid&&<>
+       <label className="text-xs text-slate-600">
+        Void reason
+        <select value={voidReason} onChange={e=>setVoidReason(e.target.value)}
+         className="ml-2 rounded-md border border-slate-300 p-2">
+         <option value="INCORRECT_DRAFT">Incorrect draft</option>
+         <option value="CLIENT_REQUEST">Client request</option>
+         <option value="SERVICE_CANCELLED">Service cancelled</option>
+         <option value="COMPLIANCE_HOLD">Compliance hold</option>
+        </select>
+       </label>
+       <button type="button" disabled={busy}
+        onClick={()=>perform(()=>send("/api/chess/billing","DELETE",{
+         businessId,invoiceId:invoice.id,expectedUpdatedAt:invoice.updatedAt,
+         reasonCode:voidReason,
+        }),"Unsent invoice voided with audit evidence. No vendor request made.")}
+        className="rounded-lg border border-slate-400 px-3 py-2 text-sm font-semibold disabled:opacity-40">
+        Void unsent invoice
+       </button>
+      </>}
+      {invoice.status==="DRAFT"&&invoice.mayApprove&&(["APPROVED","REJECTED"] as const).map(decision=>
        <button type="button" key={decision} disabled={busy}
         onClick={()=>perform(()=>send("/api/chess/billing","PATCH",{
          businessId,invoiceId:invoice.id,decision,
@@ -181,7 +203,7 @@ export default function OperationsClient({
         className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-40">
         {decision==="APPROVED"?"Approve":"Reject"}
        </button>)}
-      {invoice.status==="APPROVED"&&<button type="button" disabled={busy||!billingReady}
+      {invoice.status==="APPROVED"&&invoice.maySend&&<button type="button" disabled={busy||!billingReady}
        onClick={()=>perform(()=>send("/api/chess/billing-delivery","POST",{
         businessId,invoiceId:invoice.id,
        }),"Invoice-delivery attempt recorded. No payment was collected.")}

@@ -64,6 +64,7 @@ export const crmNav: CrmNavItem[] = [
   { key: "chessFinance", label: "Finance Operations", href: "/app/finance-operations", icon: BarChart3 },
   { key: "chessRegulated", label: "Regulated Services", href: "/app/regulated-services", icon: Building2 },
   { key: "chessAi", label: "AI Task Review", href: "/app/ai-operations", icon: Workflow },
+  { key: "chessBilling", label: "Invoice Approvals", href: "/app/service-billing", icon: FileText },
   { key: "chessIntelligence", label: "AI, Billing & Reports", href: "/app/operations-intelligence", icon: BarChart3 },
   { key: "settings", label: "Settings", href: "/app/settings", icon: Settings },
 ];

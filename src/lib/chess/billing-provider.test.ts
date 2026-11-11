@@ -1,7 +1,7 @@
 import {afterEach,describe,expect,it,vi} from "vitest";
 import {billingProviderConfigured,deliverChessInvoice,
  checkChessInvoiceStatus} from "./billing-provider";
-import {canApproveInvoice,canSendApprovedInvoice,canVoidUnsentInvoice,invoiceDeliveryState,invoiceDigest} from "./billing";
+import {canApproveInvoice,canSendApprovedInvoice,canVoidUnsentInvoice,invoiceDeliveryState,invoiceDigest,invoiceUiActions} from "./billing";
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});
 function configure(){
  vi.stubEnv("CHESS_BILLING_DELIVERY_ENABLED","true");
@@ -38,6 +38,25 @@ describe("M7 invoice delivery and approval boundaries",()=>{
  it("allows explicit pre-delivery voids but forbids unknown or sent outcomes",()=>{
   expect(["DRAFT","APPROVED","REJECTED"].every(canVoidUnsentInvoice)).toBe(true);
   expect(["SUBMITTING","SENT","UNKNOWN","VOID"].some(canVoidUnsentInvoice)).toBe(false);
+ });
+ it("exposes only permitted invoice UI actions to distinct active administrators",()=>{
+  const author={clerkUserId:"creator",role:"OWNER"};
+  const reviewer={clerkUserId:"reviewer",role:"ADMIN"};
+  const sender={clerkUserId:"sender",role:"ADMIN"};
+  const member={clerkUserId:"staff",role:"MEMBER"};
+  const draft={status:"DRAFT",createdByClerkUserId:"creator",
+   approvedByClerkUserId:null};
+  expect(invoiceUiActions(draft,author).mayApprove).toBe(false);
+  expect(invoiceUiActions(draft,reviewer).mayApprove).toBe(true);
+  expect(invoiceUiActions(draft,member).mayVoid).toBe(false);
+  const approved={...draft,status:"APPROVED",approvedByClerkUserId:"reviewer"};
+  expect(invoiceUiActions(approved,author).maySend).toBe(false);
+  expect(invoiceUiActions(approved,reviewer).maySend).toBe(false);
+  expect(invoiceUiActions(approved,sender).maySend).toBe(true);
+  expect(invoiceUiActions(approved,author).mayVoid).toBe(false);
+  expect(invoiceUiActions(approved,sender).mayVoid).toBe(true);
+  expect(invoiceUiActions({...approved,status:"UNKNOWN"},sender).mayVoid)
+   .toBe(false);
  });
  it("uses content-bound, tenant-isolated invoice fingerprints",()=>{
   const src={tenantSlug:"tenant",businessId:"business",
