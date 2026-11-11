@@ -46,6 +46,21 @@ for(const slug of slugs){
    console.log(`CHESS ${slug}: payroll runs reviewed ${payroll.examined}; status updated ${payroll.updated}; unresolved ${payroll.unresolved}`);
    if(payroll.unresolved>0)failures++;
   }
+  if(process.env.CHESS_AUDIT_EXPORT_ENABLED==="true"){
+   const archiveUrl=new URL("/api/chess/audit-archive/run",base);
+   archiveUrl.searchParams.set("t",slug);
+   const response=await fetch(archiveUrl,{
+    method:"POST",redirect:"error",cache:"no-store",
+    headers:{"Authorization":`Bearer ${token}`,"Content-Type":"application/json"},
+    body:"{}",signal:AbortSignal.timeout(20000),
+   });
+   if(!response.ok)throw new Error(`Audit export HTTP ${response.status}`);
+   const audit=await response.json();
+   if(audit.disabled||typeof audit.unresolved!=="number")
+    throw new Error("Audit archive worker is not ready.");
+   console.log(`CHESS ${slug}: audit archived ${audit.archived}; unresolved ${audit.unresolved}; blocked ${audit.blocked}`);
+   if(audit.unresolved>0||audit.blocked>0)failures++;
+  }
   if(process.env.CHESS_AI_TRIAGE_ENABLED==="true"){
    const triageUrl=new URL("/api/chess/ai-triage/run",base);
    triageUrl.searchParams.set("t",slug);
