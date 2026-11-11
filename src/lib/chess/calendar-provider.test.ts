@@ -17,6 +17,8 @@ describe("outbound calendar gateway",()=>{
   vi.stubEnv("CHESS_CALENDAR_API_URL","https://calendar.example.com/v1/events");
   expect(calendarGatewayConfigured()).toBe(false);
   vi.stubEnv("CHESS_CALENDAR_CANCEL_API_URL","https://calendar.example.com/v1/cancellations");
+  expect(calendarGatewayConfigured()).toBe(false);
+  vi.stubEnv("CHESS_CALENDAR_STATUS_API_URL","https://calendar.example.com/v1/status");
   expect(calendarGatewayConfigured()).toBe(true);
   vi.stubEnv("CHESS_CALENDAR_CANCEL_API_URL","https://attacker.example/v1/cancellations");
   expect(calendarGatewayConfigured()).toBe(false);
