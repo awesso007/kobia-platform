@@ -19,6 +19,7 @@ describe("appointment safety",()=>{
  it("maps the PostgreSQL exclusion constraint to a safe conflict",()=>{
   expect(isAppointmentConflict({code:"23P01"})).toBe(true);
   expect(isAppointmentConflict({code:"P2004",message:"ChessAppointment_no_staff_overlap"})).toBe(true);
-  expect(isAppointmentConflict({code:"P2002",message:"unrelated"})).toBe(false);
+  expect(isAppointmentConflict({code:"P2002",message:"conflicting appointment"})).toBe(true);
+  expect(isAppointmentConflict({code:"INTERNAL_ERROR",message:"unrelated"})).toBe(false);
  });
 });
