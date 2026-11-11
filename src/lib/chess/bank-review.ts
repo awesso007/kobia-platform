@@ -198,3 +198,29 @@ export async function listChessBankReviews(raw:unknown){
   approvedAccountId:true,confidenceBasisPoints:true,createdAt:true,updatedAt:true,
  }});
 }
+
+
+/** Authorized clients and staff may review existing unmatched bank rows in
+ * the legacy ledger. Nothing here copies raw transaction descriptions into
+ * the CHESS registry or performs a ledger mutation. */
+export async function listChessBankReviewCandidates(raw:unknown){
+ const state=await context(raw);
+ const [transactions,accounts]=await Promise.all([
+  ledger.bankTransaction.findMany({where:{
+   tenantId:state.legacyTenantId,status:"UNMATCHED",
+   bankAccount:{tenantId:state.legacyTenantId,entityId:state.legacyEntityId,isActive:true},
+  },orderBy:{postedDate:"desc"},take:100,select:{
+   id:true,postedDate:true,description:true,amountCents:true,bankAccountId:true,
+  }}),
+  ledger.account.findMany({where:{
+   tenantId:state.legacyTenantId,entityId:state.legacyEntityId,
+   isActive:true,isSystem:false,
+  },orderBy:{code:"asc"},take:300,select:{
+   id:true,code:true,name:true,type:true,
+  }}),
+ ]);
+ return {transactions:transactions.map(t=>({
+  id:t.id,postedDate:t.postedDate,description:t.description,
+  amountCents:t.amountCents.toString(),bankAccountId:t.bankAccountId,
+ })),accounts};
+}
