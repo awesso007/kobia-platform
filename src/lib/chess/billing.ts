@@ -42,6 +42,14 @@ export function invoiceDigest(input:{tenantSlug:string;businessId:string;
 export function canApproveInvoice(requestedBy:string,approver:string,role:string):boolean{
  return requestedBy!==approver&&["OWNER","ADMIN"].includes(role);
 }
+export function canSendApprovedInvoice(invoice:{
+ createdByClerkUserId:string;approvedByClerkUserId:string|null;
+},sender:string):boolean{
+ return !!invoice.approvedByClerkUserId&&
+  invoice.createdByClerkUserId!==invoice.approvedByClerkUserId&&
+  sender!==invoice.createdByClerkUserId&&
+  sender!==invoice.approvedByClerkUserId;
+}
 async function scopedInvoiceCase(
  businessId:string,clientProfileId:string,serviceCaseId:string,
  service:BillableService,
@@ -160,10 +168,8 @@ export async function sendChessInvoice(input:unknown){
  const data=action.parse(input);
  const state=await accessInvoice(data.businessId,data.invoiceId);
  const {actor,db,invoice}=state;
- if(invoice.status!=="APPROVED"||!invoice.approvedByClerkUserId||
-  !invoice.approvedAt||invoice.createdByClerkUserId===invoice.approvedByClerkUserId||
-  invoice.approvedByClerkUserId===actor.clerkUserId||
-  invoice.createdByClerkUserId===actor.clerkUserId)
+ if(invoice.status!=="APPROVED"||!invoice.approvedAt||
+  !canSendApprovedInvoice(invoice,actor.clerkUserId))
   throw new PermissionError("record:update");
  const [creator,reviewer]=await Promise.all([
   db.membership.findUnique({where:{clerkUserId:invoice.createdByClerkUserId},
