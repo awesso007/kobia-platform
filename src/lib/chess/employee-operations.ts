@@ -80,10 +80,19 @@ export async function assignChessWorkItem(input:unknown){
  return db.$transaction(async tx=>{
   const existing=await tx.chessWorkItem.findFirst({
    where:{id:data.workItemId,businessId:data.businessId},
-   select:{updatedAt:true,status:true},
+   select:{updatedAt:true,status:true,dueAt:true},
   });
   if(!existing || existing.updatedAt.getTime()!==expected.getTime() ||
     existing.status==="COMPLETED"||existing.status==="CANCELLED"){
+   return {updated:false,reason:"CONFLICT" as const};
+  }
+  const calendar=await tx.chessCalendarOutbox.findUnique({
+   where:{workItemId:data.workItemId},
+   select:{status:true,recipientClerkUserId:true},
+  });
+  if(calendar && calendar.recipientClerkUserId!==data.clerkUserId &&
+    calendar.status!=="PENDING") {
+   // Do not silently move already-submitted or uncertain remote events.
    return {updated:false,reason:"CONFLICT" as const};
   }
   const now=new Date();
@@ -93,6 +102,20 @@ export async function assignChessWorkItem(input:unknown){
    data:{assignedClerkUserId:data.clerkUserId,updatedAt:now},
   });
   if(changed.count!==1)return {updated:false,reason:"CONFLICT" as const};
+  if(existing.dueAt){
+   if(calendar?.status==="PENDING"){
+    await tx.chessCalendarOutbox.update({
+     where:{workItemId:data.workItemId},
+     data:{recipientClerkUserId:data.clerkUserId},
+    });
+   }else if(!calendar){
+    await tx.chessCalendarOutbox.create({data:{
+     businessId:data.businessId,workItemId:data.workItemId,
+     recipientClerkUserId:data.clerkUserId,scheduledFor:existing.dueAt,
+     idempotencyKey:`calendar:${data.workItemId}`,
+    }});
+   }
+  }
   await tx.chessEmployeeAlert.create({data:{
    businessId:data.businessId,recipientClerkUserId:data.clerkUserId,
    workItemId:data.workItemId,type:"WORK_ASSIGNED",
