@@ -60,6 +60,10 @@ export default async function OperationsIntelligencePage({
       className="font-semibold text-emerald-800 hover:underline">
       Export aggregate CSV report
      </Link>
+     <Link href={`/api/chess/operations-report/portfolio?month=${month}&format=csv`}
+      className="font-semibold text-emerald-800 hover:underline">
+      Export all-business operational CSV (owner/admin)
+     </Link>
     </div>
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
      {metrics.map(([label,value])=><div key={label}
