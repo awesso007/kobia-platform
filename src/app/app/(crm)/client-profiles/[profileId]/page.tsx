@@ -25,6 +25,9 @@ export default async function ClientProfileDetails({params}:{params:{profileId:s
   consentedAt:c.consentedAt?.toISOString()??null,
   withdrawnAt:c.withdrawnAt?.toISOString()??null,
  }));
+ const cases=data.cases.map(c=>({
+  ...c,createdAt:c.createdAt.toISOString(),
+ }));
  return <main className="mx-auto max-w-6xl space-y-7 px-6 py-10">
   <Link href="/app/client-profiles"
    className="text-sm font-semibold text-emerald-800 hover:underline">
@@ -40,6 +43,7 @@ export default async function ClientProfileDetails({params}:{params:{profileId:s
     themselves grant service access, and permission is checked at every API call.</p>
   </header>
   <ProvisioningClient profileId={data.profile.id} businesses={data.businesses}
-   members={memberships} links={links} consents={consents}/>
+   members={memberships} links={links} consents={consents}
+   viewerId={data.viewerId} cases={cases} assignments={data.assignments}/>
  </main>;
 }

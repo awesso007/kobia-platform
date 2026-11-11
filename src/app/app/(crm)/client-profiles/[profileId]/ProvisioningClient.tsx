@@ -9,12 +9,22 @@ type LinkRow={id:string;businessId:string;service:string;grants:Grant[]};
 type Consent={id:string;businessId:string;purpose:string;policyVersion:string;
  status:string;createdAt:string;expiresAt:string|null;consentedAt:string|null;
  withdrawnAt:string|null};
+type CaseRow={id:string;businessId:string;service:string;status:string;
+ ownerClerkUserId:string|null;createdAt:string};
+type Assignment={businessId:string;clerkUserId:string};
+const transitions:Record<string,string[]>={
+ INTAKE:["REVIEW","CLOSED"],REVIEW:["ACTIVE","HOLD","CLOSED"],
+ ACTIVE:["HOLD","CLOSED"],HOLD:["REVIEW","CLOSED"],CLOSED:[],
+};
 const services=["ACCOUNTING","BOOKKEEPING","PAYROLL","TAX",
  "MORTGAGE","INSURANCE","REAL_ESTATE","INVESTMENTS"] as const;
 const purposes=["service","billing","external_handoff","bank_feed"] as const;
 
-export default function ProvisioningClient({profileId,businesses,members,links,consents}:{
+export default function ProvisioningClient({
+ profileId,businesses,members,links,consents,viewerId,cases,assignments,
+}:{
  profileId:string;businesses:Business[];members:Member[];links:LinkRow[];consents:Consent[];
+ viewerId:string;cases:CaseRow[];assignments:Assignment[];
 }){
  const router=useRouter();
  const [businessId,setBusinessId]=useState(businesses[0]?.id??"");
@@ -29,6 +39,10 @@ export default function ProvisioningClient({profileId,businesses,members,links,c
  const [error,setError]=useState("");
  const [message,setMessage]=useState("");
  const [newLink,setNewLink]=useState("");
+ const eligibleLinks=links.filter(l=>l.grants.some(g=>
+  g.clerkUserId===viewerId&&g.canRead&&g.canWrite&&!g.revokedAt));
+ const [caseLinkId,setCaseLinkId]=useState(eligibleLinks[0]?.id??"");
+ const [caseOwner,setCaseOwner]=useState("");
  async function mutate(method:"POST"|"PUT"|"DELETE",url:string,body:object,
   success:string):Promise<unknown|null>{
   if(busy)return null;
@@ -51,6 +65,9 @@ export default function ProvisioningClient({profileId,businesses,members,links,c
  }
  function selectedLink(){return links.find(l=>l.id===linkId);}
  const visibleGrants=selectedLink()?.grants.filter(g=>!g.revokedAt)??[];
+ const caseLink=eligibleLinks.find(l=>l.id===caseLinkId);
+ const owners=members.filter(m=>caseLink&&assignments.some(a=>
+  a.businessId===caseLink.businessId&&a.clerkUserId===m.clerkUserId));
  const selectedBusiness=(id:string)=>businesses.find(b=>b.id===id)?.name??"Unknown business";
  return <div className="space-y-6">
   <section className="rounded-xl border border-slate-200 bg-white p-5">
@@ -204,6 +221,71 @@ export default function ProvisioningClient({profileId,businesses,members,links,c
        Status: {c.status} · Requested {c.createdAt.slice(0,10)}</p>
      </li>)}
     </ul>}
+  </section>
+  <section className="rounded-xl border border-slate-200 bg-white p-5">
+   <h2 className="text-xl font-semibold">4. Service case intake and status</h2>
+   <p className="mt-1 text-sm text-slate-600">
+    Service cases can be opened only after accepted, unexpired consent.
+    Regulated services also require a currently verified, assigned
+    practitioner. This screen only lists cases for which your own
+    service grant remains active.
+   </p>
+   {eligibleLinks.length===0?<p className="mt-3 text-sm text-slate-600">
+    Grant yourself explicit read/write access to a service before
+    opening or managing a case for it.
+   </p>:<form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={e=>{
+    e.preventDefault();if(!caseLink)return;
+    void mutate("POST","/api/chess/service-cases",
+     {businessId:caseLink.businessId,clientProfileId:profileId,
+      service:caseLink.service,
+      ...(caseOwner?{ownerClerkUserId:caseOwner}:{})},
+     "Service intake created. Move it through review under the current consent and licensing requirements.");
+   }}>
+    <label className="min-w-[220px] flex-1 text-sm font-semibold">Authorized service
+     <select value={caseLinkId} onChange={e=>{
+      setCaseLinkId(e.target.value);setCaseOwner("");
+     }} className="mt-1 block w-full rounded-md border p-2">
+      {eligibleLinks.map(l=><option key={l.id} value={l.id}>
+       {selectedBusiness(l.businessId)} · {l.service.replaceAll("_"," ")}
+      </option>)}
+     </select>
+    </label>
+    <label className="min-w-[220px] flex-1 text-sm font-semibold">Assigned case owner
+     <select value={caseOwner} onChange={e=>setCaseOwner(e.target.value)}
+      className="mt-1 block w-full rounded-md border p-2">
+      <option value="">No owner (financial intake only)</option>
+      {owners.map(m=><option key={m.clerkUserId} value={m.clerkUserId}>
+       {m.displayName||m.clerkUserId}
+      </option>)}
+     </select>
+    </label>
+    <button disabled={busy||!caseLink}
+     className="rounded-md bg-emerald-800 px-4 py-2 font-semibold text-white disabled:opacity-40">
+     Open service intake</button>
+   </form>}
+   <h3 className="mt-6 font-semibold">Cases visible to my service grants</h3>
+   {cases.length===0?<p className="mt-2 text-sm text-slate-600">No authorized cases.</p>:
+   <ul className="mt-2 divide-y">
+    {cases.map(c=><li key={c.id}
+      className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
+     <div>
+      <strong>{selectedBusiness(c.businessId)} · {c.service.replaceAll("_"," ")}</strong>
+      <p className="mt-1 text-xs text-slate-600">
+       {c.status} · Opened {c.createdAt.slice(0,10)}
+       {c.ownerClerkUserId?" · Assigned practitioner":""}
+      </p>
+     </div>
+     {transitions[c.status]?.length>0&&<div className="flex flex-wrap gap-2">
+      {transitions[c.status].map(next=><button key={next} type="button"
+       disabled={busy} onClick={()=>void mutate("PATCH","/api/chess/service-cases",
+        {caseId:c.id,businessId:c.businessId,status:next},
+        `Case status changed to ${next}.`)}
+       className="rounded-md border border-emerald-700 px-3 py-2 text-xs font-semibold text-emerald-800 disabled:opacity-40">
+       Move to {next}
+      </button>)}
+     </div>}
+    </li>)}
+   </ul>}
   </section>
   {message&&<p role="status" className="text-sm text-emerald-800">{message}</p>}
   {error&&<p role="alert" className="text-sm text-red-800">{error}</p>}
