@@ -291,6 +291,35 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    expect(providerReported.providerCheckedAt).not.toBeNull();
   }finally{await db.chessPayrollDispatch.delete({where:{id:dispatch.id}});}
  });
+ it("stores a bank provider reference without credentials and tracks import attempts",async()=>{
+  const base="bankfeed-"+Date.now().toString(36);
+  const conn=await db.chessBankFeedConnection.create({data:{
+   businessId:base,clientProfileId:base,serviceCaseId:base,
+   legacyTenantId:base,legacyEntityId:base,legacyBankAccountId:base,
+   providerAccountRef:"opaque_provider_account",
+   createdByClerkUserId:"operator",
+  }});
+  try{
+   expect(conn.active).toBe(false);
+   await expect(db.chessBankFeedConnection.create({data:{
+    businessId:base,clientProfileId:base,serviceCaseId:base,
+    legacyTenantId:base,legacyEntityId:base,legacyBankAccountId:base,
+    providerAccountRef:"different_ref",createdByClerkUserId:"operator",
+   }})).rejects.toThrow();
+   const run=await db.chessBankFeedSyncRun.create({data:{
+    businessId:base,connectionId:conn.id,initiatedByClerkUserId:"operator",
+    requestedStartAt:new Date("2026-11-01T00:00:00.000Z"),
+   }});
+   try{
+    expect(run.status).toBe("STARTED");
+    const updated=await db.chessBankFeedSyncRun.update({where:{id:run.id},
+     data:{status:"COMPLETED",fetchedCount:4,insertedCount:3}});
+    expect(updated.insertedCount).toBe(3);
+    await expect(db.chessBankFeedSyncRun.update({where:{id:run.id},
+     data:{fetchedCount:2,insertedCount:3}})).rejects.toThrow();
+   }finally{await db.chessBankFeedSyncRun.delete({where:{id:run.id}});}
+  }finally{await db.chessBankFeedConnection.delete({where:{id:conn.id}});}
+ });
  it("rejects a service link whose client profile does not exist",async()=>{
   await expect(db.clientServiceLink.create({data:{
    profileId:"missing-profile-id",businessId,service:"TAX",
