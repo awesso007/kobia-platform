@@ -2,6 +2,7 @@ import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getTenantBySlug} from "@/lib/tenant";
 import {PermissionError} from "@/lib/rbac/require-permission";
 import {assertBusinessManager} from "./business-manager";
+import {getClientServiceLink} from "@/lib/client-profile/service";
 
 /** Only business-unit aggregates. Never exposes ledger balances,
  * client identities, payroll employee pay or other business units. */
@@ -36,4 +37,23 @@ export async function getChessFinanceDashboard(businessId:string){
   payroll:{unresolved:payrollUnknown,submitted:payrollSubmitted,
    vendorReportedPaid:payrollProviderPaid},
   bankFeed:{activeConnections:activeBankFeeds}};
+}
+
+
+export async function listChessAuthorizedFinanceCases(businessId:string){
+ await assertBusinessManager(businessId);
+ const {db}=getTenantDb();
+ const records=await db.chessServiceCase.findMany({where:{
+  businessId,status:"ACTIVE",
+  service:{in:["ACCOUNTING","BOOKKEEPING","PAYROLL","TAX"]},
+ },select:{id:true,clientProfileId:true,service:true,status:true},
+  orderBy:{createdAt:"desc"},take:100});
+ const visible:typeof records=[];
+ for(const row of records){
+  try{
+   const grant=await getClientServiceLink(row.clientProfileId,businessId,row.service);
+   if(grant)visible.push(row);
+  }catch{/* No cross-client service-grant information escapes to the UI. */}
+ }
+ return visible;
 }
