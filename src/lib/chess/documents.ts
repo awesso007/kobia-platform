@@ -23,6 +23,12 @@ export async function initiateChessDocumentUpload(input:unknown) {
  if (!member || member.status!=="ACTIVE" || member.role==="VIEWER") throw new PermissionError("record:create");
  const link=await getClientServiceLink(data.clientProfileId,data.businessId,data.service);
  if(!link)throw new PermissionError("record:create");
+ const {db:grantDb}=getTenantDb();
+ const writeGrant=await grantDb.clientServiceGrant.findFirst({
+  where:{linkId:link.id,clerkUserId:member.clerkUserId,canRead:true,canWrite:true,revokedAt:null},
+  select:{id:true},
+ });
+ if(!writeGrant)throw new PermissionError("record:create");
  if(!s3.isConfigured())throw new Error("Private object storage is not configured.");
  const {tenantId,db}=getTenantDb();
  const upload=await s3.createPresignedUploadUrl({
@@ -43,8 +49,13 @@ export async function initiateChessDocumentUpload(input:unknown) {
 export async function confirmChessDocumentUpload(documentId:string,businessId:string,clientProfileId:string,service:z.infer<typeof request>["service"]) {
  const member=await getCurrentMembership();
  if(!member || member.status!=="ACTIVE")throw new PermissionError("record:update");
- await getClientServiceLink(clientProfileId,businessId,service);
+ const link=await getClientServiceLink(clientProfileId,businessId,service);
+ if(!link)throw new PermissionError("record:update");
  const {db}=getTenantDb();
+ const writeGrant=await db.clientServiceGrant.findFirst({
+  where:{linkId:link.id,clerkUserId:member.clerkUserId,canRead:true,canWrite:true,revokedAt:null},select:{id:true},
+ });
+ if(!writeGrant)throw new PermissionError("record:update");
  const doc=await db.chessClientDocument.findFirst({
   where:{id:documentId,businessId,clientProfileId,service,status:"PENDING",uploadedByClerkUserId:member.clerkUserId},
  });
