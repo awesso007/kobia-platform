@@ -443,6 +443,36 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    expect(again.count).toBe(0);
   }finally{await db.chessBillingInvoice.delete({where:{id:invoice.id}});}
  });
+ it("enforces one verified archive delivery receipt per immutable security event",async()=>{
+  const event=await db.chessSecurityEvent.create({data:{
+   action:"TEST_ARCHIVE_EXPORT",resourceType:"INTEGRATION",
+   decision:"ALLOW",
+  }});
+  const outbox=await db.chessAuditArchiveOutbox.create({data:{
+   eventId:event.id,digest:"a".repeat(64),
+  }});
+  expect(outbox.status).toBe("PENDING");
+  await expect(db.chessAuditArchiveOutbox.create({data:{
+   eventId:event.id,digest:"b".repeat(64),
+  }})).rejects.toThrow();
+  await expect(db.chessAuditArchiveOutbox.create({data:{
+   eventId:"missing-event-id",digest:"f".repeat(64),
+  }})).rejects.toThrow();
+  await expect(db.chessAuditArchiveOutbox.update({where:{id:outbox.id},
+   data:{status:"ARCHIVED"},
+  })).rejects.toThrow();
+  const archived=await db.chessAuditArchiveOutbox.update({where:{
+   id:outbox.id,
+  },data:{status:"ARCHIVED",receiptId:"provider-receipt-sandbox",
+   archivedAt:new Date()}});
+  expect(archived.status).toBe("ARCHIVED");
+  await expect(db.chessAuditArchiveOutbox.update({where:{id:outbox.id},
+   data:{receiptId:"modified-receipt"},
+  })).rejects.toThrow();
+  await expect(db.chessAuditArchiveOutbox.delete({
+   where:{id:outbox.id},
+  })).rejects.toThrow();
+ });
  it("rejects a service link whose client profile does not exist",async()=>{
   await expect(db.clientServiceLink.create({data:{
    profileId:"missing-profile-id",businessId,service:"TAX",
