@@ -18,8 +18,15 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
+      - name: Install locked dependencies with platform-native optional packages
+        run: npm ci --include=optional --no-audit --no-fund
+
+      - name: Verify required Linux Next.js SWC compiler
+        run: |
+          if ! node -e "require('@next/swc-linux-x64-gnu')" >/dev/null 2>&1; then
+            npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund @next/swc-linux-x64-gnu@14.2.15
+          fi
+          node -e "require('@next/swc-linux-x64-gnu')"
 
       - name: Generate Prisma client
         run: npm run db:generate
