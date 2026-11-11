@@ -963,3 +963,59 @@ provider tests, legal e-signature, independent audits, retention,
 disaster recovery and production release approval.
 Read exact interface contracts and missing inputs at
 `docs/CHESS_CORP_2_M3_M6_ROUND15_ACCEPTANCE.md`.
+
+
+## Round 16 - Milestone 7 AI, billing, subscriptions and reports
+
+**Development status:** Additional M7 engineering committed and checked
+via ordinary GitHub CI; see the accepted commit run in the final
+Round 16 report. The separately maintained release gates below
+are NOT satisfied by local CI, placeholders or committed screens.
+
+- **AI governance (M7-01/02):** prompt remains only metadata
+  flags (status, due bucket, assignment boolean). The AI
+  gateway is gated by independently approved DPA and per-call
+  cost policy. Requests explicitly require no provider
+  retention/tool calls and cap output tokens and claimed cost.
+  Responses missing cost evidence or exceeding a bounded
+  size are rejected. Tenant-local UTC daily call reservations
+  atomically enforce a conservative upper call limit for both
+  manual and scheduler triage. Failed calls consume quota.
+  Employee AI UI displays capped call usage; no financial
+  operation can be performed by advice.
+- **Merchant billing (M7-03/04):** opaque, strict, HMAC-signed
+  tenant-bound merchant event receipt for payment/refund and
+  chargeback observations, with five-minute replay window,
+  source invoice and amount checking, unique event ID,
+  immutable PostgreSQL evidence and a restricted employee
+  review table. Events are never marked SETTLED or PAID;
+  no card/bank data is accepted, no GL/ACH/charge is triggered.
+- **Recurring invoice plans (M7-04):** owner/admin creates an
+  immutable-scope monthly schedule that requires a distinct
+  approved administrator. An isolated, tenant-allowlisted,
+  default-off scheduler creates only `DRAFT` invoice
+  rows for an approved unit, current client consent and
+  active signed-off staff service grants. Source hash and
+  month-specific request keys are replay-safe. A lost
+  grant/assignment or withdrawn client consent pauses the
+  schedule, and every draft must separately pass the existing
+  independent invoice approval and delivery checks.
+- **Historical reporting (M7-05):** only completed UTC months
+  may be frozen into immutable, checksum-bound operational
+  snapshots, separately approved by another administrator.
+  A dedicated JSON evidence view shows the original payload,
+  never a recalculation from subsequently edited statuses.
+  This is NOT financial statement consolidation, real
+  revenue recognition or confirmed cash flow.
+- **Provider/staging evidence (M7-06):** no real signed merchant
+  payout, collected-cash settlement, automatic charge,
+  refund execution, third-party e-file, statutory tax
+  calculation or production accounting close has been tested
+  or enabled. Real merchant/provider identities and legal
+  approvals are still mandatory.
+
+**Open criteria:** `docs/CHESS_CORP_2_ROUND11_OPEN_ITEMS.md`
+(M7-01 through M7-06 remain marked EXTERNAL/BOTH);
+`docs/CHESS_CORP_2_M7_ROUND16_ACCEPTANCE.md`.
+Neither the draft PR nor any of the eight milestones is
+production complete from development CI alone.

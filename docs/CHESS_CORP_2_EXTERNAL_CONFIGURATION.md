@@ -873,3 +873,55 @@ The M3 document migration cannot be deployed without backup,
 legacy document review, S3 object-lock and external hold-release
 policy approval. Previously issued 60-second download links
 cannot be remotely invalidated by database suppression.
+
+
+## Round 16 - M7 new configuration and owner-supplied inputs
+
+**Keep all toggles false in the protected staging deployment
+until signed vendor and legal acceptance. No live credentials
+are committed.** The Round 16 additions are:
+
+| Name | Where to supply | Purpose |
+|---|---|---|
+| `CHESS_AI_VENDOR_DPA_APPROVED` | environment variable, default `false` | Independently signed privacy/retention/DPA approval |
+| `CHESS_AI_COST_LIMIT_APPROVED` | environment variable, default `false` | Contractual maximum AI cost evidence |
+| `CHESS_AI_DAILY_CALL_LIMIT` | environment variable, optional 1-100, safe default 25 | Per-business UTC daily AI invocation cap |
+| `CHESS_MERCHANT_WEBHOOK_ENABLED` | environment variable, default `false` | Only enable signed webhook ingestion after vendor approval |
+| `CHESS_MERCHANT_VENDOR_CERTIFIED` | environment variable, default `false` | Proof of approved merchant/DPA and signing contract |
+| `CHESS_MERCHANT_SETTLEMENT_POLICY_APPROVED` | environment variable, default `false` | Compliance approval for observations, disputes and retention |
+| `CHESS_MERCHANT_PROVIDER_ID` | environment variable, opaque agreed vendor identifier | Match the exact provider in every signed event |
+| `CHESS_MERCHANT_WEBHOOK_HMAC_KEY` | managed vault secret (32+ chars) | Verify tenant.timestamp.raw-body SHA-256 signatures |
+| `CHESS_BILLING_RECURRING_DRAFTS_ENABLED` | environment variable, default `false` | Gate isolated monthly draft scheduler |
+| `CHESS_BILLING_RECURRING_POLICY_APPROVED` | environment variable, default `false` | Approved client schedule, billing/consent, fees and termination |
+
+Also required from previous rounds: allowed AI and
+invoice HTTPS gateways, `CHESS_AI_API_KEY`,
+`CHESS_BILLING_API_KEY`,
+`CHESS_WORKFLOW_WORKER_TOKEN`,
+`CHESS_ACTIVE_TENANT_SLUGS`, `CHESS_PUBLIC_ORIGIN`,
+Clerk test identities, correct business assignments and
+individually approved service/billing client consents.
+
+Before accepting any live merchant event, the contracted
+provider must document signed webhook semantics, duplicate
+IDs, timestamps, replay/retries, payout reconciliation,
+chargebacks, refund processing, PCI data boundaries,
+incident policies, tax treatment and merchant underwriting.
+None of those external agreements, settled amounts or
+actual bank transfers are established by this code.
+
+Before enabling scheduled drafts, approve the monthly
+agreement and test distinct author/approver/sender accounts,
+consent withdrawal during the due window, missed cycles,
+idempotent retries, UTC month rollover and approved staging
+worker monitoring. Scheduled invoices start as internal
+drafts, not external delivery or collected funds.
+
+For independent financial reporting, supply legally
+mapped entities, verified full double-entry ledger balances,
+intercompany eliminations, settled bank/merchant data,
+period close controls and qualified sign-off. The frozen
+CHESS report is operational evidence only, not GAAP financials.
+
+Detailed contract and acceptance checklist:
+`docs/CHESS_CORP_2_M7_ROUND16_ACCEPTANCE.md`.

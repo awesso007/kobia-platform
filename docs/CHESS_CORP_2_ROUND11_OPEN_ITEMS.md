@@ -184,32 +184,55 @@ marked production complete by green CI.
 
 ## Milestone 7 - AI automation, invoices and financial reports
 
-- **M7-01 [EXTERNAL]** Approve a contracted AI-only HTTPS provider,
-  allowed host, scoped credentials, privacy/DPA, purpose-bound
-  minimal data-sharing approval, model retention and cost controls;
-  verify real (fictional) provider response in protected sandbox.
-- **M7-02 [BOTH]** Any AI advice beyond the implemented generic,
-  independently reviewed task triage requires a separate validated
-  financial/regulated action model, human approval and extensive
-  security/compliance validation. No automatic filing, trade, ACH
-  or ledger alteration is currently approved.
-- **M7-03 [EXTERNAL]** Contract/configure invoice-only delivery
-  provider, verified external billing-contact mapping, specific
-  billing consent, approved fees/tax/retention policy, DPA, three
-  independent staff members and a noncharging vendor sandbox.
-- **M7-04 [BOTH]** Implement and verify an actual merchant billing/
-  subscription and collection subsystem: signed payment webhooks,
-  refunds/chargebacks, receivables settlement reconciliation,
-  tax handling, idempotent approved GL postings and merchant
-  underwriting. Current module is draft/delivery only.
-- **M7-05 [BOTH]** Implement historical period-close reports and
-  reviewed multi-entity financial consolidation, intercompany
-  eliminations, accurate cash/bank reconciliation, earnings
-  recognition, audit evidence and independent report sign-off.
-  Current portfolio reports sum operational counts and face values.
-- **M7-06 [EXTERNAL]** Run real fictional AI/billing/provider sandbox
-  contracts, approved tenant worker, independent approval/consent
-  races, deployment monitoring and external release acceptance.
+- **M7-01 [EXTERNAL]** Approve and independently test a contracted AI
+  HTTPS gateway, provider data privacy/DPA, metadata sharing,
+  retention and pricing. Round 16 adds separate DPA and cost approval
+  flags, 128-token/2,048-byte response bounds, a maximum signed
+  per-request cost claim of 5,000 microdollars, and an atomic
+  tenant-local, per-business UTC daily request budget. Actual
+  vendor metering/billing cannot be verified by code alone.
+- **M7-02 [BOTH]** AI task triage and approved non-financial
+  follow-up are implemented with independent human review,
+  daily call reservations, budget visibility and no source
+  client/task text. Round 16 hardens provider cost/output controls.
+  Financial/regulated recommendations, AI ledger posting,
+  tax filing, investment decisions, underwriting or transactions
+  remain unimplemented and require separate validated models and
+  legal/security approvals. Generic approvals are not execution rights.
+- **M7-03 [EXTERNAL]** Supply a contracted, verified invoice-only
+  vendor, approved billing-contact mapping, current billing/service
+  consent, fees/tax/retention/DPA approval, and three distinct
+  active staff identities for draft/review/send. Round 16
+  adds separately approved recurring invoice DRAFT schedules
+  and UI; no provider delivery/charge sandbox or legal approval
+  has been independently verified.
+- **M7-04 [BOTH]** Complete actual merchant billing, collections,
+  subscriptions, refunds/chargebacks, cash settlement, tax and
+  approved GL posting with certified provider evidence.
+  Round 16 adds HMAC-signed, tenant-bound, replay-proof
+  merchant payment/refund/chargeback OBSERVATIONS with immutable
+  receipts and employee review UI, plus independently approved,
+  consent-rechecked MONTHLY DRAFT-only subscription plans.
+  Merchant events never mark invoices paid or post revenue;
+  no money movement, payout reconciliation, disputes,
+  payout tax rules or certified execution gateway exists yet.
+- **M7-05 [BOTH]** Complete genuine GAAP/IFRS accounting close,
+  legal multi-entity mapping, audited statutory consolidation,
+  intercompany eliminations, cash reconciliation and
+  independently signed financial statements.
+  Round 16 adds frozen tamper-resistant monthly OPERATIONAL
+  snapshots, separate owner/admin sign-off, typed export
+  and browser review controls. These capture current workflow
+  states at the time of freezing, not transaction-time history,
+  recognized revenue, settled cash or consolidated ledgers.
+  Statutory consolidation remains pending.
+- **M7-06 [EXTERNAL]** Run real fictional AI/merchant/invoice
+  vendor sandboxes with the current M7 v2 cost contract,
+  signed merchant replay/uncertain-event tests,
+  tenant-allowlisted draft worker, consent/revocation races,
+  three-identity approvals, external ledger and payout
+  reconciliation, monitoring and signed release acceptance.
+  All remain blocked pending credentials, approval and staging.
 
 ## Milestone 8 - Security, quality, operations and release
 
