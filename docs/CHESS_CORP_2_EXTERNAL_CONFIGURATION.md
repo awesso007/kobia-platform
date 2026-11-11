@@ -121,10 +121,32 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
   and idempotency key, returning accepted/rejected/pending/not_found and a
   provider event ID on accepted creations. A "not_found" result does not
   automatically authorize another delivery.
+- **Round 4 appointment-sync gateway contract:** the existing
+  `CHESS_CALENDAR_API_URL` must accept a private appointment event with
+  `tenantSlug`, `businessId`, `appointmentId`, `recipientClerkUserId`,
+  `startsAt`, `endsAt`, `summary: "CHESS appointment"`,
+  `visibility: "private"`, and `idempotencyKey`.
+  The cancel endpoint must accept the same appointment ID, remote
+  `providerEventId` and a stable cancellation idempotency key. The status
+  endpoint must accept `action: "CREATE" | "CANCEL"` and return
+  `status: accepted|rejected|pending|not_found` plus a remote event ID
+  for accepted creations. These endpoints may share the existing task
+  calendar gateway; the gateway must explicitly support both resource types.
+- **No new production credentials:** use `CHESS_CALENDAR_API_URL`,
+  `CHESS_CALENDAR_CANCEL_API_URL`, `CHESS_CALENDAR_STATUS_API_URL`,
+  `CHESS_CALENDAR_ALLOWED_HOST`, `CHESS_CALENDAR_API_KEY`,
+  `CHESS_CALENDAR_SYNC_ENABLED`, `CHESS_WORKFLOW_WORKER_TOKEN`,
+  and the existing approved tenant allowlist.
+- Every appointment is queued at booking time, but remains
+  `WAITING_CONSENT` unless the assigned employee has explicitly opted in.
+  Cancelled appointments are removed from the remote provider if already
+  synchronized. Submission outcomes that cannot be confirmed are retained
+  for reconciliation; no blind retry occurs.
 - **Privacy:** appointment subjects remain in the authorized workspace.
-  Only generic work-item event titles and times are sent through the
-  configured external calendar bridge. Appointment events are not yet
-  automatically synced to a third-party calendar.
+  Only generic work-item or appointment titles and times are sent through
+  the configured calendar bridge. Appointment outbound events are queued and
+  handled by the worker, but do not reach third-party calendars until
+  provider credentials, OAuth delegation and an approved scheduler are live.
 - **Activation:** keep `CHESS_CALENDAR_SYNC_ENABLED=false` and
   `CHESS_SCHEDULER_ENABLED=false` until sandbox tests and approvals pass.
 
