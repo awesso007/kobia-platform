@@ -3681,3 +3681,22 @@ model ChessServiceCase {
   @@index([businessId,service,status])
   @@index([clientProfileId,businessId])
 }
+
+// CHESS CORP 2 M6 - licensing and referral gate. License verification must be
+// separately established against authoritative registries before activation.
+enum ChessCredentialStatus { UNVERIFIED VERIFIED EXPIRED SUSPENDED }
+model ChessPractitionerCredential {
+  id String @id @default(cuid())
+  businessId String
+  clerkUserId String
+  service ClientServiceArea
+  credentialType String
+  credentialLastFour String?
+  jurisdiction String
+  status ChessCredentialStatus @default(UNVERIFIED)
+  expiresAt DateTime?
+  verifiedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([businessId,service,clerkUserId,status])
+}
