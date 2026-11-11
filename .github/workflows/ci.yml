@@ -17,6 +17,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - name: Check tracked source for known live credentials
+        run: |
+          node --test scripts/chess-secret-scan.test.mjs
+          node scripts/chess-secret-scan.mjs
+
 
       - name: Install locked dependencies with platform-native optional packages
         run: npm ci --include=optional --no-audit --no-fund
