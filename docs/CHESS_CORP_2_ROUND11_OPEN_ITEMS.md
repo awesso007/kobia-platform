@@ -20,9 +20,13 @@ marked production complete by green CI.
   person identity reconciliation is not implemented. Cross-tenant
   matching must NOT occur automatically. Requires explicit, documented,
   legal client identity/permission model if it is ever added.
-- **M1-02 [BOTH]** Validate the complete cross-business client-record
-  access policy, service-grant boundaries and grant/revoke/read audit
-  coverage with real signed-in tenant and business fixtures.
+- **M1-02 [BOTH]** Complete cross-business client-record and
+  service-grant access validation with real signed-in tenant and
+  business fixtures. Round 14 implements atomic ALLOW/DENY service-link
+  read auditing and adds unit/PostgreSQL regressions; earlier
+  GRANT/REVOKE events remain. Still require every other sensitive
+  access-path audit, remote WORM evidence, two-tenant signed-in E2E,
+  privacy and accessibility approvals.
 - **M1-03 [EXTERNAL]** Obtain independent legal/privacy approval for
   shared profile visibility and permitted information sharing across
   distinct CHESS operating entities.
@@ -221,10 +225,14 @@ marked production complete by green CI.
   on-call incident ownership, key/event-export failures, retries,
   retention/deletion monitoring and incident rehearsal. A status
   dashboard and draft runbook are not an approved alert response.
-- **M8-09 [BOTH]** Audit all sensitive access, service-grant/revoke
-  decisions and denied requests with privacy-limited provenance;
-  verify WORM export integrity under independent policies and
-  test event retention/deletion boundaries.
+- **M8-09 [BOTH]** Audit all sensitive access and denied requests
+  with privacy-limited provenance, verify WORM export integrity
+  under independent retention and deletion policies. Round 14
+  covers service-link ALLOW/DENY/missing-link decisions atomically
+  and verifies their database immutability, but other sensitive
+  service reads, actual remote archival receipts, infrastructure
+  least-privilege, retention/erasure and signed-in staging E2E
+  remain unresolved.
 - **M8-10 [EXTERNAL]** Deploy actual private HTTPS staging on the
   reviewed SHA, separately inject the build attestation token and
   confirmed release SHA, supply real DB/S3/ClamAV sandbox credentials,

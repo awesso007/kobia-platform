@@ -45,12 +45,17 @@ Round 13 screen inventory and provider inputs:
 The release hold applies to all eight milestones; no item should be
 described as production complete on the basis of green CI alone.
 
-**Next open engineering item chosen:** M1-02 / M8-09, systematic
-privacy-minimal security events for actual, allowed and denied
-sensitive client-service link reads. Granted/revoked access changes
-already have atomic audit writes; service read decisions still need
-a verified audit path and tests. Completion of this code subtask
-will NOT close signed-in E2E, external WORM, privacy or production gates.
+**Round 14 engineering priority addressed:** M1-02 / M8-09,
+privacy-minimal audit events for actual, allowed, missing and denied
+client-service link reads. Read authorization, its decision record and
+the return of an authorized link are now coupled in a tenant-local DB
+transaction. The service never returns a sensitive link when the
+audit event cannot be written. PostgreSQL regression and unit coverage
+were added. This is a *code-level subset* of M1-02 and M8-09;
+authenticated real-tenant E2E, any remaining sensitive access paths,
+external WORM, independent privacy review and production evidence
+are **not** closed. This text describes the implementation, not
+the still-running final Round 14 CI result.
 
 ## Milestone 1 - Unified Client Profile: development implementation
 - Tenant-local profile, separately permissioned service links and grants.
@@ -884,3 +889,33 @@ insurance binding and investment transactions deliberately are
 not represented as ordinary employee send buttons. All remaining
 M1-M8 provider, staging, E2E, legal and release gates still apply.
 This is development branch work only, not a live service launch.
+
+
+## Round 14 - follow-up M1-02 and M8-09 scoped sensitive read audit
+
+After the eight-milestone baseline reconciliation, the next
+implementation added:
+- Pure, privacy-limited `serviceReadAuditEvent` factory, with
+  **no client name, email, financial detail, external ID or full
+  service payload** in log content.
+- `auditedClientServiceRead`: tenant-local transactional read,
+  explicit current service grant decision, immutable event insert
+  for ALLOW/DENY and a separate NOT_FOUND outcome, which is still
+  audited as DENY without storing a guessed client ID.
+- `getClientServiceLink` now uses this path before returning a
+  service link or refusing access. An audit database write failure
+  fails access closed. Earlier GRANT/REVOKE changes remain separately
+  audited in the same database transaction as their mutation.
+- Vitest unit checks for event privacy and PostgreSQL integration
+  tests for pre-grant denial, missing link, granted read, revocation
+  denial and security event immutability.
+
+**Still incomplete:** No real authenticated 2-tenant E2E or external
+WORM receipt verification yet; not every possible sensitive read
+path is covered by this one helper. The audit architecture depends
+on externally provisioned least-privilege DB roles, backup and
+independent archive provider credentials and retention/alert policies.
+Deployment and external acceptance remain blocked.
+
+Acceptance and independent inputs:
+`docs/CHESS_CORP_2_M1_ROUND14_SERVICE_AUDIT.md`.

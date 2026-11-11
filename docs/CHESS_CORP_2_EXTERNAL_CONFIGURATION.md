@@ -800,3 +800,32 @@ grant boundary in both approved staging tenants.
   approvals never substitute for payment/regulated authorization.
 - Full named UI inventory and separate staging acceptance:
   `docs/CHESS_CORP_2_M8_ROUND13_EMPLOYEE_SCREENS.md`.
+
+
+## Round 14 - service-access read audit rollout / WORM evidence
+
+No new provider API is required to emit tenant-local immutable audit
+rows. To activate and verify independent archival, the operator must
+supply existing M8 `CHESS_AUDIT_*` archive gateway credentials,
+allowlisted HTTPS endpoint, remote WORM receipt/retention/legal-hold
+contract, and isolated secrets/vault configuration described above.
+The local audit record is NOT an independently archived receipt.
+
+A real staging pilot also requires approved fictional tenant schemas,
+Clerk test owner/admin/staff and revoked identity sessions, isolated
+least-privileged runtime DB role (not schema owner, not SUPERUSER),
+signed retention and privacy rules, and an independently reviewed
+archival failure alarm. Verify these cases:
+- member without a service grant: DENY event and no resource response
+- missing service link: DENY event without guessed profile/resource ID
+- distinct owner/admin without an individual grant: DENY
+- active granted member: ALLOW event, scoped service metadata only
+- revoked grant: DENY immediately on next request
+- DB audit insert/storage unavailable: fail closed, no returned link
+- independent WORM exporter accepts all test events with immutable
+  receipts and any failed exports are paged and reconciled
+
+Code, unit and PostgreSQL checks cannot substitute for signed-in
+E2E, archive vendor evidence, external retention approval or
+a staged migration/rollback rehearsal. Full guide:
+`docs/CHESS_CORP_2_M1_ROUND14_SERVICE_AUDIT.md`.
