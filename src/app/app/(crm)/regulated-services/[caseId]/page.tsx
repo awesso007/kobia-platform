@@ -5,6 +5,7 @@ import {regulatedHandoffConfigured} from "@/lib/chess/regulated-handoff-provider
 import RegulatedWorkflowClient from "./RegulatedWorkflowClient";
 import {listChessServiceDocuments} from "@/lib/chess/documents";
 import ServiceDocumentPanel from "../../client-documents/ServiceDocumentPanel";
+import {documentLifecycleEnabled} from "@/lib/chess/document-lifecycle";
 export const dynamic="force-dynamic";
 
 export default async function ChessRegulatedCasePage({
@@ -52,10 +53,15 @@ export default async function ChessRegulatedCasePage({
    <ServiceDocumentPanel businessId={businessId}
     clientProfileId={access.record.clientProfileId} service={access.service}
     canUpload={documents.canUpload}
+    canManageLifecycle={documents.canUpload&&
+     ["OWNER","ADMIN"].includes(access.actor.role)&&documentLifecycleEnabled()}
     documents={documents.records.map(d=>({
      ...d,actualBytes:d.actualBytes??null,
      createdAt:d.createdAt.toISOString(),
      verifiedAt:d.verifiedAt?.toISOString()??null,
+     retentionUntil:d.retentionUntil?.toISOString()??null,
+     legalHoldAt:d.legalHoldAt?.toISOString()??null,
+     suppressedAt:d.suppressedAt?.toISOString()??null,
     }))}/>
    <Link className="text-sm font-semibold text-emerald-800"
     href={`/app/regulated-services?businessId=${encodeURIComponent(businessId)}`}>

@@ -9,6 +9,7 @@ import {listChessTaxWorkpapers} from "@/lib/chess/tax-workpapers";
 import BankReviewClient from "./BankReviewClient";
 import {listChessServiceDocuments} from "@/lib/chess/documents";
 import ServiceDocumentPanel from "../../client-documents/ServiceDocumentPanel";
+import {documentLifecycleEnabled} from "@/lib/chess/document-lifecycle";
 import TaxWorkpaperClient from "./TaxWorkpaperClient";
 import {getCurrentMembership} from "@/lib/rbac/require-permission";
 import {financialOperationalSummary} from "@/lib/chess/financial-bridge";
@@ -131,10 +132,14 @@ export default async function ChessFinanceCasePage({
    <ServiceDocumentPanel businessId={businessId}
     clientProfileId={record.clientProfileId} service={record.service}
     canUpload={documents.canUpload}
+    canManageLifecycle={canMap&&documents.canUpload&&documentLifecycleEnabled()}
     documents={documents.records.map(d=>({
      ...d,actualBytes:d.actualBytes??null,
      createdAt:d.createdAt.toISOString(),
      verifiedAt:d.verifiedAt?.toISOString()??null,
+     retentionUntil:d.retentionUntil?.toISOString()??null,
+     legalHoldAt:d.legalHoldAt?.toISOString()??null,
+     suppressedAt:d.suppressedAt?.toISOString()??null,
     }))}/>
    <Link href={`/app/finance-operations?businessId=${encodeURIComponent(businessId)}`}
     className="text-sm font-semibold text-emerald-700 hover:underline">

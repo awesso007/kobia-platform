@@ -3,16 +3,17 @@ import {useState} from "react";
 import {useRouter} from "next/navigation";
 type DocumentStatus="PENDING"|"QUARANTINED"|"READY"|"REJECTED";
 type Row={id:string;fileName:string;mimeType:string;status:DocumentStatus;
- actualBytes:number|null;createdAt:string;verifiedAt:string|null};
+ actualBytes:number|null;createdAt:string;verifiedAt:string|null;
+ retentionUntil:string|null;legalHoldAt:string|null;suppressedAt:string|null};
 type Service="ACCOUNTING"|"BOOKKEEPING"|"PAYROLL"|"TAX"|
  "MORTGAGE"|"INSURANCE"|"REAL_ESTATE"|"INVESTMENTS";
 const maxBytes=20*1024*1024;
 const allowedTypes=new Set(["application/pdf","image/png","image/jpeg"]);
 
 export default function ServiceDocumentPanel({businessId,clientProfileId,service,
- canUpload,documents}:{
+ canUpload,canManageLifecycle,documents}:{
  businessId:string;clientProfileId:string;service:Service;
- canUpload:boolean;documents:Row[];
+ canUpload:boolean;canManageLifecycle:boolean;documents:Row[];
 }){
  const router=useRouter();
  const [selected,setSelected]=useState<File|null>(null);
@@ -20,6 +21,36 @@ export default function ServiceDocumentPanel({businessId,clientProfileId,service
  const [error,setError]=useState("");
  const [message,setMessage]=useState("");
  const [loadingId,setLoadingId]=useState("");
+ const [lifecycleBusy,setLifecycleBusy]=useState("");
+ const [retentionDates,setRetentionDates]=useState<Record<string,string>>({});
+ async function lifecycle(documentId:string,action:"LEGAL_HOLD"|"SUPPRESS"|"SET_RETENTION"){
+  if(!canManageLifecycle||lifecycleBusy)return;
+  if(action!=="SET_RETENTION"&&!window.confirm(
+   action==="LEGAL_HOLD"?
+    "Permanently place this file metadata under legal hold? No release workflow is enabled.":
+    "Permanently suppress future downloads of this document? Existing signed URLs may remain valid briefly."
+  ))return;
+  const retainUntil=retentionDates[documentId];
+  if(action==="SET_RETENTION"&&!retainUntil)return;
+  setError("");setMessage("");setLifecycleBusy(documentId);
+  try{
+   const response=await fetch("/api/chess/document-lifecycle",{
+    method:"POST",credentials:"same-origin",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({documentId,businessId,clientProfileId,service,action,
+     ...(action==="SET_RETENTION"?{retainUntil:new Date(
+      `${retainUntil}T23:59:59.000Z`).toISOString()}:{}),
+    }),
+   });
+   if(!response.ok)throw new Error(response.status===403?
+    "Lifecycle policy approval, independent service grant, or document state is missing.":
+    "Unable to record the document lifecycle decision.");
+   setMessage("Document lifecycle action recorded and audited. Original object has not been deleted.");
+   router.refresh();
+  }catch(e){setError(e instanceof Error?e.message:"Unable to save lifecycle change.");}
+  finally{setLifecycleBusy("");}
+ }
+
  async function upload(e:React.FormEvent<HTMLFormElement>){
   e.preventDefault();
   if(!selected||!canUpload||busy)return;
@@ -113,12 +144,36 @@ export default function ServiceDocumentPanel({businessId,clientProfileId,service
      <p className="text-xs text-slate-600">
       {d.status} · Added {d.createdAt.slice(0,10)}
       {d.actualBytes!==null?` · ${Math.ceil(d.actualBytes/1024).toLocaleString()} KB`:""}
+      {d.suppressedAt?" · Access suppressed":""}
+      {d.legalHoldAt?" · Legal hold":""}
+      {d.retentionUntil?` · Retain until ${d.retentionUntil.slice(0,10)}`:""}
      </p>
     </div>
-    {d.status==="READY"&&<button type="button"
+    {d.status==="READY"&&!d.suppressedAt&&
+     (!d.retentionUntil||Date.parse(d.retentionUntil)>Date.now())&&<button type="button"
      disabled={!!loadingId} onClick={()=>void download(d.id)}
      className="rounded-md border border-emerald-700 px-3 py-2 font-semibold text-emerald-800 disabled:opacity-40">
      {loadingId===d.id?"Checking...":"Download verified version"}</button>}
+     {canManageLifecycle&&<div className="flex flex-wrap items-center gap-2">
+      {!d.legalHoldAt&&<button type="button" disabled={!!lifecycleBusy}
+       onClick={()=>void lifecycle(d.id,"LEGAL_HOLD")}
+       className="rounded-md border border-amber-700 px-2 py-1 text-xs font-semibold text-amber-900 disabled:opacity-40">
+       Place legal hold</button>}
+      {!d.suppressedAt&&<button type="button" disabled={!!lifecycleBusy}
+       onClick={()=>void lifecycle(d.id,"SUPPRESS")}
+       className="rounded-md border border-red-600 px-2 py-1 text-xs font-semibold text-red-900 disabled:opacity-40">
+       Suppress downloads</button>}
+      {!d.retentionUntil&&<label className="flex items-center gap-1 text-xs font-semibold">
+       Retain until
+       <input type="date" value={retentionDates[d.id]??""}
+        onChange={e=>setRetentionDates(prev=>({...prev,[d.id]:e.target.value}))}
+        className="rounded-md border p-1"/>
+       <button type="button" disabled={!!lifecycleBusy||!retentionDates[d.id]}
+        onClick={()=>void lifecycle(d.id,"SET_RETENTION")}
+        className="rounded-md border border-slate-400 px-2 py-1 disabled:opacity-40">
+        Record approved date</button>
+      </label>}
+     </div>}
    </li>)}
   </ul>}
   {message&&<p role="status" className="text-sm text-emerald-800">{message}</p>}
