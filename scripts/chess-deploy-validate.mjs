@@ -151,6 +151,10 @@ if(process.env.CHESS_AI_TRIAGE_ENABLED==="true"){
  }catch{errors.push("AI triage URL is malformed");}
  if(process.env.CHESS_AI_DATA_SHARING_APPROVED!=="true")
   errors.push("AI metadata sharing requires compliance approval");
+ if(process.env.CHESS_AI_VENDOR_DPA_APPROVED!=="true")
+  errors.push("AI provider DPA and privacy retention policy are not independently approved");
+ if(process.env.CHESS_AI_COST_LIMIT_APPROVED!=="true")
+  errors.push("AI provider per-request cost bound requires signed merchant agreement");
  if(process.env.CHESS_SCHEDULER_ENABLED!=="true")
   errors.push("Automated AI triage requires an approved tenant scheduler");
 }

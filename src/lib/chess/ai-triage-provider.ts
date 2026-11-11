@@ -36,7 +36,9 @@ export function workItemSourceDigest(input:{
 }
 export function aiTriageConfigured():boolean{
  if(process.env.CHESS_AI_TRIAGE_ENABLED!=="true"||
-    process.env.CHESS_AI_DATA_SHARING_APPROVED!=="true")return false;
+    process.env.CHESS_AI_DATA_SHARING_APPROVED!=="true"||
+    process.env.CHESS_AI_VENDOR_DPA_APPROVED!=="true"||
+    process.env.CHESS_AI_COST_LIMIT_APPROVED!=="true")return false;
  const raw=process.env.CHESS_AI_TRIAGE_API_URL;
  const host=process.env.CHESS_AI_ALLOWED_HOST;
  const key=process.env.CHESS_AI_API_KEY;
@@ -63,6 +65,20 @@ export function validateTriageOutput(raw:unknown,input:TriageMetadata):TriageRes
   throw new Error("Overdue active work cannot receive LOW priority.");
  return result;
 }
+export const AI_TRIAGE_MAX_TOKENS=128;
+export const AI_TRIAGE_MAX_RESPONSE_BYTES=2048;
+export const AI_TRIAGE_MAX_COST_MICROS=5000;
+/** Provider is contractually required to enforce token and per-call billing
+ * bounds. These request values do not prove the provider's actual charges.
+ * If a mandatory usage header is absent or exceeds the cap, reject advice. */
+export function approvedAiUsage(raw:string|null):number{
+ if(!raw||!/^([0-9]|[1-9][0-9]{1,8})$/.test(raw))
+  throw new Error("Provider AI cost evidence absent or malformed.");
+ const micros=Number(raw);
+ if(!Number.isSafeInteger(micros)||micros>AI_TRIAGE_MAX_COST_MICROS)
+  throw new Error("Provider AI cost exceeded approved request cap.");
+ return micros;
+}
 export async function requestChessAiTriage(input:TriageMetadata):Promise<TriageResult>{
  const validated=triageInput.parse(input);
  if(!aiTriageConfigured())throw new Error("AI triage is disabled.");
@@ -70,9 +86,20 @@ export async function requestChessAiTriage(input:TriageMetadata):Promise<TriageR
   method:"POST",cache:"no-store",redirect:"error",
   headers:{"Authorization":`Bearer ${process.env.CHESS_AI_API_KEY!}`,
    "Content-Type":"application/json"},
-  body:JSON.stringify({purpose:"WORK_ITEM_TRIAGE_V1",features:validated}),
+  body:JSON.stringify({purpose:"WORK_ITEM_TRIAGE_V1",features:validated,
+   constraints:{maxOutputTokens:AI_TRIAGE_MAX_TOKENS,
+    maxCostMicros:AI_TRIAGE_MAX_COST_MICROS,retainInput:false,
+    permitToolCalls:false}}),
   signal:AbortSignal.timeout(12000),
  });
  if(!response.ok)throw new Error(`AI gateway returned HTTP ${response.status}`);
- return validateTriageOutput(await response.json(),validated);
+ approvedAiUsage(response.headers.get("x-chess-ai-cost-micros"));
+ const bytes=Number(response.headers.get("content-length"));
+ if(Number.isFinite(bytes)&&bytes>AI_TRIAGE_MAX_RESPONSE_BYTES)
+  throw new Error("AI provider response exceeds safe output cap.");
+ const value:unknown=await response.json();
+ const serialized=JSON.stringify(value);
+ if(serialized.length>AI_TRIAGE_MAX_RESPONSE_BYTES)
+  throw new Error("AI provider output size cap exceeded.");
+ return validateTriageOutput(value,validated);
 }
