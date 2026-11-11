@@ -154,6 +154,16 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    await db.chessCalendarPreference.delete({where:{clerkUserId}});
   }
  });
+ it("persists restricted worker run outcome metrics in a tenant schema",async()=>{
+  const run=await db.chessWorkerRun.create({data:{
+   kind:"RECURRING_WORK",status:"DEGRADED",examined:10,processed:8,blocked:2,
+  }});
+  try{
+   const read=await db.chessWorkerRun.findUnique({where:{id:run.id}});
+   expect(read?.kind).toBe("RECURRING_WORK");
+   expect(read?.blocked).toBe(2);
+  }finally{await db.chessWorkerRun.delete({where:{id:run.id}});}
+ });
  it("rejects a service link whose client profile does not exist",async()=>{
   await expect(db.clientServiceLink.create({data:{
    profileId:"missing-profile-id",businessId,service:"TAX",
