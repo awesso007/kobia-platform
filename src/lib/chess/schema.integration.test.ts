@@ -46,6 +46,54 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
   }})).rejects.toThrow();
   await expect(db.chessSecurityEvent.delete({where:{id:event.id}})).rejects.toThrow();
  });
+ it("preserves accepted client consent policy and proof with append-only database controls",async()=>{
+  const nonce="consent-sec-"+Date.now().toString(36);
+  const policyText="Fictional client consent policy: this is a test-only disclosure "+
+   "used solely to validate append-only source consent evidence.";
+  const base={businessId:nonce,clientProfileId:"fictional-"+nonce,
+   purpose:"service:BOOKKEEPING",policyVersion:"test-v1",policyText};
+  // Consent evidence is intentionally left in this ephemeral CI database:
+  // the append-only retention trigger prohibits deleting audit records.
+  await expect(db.chessClientConsent.create({data:{
+   ...base,status:"GRANTED",
+  }})).rejects.toThrow();
+  const consent=await db.chessClientConsent.create({data:base});
+  expect(consent.status).toBe("PENDING");
+  await expect(db.chessClientConsent.update({where:{id:consent.id},
+   data:{policyText:"Tampered with before consent approval"},
+  })).rejects.toThrow();
+  await expect(db.chessClientConsent.update({where:{id:consent.id},
+   data:{status:"GRANTED"},
+  })).rejects.toThrow();
+  const verified=new Date(Date.now()-1000);
+  const granted=await db.chessClientConsent.update({where:{id:consent.id},
+   data:{status:"GRANTED",consentedAt:verified,
+    acceptedByClerkUserId:"fictional-clerk-verified",
+    verifiedEmailDigest:"a".repeat(64),
+    acceptanceEvidenceDigest:"b".repeat(64)},
+  });
+  expect(granted.status).toBe("GRANTED");
+  await expect(db.chessClientConsent.update({where:{id:consent.id},
+   data:{policyVersion:"forged-v2"},
+  })).rejects.toThrow();
+  await expect(db.chessClientConsent.update({where:{id:consent.id},
+   data:{acceptedByClerkUserId:"forged-user"},
+  })).rejects.toThrow();
+  await expect(db.chessClientConsent.update({where:{id:consent.id},
+   data:{status:"PENDING"},
+  })).rejects.toThrow();
+  await expect(db.chessClientConsent.delete({where:{id:consent.id}}))
+   .rejects.toThrow();
+  const revoked=await db.chessClientConsent.update({where:{id:consent.id},
+   data:{status:"WITHDRAWN",withdrawnAt:new Date()},
+  });
+  expect(revoked.status).toBe("WITHDRAWN");
+  await expect(db.chessClientConsent.update({where:{id:consent.id},
+   data:{status:"GRANTED"},
+  })).rejects.toThrow();
+  await expect(db.chessClientConsent.delete({where:{id:consent.id}}))
+   .rejects.toThrow();
+ });
  it("persists pinned S3 version metadata without exposing object bytes",async()=>{
   const record=await db.chessClientDocument.create({data:{
    businessId:"integration-unit",clientProfileId:"integration-client",service:"TAX",

@@ -22,8 +22,17 @@ export async function requestClientConsent(input: unknown) {
  const {db}=getTenantDb();
  const profile=await db.clientProfile.findUnique({where:{id:data.clientProfileId},select:{id:true}});
  if (!profile) throw new PermissionError("record:read");
- return db.chessClientConsent.create({
-  data, select:{id:true,businessId:true,clientProfileId:true,purpose:true,policyVersion:true,status:true},
+ return db.$transaction(async tx=>{
+  const consent=await tx.chessClientConsent.create({
+   data,select:{id:true,businessId:true,clientProfileId:true,
+    purpose:true,policyVersion:true,status:true},
+  });
+  await tx.chessSecurityEvent.create({data:{
+   businessId:data.businessId,actorClerkUserId:actor.clerkUserId,
+   action:"CLIENT_CONSENT_REQUESTED",resourceType:"ChessClientConsent",
+   resourceId:consent.id,decision:"REVIEW",
+  }});
+  return consent;
  });
 }
 
@@ -34,9 +43,19 @@ export async function withdrawClientConsent(consentId: string,businessId: string
  const actor=await getCurrentMembership();
  if (!actor || !["OWNER","ADMIN"].includes(actor.role)) throw new PermissionError("record:update");
  const {db}=getTenantDb();
- return db.chessClientConsent.updateMany({
-  where:{id:consentId,businessId,status:"GRANTED"},
-  data:{status:"WITHDRAWN",withdrawnAt:new Date()},
+ return db.$transaction(async tx=>{
+  const changed=await tx.chessClientConsent.updateMany({
+   where:{id:consentId,businessId,status:"GRANTED"},
+   data:{status:"WITHDRAWN",withdrawnAt:new Date()},
+  });
+  if(changed.count===1){
+   await tx.chessSecurityEvent.create({data:{
+    businessId,actorClerkUserId:actor.clerkUserId,
+    action:"CLIENT_CONSENT_WITHDRAWN",resourceType:"ChessClientConsent",
+    resourceId:consentId,decision:"ALLOW",
+   }});
+  }
+  return changed;
  });
 }
 
