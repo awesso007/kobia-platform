@@ -9,7 +9,7 @@ import {billingProviderConfigured,deliverChessInvoice,
  checkChessInvoiceStatus} from "./billing-provider";
 
 const ref=z.string().min(1).max(128);
-const productCodes={
+export const productCodes={
  ACCOUNTING:["ACCOUNTING_MONTHLY","ACCOUNTING_PROJECT"],
  BOOKKEEPING:["BOOKKEEPING_MONTHLY","BOOKKEEPING_CLEANUP"],
  PAYROLL:["PAYROLL_PROCESSING"],
@@ -61,7 +61,7 @@ export function canSendApprovedInvoice(invoice:{
   sender!==invoice.createdByClerkUserId&&
   sender!==invoice.approvedByClerkUserId;
 }
-async function scopedInvoiceCase(
+export async function scopedInvoiceCase(
  businessId:string,clientProfileId:string,serviceCaseId:string,
  service:BillableService,
 ){
