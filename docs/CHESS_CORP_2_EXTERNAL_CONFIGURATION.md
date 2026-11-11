@@ -611,6 +611,8 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
 - Create the protected GitHub environment `chess-authz-e2e` and set
   `CHESS_AUTHZ_E2E_VALIDATE=true`,
   `CHESS_AUTHZ_E2E_ISOLATED=true`,
+  `CHESS_AUTHZ_E2E_ALLOWED_HOSTS` (comma-separated EXACT two trusted
+  HTTPS staging hostnames; no arbitrary host permitted),
   `CHESS_AUTHZ_E2E_BASE_URL` (HTTPS tenant A origin),
   `CHESS_AUTHZ_E2E_OTHER_TENANT_URL` (HTTPS tenant B origin),
   `CHESS_AUTHZ_E2E_BUSINESS_ID` (allowed unit in tenant A),
@@ -643,6 +645,7 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
   `DIRECT_URL` (the source database URL; secret),
   `CHESS_DR_RESTORE_DATABASE_URL` (a different restored database
   name, isolated credentials; secret),
+  `CHESS_DR_RESTORE_ALLOWED_HOST` (exact isolated database hostname),
   `CHESS_DR_TEST_TENANT` (safe fictional tenant slug), and
   `CHESS_DR_WITNESS_SECURITY_EVENT_ID` (a real immutable test
   event from BEFORE the backup; protected).
@@ -651,7 +654,8 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
   `CHESS_DR_BACKUP_OBJECT_KEY`,
   `CHESS_DR_BACKUP_OBJECT_VERSION`,
   `CHESS_DR_BACKUP_REGION`,
-  `CHESS_DR_BACKUP_ENDPOINT` (optional S3-compatible endpoint),
+  `CHESS_DR_BACKUP_ENDPOINT` (optional S3-compatible HTTPS endpoint),
+  `CHESS_DR_BACKUP_ALLOWED_HOST` (exact hostname if endpoint is supplied),
   `CHESS_DR_BACKUP_ACCESS_KEY_ID` (secret),
   `CHESS_DR_BACKUP_SECRET_ACCESS_KEY` (secret),
   `CHESS_DR_MAX_BACKUP_AGE_HOURS` (1-72, default 24),
