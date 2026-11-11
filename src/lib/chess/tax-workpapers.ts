@@ -90,8 +90,11 @@ export async function createChessTaxWorkpaper(value:unknown){
  const data=createSchema.parse(value);
  const startAt=new Date(data.startAt),endAt=new Date(data.endAt);
  const days=(endAt.getTime()-startAt.getTime())/86400000;
- if(!Number.isFinite(days)||days<28||days>367||
-  startAt.getUTCFullYear()!==data.taxYear)
+ // Supports calendar and non-calendar fiscal periods as internal evidence.
+ // The actual federal/state tax year designation still requires a preparer.
+ const touchesTaxYear=startAt.getUTCFullYear()===data.taxYear ||
+  endAt.getUTCFullYear()===data.taxYear;
+ if(!Number.isFinite(days)||days<28||days>367||!touchesTaxYear)
   throw new RangeError("Invalid tax workpaper period.");
  const state=await usableTaxCase(data.businessId,data.clientProfileId,data.serviceCaseId);
  const snapshot=await fetchTaxLedger(state.tenantId,state.entityId,startAt,endAt);
