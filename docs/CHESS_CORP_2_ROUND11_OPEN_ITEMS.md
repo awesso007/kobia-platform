@@ -364,3 +364,16 @@ manufacture evidence for legacy clients.
   independently signed approval policy, bank provider and month-end tests
   remain required before production release. No financial capability or
   provider approval can be inferred from the new preview.
+
+
+## Round 19 - demo readiness code and sandbox acceptance
+
+- **DEMO-01 [EXTERNAL]** Real Neon chess_demo non-pooled URL, Clerk TEST
+  publishable/secret keys, verified test-owner email and Codespaces allowed
+  origin remain owner-supplied. They must not be committed or uploaded to CI.
+- **DEMO-02 [CODE VERIFIED BY CI, EXTERNAL BROWSER PENDING]** Added actual
+  PostgreSQL seed integration job, pre-DDL database isolation checker,
+  safe rerun protections, gated /app/demo tour and corrected README.
+  The user still must validate a real Codespaces browser and authenticated
+  Clerk test login. No separate financial or regulated execution gate lifted.
+- **M1-M8** retain their release and external evidence statuses above.

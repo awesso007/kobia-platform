@@ -41,3 +41,29 @@
 3. Verified Clerk test-user email, plus allowed Codespaces origin setting.
 
 Never use real customers or production accounts in this demo.
+
+
+## Round 19 verification follow-up
+
+- CI previously skipped demo-fixtures.integration.test.ts. The PostgreSQL job now
+  explicitly runs it alongside schema.integration.test.ts with
+  RUN_CHESS_DB_INTEGRATION=1. An ordinary green application build alone was
+  insufficient evidence for the demo seed.
+- Codespaces setup now performs a read-only, pre-migration catalog and registry
+  inspection. It refuses unrelated public tables, independent tenant schemas,
+  or existing non-DEMO tenant mappings before any DDL.
+- Repeating the fictional setup never reinstates a revoked employee assignment.
+  Setup refuses to report success if required fictional active assignments,
+  expected pending consent, or no-service-grant invariants are broken.
+- /app/demo is a gated tenant-scoped guided preview of the eight CHESS service
+  families. Only the demo tenant's active OWNER/ADMIN sees fictional names and
+  counts; no permission, consent, license, financial or external execution
+  is granted by the demo switch.
+- NEXT_PUBLIC_CLERK_SIGN_IN_URL and NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL
+  must replace the older generic values in the Codespaces .env.local.
+- Actual live Codespaces/Neon/Clerk browser sign-in remains EXTERNAL
+  until the owner supplies sandbox credentials. Green CI cannot certify a
+  browser session, the physical Neon sandbox or professional consent.
+
+**Release status: still not merged/deployed.** No source-level demo
+completion can close the independent M1-M8 regulatory and operational gates.

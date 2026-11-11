@@ -48,7 +48,7 @@ Each KOBIA tenant gets:
 
 ---
 
-## CHESS Corporation fictional demo (Round 18, feature branch only)
+## CHESS Corporation fictional demo (Round 19, feature branch only)
 
 **Never merge this feature branch or point it at the production database.**
 The production Vercel site continues to use main. This setup is for your own
@@ -82,15 +82,20 @@ transactions are seeded or sent anywhere.
    | NEXT_PUBLIC_DEFAULT_TENANT | chess-demo |
    | NEXT_PUBLIC_ROOT_DOMAIN | kobia.ai |
    | NEXT_PUBLIC_APP_URL | http://localhost:3000 |
+   | NEXT_PUBLIC_CLERK_SIGN_IN_URL | /chess-demo/login (replace older /login default) |
+   | NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL | /app/overview (replace older /dashboard default) |
 
    **Do not paste credentials into GitHub issues, pull requests, or ChatGPT.**
    No DIRECT_URL, Stripe, banking, tax, mortgage, calendar, AI or payment
    keys are required for the limited demo. The setup command uses the
    non-pooled DATABASE_URL as the migration connection.
-4. Run **npm run demo:setup** once. It runs the platform migrations,
-   creates only the tenant_chess_demo schema, deploys tenant migrations into
-   that schema, and idempotently seeds 8 invented business units, 3 invented
-   employees, 5 invented clients and example work items.
+4. Run **npm run demo:setup**. It checks the database contents **before any
+   migration**, refuses unrelated tenants or legacy public tables, deploys
+   platform and tenant migrations, and seeds 8 fictional business units,
+   3 fictional employees, 5 fictional clients, sample tasks, and 5 PENDING
+   disclosure requests. Re-running on the same untouched demo is safe.
+   It never restores a revoked employee assignment, simulates a signature,
+   or grants permission to a client service.
 5. Run **npm run dev -- -H 0.0.0.0**. Forward port **3000** and open the
    Codespaces preview URL. Browse to **/chess-demo/login** and sign in as
    the verified Clerk test user matching CHESS_DEMO_OWNER_EMAIL.
@@ -100,11 +105,12 @@ transactions are seeded or sent anywhere.
    business units, staff, client profiles, tasks, finance and regulatory
    coordination, and reports. Client-service grants are intentionally absent;
    the demo does NOT enable cross-business sensitive records or externally
-   executing actions.
+   executing actions. Open **/app/demo** for the guided eight-service preview.
 
 **Safety checks:** npm run demo:setup refuses NODE_ENV=production, live Clerk
 credentials, pooled Neon URLs, any database name other than chess_demo,
-missing test-owner allowlist and mismatched default tenant. Setting
+missing test-owner allowlist, mismatched default tenant, unexpected legacy
+public tables, or any non-demo tenant schema or registration. Setting
 CHESS_DEMO_MODE=true does not bypass the independent service release gates.
 
 See [Round 18 demo acceptance](docs/CHESS_CORP_2_ROUND18_DEMO.md).
@@ -113,15 +119,17 @@ See [Round 18 demo acceptance](docs/CHESS_CORP_2_ROUND18_DEMO.md).
 
 ## Getting Started
 
-### Option A — GitHub Codespaces (recommended for Wilfred, no laptop setup)
+### Option A — Legacy KOBIA development on main (NOT the CHESS demo)
 
 1. Go to [github.com/awesso007/kobia-platform](https://github.com/awesso007/kobia-platform)
 2. Click the green **"Code"** button → **"Codespaces"** tab → **"Create codespace on main"**
+   **Do not use these legacy steps for the CHESS demo. Use Round 19 above.**
 3. Wait ~2 minutes for the environment to spin up
 4. In the Codespace terminal, run:
    ```bash
    cp .env.example .env.local
    npm install
+   # Only for a disposable local DB; never run db:push on production.
    npm run db:push
    npm run dev
    ```
