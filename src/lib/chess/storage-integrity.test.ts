@@ -8,6 +8,7 @@ describe("sensitive document S3 version pinning",()=>{
  });
  it("denies unversioned storage and replaced content",()=>{
   expect(matchesPinnedDocument({...doc,storageVersionId:null},head)).toBe(false);
+  expect(matchesPinnedDocument({...doc,storageVersionId:"null"},{...head,versionId:"null"})).toBe(false);
   expect(matchesPinnedDocument(doc,{...head,versionId:"version-456"})).toBe(false);
   expect(matchesPinnedDocument(doc,{...head,etag:"different"})).toBe(false);
   expect(matchesPinnedDocument(doc,{...head,size:17})).toBe(false);
