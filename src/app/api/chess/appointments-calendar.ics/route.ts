@@ -11,7 +11,7 @@ export async function GET(request:Request){
   const businessId=z.string().min(1).max(128).parse(new URL(request.url).searchParams.get("businessId"));
   const own=await listMyChessAppointmentTimes(businessId);
   const content=toPrivateChessCalendar(own.map(appt=>({
-   id:appt.id,dueAt:appt.startAt,status:appt.status,kind:"APPOINTMENT" as const,
+   id:appt.id,dueAt:appt.startAt,endAt:appt.endAt,status:appt.status,kind:"APPOINTMENT" as const,
   })));
   return new NextResponse(content,{headers:{
    "Content-Type":"text/calendar; charset=utf-8",
