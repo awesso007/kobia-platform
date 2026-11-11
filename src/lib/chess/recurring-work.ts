@@ -1,4 +1,4 @@
-import {randomBytes,timingSafeEqual} from "node:crypto";
+import {createHash,timingSafeEqual} from "node:crypto";
 import {z} from "zod";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {PermissionError} from "@/lib/rbac/require-permission";
@@ -19,13 +19,8 @@ export function isAuthorizedRecurrenceWorker(provided:string):boolean{
  const secret=process.env.CHESS_WORKFLOW_WORKER_TOKEN;
  if(!secret || secret.length<32 || !provided)return false;
  // timingSafeEqual requires fixed-length buffers; hash first.
- const key=Buffer.from(secret,"utf8");
- const value=Buffer.from(provided,"utf8");
- const expected=randomBytes(0); // no random value is used in the comparison
- void expected;
- const crypto=require("node:crypto") as typeof import("node:crypto");
- return timingSafeEqual(crypto.createHash("sha256").update(key).digest(),
-   crypto.createHash("sha256").update(value).digest());
+ return timingSafeEqual(createHash("sha256").update(secret).digest(),
+   createHash("sha256").update(provided).digest());
 }
 
 export async function createChessRecurrence(input:unknown){
