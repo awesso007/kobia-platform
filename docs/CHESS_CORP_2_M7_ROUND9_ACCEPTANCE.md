@@ -95,3 +95,18 @@ These manual provider/session tests have **not** run or been asserted to pass.
 **Milestone 7 feature-code scope is implemented in this branch, but
 provider-connected financial execution, payment collection, audited
 statutory reporting and production deployment remain unverified and blocked.**
+
+## Scheduled AI worker health addition
+
+The AI-run endpoint now records a separate `AI_TRIAGE` status and
+examined/generated/blocked counters for each completed enabled run.
+Apply `20261111333000_chess_m7_ai_triage_health` to each isolated
+tenant schema before updating applications. A failed DB migration leaves
+the worker unable to report success. Only ACTIVE tenant OWNER/ADMIN
+sees AI worker run summaries in the UI; no task titles or model payloads
+are exposed by this metric. The existing
+`CHESS_WORKFLOW_WORKER_TOKEN`, `CHESS_SCHEDULER_ENABLED`,
+`CHESS_AI_TRIAGE_ENABLED`, `CHESS_AI_DATA_SHARING_APPROVED`,
+`CHESS_ACTIVE_TENANT_SLUGS` and approved HTTPS gateway settings
+are still required. A configured flag is not proof of a successful
+live provider sandbox request.

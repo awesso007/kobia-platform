@@ -698,3 +698,16 @@ and staging pilot remain mandatory. A green CI build verifies the
 development branch only, not a production release.
 
 **Do not merge or deploy regulated live workflows without external gates.**
+
+### Round 9 follow-up - AI scheduled triage observability
+- AI triage worker now creates its own tenant-local `AI_TRIAGE`
+  `ChessWorkerRun` record containing only examined/generated/blocked
+  counts and run status. This requires additive migration
+  `20261111333000_chess_m7_ai_triage_health` applied to every tenant schema.
+- Active tenant owners/admins can view last recorded AI-run health inside
+  `/app/ai-operations`; managers do not receive tenant-wide worker metrics.
+- Tests verify that PostgreSQL accepts the new enum kind and stores bounded
+  nonclient worker metrics. Worker errors are reported as failed where
+  persistence remains available. No vendor has been activated by this code.
+
+**External gateway and production release restrictions remain in force.**
