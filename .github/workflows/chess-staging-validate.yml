@@ -101,6 +101,9 @@ jobs:
             npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund @next/swc-linux-x64-gnu@14.2.15
           fi
           node -e "require('@next/swc-linux-x64-gnu')"
+      - name: Block releases with high or critical production dependency advisories
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Validate injected configuration
         run: node scripts/chess-deploy-validate.mjs
       - name: Validate external infrastructure (read-only)

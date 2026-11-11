@@ -27,6 +27,16 @@ const response=await fetch(url.origin+"/api/chess/staging-attestation",{
 if(response.status!==200)throw new Error("Deployed staging identity check did not authenticate.");
 if(!(response.headers.get("cache-control")??"").toLowerCase().includes("no-store"))
  throw new Error("Staging attestation response may be cached.");
+if(response.headers.get("x-content-type-options")!=="nosniff"||
+ response.headers.get("x-frame-options")!=="DENY")
+ throw new Error("Deployed staging response is missing private security headers.");
+const anonymous=await fetch(url.origin+"/api/chess/staging-attestation",{
+ method:"GET",redirect:"error",cache:"no-store",
+ headers:{"Accept":"application/json"},
+ signal:AbortSignal.timeout(10000),
+});
+if(anonymous.status!==403)
+ throw new Error("Deployed staging disclosed build identity without machine authentication.");
 const result=await response.json();
 if(!result||Object.keys(result).sort().join(",")!=="environment,releaseSha"||
  result.releaseSha!==expected||result.environment!=="staging")

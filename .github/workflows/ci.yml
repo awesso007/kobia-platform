@@ -61,6 +61,7 @@ jobs:
           node --check scripts/chess-authz-e2e.mjs
           node --test scripts/chess-authz-e2e-check.mjs
           node --check scripts/chess-staging-verify.mjs
+          node --test scripts/chess-staging-verify-check.mjs
 
       - name: Build
         run: npm run build
