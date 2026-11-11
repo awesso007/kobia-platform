@@ -82,7 +82,21 @@ export async function withdrawOwnClientConsent(consentId:string) {
    data:{status:"WITHDRAWN",withdrawnAt:new Date()},
   });
   if(changed.count===1){
-   const consent=await tx.chessClientConsent.findUnique({where:{id:consentId},select:{businessId:true}});
+   const consent=await tx.chessClientConsent.findUnique({where:{id:consentId},
+    select:{businessId:true,clientProfileId:true,purpose:true}});
+   const match=consent?.purpose.match(/^(?:billing|service):(ACCOUNTING|BOOKKEEPING|PAYROLL|TAX)$/);
+   if(consent&&match){
+    const paused=await tx.chessBillingSubscriptionPlan.updateMany({where:{
+     businessId:consent.businessId,clientProfileId:consent.clientProfileId,
+     service:match[1] as "ACCOUNTING"|"BOOKKEEPING"|"PAYROLL"|"TAX",
+     status:"ACTIVE",
+    },data:{status:"PAUSED"}});
+    if(paused.count)await tx.chessSecurityEvent.create({data:{
+     businessId:consent.businessId,actorClerkUserId:clerkUserId,
+     action:"RECURRING_INVOICE_PLANS_PAUSED_CONSENT_WITHDRAWN",
+     resourceType:"ChessClientConsent",resourceId:consentId,decision:"DENY",
+    }});
+   }
    await tx.chessSecurityEvent.create({data:{
     businessId:consent?.businessId,actorClerkUserId:clerkUserId,action:"CLIENT_CONSENT_WITHDRAWN",
     resourceType:"ChessClientConsent",resourceId:consentId,decision:"ALLOW",
