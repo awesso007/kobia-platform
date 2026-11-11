@@ -84,7 +84,7 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    expect(events.some(e=>e.resourceId===null&&e.decision==="DENY")).toBe(true);
    expect(events.every(e=>e.actorClerkUserId===actor.clerkUserId)).toBe(true);
    expect(events.every(e=>e.resourceType==="ClientServiceLink")).toBe(true);
-   await expect(db.chessSecurityEvent.update({where:{id:events[0].id},
+   await expect(db.chessSecurityEvent.update({where:{id:events[0]!.id},
     data:{decision:"ALLOW"},
    })).rejects.toThrow();
   }finally{
