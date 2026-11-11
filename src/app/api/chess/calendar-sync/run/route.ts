@@ -17,7 +17,7 @@ export async function POST(request:Request){
   if(result.disabled)throw new Error("Calendar gateway disabled");
   await recordChessWorkerRun("CALENDAR_SYNC",{
    examined:result.examined,processed:result.synced+result.cancelled,
-   blocked:result.rejected+result.unknown+result.cancelUnknown,
+   blocked:result.rejected+result.unknown+result.cancelUnknown+result.reconciliationUnresolved,
   });
   return NextResponse.json(result,{headers:{"Cache-Control":"no-store"}});
  }catch{
