@@ -4029,6 +4029,23 @@ model ChessBillingInvoice {
   @@index([clientProfileId,businessId])
 }
 
+// M7 frozen, independently reviewed operational month-end snapshots.
+// Explicitly NOT a GAAP close, settlement report or cross-entity consolidation.
+model ChessOperationalPeriodSnapshot {
+  id String @id @default(cuid())
+  businessId String
+  month String
+  reportJson String
+  sourceDigest String
+  status String @default("PENDING")
+  createdByClerkUserId String
+  reviewedByClerkUserId String?
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  @@unique([businessId,month])
+  @@index([businessId,status,createdAt])
+}
+
 // CHESS CORP 2 M8 - append-only application audit event metadata.
 // Must be complemented by DB append-only policy and secured log export.
 model ChessSecurityEvent {
