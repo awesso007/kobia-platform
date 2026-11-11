@@ -1,13 +1,52 @@
 import {getTenantDb} from "@/lib/db/get-tenant-db";
-import {calendarGatewayConfigured,submitCalendarEvent} from "./calendar-provider";
+import {calendarGatewayConfigured,submitCalendarEvent,cancelCalendarEvent} from "./calendar-provider";
 import {maySyncCalendar} from "./calendar-preferences";
 
 /** Drain a bounded tenant-local calendar outbox. Unknown provider outcomes
  * are never retried automatically. A reconciler must query the gateway by
  * idempotency key before requeueing an UNKNOWN event. */
 export async function syncChessPendingCalendarEvents(){
- if(!calendarGatewayConfigured())return {disabled:true,examined:0,synced:0,rejected:0,unknown:0};
+ if(!calendarGatewayConfigured())return {disabled:true,examined:0,synced:0,rejected:0,unknown:0,cancelled:0,cancelUnknown:0};
  const {db,tenantId}=getTenantDb();
+ let cancelled=0,cancelUnknown=0;
+ const cancellations=await db.chessCalendarOutbox.findMany({
+  where:{status:"CANCEL_PENDING"},take:10,orderBy:{createdAt:"asc"},
+ });
+ for(const entry of cancellations){
+  const claim=await db.chessCalendarOutbox.updateMany({
+   where:{id:entry.id,status:"CANCEL_PENDING"},
+   data:{status:"CANCEL_SUBMITTING"},
+  });
+  if(claim.count!==1)continue;
+  try{
+   if(!entry.providerEventId)throw new Error("Provider event reference missing.");
+   const result=await cancelCalendarEvent({
+    tenantSlug:tenantId,businessId:entry.businessId,workItemId:entry.workItemId,
+    recipientClerkUserId:entry.recipientClerkUserId,providerEventId:entry.providerEventId,
+    idempotencyKey:`cancel:${entry.id}`,
+   });
+   const status=result.status==="accepted"?"CANCELLED" as const:"CANCEL_UNKNOWN" as const;
+   await db.$transaction(async tx=>{
+    await tx.chessCalendarOutbox.updateMany({
+     where:{id:entry.id,status:"CANCEL_SUBMITTING"},data:{
+      status,lastErrorCode:status==="CANCEL_UNKNOWN"?"CANCELLATION_REJECTED":null,
+     },
+    });
+    await tx.chessSecurityEvent.create({data:{
+     businessId:entry.businessId,action:"CALENDAR_CANCEL_RESULT",
+     resourceType:"ChessCalendarOutbox",resourceId:entry.id,
+     decision:status==="CANCELLED"?"ALLOW":"REVIEW",
+    }});
+   });
+   if(status==="CANCELLED")cancelled++;else cancelUnknown++;
+  }catch{
+   await db.chessCalendarOutbox.updateMany({
+    where:{id:entry.id,status:"CANCEL_SUBMITTING"},
+    data:{status:"CANCEL_UNKNOWN",lastErrorCode:"CANCELLATION_OUTCOME_UNCONFIRMED"},
+   });
+   cancelUnknown++;
+  }
+ }
  const pending=await db.chessCalendarOutbox.findMany({
   where:{status:"PENDING"},orderBy:{createdAt:"asc"},take:10,
  });
@@ -81,5 +120,5 @@ export async function syncChessPendingCalendarEvents(){
    unknown++;
   }
  }
- return {disabled:false,examined:pending.length,synced,rejected,unknown};
+ return {disabled:false,examined:pending.length,synced,rejected,unknown,cancelled,cancelUnknown};
 }
