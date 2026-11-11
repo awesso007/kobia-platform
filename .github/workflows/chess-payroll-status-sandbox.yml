@@ -1,0 +1,30 @@
+name: CHESS payroll provider status sandbox contract
+on:
+  workflow_dispatch:
+jobs:
+  payroll-status-read-only:
+    runs-on: ubuntu-latest
+    environment: chess-payroll-sandbox
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      CHESS_PAYROLL_SANDBOX_VALIDATE: ${{ vars.CHESS_PAYROLL_SANDBOX_VALIDATE }}
+      CHESS_PAYROLL_SANDBOX_ISOLATED: ${{ vars.CHESS_PAYROLL_SANDBOX_ISOLATED }}
+      CHESS_PAYROLL_STATUS_API_URL: ${{ vars.CHESS_PAYROLL_STATUS_API_URL }}
+      CHESS_PAYROLL_ALLOWED_HOST: ${{ vars.CHESS_PAYROLL_ALLOWED_HOST }}
+      CHESS_PAYROLL_API_KEY: ${{ secrets.CHESS_PAYROLL_API_KEY }}
+      CHESS_PAYROLL_SANDBOX_TENANT_ID: ${{ vars.CHESS_PAYROLL_SANDBOX_TENANT_ID }}
+      CHESS_PAYROLL_SANDBOX_ENTITY_ID: ${{ vars.CHESS_PAYROLL_SANDBOX_ENTITY_ID }}
+      CHESS_PAYROLL_SANDBOX_PAYRUN_ID: ${{ vars.CHESS_PAYROLL_SANDBOX_PAYRUN_ID }}
+      CHESS_PAYROLL_SANDBOX_PROVIDER_REQUEST_ID: ${{ vars.CHESS_PAYROLL_SANDBOX_PROVIDER_REQUEST_ID }}
+      CHESS_PAYROLL_SANDBOX_IDEMPOTENCY_KEY: ${{ secrets.CHESS_PAYROLL_SANDBOX_IDEMPOTENCY_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Query a previously created fictional vendor pay run (read-only)
+        run: node scripts/chess-payroll-status-sandbox.mjs
+
+# Manual only. The job cannot create a payroll run or send money.
