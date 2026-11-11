@@ -162,3 +162,39 @@ records until all release gates are independently verified.
 
 **Release hold stays in force.** Missing provider credentials or an unverified
 staging run cannot be reported as a completed production milestone.
+
+
+## 2026-11-10 continued implementation: scheduled operations and manager controls
+- **M4 recurrence code:** tenant-local ChessWorkRecurrence with UTC daily, weekly
+  and monthly schedules, month-end anchoring, a versioned PostgreSQL migration,
+  unique occurrence keys, and worker-side transaction claims.
+- **M4 employee alerts:** private per-recipient notification inbox with dedupe
+  keys, mark-read API, automatic notifications for assigned manual/recurring
+  work, and server-side access checks.
+- **M4 manager oversight:** active business-unit MANAGER role can view blocked,
+  overdue and unassigned work, and perform concurrency-safe staff assignments.
+  Other members cannot retrieve coworkers' manager queues.
+- **M4 application UI:** /app/work-items provides task transitions, an employee
+  notification list and manager oversight summary.
+- **M4 calendar export:** authenticated, privacy-preserving UTC iCalendar
+  export for authorized work. No client names or regulated records are included.
+- **M4 recurring worker:** token-gated POST per tenant, a disabled-by-default
+  scheduler workflow and tenant allowlist example. No live recurring work is
+  processed until the scheduler is configured and enabled.
+- **M8 checks:** unit tests cover recurrence date arithmetic, transitions
+  and worker authorization; PostgreSQL integration tests enforce unique tasks
+  and alerts; anonymous-access security smoke tests include new endpoints.
+- Not complete: live calendar OAuth synchronization, staff alerts beyond the
+  in-app inbox, appointment booking/collision prevention, scheduler monitoring,
+  staging deployment, production provider configuration and compliance review.
+
+## Remaining prioritized engineering work
+1. Real calendar-provider integration with delegated access and cancellations.
+2. Scheduling observability, repeated failures and overdue notification policies.
+3. End-to-end multi-tenant role/permission tests with realistic sign-in.
+4. Provider sandbox validation (payroll, registry, e-signature, private storage).
+5. Accounting, tax, billing, cross-business reporting and supervised AI modules.
+6. Disaster recovery, external penetration testing, accessibility and compliance.
+7. Production-like staged pilot and verified production release gates.
+
+The presence of these commits does not establish production readiness.
