@@ -437,8 +437,9 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
   REAL_ESTATE, INVESTMENTS), `CHESS_M6_SANDBOX_PRACTITIONER_REGISTRY_ID`,
   `CHESS_M6_SANDBOX_FIRM_REGISTRY_ID`,
   `CHESS_M6_SANDBOX_JURISDICTION`, `CHESS_M6_SANDBOX_TENANT`,
-  `CHESS_M6_SANDBOX_BUSINESS_ID`, the M6 affiliation API/source host
-  configuration and secret key, and the partner handoff/status URLs,
+  `CHESS_M6_SANDBOX_BUSINESS_ID`, the official individual-license API URL,
+  approved hostname, source-host allowlist and secret key, the M6 affiliation
+  API/source host configuration and secret key, and the partner handoff/status URLs,
   approved hostname and secret key. Also supply the relevant
   `CHESS_REGULATED_PARTNER_<SERVICE>` variable.
 - Manually dispatch `chess-regulated-sandbox.yml` once for each service
