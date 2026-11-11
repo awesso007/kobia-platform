@@ -35,6 +35,11 @@ async function main() {
  await probe("/api/chess/appointments-calendar.ics?businessId=unowned",{},allowedDenied);
  await probe("/api/chess/staff?businessId=unowned",{},allowedDenied);
  await probe("/api/chess/bank-reviews?businessId=unowned",{},allowedDenied);
+ await probe("/api/chess/bank-feed?businessId=unowned",{},allowedDenied);
+ await probe("/api/chess/bank-feed/import",{
+  method:"POST",headers:{"Content-Type":"application/json",
+   "Origin":"https://attacker.example"},body:"{}",
+ },allowedDenied);
  await probe("/api/chess/tax-workpapers?businessId=unowned",{},allowedDenied);
  await probe("/api/chess/payroll-status?businessId=unowned",{},allowedDenied);
  await probe("/api/chess/worker-health",{},allowedDenied);
