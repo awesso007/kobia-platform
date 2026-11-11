@@ -1,7 +1,8 @@
 import {z} from "zod";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
-import {PermissionError} from "@/lib/rbac/require-permission";
+import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
 import {assertBusinessManager} from "./business-manager";
+import {assertBusinessAccess} from "./business-units";
 
 export const appointmentInput=z.object({
  businessId:z.string().min(1).max(128),
@@ -138,4 +139,19 @@ export async function listChessAssignableStaff(businessId:string){
   displayName:names.get(a.clerkUserId)||"Assigned staff member",
   role:a.role,
  }));
+}
+
+
+/** Staff can export only their own appointments, never coworkers' subjects
+ * or confidential client-profile links. The calendar emits generic titles. */
+export async function listMyChessAppointmentTimes(businessId:string){
+ await assertBusinessAccess(businessId);
+ const actor=await getCurrentMembership();
+ if(!actor||actor.status!=="ACTIVE")throw new PermissionError("record:read");
+ const {db}=getTenantDb();
+ return db.chessAppointment.findMany({
+  where:{businessId,assignedClerkUserId:actor.clerkUserId,status:"SCHEDULED"},
+  select:{id:true,startAt:true,status:true},
+  orderBy:{startAt:"asc"},take:100,
+ });
 }
