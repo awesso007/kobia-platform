@@ -6,7 +6,8 @@ const vendorReply=z.object({
  status:z.enum(["accepted","pending","rejected","not_found"]),
 }).strict();
 export function billingProviderConfigured():boolean{
- if(process.env.CHESS_BILLING_DELIVERY_ENABLED!=="true")return false;
+ if(process.env.CHESS_BILLING_DELIVERY_ENABLED!=="true"||
+    process.env.CHESS_BILLING_VENDOR_CERTIFIED!=="true")return false;
  const host=process.env.CHESS_BILLING_ALLOWED_HOST;
  const token=process.env.CHESS_BILLING_API_KEY;
  const urls=[process.env.CHESS_BILLING_DELIVERY_API_URL,
