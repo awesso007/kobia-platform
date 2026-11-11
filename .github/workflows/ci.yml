@@ -65,11 +65,13 @@ jobs:
           node --check scripts/chess-dr-restore-validate.mjs
           node --test scripts/chess-dr-policy-check.mjs
           node --test scripts/chess-dr-evidence-check.mjs
-          node --check scripts/chess-audit-archive-sandbox.mjs
+          node --test scripts/chess-dr-acceptance-check.mjs
+          node --check scripts/chess-dr-restore-validate.mjs
           node --check scripts/chess-authz-e2e.mjs
           node --test scripts/chess-authz-e2e-check.mjs
           node --check scripts/chess-staging-verify.mjs
           node --test scripts/chess-staging-verify-check.mjs
+          node --check scripts/chess-audit-archive-sandbox.mjs
 
       - name: Build
         run: npm run build
