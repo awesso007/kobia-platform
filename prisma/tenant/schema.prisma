@@ -3527,3 +3527,60 @@ model WorkgroupJoinRequest {
   @@index([userId])
   @@index([status])
 }
+
+
+// CHESS CORP 2: tenant-local unified client profile.
+// The shared profile contains only minimal CRM identifiers. Sensitive documents
+// and regulated practice records stay in separate service-specific modules.
+// Cross-tenant identity resolution must be separately consented and implemented.
+enum ClientServiceArea {
+  ACCOUNTING
+  BOOKKEEPING
+  PAYROLL
+  TAX
+  MORTGAGE
+  INSURANCE
+  REAL_ESTATE
+  INVESTMENTS
+}
+
+model ClientProfile {
+  id                String   @id @default(cuid())
+  displayName       String
+  contactId         String?  @unique
+  ownerClerkUserId  String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  serviceLinks      ClientServiceLink[]
+
+  @@index([displayName])
+  @@index([ownerClerkUserId])
+}
+
+model ClientServiceLink {
+  id           String            @id @default(cuid())
+  profileId    String
+  service      ClientServiceArea
+  externalId   String?           // locator only; never contains secrets or sensitive content
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  profile      ClientProfile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  grants       ClientServiceGrant[]
+
+  @@unique([profileId, service])
+  @@index([service, externalId])
+}
+
+model ClientServiceGrant {
+  id           String            @id @default(cuid())
+  linkId       String
+  clerkUserId  String
+  canRead      Boolean           @default(false)
+  canWrite     Boolean           @default(false)
+  revokedAt    DateTime?
+  grantedAt    DateTime          @default(now())
+  link         ClientServiceLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@unique([linkId, clerkUserId])
+  @@index([clerkUserId, revokedAt])
+}
