@@ -9,6 +9,7 @@ import {
   CHESS_DEMO_SCHEMA, CHESS_DEMO_SLUG, validateChessDemoEnvironment,
 } from "../src/lib/chess/demo-mode";
 import { seedChessDemoRecords, verifyChessDemoRecords } from "../src/lib/chess/demo-fixtures";
+import { assertIsolatedChessDemoDatabase } from "../src/lib/chess/demo-target-policy";
 
 const { databaseUrl } = validateChessDemoEnvironment(process.env);
 process.env.DIRECT_URL = databaseUrl;
@@ -26,6 +27,8 @@ async function main() {
   const { PrismaClient: PlatformClient } = await import("../src/lib/db/generated/platform");
   const platform = new PlatformClient({ datasources: { db: { url: databaseUrl } } });
   try {
+    // Inspect target database BEFORE DDL. Refuse legacy data and other tenants.
+    await assertIsolatedChessDemoDatabase(platform);
     migrate("prisma/platform/schema.prisma");
     // Fixed schema identifier: no user interpolation in CREATE SCHEMA.
     await platform.$executeRawUnsafe('CREATE SCHEMA IF NOT EXISTS "tenant_chess_demo"');

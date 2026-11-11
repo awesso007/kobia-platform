@@ -58,7 +58,7 @@ export async function seedChessDemoRecords(db: PrismaClient): Promise<void> {
           businessId: unit.id, clerkUserId: employee.clerkUserId,
           role: employee.role === "ADMIN" ? "MANAGER" : "SUPPORT",
         },
-        update: { revokedAt: null },
+        update: {}, // Never reinstate a revoked demo assignment.
       });
     }
     const title = "Fictional " + u.service.toLowerCase().replaceAll("_", " ") + " client follow-up";
@@ -151,7 +151,7 @@ export async function verifyChessDemoRecords(db: PrismaClient): Promise<{
   pendingDisclosures: number;
 }> {
   const businessUnits = await db.chessBusinessUnit.findMany({
-    where: { slug: { in: units.map(u=>u.slug) } }, select: { id: true },
+    where: { slug: { in: units.map(u=>u.slug) }, status: "ACTIVE" }, select: { id: true },
   });
   const ids = businessUnits.map(b=>b.id);
   const profileRows = await db.clientProfile.findMany({
