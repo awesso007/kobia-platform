@@ -223,3 +223,20 @@ The presence of these commits does not establish production readiness.
   bidirectional sync. These still need code and external sign-off.
 - **No production release:** configuration placeholders cannot establish
   provider permission, privacy compliance or reliable deployment.
+
+
+## 2026-11-10 continuation: employee calendar consent and remote cancellation
+- Employee-specific `ChessCalendarPreference` allows explicit individual opt-in
+  and opt-out with authenticated Clerk membership and append-only audit event.
+- No external event is sent unless the employee has opted in AND the calendar
+  gateway has been activated; messages wait in WAITING_CONSENT otherwise.
+- Optional calendar gateway must provide BOTH idempotent create and cancel
+  endpoints at an allowlisted HTTPS host. OAuth consent is separately checked
+  by the approved gateway.
+- Task cancellation and calendar opt-out queue removal of events already sent.
+  Cancel-unknown outcomes are preserved for manual reconciliation; no blind
+  retries that could produce duplicate or inconsistent calendar events.
+- New status enums are covered by versioned tenant-schema migrations.
+- Still incomplete: live OAuth provider connection, provider sandbox testing,
+  webhook reconciliation of unknown outcomes, real scheduling collision checks,
+  deployment, backup restore, penetration testing and compliance approvals.
