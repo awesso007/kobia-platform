@@ -5,6 +5,8 @@ import {getTenantBySlug} from "@/lib/tenant";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
 import {assertBusinessAccess} from "./business-units";
 import {payrollFingerprint,submitPayrollToProvider} from "./payroll-provider";
+import {getClientServiceLink} from "@/lib/client-profile/service";
+import {isUsableConsent} from "./onboarding";
 
 const request=z.object({
  businessId:z.string().min(1).max(128),
@@ -23,14 +25,30 @@ export async function executeChessPayroll(input:unknown) {
  if(process.env.CHESS_PAYROLL_PROVIDER_CERTIFIED!=="true"){
   throw new Error("Payroll provider compliance gate disabled.");
  }
+ const grant=await getClientServiceLink(data.clientProfileId,data.businessId,"PAYROLL");
+ if(!grant)throw new PermissionError("record:update");
  const {db,tenantId}=getTenantDb();
+ const [serviceCases,consents]=await Promise.all([
+  db.chessServiceCase.findMany({where:{
+   businessId:data.businessId,clientProfileId:data.clientProfileId,
+   service:"PAYROLL",status:"ACTIVE",
+  },select:{id:true}}),
+  db.chessClientConsent.findMany({where:{
+   businessId:data.businessId,clientProfileId:data.clientProfileId,
+   purpose:"service:PAYROLL",
+  },select:{status:true,expiresAt:true,consentedAt:true,
+   acceptedByClerkUserId:true,verifiedEmailDigest:true,
+   acceptanceEvidenceDigest:true}}),
+ ]);
+ if(!consents.some(x=>isUsableConsent(x)))throw new PermissionError("record:update");
  const legacyTenant=await getTenantBySlug(tenantId);
  if(!legacyTenant)throw new PermissionError("record:update");
  const mapping=await db.chessFinancialLink.findFirst({
   where:{businessId:data.businessId,clientProfileId:data.clientProfileId,
    service:"PAYROLL",legacyTenantId:legacyTenant.id},
  });
- if(!mapping)throw new PermissionError("record:update");
+ if(!mapping||!serviceCases.some(x=>x.id===mapping.serviceCaseId))
+  throw new PermissionError("record:update");
  const run=await legacyDb.payRun.findFirst({
   where:{id:data.legacyPayRunId,entityId:mapping.legacyEntityId,
    tenantId:legacyTenant.id,status:"POSTED"},
@@ -54,6 +72,15 @@ export async function executeChessPayroll(input:unknown) {
   reviewedBy:{not:null},
  }});
  if(!approval || approval.reviewedBy===approval.requestedBy)
+  throw new PermissionError("record:update");
+ const [requester,reviewer]=await Promise.all([
+  db.membership.findUnique({where:{clerkUserId:approval.requestedBy},
+   select:{status:true}}),
+  db.membership.findUnique({where:{clerkUserId:approval.reviewedBy!},
+   select:{status:true,role:true}}),
+ ]);
+ if(requester?.status!=="ACTIVE" || reviewer?.status!=="ACTIVE" ||
+  !["OWNER","ADMIN"].includes(reviewer.role))
   throw new PermissionError("record:update");
  const existing=await db.chessPayrollDispatch.findFirst({
   where:{businessId:data.businessId,legacyPayRunId:run.id},
