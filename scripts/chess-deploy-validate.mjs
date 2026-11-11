@@ -158,6 +158,27 @@ if(process.env.CHESS_AI_TRIAGE_ENABLED==="true"){
  if(process.env.CHESS_SCHEDULER_ENABLED!=="true")
   errors.push("Automated AI triage requires an approved tenant scheduler");
 }
+if(process.env.CHESS_AI_TRIAGE_ENABLED==="true"){
+ const raw=process.env.CHESS_AI_DAILY_CALL_LIMIT;
+ if(raw!==undefined&&
+  (!/^[1-9][0-9]{0,2}$/.test(raw)||Number(raw)>100))
+  errors.push("AI daily request budget requires an approved 1-100 integer");
+}
+if(process.env.CHESS_BILLING_RECURRING_DRAFTS_ENABLED==="true"){
+ if(process.env.CHESS_BILLING_RECURRING_POLICY_APPROVED!=="true"||
+   process.env.CHESS_SCHEDULER_ENABLED!=="true")
+  errors.push("Recurring invoice drafts require an approved policy and tenant scheduler");
+}
+if(process.env.CHESS_MERCHANT_WEBHOOK_ENABLED==="true"){
+ if(process.env.CHESS_MERCHANT_VENDOR_CERTIFIED!=="true"||
+  process.env.CHESS_MERCHANT_SETTLEMENT_POLICY_APPROVED!=="true")
+  errors.push("Merchant webhook needs independently certified provider and collection/reversal policy");
+ if(!/^[A-Za-z0-9_-]{2,160}$/.test(
+   process.env.CHESS_MERCHANT_PROVIDER_ID??""))
+  errors.push("Merchant provider ID is missing or malformed");
+ if((process.env.CHESS_MERCHANT_WEBHOOK_HMAC_KEY??"").length<32)
+  errors.push("Merchant webhook requires a 32+-character secret in managed vault");
+}
 if(process.env.CHESS_BILLING_DELIVERY_ENABLED==="true"){
  for(const name of ["CHESS_BILLING_DELIVERY_API_URL",
   "CHESS_BILLING_STATUS_API_URL","CHESS_BILLING_ALLOWED_HOST",

@@ -14,7 +14,7 @@ function approved(url,host){
   throw new Error("The sandbox endpoint is not an approved HTTPS hostname");
  return parsed.toString();
 }
-async function post(url,token,payload,key){
+async function post(url,token,payload,key,verifyAiCost=false){
  const response=await fetch(url,{
   method:"POST",redirect:"error",cache:"no-store",
   headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json",
@@ -22,6 +22,13 @@ async function post(url,token,payload,key){
   body:JSON.stringify(payload),signal:AbortSignal.timeout(15000),
  });
  if(!response.ok)throw new Error("Sandbox provider returned HTTP "+response.status);
+ if(verifyAiCost){
+  const cost=response.headers.get("x-chess-ai-cost-micros");
+  if(!cost||!/^[0-9]{1,9}$/.test(cost)||Number(cost)>5000)
+   throw new Error("AI sandbox did not verify the approved per-request billable cost ceiling");
+  const size=Number(response.headers.get("content-length")||0);
+  if(size>2048)throw new Error("AI sandbox output exceeds approved size cap");
+ }
  return response.json();
 }
 if(process.env.CHESS_M7_SANDBOX_VALIDATE!=="true"||
@@ -32,7 +39,9 @@ const aiUrl=approved(required("CHESS_AI_TRIAGE_API_URL"),
 const task={status:"BLOCKED",dueBucket:"OVERDUE",hasAssignee:true};
 const suggestion=await post(aiUrl,required("CHESS_AI_API_KEY"),{
  purpose:"WORK_ITEM_TRIAGE_V1",features:task,
-});
+ constraints:{maxOutputTokens:128,maxCostMicros:5000,
+  retainInput:false,permitToolCalls:false},
+},undefined,true);
 if(!suggestion||suggestion.recommendation!=="ESCALATE_TO_MANAGER"||
  !["NORMAL","HIGH"].includes(suggestion.priority)||
  !["TASK_BLOCKED","DEADLINE_OVERDUE"].includes(suggestion.rationaleCode)||
