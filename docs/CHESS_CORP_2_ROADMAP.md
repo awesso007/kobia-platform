@@ -610,5 +610,17 @@ blocked pending provider configuration and independent release controls.**
 6. M3-M7 provider sandboxes and full financial/regulated transaction
    execution remain external blockers; green CI alone does not close them.
 
+### Round 8 follow-up: Milestone 7 invoice authorization correction
+- Invoice submission now requires **three distinct active individuals**:
+  the original author, an independently authorized owner/admin reviewer,
+  and a separate authorized sender. A creator can no longer send their
+  own approved draft, and an approver cannot send the invoice either.
+- Invoice listings now recheck each client's current business-specific
+  service grant and purpose-bound service/billing consent instead of
+  displaying all tenant business invoices to any manager.
+- A unit test covers the three-person billing segregation rule. Remaining
+  real-provider sandbox billing and subscription/payment settlement
+  requirements are unchanged.
+
 **Do not merge, claim a live release, or enable real customer automation on
 the strength of development CI and unexecuted manual-only workflows.**
