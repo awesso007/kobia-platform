@@ -2,6 +2,8 @@ import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { getTenantDb, NoTenantError } from "@/lib/db/get-tenant-db";
 import { CrmError } from "../CrmError";
+import { chessDemoModeActive } from "@/lib/chess/demo-mode";
+import { ensureChessDemoOwnerMembership } from "@/lib/chess/demo-owner";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +50,7 @@ export default async function OperationsOverviewPage() {
   }
 
   try {
+    await ensureChessDemoOwnerMembership();
     // getTenantDb resolves only the selected tenant schema from middleware.
     const { db } = getTenantDb();
     const member = await db.membership.findUnique({
@@ -113,6 +116,22 @@ export default async function OperationsOverviewPage() {
           </Link>
         </header>
 
+        {chessDemoModeActive() && <section aria-label="CHESS fictional demo" className="rounded-xl border border-emerald-300 bg-emerald-50 p-5">
+          <h2 className="font-semibold text-emerald-950">CHESS Corporation - FICTIONAL DEMO</h2>
+          <p className="mt-1 text-sm text-emerald-900">
+            All people, clients and businesses in this sandbox are invented.
+            Client consent, provider approvals, payroll, payments, tax filing and regulated execution
+            remain disabled or subject to their normal authorization gates.
+          </p>
+          <nav aria-label="Explore CHESS demo workflows" className="mt-3 flex flex-wrap gap-3 text-sm font-semibold text-emerald-950">
+            <Link href="/app/business-units" className="underline">Business units and staff</Link>
+            <Link href="/app/client-profiles" className="underline">Client profiles</Link>
+            <Link href="/app/work-items" className="underline">Work items</Link>
+            <Link href="/app/finance-operations" className="underline">Finance workflows</Link>
+            <Link href="/app/regulated-services" className="underline">Regulated coordination</Link>
+            <Link href="/app/operations-reports" className="underline">Operational reports</Link>
+          </nav>
+        </section>}
         <section aria-labelledby="snapshot-heading">
           <h2 id="snapshot-heading" className="mb-3 text-lg font-semibold text-slate-900">Live workspace snapshot</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

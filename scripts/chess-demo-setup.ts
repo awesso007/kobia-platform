@@ -13,10 +13,10 @@ const { databaseUrl } = validateChessDemoEnvironment(process.env);
 process.env.DIRECT_URL = databaseUrl;
 const prismaCli = resolve("node_modules/prisma/build/index.js");
 
-function migrate(schemaFile: string): void {
+function migrate(schemaFile: string, scopedUrl = databaseUrl): void {
   execFileSync(process.execPath, [prismaCli, "migrate", "deploy", "--schema=" + schemaFile], {
     stdio: "inherit",
-    env: { ...process.env, DATABASE_URL: databaseUrl, DIRECT_URL: databaseUrl },
+    env: { ...process.env, DATABASE_URL: scopedUrl, DIRECT_URL: scopedUrl },
   });
 }
 
@@ -53,7 +53,9 @@ async function main() {
     migrate("prisma/platform/schema.prisma");
     // Fixed schema identifier: no user interpolation in CREATE SCHEMA.
     await platform.$executeRawUnsafe('CREATE SCHEMA IF NOT EXISTS "tenant_chess_demo"');
-    migrate("prisma/tenant/schema.prisma");
+    const scopedMigrationUrl = new URL(databaseUrl);
+    scopedMigrationUrl.searchParams.set("schema", CHESS_DEMO_SCHEMA);
+    migrate("prisma/tenant/schema.prisma", scopedMigrationUrl.toString());
     const existing = await platform.tenantRegistry.findUnique({ where: { slug: CHESS_DEMO_SLUG } });
     if (existing && existing.schemaName !== CHESS_DEMO_SCHEMA) {
       throw new Error("Refusing to overwrite an existing tenant mapping.");
