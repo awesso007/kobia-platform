@@ -3664,3 +3664,20 @@ model ChessWorkItem {
   @@index([businessId,status,dueAt])
   @@index([assignedClerkUserId,status])
 }
+
+// CHESS CORP 2 M5 - service orchestration metadata, NOT a general ledger,
+// tax return, payroll calculation, or source-document repository.
+enum ChessCaseStatus { INTAKE REVIEW ACTIVE HOLD CLOSED }
+model ChessServiceCase {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  service ClientServiceArea
+  status ChessCaseStatus @default(INTAKE)
+  referenceId String?
+  ownerClerkUserId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([businessId,service,status])
+  @@index([clientProfileId,businessId])
+}
