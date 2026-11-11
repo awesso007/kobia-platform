@@ -1,6 +1,6 @@
 import {beforeAll,afterAll,describe,expect,it} from "vitest";
 import {PrismaClient} from "@/lib/db/generated/tenant";
-import {seedChessDemoRecords} from "./demo-fixtures";
+import {seedChessDemoRecords,verifyChessDemoRecords} from "./demo-fixtures";
 
 const integration=process.env.RUN_CHESS_DB_INTEGRATION==="1"?describe:describe.skip;
 
@@ -12,6 +12,9 @@ integration("CHESS fictional demo seed on isolated PostgreSQL",()=>{
  it("seeds idempotently and NEVER grants consent, service rights, or regulated execution",async()=>{
   await seedChessDemoRecords(db);
   await seedChessDemoRecords(db);
+  const fixture=await verifyChessDemoRecords(db);
+  expect(fixture).toEqual({businessUnits:8,employeeAssignments:24,
+   clients:5,pendingDisclosures:5});
   const unitSlugs=["accounting","bookkeeping","payroll","tax",
    "mortgage","insurance","homes","investments"];
   const units=await db.chessBusinessUnit.findMany({

@@ -139,3 +139,54 @@ export async function seedChessDemoRecords(db: PrismaClient): Promise<void> {
     }
   }
 }
+
+
+/** Post-seed integrity check: never report a usable demo if fictional
+ * subjects accidentally gain active grants, fabricated accepted consent,
+ * verified practitioner credentials or money-moving service records. */
+export async function verifyChessDemoRecords(db: PrismaClient): Promise<{
+  businessUnits: number;
+  employeeAssignments: number;
+  clients: number;
+  pendingDisclosures: number;
+}> {
+  const businessUnits = await db.chessBusinessUnit.findMany({
+    where: { slug: { in: units.map(u=>u.slug) } }, select: { id: true },
+  });
+  const ids = businessUnits.map(b=>b.id);
+  const profileRows = await db.clientProfile.findMany({
+    where: { displayName: { in: clients.map(c=>
+      c.firstName+" "+c.lastName+" (FICTIONAL)") } },
+    select: { id: true },
+  });
+  const profileIds = profileRows.map(p=>p.id);
+  const links = await db.clientServiceLink.findMany({
+    where: { businessId: { in: ids }, profileId: { in: profileIds } },
+    select: { id: true },
+  });
+  const [assignments,grants,consents,credentials,cases,invoices,items] =
+    await Promise.all([
+      db.chessEmployeeAssignment.count({where:{
+        businessId:{in:ids},revokedAt:null,
+      }}),
+      db.clientServiceGrant.count({where:{linkId:{in:links.map(l=>l.id)}}}),
+      db.chessClientConsent.findMany({where:{
+        businessId:{in:ids},clientProfileId:{in:profileIds},
+        policyVersion:"fictional-demo-v1",
+      },select:{status:true,consentedAt:true,acceptedByClerkUserId:true,
+        verifiedEmailDigest:true,acceptanceEvidenceDigest:true}}),
+      db.chessPractitionerCredential.count({where:{businessId:{in:ids}}}),
+      db.chessServiceCase.count({where:{businessId:{in:ids}}}),
+      db.chessBillingInvoice.count({where:{businessId:{in:ids}}}),
+      db.chessWorkItem.count({where:{businessId:{in:ids}}}),
+    ]);
+  const pending = consents.every(c=>c.status==="PENDING" &&
+    !c.consentedAt && !c.acceptedByClerkUserId &&
+    !c.verifiedEmailDigest && !c.acceptanceEvidenceDigest);
+  if(businessUnits.length!==8 || assignments!==24 || profileRows.length!==5 ||
+    links.length!==10 || consents.length!==5 || items!==8 ||
+    grants!==0 || credentials!==0 || cases!==0 || invoices!==0 || !pending) {
+    throw new Error("Refusing success: CHESS fictional fixture integrity or isolation check failed.");
+  }
+  return {businessUnits:8,employeeAssignments:24,clients:5,pendingDisclosures:5};
+}
