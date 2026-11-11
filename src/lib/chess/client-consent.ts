@@ -49,11 +49,21 @@ export async function acceptClientConsent(input:unknown) {
  const emailDigest=hmac(email);
  const evidence=hmac([consent.id,consent.businessId,consent.clientProfileId,consent.purpose,
   data.policyVersion,clerkUserId,emailDigest,date.toISOString(),"accept"].join("|"));
- const result=await db.chessClientConsent.updateMany({
-  where:{id:consent.id,status:"PENDING",policyVersion:data.policyVersion,
-   OR:[{expiresAt:null},{expiresAt:{gt:date}}]},
-  data:{status:"GRANTED",consentedAt:date,acceptedByClerkUserId:clerkUserId,
-   verifiedEmailDigest:emailDigest,acceptanceEvidenceDigest:evidence},
+ const result=await db.$transaction(async tx=>{
+  const changed=await tx.chessClientConsent.updateMany({
+   where:{id:consent.id,status:"PENDING",policyVersion:data.policyVersion,
+    OR:[{expiresAt:null},{expiresAt:{gt:date}}]},
+   data:{status:"GRANTED",consentedAt:date,acceptedByClerkUserId:clerkUserId,
+    verifiedEmailDigest:emailDigest,acceptanceEvidenceDigest:evidence},
+  });
+  if(changed.count===1) {
+   await tx.chessSecurityEvent.create({data:{
+    businessId:consent.businessId,actorClerkUserId:clerkUserId,
+    action:"CLIENT_CONSENT_GRANTED",resourceType:"ChessClientConsent",
+    resourceId:consent.id,decision:"ALLOW",
+   }});
+  }
+  return changed;
  });
  if (result.count!==1) throw new PermissionError("record:update");
  return {accepted:true,consentId:consent.id,consentedAt:date};
@@ -64,9 +74,19 @@ export async function withdrawOwnClientConsent(consentId:string) {
  const clerkUserId=auth().userId;
  if(!clerkUserId)throw new PermissionError("record:update");
  const {db}=getTenantDb();
- const result=await db.chessClientConsent.updateMany({
-  where:{id:consentId,status:"GRANTED",acceptedByClerkUserId:clerkUserId},
-  data:{status:"WITHDRAWN",withdrawnAt:new Date()},
+ const result=await db.$transaction(async tx=>{
+  const changed=await tx.chessClientConsent.updateMany({
+   where:{id:consentId,status:"GRANTED",acceptedByClerkUserId:clerkUserId},
+   data:{status:"WITHDRAWN",withdrawnAt:new Date()},
+  });
+  if(changed.count===1){
+   const consent=await tx.chessClientConsent.findUnique({where:{id:consentId},select:{businessId:true}});
+   await tx.chessSecurityEvent.create({data:{
+    businessId:consent?.businessId,actorClerkUserId:clerkUserId,action:"CLIENT_CONSENT_WITHDRAWN",
+    resourceType:"ChessClientConsent",resourceId:consentId,decision:"ALLOW",
+   }});
+  }
+  return changed;
  });
  if(result.count!==1)throw new PermissionError("record:update");
  return {withdrawn:true};
