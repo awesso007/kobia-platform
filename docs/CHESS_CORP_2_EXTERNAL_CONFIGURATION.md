@@ -331,6 +331,103 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
   investment adviser/broker registration may require separate provider contracts
   and legal interpretation. A single vendor is NOT assumed to cover all.
 
+## 5A. Milestone 6 regulated provider workflows (DISABLED by default)
+
+### Individual licensing and firm affiliation
+- **Individual licensing** keeps the existing `CHESS_LICENSE_API_URL`,
+  `CHESS_LICENSE_ALLOWED_HOST`, `CHESS_LICENSE_API_KEY` and
+  `CHESS_LICENSE_SOURCE_HOSTS`. Verified status must be sourced from a
+  licensed, contracted gateway connected to current official registries,
+  and refreshed in the preceding 24 hours.
+- **Affiliation verification:** supply `CHESS_AFFILIATION_API_URL`
+  (firm/individual affiliation verification HTTPS POST endpoint),
+  `CHESS_AFFILIATION_ALLOWED_HOST` (exact hostname),
+  `CHESS_AFFILIATION_API_KEY` (server-only secret),
+  `CHESS_AFFILIATION_SOURCE_HOSTS` (comma-separated official source hosts),
+  and `CHESS_AFFILIATION_VERIFICATION_ENABLED=false` by default.
+- Each practitioner requires an existing service credential and active staff
+  assignment, their **public official individual registry ID**, the
+  **associated employing broker/agency/adviser firm's registry ID**,
+  jurisdiction, and independently approved official evidence demonstrating
+  CURRENT employment or authorized affiliation. Entering identifiers creates
+  an UNVERIFIED affiliation; it never grants authority on its own.
+- The gateway accepts
+  `{practitionerRegistryId,firmRegistryId,service,jurisdiction}` and
+  returns matching identifiers, `status: ACTIVE|INACTIVE|REVOKED|SUSPENDED|UNKNOWN`,
+  `checkedAt`, `expiresAt` and `sourceUrl`. Only matching ACTIVE records
+  originating from explicitly allowlisted HTTPS official-source hosts can
+  become VERIFIED. An independent administrator must initiate verification.
+- **Regulatory sources vary:** mortgage requires relevant NMLS individual,
+  company and sponsoring/employing broker verification; insurance requires
+  the state DOI license plus agency/company appointments or affiliations as
+  applicable; California real estate uses DRE salesperson/broker and
+  responsible broker records as applicable; securities/investment work
+  requires service-specific CRD/IARD, state/SEC/FINRA and employer/firm
+  registration/supervision where applicable. A listed credential alone does
+  not authorize every activity. Have counsel/compliance define the correct
+  verification contract for each service and jurisdiction.
+
+### Client coordination, no transaction execution
+- `CHESS_REGULATED_HANDOFF_API_URL`: approved HTTPS POST for an **opaque
+  coordination ticket only**, not loan origination, carrier quote/binding,
+  an agency agreement or a securities recommendation/order.
+- `CHESS_REGULATED_STATUS_API_URL`: approved HTTPS POST read-only ticket
+  status endpoint. Both URLs must share the exact hostname in
+  `CHESS_REGULATED_ALLOWED_HOST` with redirects blocked.
+- `CHESS_REGULATED_API_KEY`: separate server-side gateway bearer secret.
+- Four independently approved, opaque partner identifiers:
+  `CHESS_REGULATED_PARTNER_MORTGAGE`,
+  `CHESS_REGULATED_PARTNER_INSURANCE`,
+  `CHESS_REGULATED_PARTNER_REAL_ESTATE`,
+  `CHESS_REGULATED_PARTNER_INVESTMENTS`.
+- `CHESS_REGULATED_HANDOFF_ENABLED=false`: default. Enable only after
+  contract, privacy impact assessment, firm affiliation audit, supervised
+  sandbox pilot, and authorization to disclose opaque cross-service case
+  references to the receiving partner.
+- Handoff submits exactly `tenantSlug,businessId,serviceCaseId,workflowId,
+  service,kind,idempotencyKey,partnerId`. It NEVER includes client names,
+  taxpayer identifiers, application data, medical histories, property
+  details, investment holdings or trading instructions. Partner systems
+  must separately authenticate the client, obtain mandatory sector-specific
+  disclosures/consents, and validate eligibility.
+- Gateway responses are strict
+  `{workflowId,id?,status:accepted|pending|rejected|not_found}`.
+  `accepted` requires a provider ID and means **ticket acknowledged only**;
+  it is not underwriting, insurance binding, brokerage completion, trading
+  authorization, or investment advice.
+- A partner handoff requires TWO independent purpose-bound GRANTED client
+  consents: `service:<SERVICE>` and `external_handoff:<SERVICE>`.
+  Both must have genuine client acceptance evidence and remain unwithdrawn.
+  Checklists are human attestations, not statutory signoffs. Only approved
+  internal cases and a three-person author/reviewer/approver chain may
+  request a ticket, after rechecking individual licensing and firm
+  affiliation within 24 hours.
+- An uncertain network response is recorded UNKNOWN, never blindly retried.
+  The status API resolves the same workflow and remote reference; only a
+  validated vendor acknowledgment can mark SUBMITTED.
+- **Not covered:** actual mortgage LOS/API integration, price/rate disclosures,
+  agency/brokerage agreements, consumer insurance needs-analysis suitability,
+  carrier quoting and binding, real estate offers/contracts, advisory
+  suitability/best-interest requirements, trading, or regulatory reporting.
+  Those require distinct provider-specific contracts and compliance reviews.
+
+### Sandbox inputs you must supply
+- Separate fictional staging client, three distinct active reviewer accounts
+  with explicit per-service grants, a licensed-test practitioner, an approved
+  test business unit, and a test partner/firm affiliation verifiable through
+  the contracted registry gateway. No actual public practitioner status
+  must be artificially asserted.
+- Fake individual/firm registry test identifiers with confirmed sandbox
+  matching evidence and test customer consents for BOTH service and
+  external_handoff purposes; do not use live customers.
+- An isolated provider sandbox accepting coordination tickets and idempotent
+  GET/POST status lookups without causing regulated activity.
+- Protected GitHub environment for the manual M6 sandbox check;
+  all provider secrets only in environment Secrets, never the repository.
+  The default CI mocks vendor contracts and **does not** verify a
+  functioning third-party mortgage, insurance, real estate or investments
+  system.
+
 ## 6. Release validation steps
 1. Add these entries under GitHub Environment chess-staging as Secrets or
    Variables, following the sample workflow.
