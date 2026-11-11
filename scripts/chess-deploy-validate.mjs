@@ -72,6 +72,42 @@ if(process.env.CHESS_REGULATED_HANDOFF_ENABLED==="true"){
     !process.env.CHESS_AFFILIATION_SOURCE_HOSTS)
   errors.push("Regulated handoffs require approved official registry source host allowlists");
 }
+if(process.env.CHESS_AI_TRIAGE_ENABLED==="true"){
+ for(const name of ["CHESS_AI_TRIAGE_API_URL","CHESS_AI_ALLOWED_HOST",
+  "CHESS_AI_API_KEY"]){
+  if(!process.env[name])errors.push(`${name} required for AI triage`);
+ }
+ const raw=process.env.CHESS_AI_TRIAGE_API_URL;
+ if(raw)try{
+  const url=new URL(raw);
+  if(url.protocol!=="https:"||url.hostname!==process.env.CHESS_AI_ALLOWED_HOST||
+   url.username||url.password||url.hash||url.port)
+   errors.push("AI triage URL must match the approved HTTPS host");
+ }catch{errors.push("AI triage URL is malformed");}
+ if(process.env.CHESS_AI_DATA_SHARING_APPROVED!=="true")
+  errors.push("AI metadata sharing requires compliance approval");
+ if(process.env.CHESS_SCHEDULER_ENABLED!=="true")
+  errors.push("Automated AI triage requires an approved tenant scheduler");
+}
+if(process.env.CHESS_BILLING_DELIVERY_ENABLED==="true"){
+ for(const name of ["CHESS_BILLING_DELIVERY_API_URL",
+  "CHESS_BILLING_STATUS_API_URL","CHESS_BILLING_ALLOWED_HOST",
+  "CHESS_BILLING_API_KEY"]){
+  if(!process.env[name])errors.push(`${name} required for invoice delivery`);
+ }
+ for(const name of ["CHESS_BILLING_DELIVERY_API_URL",
+  "CHESS_BILLING_STATUS_API_URL"]){
+  const raw=process.env[name];
+  if(raw)try{
+   const url=new URL(raw);
+   if(url.protocol!=="https:"||url.hostname!==process.env.CHESS_BILLING_ALLOWED_HOST||
+    url.username||url.password||url.hash||url.port)
+    errors.push(`${name} must match the approved HTTPS billing vendor`);
+  }catch{errors.push(`${name} is not a valid vendor URL`);}
+ }
+ if(process.env.CHESS_BILLING_VENDOR_CERTIFIED!=="true")
+  errors.push("Billing vendor certification and client-contact mapping approval required");
+}
 if(process.env.CHESS_BANK_FEED_ENABLED==="true" ||
  process.env.CHESS_BANK_FEED_IMPORT_ENABLED==="true"){
  for(const name of ["CHESS_BANK_FEED_API_URL","CHESS_BANK_FEED_ALLOWED_HOST",
