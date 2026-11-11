@@ -565,7 +565,8 @@ blocked pending provider configuration and independent release controls.**
   append-only source event trigger.
 - **Pseudonymized export:** an allowlisted, HTTPS-only independent archive
   provider accepts bounded batches of source event metadata. Actor,
-  business and resource references are HMAC-pseudonymized with a protected
+  business, resource, action classification and resource type are
+  HMAC-pseudonymized with a protected
   per-environment key. Free-form event labels are excluded. A delivery
   timeout changes the outbox to UNKNOWN; it is resolved via a read-only
   vendor status lookup, never by blind resubmission.
