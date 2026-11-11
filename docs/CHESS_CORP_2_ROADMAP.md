@@ -240,3 +240,14 @@ The presence of these commits does not establish production readiness.
 - Still incomplete: live OAuth provider connection, provider sandbox testing,
   webhook reconciliation of unknown outcomes, real scheduling collision checks,
   deployment, backup restore, penetration testing and compliance approvals.
+
+
+## 2026-11-10 scheduled overdue reminders
+- Scheduled recurrence worker now also generates deduplicated, private in-app
+  overdue reminders for eligible active employees and blocked-work alerts for
+  active unit managers. Repeated worker runs on the same UTC day share a
+  deduplication key and cannot flood a recipient with duplicate alerts.
+- Current worker scans a bounded set of overdue tasks per pass; monitoring
+  and fleet-scale pagination remain necessary before high-volume production.
+- No real employee email/SMS is transmitted by this code. The employee inbox
+  is the delivery channel until a provider is configured and approved.
