@@ -61,5 +61,6 @@ export const crmNav: CrmNavItem[] = [
   { key: "workgroups", label: "Workgroups", href: "/app/workgroups", icon: Users2 },
   { key: "automations", label: "Automations", href: "/app/automations", icon: Workflow },
   { key: "reports", label: "Reports", href: "/app/reports", icon: BarChart3 },
+  { key: "chessFinance", label: "Finance Operations", href: "/app/finance-operations", icon: BarChart3 },
   { key: "settings", label: "Settings", href: "/app/settings", icon: Settings },
 ];
