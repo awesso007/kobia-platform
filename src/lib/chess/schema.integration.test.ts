@@ -232,6 +232,65 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    await db.chessBusinessUnit.deleteMany({where:{id:{in:[business.id,otherBusiness.id]}}});
   }
  });
+ it("enforces idempotent bank reviews, tax evidence versions and payroll reporting states",async()=>{
+  const ref="m5-"+Date.now().toString(36);
+  const work=await db.chessBankReview.create({data:{
+   businessId:ref,clientProfileId:ref,serviceCaseId:ref,
+   legacyTenantId:ref,legacyEntityId:ref,
+   legacyBankTransactionId:ref,transactionDigest:"a".repeat(64),
+   createdByClerkUserId:"first-reviewer",
+  }});
+  try{
+   expect(work.status).toBe("PENDING");
+   await expect(db.chessBankReview.create({data:{
+    businessId:ref,clientProfileId:ref,serviceCaseId:ref,
+    legacyTenantId:ref,legacyEntityId:ref,legacyBankTransactionId:ref,
+    transactionDigest:"b".repeat(64),createdByClerkUserId:"second-reviewer",
+   }})).rejects.toThrow();
+   const approved=await db.chessBankReview.updateMany({where:{
+    id:work.id,status:"PENDING",updatedAt:work.updatedAt,
+   },data:{status:"APPROVED",approvedAccountId:"offset-ledger-account",
+    reviewedByClerkUserId:"second-reviewer",reviewedAt:new Date()}});
+   expect(approved.count).toBe(1);
+   const replay=await db.chessBankReview.updateMany({where:{
+    id:work.id,status:"PENDING",updatedAt:work.updatedAt,
+   },data:{status:"REJECTED"}});
+   expect(replay.count).toBe(0);
+  }finally{await db.chessBankReview.delete({where:{id:work.id}});}
+  const yearStart=new Date("2026-01-01T00:00:00Z");
+  const yearEnd=new Date("2027-01-01T00:00:00Z");
+  const tax=await db.chessTaxWorkpaper.create({data:{
+   businessId:ref,clientProfileId:ref,serviceCaseId:ref,
+   legacyTenantId:ref,legacyEntityId:ref,taxYear:2026,
+   startAt:yearStart,endAt:yearEnd,snapshotDigest:"c".repeat(64),
+   sourceEntryCount:8,createdByClerkUserId:"tax-preparer",
+  }});
+  try{
+   await expect(db.chessTaxWorkpaper.create({data:{
+    businessId:ref,clientProfileId:ref,serviceCaseId:ref,
+    legacyTenantId:ref,legacyEntityId:ref,taxYear:2026,
+    startAt:yearStart,endAt:yearEnd,snapshotDigest:"c".repeat(64),
+    sourceEntryCount:8,createdByClerkUserId:"tax-preparer",
+   }})).rejects.toThrow();
+   const reviewed=await db.chessTaxWorkpaper.update({
+    where:{id:tax.id},data:{status:"REVIEWED",
+     reviewedByClerkUserId:"independent-reviewer",reviewedAt:new Date()},
+   });
+   expect(reviewed.status).toBe("REVIEWED");
+  }finally{await db.chessTaxWorkpaper.delete({where:{id:tax.id}});}
+  const dispatch=await db.chessPayrollDispatch.create({data:{
+   businessId:ref,clientProfileId:ref,legacyTenantId:ref,
+   legacyEntityId:ref,legacyPayRunId:ref,approvalId:ref,
+   idempotencyKey:"payroll-"+ref,status:"SUBMITTED",
+  }});
+  try{
+   const providerReported=await db.chessPayrollDispatch.update({
+    where:{id:dispatch.id},data:{status:"PROVIDER_PAID",providerCheckedAt:new Date()},
+   });
+   expect(providerReported.status).toBe("PROVIDER_PAID");
+   expect(providerReported.providerCheckedAt).not.toBeNull();
+  }finally{await db.chessPayrollDispatch.delete({where:{id:dispatch.id}});}
+ });
  it("rejects a service link whose client profile does not exist",async()=>{
   await expect(db.clientServiceLink.create({data:{
    profileId:"missing-profile-id",businessId,service:"TAX",
