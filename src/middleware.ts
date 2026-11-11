@@ -66,7 +66,7 @@ const isPublicRoute = createRouteMatcher([
 
 export default clerkMiddleware((auth, req: NextRequest) => {
   const url = req.nextUrl.clone();
-  const host = (req.headers.get("host") ?? "").split(":")[0];
+  const host = (req.headers.get("host") ?? "").split(":")[0] ?? "";
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "kobia.ai";
   const rawSubdomain = host.endsWith(`.${rootDomain}`)
     ? host.slice(0, -(`.${rootDomain}`).length) : null;
