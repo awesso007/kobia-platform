@@ -1,0 +1,47 @@
+name: CHESS authenticated two-tenant staging acceptance
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chess-authenticated-e2e
+  cancel-in-progress: false
+
+jobs:
+  staging-e2e:
+    runs-on: ubuntu-latest
+    environment: chess-staging
+    timeout-minutes: 12
+    env:
+      CHESS_AUTHZ_E2E_VALIDATE: ${{ vars.CHESS_AUTHZ_E2E_VALIDATE }}
+      CHESS_AUTHZ_E2E_ISOLATED: ${{ vars.CHESS_AUTHZ_E2E_ISOLATED }}
+      CHESS_AUTHZ_E2E_ALLOWED_HOSTS: ${{ vars.CHESS_AUTHZ_E2E_ALLOWED_HOSTS }}
+      CHESS_AUTHZ_E2E_BASE_URL: ${{ vars.CHESS_AUTHZ_E2E_BASE_URL }}
+      CHESS_AUTHZ_E2E_OTHER_TENANT_URL: ${{ vars.CHESS_AUTHZ_E2E_OTHER_TENANT_URL }}
+      CHESS_AUTHZ_E2E_RELEASE_SHA: ${{ github.sha }}
+      CHESS_AUTHZ_E2E_ATTESTATION_TOKEN_A: ${{ secrets.CHESS_AUTHZ_E2E_ATTESTATION_TOKEN_A }}
+      CHESS_AUTHZ_E2E_ATTESTATION_TOKEN_B: ${{ secrets.CHESS_AUTHZ_E2E_ATTESTATION_TOKEN_B }}
+      CHESS_AUTHZ_E2E_MANAGER_COOKIE: ${{ secrets.CHESS_AUTHZ_E2E_MANAGER_COOKIE }}
+      CHESS_AUTHZ_E2E_NO_GRANT_COOKIE: ${{ secrets.CHESS_AUTHZ_E2E_NO_GRANT_COOKIE }}
+      CHESS_AUTHZ_E2E_OTHER_TENANT_MANAGER_COOKIE: ${{ secrets.CHESS_AUTHZ_E2E_OTHER_TENANT_MANAGER_COOKIE }}
+      CHESS_AUTHZ_E2E_BUSINESS_ID: ${{ vars.CHESS_AUTHZ_E2E_BUSINESS_ID }}
+      CHESS_AUTHZ_E2E_OTHER_BUSINESS_ID: ${{ vars.CHESS_AUTHZ_E2E_OTHER_BUSINESS_ID }}
+      CHESS_AUTHZ_E2E_SERVICE_CASE_ID: ${{ vars.CHESS_AUTHZ_E2E_SERVICE_CASE_ID }}
+      CHESS_AUTHZ_E2E_OTHER_CASE_ID: ${{ vars.CHESS_AUTHZ_E2E_OTHER_CASE_ID }}
+      CHESS_AUTHZ_E2E_REVOKED_CASE_ID: ${{ vars.CHESS_AUTHZ_E2E_REVOKED_CASE_ID }}
+      CHESS_AUTHZ_E2E_OTHER_TENANT_BUSINESS_ID: ${{ vars.CHESS_AUTHZ_E2E_OTHER_TENANT_BUSINESS_ID }}
+      CHESS_AUTHZ_E2E_MONTH: ${{ vars.CHESS_AUTHZ_E2E_MONTH }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Validate fail-closed acceptance controls
+        run: node --test scripts/chess-authz-e2e-check.mjs
+      - name: Exercise both real fictional tenant deployments
+        run: node scripts/chess-authz-e2e.mjs
+
+# This workflow never provisions tenants or session cookies.
+# It requires two independent deployed fictional staging origins.

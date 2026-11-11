@@ -25,6 +25,17 @@ test("authenticated E2E refuses an unapproved HTTP destination before any reques
  assert.notEqual(outcome.status,0);
  assert.match(outcome.stderr,/explicitly approved HTTPS staging host/);
 });
+test("authenticated E2E refuses non-exact deployed SHA before network",()=>{
+ const result=run({
+  CHESS_AUTHZ_E2E_VALIDATE:"true",CHESS_AUTHZ_E2E_ISOLATED:"true",
+  CHESS_AUTHZ_E2E_ALLOWED_HOSTS:"one.staging.invalid,two.staging.invalid",
+  CHESS_AUTHZ_E2E_BASE_URL:"https://one.staging.invalid/",
+  CHESS_AUTHZ_E2E_OTHER_TENANT_URL:"https://two.staging.invalid/",
+  CHESS_AUTHZ_E2E_RELEASE_SHA:"short",
+ });
+ assert.notEqual(result.status,0);
+ assert.match(result.stderr,/exact deployed release SHA/);
+});
 test("authenticated E2E requires two independent real origins",()=>{
  const outcome=run({
   CHESS_AUTHZ_E2E_VALIDATE:"true",CHESS_AUTHZ_E2E_ISOLATED:"true",

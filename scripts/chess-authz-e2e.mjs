@@ -23,6 +23,28 @@ if(process.env.CHESS_AUTHZ_E2E_VALIDATE!=="true"||
 const own=base(required("CHESS_AUTHZ_E2E_BASE_URL"));
 const otherTenant=base(required("CHESS_AUTHZ_E2E_OTHER_TENANT_URL"));
 if(own===otherTenant)throw new Error("Provide two different tenant origins.");
+const releaseSha=required("CHESS_AUTHZ_E2E_RELEASE_SHA");
+if(!/^[a-f0-9]{40}$/.test(releaseSha))
+ throw new Error("Authenticated E2E requires exact deployed release SHA.");
+const attestationA=required("CHESS_AUTHZ_E2E_ATTESTATION_TOKEN_A");
+const attestationB=required("CHESS_AUTHZ_E2E_ATTESTATION_TOKEN_B");
+if(attestationA.length<32||attestationB.length<32||attestationA===attestationB)
+ throw new Error("Distinct protected tenant staging attestation tokens are required.");
+async function verifyStaging(origin,token){
+ const response=await fetch(origin+"/api/chess/staging-attestation",{
+  headers:{"Authorization":"Bearer "+token,"Accept":"application/json"},
+  cache:"no-store",redirect:"error",signal:AbortSignal.timeout(15000),
+ });
+ if(response.status!==200||
+  !(response.headers.get("cache-control")??"").includes("no-store")||
+  response.headers.get("x-content-type-options")!=="nosniff"||
+  response.headers.get("x-frame-options")!=="DENY")
+  throw new Error("Protected tenant staging build attestation rejected.");
+ const body=await response.json();
+ if(!body||Object.keys(body).sort().join(",")!=="environment,releaseSha"||
+  body.environment!=="staging"||body.releaseSha!==releaseSha)
+  throw new Error("Deployed tenant release SHA mismatch.");
+}
 const managerCookie=required("CHESS_AUTHZ_E2E_MANAGER_COOKIE");
 const noGrantCookie=required("CHESS_AUTHZ_E2E_NO_GRANT_COOKIE");
 const foreignCookie=required("CHESS_AUTHZ_E2E_OTHER_TENANT_MANAGER_COOKIE");
@@ -47,6 +69,9 @@ if(businessId===otherBusinessId||ownCaseId===otherCaseId||
 const month=required("CHESS_AUTHZ_E2E_MONTH");
 if(!/^20[2-9][0-9]-(0[1-9]|1[0-2])$/.test(month))
  throw new Error("Invalid reporting month");
+await verifyStaging(own,attestationA);
+await verifyStaging(otherTenant,attestationB);
+console.log("PASS separately attested two-tenant deployed SHA.");
 async function request(origin,path,cookie,options={}){
  const reply=await fetch(origin+path,{
   ...options,redirect:"manual",cache:"no-store",
@@ -137,4 +162,17 @@ for(const [label,path,method] of [
  });
  assertCode(label+" blocked before mutation",result,[403]);
 }
-console.log("PASS authenticated two-tenant, revoked-consent, invoice, portfolio and CSRF regression.");
+const staffSnapshot=await request(own,
+ `/api/chess/operational-close?businessId=${encodeURIComponent(businessId)}&month=${month}`,
+ noGrantCookie);
+assertCode("Unauthorized employee cannot read historical reporting evidence",staffSnapshot,[403,404]);
+const staffMerchant=await request(own,
+ `/api/chess/merchant-observations?businessId=${encodeURIComponent(businessId)}`,
+ noGrantCookie);
+assertCode("Unauthorized employee cannot read merchant observations",staffMerchant,[403,404]);
+const originAttack=await request(own,"/api/chess/document-lifecycle",managerCookie,{
+ method:"POST",headers:{"Content-Type":"application/json",
+  "Origin":"https://attacker.example"},body:"{}",
+});
+assertCode("Cross-origin document legal hold change denied",originAttack,[403]);
+console.log("PASS signed-in two-tenant, revoked-consent, operational/merchant reporting and CSRF regression.");
