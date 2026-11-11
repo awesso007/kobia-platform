@@ -95,3 +95,26 @@ export async function revokeEmployeeAssignment(businessId: string, clerkUserId: 
     data: { revokedAt: new Date() },
   });
 }
+
+
+/** Explicit owner/admin-only staff provisioning directory. Does not expose
+ * individual client profiles, service links, private documents or credentials. */
+export async function getChessBusinessAssignmentAdmin(businessId: string) {
+  await assertBusinessAccess(businessId);
+  const user = await actor();
+  if (!isBusinessAdmin(user.role)) throw new PermissionError("member:manage");
+  const { db } = getTenantDb();
+  const [members, assignments] = await Promise.all([
+    db.membership.findMany({
+      where: { status: "ACTIVE", role: { not: "VIEWER" } },
+      select: { clerkUserId: true, displayName: true, role: true },
+      orderBy: { joinedAt: "asc" }, take: 100,
+    }),
+    db.chessEmployeeAssignment.findMany({
+      where: { businessId, revokedAt: null },
+      select: { id: true, clerkUserId: true, role: true, assignedAt: true },
+      orderBy: { assignedAt: "asc" }, take: 100,
+    }),
+  ]);
+  return { members, assignments };
+}
