@@ -28,6 +28,7 @@ async function main() {
   method:"POST",headers:{"Content-Type":"application/json"},body:"{}",
  },new Set([403]));
  await probe("/api/chess/manager-queue?businessId=unowned",{},allowedDenied);
+ await probe("/api/chess/worker-health",{},allowedDenied);
  await probe("/api/chess/alerts?businessId=unowned",{},allowedDenied);
  await probe("/api/chess/calendar-preferences",{},allowedDenied);
  await probe("/api/chess/calendar.ics?businessId=unowned",{},allowedDenied);
