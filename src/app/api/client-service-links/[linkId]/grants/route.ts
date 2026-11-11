@@ -1,3 +1,4 @@
+import {assertMutationOrigin} from "@/lib/chess/request-security";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { z, ZodError } from "zod";
@@ -22,7 +23,7 @@ function failure(error: unknown) {
 
 /** OWNER/ADMIN only, explicit per-service grant. */
 export async function PUT(request: NextRequest, { params }: Context) {
-  try {
+ try { assertMutationOrigin(request);
     const { clerkUserId, canRead, canWrite } = bodySchema.parse(await request.json());
     const grant = await setClientServiceGrant(params.linkId, clerkUserId, { canRead, canWrite });
     return NextResponse.json({ grant });
@@ -33,8 +34,9 @@ export async function PUT(request: NextRequest, { params }: Context) {
 
 /** Revoke, never delete, so the access decision defaults to denied. */
 export async function DELETE(request: NextRequest, { params }: Context) {
-  try {
-    const clerkUserId = z.string().min(1).max(128).parse(request.nextUrl.searchParams.get("clerkUserId"));
+ try { assertMutationOrigin(request);
+    const body: unknown = await request.json();
+    const clerkUserId = z.object({clerkUserId:z.string().min(1).max(128)}).strict().parse(body).clerkUserId;
     const result = await revokeClientServiceGrant(params.linkId, clerkUserId);
     return NextResponse.json({ revoked: result.count > 0 });
   } catch (error) {
