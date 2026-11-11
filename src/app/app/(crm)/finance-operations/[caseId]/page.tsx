@@ -10,6 +10,9 @@ import BankReviewClient from "./BankReviewClient";
 import {listChessServiceDocuments} from "@/lib/chess/documents";
 import ServiceDocumentPanel from "../../client-documents/ServiceDocumentPanel";
 import TaxWorkpaperClient from "./TaxWorkpaperClient";
+import {getCurrentMembership} from "@/lib/rbac/require-permission";
+import {financialOperationalSummary} from "@/lib/chess/financial-bridge";
+import FinancialEntityMappingClient from "./FinancialEntityMappingClient";
 export const dynamic="force-dynamic";
 
 export default async function ChessFinanceCasePage({
@@ -43,6 +46,15 @@ export default async function ChessFinanceCasePage({
   if(!profile || !tenant)return denied;
   const documents=await listChessServiceDocuments(
    businessId,record.clientProfileId,record.service);
+  const actor=await getCurrentMembership();
+  const canMap=actor?.status==="ACTIVE"&&
+   ["OWNER","ADMIN"].includes(actor.role);
+  const mappingStatus=canMap
+   ?await financialOperationalSummary(
+     businessId,record.clientProfileId,
+     record.service as "ACCOUNTING"|"BOOKKEEPING"|"PAYROLL"|"TAX",
+    ).catch(()=>null):null;
+
   let content;
   if(record.service==="BOOKKEEPING"||record.service==="ACCOUNTING"){
    try{
@@ -111,6 +123,11 @@ export default async function ChessFinanceCasePage({
     <p className="mt-1 text-sm text-slate-600">Authorized service case {record.id}</p>
    </header>
    {content}
+   {canMap&&<FinancialEntityMappingClient businessId={businessId}
+    clientProfileId={record.clientProfileId} serviceCaseId={record.id}
+    service={record.service as "ACCOUNTING"|"BOOKKEEPING"|"PAYROLL"|"TAX"}
+    mappingStatus={mappingStatus?.linked===true?"LINKED":
+     mappingStatus?.linked===false?"UNLINKED":"UNAVAILABLE"}/>}
    <ServiceDocumentPanel businessId={businessId}
     clientProfileId={record.clientProfileId} service={record.service}
     canUpload={documents.canUpload}
