@@ -35,7 +35,8 @@ export function workItemSourceDigest(input:{
  })).digest("hex");
 }
 export function aiTriageConfigured():boolean{
- if(process.env.CHESS_AI_TRIAGE_ENABLED!=="true")return false;
+ if(process.env.CHESS_AI_TRIAGE_ENABLED!=="true"||
+    process.env.CHESS_AI_DATA_SHARING_APPROVED!=="true")return false;
  const raw=process.env.CHESS_AI_TRIAGE_API_URL;
  const host=process.env.CHESS_AI_ALLOWED_HOST;
  const key=process.env.CHESS_AI_API_KEY;
