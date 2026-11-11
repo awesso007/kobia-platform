@@ -1,5 +1,6 @@
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
+import {getChessAuditArchiveHealth} from "./audit-archive";
 
 type Kind="RECURRING_WORK"|"CALENDAR_SYNC";
 export function classifyWorkerRun(processed:number,blocked:number,failed=false):
@@ -36,9 +37,10 @@ export async function getChessWorkerHealth(now=new Date()){
   }}),
   db.chessAppointmentCalendarOutbox.count({where:{status:"WAITING_CONSENT"}}),
  ]);
+ const auditArchive=await getChessAuditArchiveHealth();
  const latest=runs.filter(r=>r.kind==="RECURRING_WORK")[0];
  const stale=!latest||now.getTime()-latest.occurredAt.getTime()>30*60*1000;
- return {runs,activeRecurrences,calendarPending,
+ return {runs,auditArchive,activeRecurrences,calendarPending,
   appointmentCalendarPending,appointmentAwaitingConsent,
   schedulerLastSeenAt:latest?.occurredAt??null,schedulerStale:stale};
 }
