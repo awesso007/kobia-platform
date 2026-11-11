@@ -79,6 +79,16 @@ async function accessInvoice(businessId:string,invoiceId:string){
   throw new PermissionError("record:read");
  const state=await scopedInvoiceCase(businessId,invoice.clientProfileId,
   invoice.serviceCaseId,invoice.service as BillableService);
+ const {tenantId}=getTenantDb();
+ const evidence=invoiceDigest({
+  tenantSlug:tenantId,businessId:invoice.businessId,
+  clientProfileId:invoice.clientProfileId,
+  serviceCaseId:invoice.serviceCaseId,service:invoice.service,
+  descriptionCode:invoice.descriptionCode,amountCents:invoice.amountCents.toString(),
+  requestKey:invoice.requestKey,
+ });
+ if(evidence!==invoice.sourceDigest || invoice.idempotencyKey!==evidence)
+  throw new PermissionError("record:update");
  return {...state,invoice};
 }
 export async function draftChessInvoice(input:unknown){
