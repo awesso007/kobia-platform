@@ -16,6 +16,7 @@ const isPublicRoute = createRouteMatcher([
   "/signup(.*)",
   "/:tenant/login(.*)",
   "/api/trpc(.*)",
+  "/api/chess/document-scan",
   "/api/webhooks(.*)",
   // Public web-to-lead forms (Sprint 5): the hosted form page and its submit
   // endpoint are intentionally unauthenticated. Tenant is resolved from a
@@ -100,6 +101,9 @@ export default clerkMiddleware((auth, req: NextRequest) => {
   const isCrmApp = url.pathname === "/app" || url.pathname.startsWith("/app/");
   const isTenantRoute = !!resolveTenantSlug(url.pathname);
   let tenantSlug = hostTenant ?? (isTenantRoute ? resolveTenantSlug(url.pathname) : null);
+  if (url.pathname === "/api/chess/document-scan") {
+    tenantSlug = sanitizeSlug(url.searchParams.get("t"));
+  }
 
   if (!tenantSlug && (isCrmApp || isChessApi)) {
     const fromCookie = sanitizeSlug(req.cookies.get("kb-tenant")?.value);
