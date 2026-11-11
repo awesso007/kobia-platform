@@ -2,6 +2,7 @@ import {createHash,createHmac,timingSafeEqual} from "node:crypto";
 import {z} from "zod";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import * as s3 from "@/lib/storage/s3";
+import {matchesPinnedDocument} from "./storage-integrity";
 
 const resultSchema=z.object({
  documentId:z.string().min(1).max(128),
@@ -35,9 +36,7 @@ export async function recordDocumentScan(input:unknown) {
   return {updated:true,status:"REJECTED" as const};
  }
  const head=await s3.headObject(doc.storageKey,doc.storageVersionId);
- const matching=!!head && head.versionId===doc.storageVersionId &&
-  head.etag===doc.storageETag && head.size===doc.actualBytes &&
-  head.size<=doc.maxBytes && head.mimeType===doc.mimeType;
+ const matching=matchesPinnedDocument(doc,head);
  if(!matching)throw new Error("Pinned document does not match scanned metadata.");
  // A signed callback alone is insufficient: compare against bytes retrieved
  // from the exact immutable object version rather than trusting its digest.
