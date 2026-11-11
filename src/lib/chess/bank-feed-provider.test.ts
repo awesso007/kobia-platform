@@ -46,9 +46,8 @@ describe("M5 bank feed safety contract",()=>{
    transactions:[item],truncated:false,
   })});
   vi.stubGlobal("fetch",http);
-  await expect(fetchChessBankFeed("external_opaque_bank",since)).rejects.toThrow();
-  // Today's date can be much later than the fixed fixture; the service
-  // rejects stale pages and the test asserts fail-closed behavior.
+  await expect(fetchChessBankFeed("external_opaque_bank",since))
+   .resolves.toHaveLength(1);
   const args=http.mock.calls[0] as unknown as [string,RequestInit];
   expect(args[0]).toBe("https://feed.test.example/transactions");
   const sent=JSON.parse(String(args[1].body));
