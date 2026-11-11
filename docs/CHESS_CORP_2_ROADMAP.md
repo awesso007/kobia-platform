@@ -290,3 +290,16 @@ The presence of these commits does not establish production readiness.
 Milestone 4 is feature-implemented in the development branch for internal
 operations, but is not operationally complete in production until the external
 items above are verified. Do not claim a production release.
+
+
+## Round 3 follow-up: internal appointment lifecycle and reminders
+- Business-unit managers can mark previously scheduled appointments completed
+  after their end time, or cancel with stale-update checking.
+- Appointment creation and cancellation generate staff notifications, and the
+  scheduler generates a deduplicated reminder within an hour of the start.
+- Staff can download their own appointment times as a private generic
+  iCalendar file without client identity or subject details.
+- PostgreSQL rejects overlapping active appointments for one employee even
+  when booked by different CHESS business units in the same tenant.
+- External calendar event automation for appointments remains disabled;
+  privacy, OAuth, and production staging requirements still apply.
