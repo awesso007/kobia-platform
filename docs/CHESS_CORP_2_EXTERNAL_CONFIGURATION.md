@@ -456,6 +456,102 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
   required to enable live client referrals. Current code does not
   automatically cancel an already-sent external ticket after withdrawal.
 
+## 5B. Milestone 7 AI triage, client billing and reporting
+
+### AI operations (OFF unless independently authorized)
+- Provide `CHESS_AI_TRIAGE_API_URL` (approved, private HTTPS POST gateway),
+  `CHESS_AI_ALLOWED_HOST` (exact allowlisted hostname, standard HTTPS),
+  and `CHESS_AI_API_KEY` (server-only secret).
+- Set `CHESS_AI_TRIAGE_ENABLED=false` by default. It requires a separately
+  approved `CHESS_AI_DATA_SHARING_APPROVED=true` only after a legal
+  data-processing agreement, vendor retention/deletion assessment, and
+  suitability/security review. The tenant scheduler also requires
+  `CHESS_SCHEDULER_ENABLED=true`, an approved tenant allowlist and
+  `CHESS_WORKFLOW_WORKER_TOKEN`. Leave all flags OFF until approved.
+- The gateway receives only:
+  `{"purpose":"WORK_ITEM_TRIAGE_V1","features":{"status":"TODO|IN_PROGRESS|BLOCKED|COMPLETED|CANCELLED","dueBucket":"OVERDUE|WITHIN_48_HOURS|LATER|UNSCHEDULED","hasAssignee":boolean}}`.
+  The real JSON uses one enum value for each property.
+  **Do not send** client names, task titles, tax/payment records, medical
+  or mortgage details, identifying documents, email addresses, or arbitrary
+  prompts. The AI proxy must not log or enrich the request with PII.
+- Respond with a strict JSON object:
+  `{"priority":"LOW|NORMAL|HIGH","recommendation":"KEEP_QUEUE|REVIEW_DEADLINE|ESCALATE_TO_MANAGER","rationaleCode":"DEADLINE_OVERDUE|DEADLINE_SOON|TASK_BLOCKED|NO_ASSIGNEE|ORDINARY_QUEUE|TASK_CLOSED","modelVersion":"approved-id"}`.
+  Closed tasks cannot be escalated; blocked work must request human
+  escalation; overdue active work may not be downgraded LOW.
+- The private signed-in `/api/chess/ai-triage` route and tenant-allowlisted
+  machine-only `/api/chess/ai-triage/run?t=<tenant>` create PENDING
+  suggestions bound to source task fingerprints. The worker examines at
+  most 25 new candidate tasks per run and never executes a change.
+  An independent active OWNER/ADMIN must accept or reject each suggestion.
+- Actual AI vendor models and cost controls have NOT been tested with
+  real provider credentials; no autonomous bookkeeping, tax filing, payroll,
+  licensed decisioning, invoice collection or regulated client outreach is
+  implemented by this triage.
+
+### Client invoices (invoice delivery only, NOT payment execution)
+- Configure `CHESS_BILLING_DELIVERY_API_URL` (approved HTTPS POST create/
+  delivery endpoint), `CHESS_BILLING_STATUS_API_URL` (same-host read-only
+  status endpoint), `CHESS_BILLING_ALLOWED_HOST` (exact hostname),
+  and `CHESS_BILLING_API_KEY` (server-only vendor secret).
+- Keep `CHESS_BILLING_DELIVERY_ENABLED=false` and
+  `CHESS_BILLING_VENDOR_CERTIFIED=false` until the vendor's contract,
+  data-processing review, billing-contact identity mapping, client
+  invoice-delivery opt-in, tax/fee treatment and noncollection controls
+  have been independently approved. Both flags must be true to activate.
+- Invoicing is restricted to ACCOUNTING, BOOKKEEPING, PAYROLL and TAX
+  ACTIVE service cases. An authorized employee must have explicit
+  service-write access and both current client consents
+  `service:<SERVICE>` and `billing:<SERVICE>`.
+  Each draft uses a fixed service product code, a positive USD cent amount
+  no greater than 1,000,000,000, and an idempotent request key. A separate
+  OWNER/ADMIN must approve; a third active authorized sender submits
+  an approved invoice. No automatic debit or transfer is possible.
+- Delivery payload is only `tenantSlug,businessId,clientProfileId,
+  serviceCaseId,invoiceId,service,descriptionCode,currency:"USD",
+  amountCents:string,idempotencyKey`. It intentionally carries no
+  client email, billing address, tax ID, card/bank details or clinical data.
+  The approved external vendor must separately verify that the opaque
+  customer mapping is authorized; it must **only issue an invoice**.
+- A strict vendor response is
+  `{invoiceId,id?,status:accepted|pending|rejected|not_found}`.
+  `accepted` requires a provider invoice ID. It means acknowledged for
+  delivery, NOT received/paid/settled. An uncertain response remains UNKNOWN
+  and is never automatically resent. Status is reconciled by the same
+  stable idempotency key and provider ID.
+- Real payment processing, subscription plans, sales-tax calculations,
+  AR application, collections, payment-webhook signing and double-entry
+  posting are separate integrations and remain BLOCKED until contracted,
+  compliant financial execution and independent approval are implemented.
+
+### Business reporting
+- The restricted `/app/operations-intelligence` page and
+  `GET /api/chess/operations-report?businessId=<unit>&month=YYYY-MM`
+  return monthly business-unit counts and invoice totals (string cents).
+  Add `&format=csv` for a no-store, aggregate-only CSV download.
+- Metrics count records CREATED in the specified UTC month and group them by
+  current status. They are not historical month-end snapshots, audited
+  revenue, actual income, cash collected, or tax results; provider
+  reconciliation and the general ledger remain sources of truth for those.
+- No external reporting API key is needed for the business-unit operational
+  dashboard. Consolidated financial statements require entity ownership,
+  intercompany eliminations, reviewed ledger postings and accounting
+  policy approval before a future reporting release.
+
+### M7 test-only vendor inputs
+- Protected GitHub environment `chess-m7-sandbox` with
+  `CHESS_M7_SANDBOX_VALIDATE=true` and
+  `CHESS_M7_SANDBOX_ISOLATED=true` only after vendor guarantees a
+  nonexecuting fake-data sandbox.
+- Supply `CHESS_M7_SANDBOX_TENANT`,
+  `CHESS_M7_SANDBOX_BUSINESS_ID`, the approved AI endpoint/host/secret,
+  and the approved billing create/status URLs, host and vendor secret.
+  Manually run `chess-m7-sandbox.yml` with a fictional test account.
+  It validates a generic BLOCKED task recommendation and the create/status
+  contract of a synthetic one-dollar invoice. It CANNOT transfer money or
+  execute licensed decisions. Clean up fake provider invoices after testing.
+- Never put client data, protected person identifiers, payment credentials
+  or production gateway tokens into CI, sample payloads or logs.
+
 ## 6. Release validation steps
 1. Add these entries under GitHub Environment chess-staging as Secrets or
    Variables, following the sample workflow.
