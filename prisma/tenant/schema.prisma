@@ -3972,3 +3972,24 @@ model ChessAppointment {
   @@index([businessId, startAt])
   @@index([assignedClerkUserId, startAt])
 }
+
+
+// Private appointment calendar delivery is isolated from the work-item outbox.
+// Never synthesize fake work items for appointments or expose client subjects.
+model ChessAppointmentCalendarOutbox {
+  id String @id @default(cuid())
+  businessId String
+  appointmentId String @unique
+  recipientClerkUserId String
+  startsAt DateTime
+  endsAt DateTime
+  idempotencyKey String @unique
+  providerEventId String?
+  status ChessCalendarSyncStatus @default(WAITING_CONSENT)
+  lastErrorCode String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId,status])
+  @@index([recipientClerkUserId,status])
+}
