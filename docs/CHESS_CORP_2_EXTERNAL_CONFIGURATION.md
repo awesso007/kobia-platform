@@ -137,8 +137,17 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
   `CHESS_CALENDAR_ALLOWED_HOST`, `CHESS_CALENDAR_API_KEY`,
   `CHESS_CALENDAR_SYNC_ENABLED`, `CHESS_WORKFLOW_WORKER_TOKEN`,
   and the existing approved tenant allowlist.
-- Every appointment is queued at booking time, but remains
-  `WAITING_CONSENT` unless the assigned employee has explicitly opted in.
+- Every appointment is queued at booking time but remains
+  `WAITING_CONSENT` unless the assigned employee explicitly authorizes
+  **appointment timing** separately from ordinary work-item calendar
+  sharing. Existing task calendar consent never grants appointment access.
+  The separate `PATCH /api/chess/calendar-preferences` request is
+  `{"scope":"APPOINTMENTS","enabled":true,"acknowledge":true}`.
+  Revocation uses `{"scope":"APPOINTMENTS","enabled":false}`.
+  Global calendar opt-out also revokes the appointment category.
+  The tenant migration defaults all previous employee preferences to
+  `appointmentEnabled=false`.
+
   Cancelled appointments are removed from the remote provider if already
   synchronized. Submission outcomes that cannot be confirmed are retained
   for reconciliation; no blind retry occurs.
