@@ -33,6 +33,45 @@ try{
  if(url.protocol!=="https:" && process.env.NODE_ENV==="production")
   errors.push("CHESS_PUBLIC_ORIGIN must use HTTPS in production");
 }catch{errors.push("CHESS_PUBLIC_ORIGIN must be a valid URL");}
+// M6 regulatory services fail closed unless independently contracted sources
+// and a partner coordination gateway have both been authorized.
+if(process.env.CHESS_AFFILIATION_VERIFICATION_ENABLED==="true"){
+ for(const key of ["CHESS_AFFILIATION_API_URL",
+  "CHESS_AFFILIATION_ALLOWED_HOST","CHESS_AFFILIATION_API_KEY",
+  "CHESS_AFFILIATION_SOURCE_HOSTS"]){
+  if(!process.env[key])errors.push(`${key} is required for affiliation verification`);
+ }
+ const raw=process.env.CHESS_AFFILIATION_API_URL;
+ if(raw)try{
+  const url=new URL(raw);
+  if(url.protocol!=="https:"||url.hostname!==process.env.CHESS_AFFILIATION_ALLOWED_HOST||
+   url.username||url.password||url.hash)
+   errors.push("Affiliation registry must use exact allowed HTTPS host");
+ }catch{errors.push("Affiliation registry URL is malformed");}
+}
+if(process.env.CHESS_REGULATED_HANDOFF_ENABLED==="true"){
+ for(const key of ["CHESS_REGULATED_HANDOFF_API_URL",
+  "CHESS_REGULATED_STATUS_API_URL","CHESS_REGULATED_ALLOWED_HOST",
+  "CHESS_REGULATED_API_KEY","CHESS_REGULATED_PARTNER_MORTGAGE",
+  "CHESS_REGULATED_PARTNER_INSURANCE","CHESS_REGULATED_PARTNER_REAL_ESTATE",
+  "CHESS_REGULATED_PARTNER_INVESTMENTS"]){
+  if(!process.env[key])errors.push(`${key} is required for regulated partner handoff`);
+ }
+ if(process.env.CHESS_AFFILIATION_VERIFICATION_ENABLED!=="true")
+  errors.push("Regulated handoffs require independently verified firm affiliations");
+ for(const name of ["CHESS_REGULATED_HANDOFF_API_URL","CHESS_REGULATED_STATUS_API_URL"]){
+  const raw=process.env[name];
+  if(raw)try{
+   const url=new URL(raw);
+   if(url.protocol!=="https:"||url.hostname!==process.env.CHESS_REGULATED_ALLOWED_HOST||
+    url.username||url.password||url.hash)
+    errors.push(`${name} must match the exact approved HTTPS host`);
+  }catch{errors.push(`${name} has an invalid URL`);}
+ }
+ if(!process.env.CHESS_LICENSE_SOURCE_HOSTS||
+    !process.env.CHESS_AFFILIATION_SOURCE_HOSTS)
+  errors.push("Regulated handoffs require approved official registry source host allowlists");
+}
 if(process.env.CHESS_BANK_FEED_ENABLED==="true" ||
  process.env.CHESS_BANK_FEED_IMPORT_ENABLED==="true"){
  for(const name of ["CHESS_BANK_FEED_API_URL","CHESS_BANK_FEED_ALLOWED_HOST",
