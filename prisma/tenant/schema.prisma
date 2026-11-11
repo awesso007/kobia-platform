@@ -4095,7 +4095,15 @@ model ChessClientDocument {
   uploadedByClerkUserId String
   createdAt DateTime @default(now())
   verifiedAt DateTime?
+  // Policy metadata is write-once; no object deletion workflow is
+  // enabled until independently approved legal retention/hold release.
+  retentionUntil DateTime?
+  legalHoldAt DateTime?
+  legalHoldByClerkUserId String?
+  suppressedAt DateTime?
+  suppressedByClerkUserId String?
   @@index([businessId,clientProfileId,service,status])
+  @@index([businessId,retentionUntil,suppressedAt])
 }
 
 // M5 bridging metadata. Finance rows remain in the legacy tenant-scoped ledger.

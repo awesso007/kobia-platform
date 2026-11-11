@@ -164,7 +164,40 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
   const loaded=await db.chessClientDocument.findUnique({where:{id:record.id}});
   expect(loaded?.storageVersionId).toBe("s3-immutable-version");
   expect(loaded?.storageETag).toBe("etag-verified");
-  await db.chessClientDocument.delete({where:{id:record.id}});
+  await expect(db.chessClientDocument.delete({where:{id:record.id}}))
+   .rejects.toThrow();
+  // The protected fictitious record remains, matching the permanent
+  // release-hold pending retention/legal deletion workflow.
+ });
+ it("enforces document retention, immutable legal hold and suppression at PostgreSQL layer",async()=>{
+  const row=await db.chessClientDocument.create({data:{
+   businessId:"fictional-retention",clientProfileId:"fictional-client",
+   service:"BOOKKEEPING",fileName:"fictional.pdf",
+   mimeType:"application/pdf",maxBytes:1200,storageKey:"retained-"+Date.now(),
+   uploadedByClerkUserId:"fictional-admin",
+  }});
+  const date=new Date(Date.now()+365*86400000);
+  await db.chessClientDocument.update({where:{id:row.id},data:{
+   retentionUntil:date,
+  }});
+  const hold=await db.chessClientDocument.update({where:{id:row.id},data:{
+   legalHoldAt:new Date(),legalHoldByClerkUserId:"fictional-counsel",
+  }});
+  expect(hold.legalHoldAt).not.toBeNull();
+  await expect(db.chessClientDocument.update({where:{id:row.id},data:{
+   legalHoldAt:null,legalHoldByClerkUserId:null,
+  }})).rejects.toThrow();
+  await expect(db.chessClientDocument.update({where:{id:row.id},data:{
+   retentionUntil:new Date(Date.now()+730*86400000),
+  }})).rejects.toThrow();
+  await db.chessClientDocument.update({where:{id:row.id},data:{
+   suppressedAt:new Date(),suppressedByClerkUserId:"fictional-reviewer",
+  }});
+  await expect(db.chessClientDocument.update({where:{id:row.id},data:{
+   suppressedAt:null,suppressedByClerkUserId:null,
+  }})).rejects.toThrow();
+  await expect(db.chessClientDocument.delete({where:{id:row.id}}))
+   .rejects.toThrow();
  });
  it("rejects stale work-item status updates",async()=>{
   const item=await db.chessWorkItem.create({data:{
