@@ -3,6 +3,8 @@ import {listBusinessUnits} from "@/lib/chess/business-units";
 import {getChessOperationsReport} from "@/lib/chess/operations-reporting";
 import {getChessPortfolioOperationsReport} from "@/lib/chess/operations-portfolio";
 import {formatChessUsdCents} from "@/lib/chess/report-format";
+import {listChessOperationalSnapshots} from "@/lib/chess/operational-close";
+import OperationalCloseClient from "./OperationalCloseClient";
 export const dynamic="force-dynamic";
 
 type CountRow={category:string;count:number};
@@ -32,9 +34,10 @@ export default async function ChessReportsPage({searchParams}:{
   const month=typeof searchParams.month==="string"&&
    /^20[2-9][0-9]-(0[1-9]|1[0-2])$/.test(searchParams.month)?
    searchParams.month:new Date().toISOString().slice(0,7);
-  const [report,portfolio]=await Promise.all([
+  const [report,portfolio,snapshots]=await Promise.all([
    getChessOperationsReport({businessId:selected.id,month}),
    getChessPortfolioOperationsReport(month),
+   listChessOperationalSnapshots(selected.id),
   ]);
   const toRows=(rows:readonly {status:string;count:number}[])=>rows.map(x=>({
    category:x.status,count:x.count,
@@ -70,6 +73,11 @@ export default async function ChessReportsPage({searchParams}:{
      View report
     </button>
    </form>
+   <OperationalCloseClient businessId={selected.id} month={month}
+    snapshots={snapshots.map(s=>({
+     ...s,createdAt:s.createdAt.toISOString(),
+     reviewedAt:s.reviewedAt?.toISOString()??null,
+    }))}/>
    <section className="space-y-4">
     <div className="flex flex-wrap items-end justify-between gap-3">
      <h2 className="text-xl font-semibold">{selected.name} · {month}</h2>
