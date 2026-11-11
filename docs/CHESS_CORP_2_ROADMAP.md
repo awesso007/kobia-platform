@@ -303,3 +303,36 @@ items above are verified. Do not claim a production release.
   when booked by different CHESS business units in the same tenant.
 - External calendar event automation for appointments remains disabled;
   privacy, OAuth, and production staging requirements still apply.
+
+
+## Round 4 - appointment calendar automation (development branch)
+- Appointment creation now atomically inserts a separate, uniquely keyed
+  ChessAppointmentCalendarOutbox record. Employee opt-in controls whether
+  the event is PENDING or WAITING_CONSENT. No customer name, appointment
+  subject or service-specific data is sent to the gateway.
+- Appointment cancellation atomically cancels unsent items or queues
+  a remote deletion for previously synchronized items. Employee opt-out
+  affects both appointment and task queues.
+- The machine-authenticated tenant calendar worker now processes both
+  resources, including provider cancellation and idempotency-key status
+  reconciliation. Stale SUBMITTING and CANCEL_SUBMITTING claims are converted
+  to UNKNOWN/CANCEL_UNKNOWN and reconciled rather than resent blindly.
+- Successful provider responses and reconciliation results generate
+  append-only CHESS security events; worker health includes separate
+  appointment delivery and awaiting-consent counts.
+- PostgreSQL integration tests cover appointment calendar queue uniqueness
+  and state changes; mocked provider contract tests prove generic payload
+  enforcement and strict event-ID verification.
+- Manual, disabled-by-default appointment create/status/cancel sandbox
+  validation is available in chess-calendar-sandbox.yml, requiring a
+  dedicated sandbox environment and a previously OAuth-authorized
+  employee test calendar. The real provider has NOT been exercised.
+- Milestone 4 rollout still requires the configured real gateway, employee
+  delegated OAuth onboarding, real sandbox results, end-to-end role tests,
+  staging deployment/monitoring, documented retention and compliance review.
+- Appointment conflict prevention is scoped to one KOBIA tenant. Separate
+  KOBIA tenants do not share a booking lock or staff directory.
+
+**Status:** Development implementation and automated CI testing only.
+Code passing CI does not establish live external calendar availability
+or regulated production readiness.
