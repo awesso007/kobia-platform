@@ -18,6 +18,15 @@ describe("private iCalendar exports",()=>{
   expect(ics).toContain("SUMMARY:CHESS appointment");
   expect(ics).not.toContain("clientProfileId");
  });
+ it("preserves the actual appointment duration instead of assuming 30 minutes",()=>{
+  const ics=toPrivateChessCalendar([{
+   id:"apt-two-hours",dueAt:new Date("2026-12-01T17:00:00Z"),
+   endAt:new Date("2026-12-01T19:00:00Z"),status:"SCHEDULED",
+   kind:"APPOINTMENT",
+  }]);
+  expect(ics).toContain("DTSTART:20261201T170000Z");
+  expect(ics).toContain("DTEND:20261201T190000Z");
+ });
  it("omits canceled and undated work items",()=>{
   const ics=toPrivateChessCalendar([
    {id:"no-date",dueAt:null,status:"TODO"},
