@@ -1,4 +1,4 @@
-export type CalendarWorkItem={id:string;dueAt:Date|null;status:string};
+export type CalendarWorkItem={id:string;dueAt:Date|null;status:string;kind?:"TASK"|"APPOINTMENT"};
 /** Read-only iCalendar export. No client names or restricted service details
  * leave the app in calendar event summaries. Calendar applications must use
  * the currently authenticated download rather than a public subscription. */
@@ -17,7 +17,7 @@ export function toPrivateChessCalendar(tasks:readonly CalendarWorkItem[],now=new
    `DTSTAMP:${format(now)}`,
    `DTSTART:${format(task.dueAt)}`,
    `DTEND:${format(end)}`,
-   "SUMMARY:CHESS work item",
+   task.kind==="APPOINTMENT"?"SUMMARY:CHESS appointment":"SUMMARY:CHESS work item",
    "DESCRIPTION:Open CHESS operations to view authorized details.",
    "CLASS:PRIVATE",
    "END:VEVENT");
