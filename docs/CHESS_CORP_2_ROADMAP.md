@@ -1,41 +1,71 @@
-# CHESS CORP 2 - Unified Client Profile implementation
+# CHESS CORP 2 - Development milestones and release gates
 
-## Delivered in feature/operations-overview
-- Tenant-local ClientProfile, ClientServiceLink, ClientServiceGrant models in prisma/tenant/schema.prisma.
-- Fail-closed role and per-service grant policy with unit tests.
-- Server operations: create/list/read profile, create/read service link, grant/revoke service access.
-- Authenticated HTTP endpoints:
-  - GET/POST /api/client-profiles
-  - GET /api/client-profiles/:profileId/services?service=MORTGAGE
-  - POST /api/client-profiles/:profileId/services
-  - PUT/DELETE /api/client-service-links/:linkId/grants
+Branch: `feature/operations-overview`
+Pull request: https://github.com/awesso007/kobia-platform/pull/24
 
-## Privacy boundaries
-- A client profile stores basic name and CRM reference only.
-- Each service is a separate link with independent user grants.
-- Admin role does not bypass individual service read grants.
-- Missing tenant, inactive membership, absent grant and revoked grant deny access.
-- This **does not** link a client across separate KOBIA tenant databases.
-- Avoid storing tax, financial, mortgage, insurance, health, or identity records in shared profile fields.
+KOBIA is the independent platform. The code below is a CHESS-specific
+business-operations layer within an isolated KOBIA tenant, not an assertion
+that a single legal entity holds all operating licenses.
 
-## Required before production
-1. Deploy schema to each tenant through versioned Prisma migrations, with rollback plans.
-2. Implement access-change audit events and durable authorization approvals.
-3. Add CSRF/origin policy review, anti-enumeration checks, rate limits, and API security tests.
-4. Determine legal entities, consent and regulatory purpose limitation before cross-business identity matching.
-5. Add a client lookup/merge workflow with duplicate detection and explicit consent.
-6. Add UI for employees and clients, field-level access controls, encryption and retention policies.
-7. Add PostgreSQL integration tests, complete CI and staging security review.
-8. Confirm data residency, retention, breach response and vendor contracts for financial services.
+## Milestone 1 - Unified Client Profile: development implementation
+- Tenant-local profile, separately permissioned service links and grants.
+- Business-scoped service links, explicit revocation and CRM directory.
+- No cross-tenant/client identity matching is implemented.
 
-## Remaining CHESS CORP 2 milestones
-- M2: Separate CHESS legal-entity/workspace registry and employee assignments.
-- M3: Client onboarding, consent, document intake and e-signatures.
-- M4: Tasks, appointments, service workflow and manager oversight.
-- M5: Bookkeeping, payroll, tax orchestration; retain practice-specific accounting records.
-- M6: Mortgage, insurance, real estate and investment workflows with license and affiliation gates.
-- M7: Cross-service reporting, billing and human-reviewed AI automations.
-- M8: Security hardening, migrations, data import, compliance review, end-to-end tests and production release.
+## Milestone 2 - Business units and employee assignments: core implementation
+- Tenant-local ChessBusinessUnit and ChessEmployeeAssignment tables.
+- Assignments are restricted to active tenant memberships.
+- Revocation and active-assignment checks.
+- Business directory and guarded HTTP endpoints.
+- Legal-entity verification, ownership structures and credential validation
+  are still required. A business unit label alone is not a legal entity.
 
-None of M2-M8 is marked complete by this document. The existing KOBIA product is
-a shared technical foundation, not evidence that these CHESS modules are deployed.
+## Milestone 3 - Client consent and onboarding: partial
+- Purpose/version/status/expiration/withdrawal metadata and pending consent API.
+- Intake checklist model.
+- No mechanism grants a client's consent, collects documents, or produces valid
+  e-signatures. PENDING does not authorize sharing. Requires client auth and
+  verified signature/consent evidence before release.
+
+## Milestone 4 - Operations workflows: partial
+- Scoped work-item model, assignment validation and basic read/create API.
+- Recurrence, calendar conflict checking, manager queues, alerts, workflows and
+  optimistic concurrency require implementation.
+
+## Milestone 5 - Accounting/tax/payroll orchestration: partial
+- Generic service-case model and consent gating.
+- This is not a payroll processor, tax return preparation system, general
+  ledger, bank integration or client-specific accounting engine.
+
+## Milestone 6 - Mortgage/insurance/real estate/investments: partial
+- Explicit service classification and VERIFIED/expiry credential gate.
+- Credential status is not independently verified yet.
+- Does not originate mortgages, quote policies, manage investment trades or
+  perform real estate brokerage transactions. Legal/compliance approval required.
+
+## Milestone 7 - AI and approvals: partial
+- Digest-only approval queue; no source financial data stored in approval rows.
+- Review must be by a separate active admin/owner.
+- Approval does not automatically execute a financial action.
+- Billing, reporting, transaction safeguards, idempotency and supervised AI
+  execution remain outstanding.
+
+## Milestone 8 - Production hardening: partial
+- Security-event table and server-side append function.
+- No assertion of append-only DB controls, external audit archive, pentesting,
+  e2e coverage, tenant-schema migrations, backups or production deployment.
+
+## Blocking release gates
+1. Migration and rollback plan for every tenant schema, including migration
+   compatibility with existing CRM data.
+2. Signed-in client consent capture with unforgeable provenance and withdrawal.
+3. Cross-business record policy and formal legal/privacy review.
+4. End-to-end scoped record policies; audit every access/grant/revoke.
+5. Actual license verification and service-provider affiliation checks.
+6. Idempotent billing and controlled AI/financial action execution.
+7. Unit, PostgreSQL integration, E2E, accessibility, load and penetration tests.
+8. Secure environment, backups, recovery drill, observability, staging pilot.
+9. Independent compliance sign-off before sensitive production data or launch.
+
+Completed tasks in this branch represent committed development code only.
+Do not merge or deploy solely based on the existence of these models.
