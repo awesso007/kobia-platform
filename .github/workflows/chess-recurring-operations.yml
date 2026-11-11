@@ -1,0 +1,31 @@
+name: CHESS recurring work scheduler
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+jobs:
+  schedule-recurring-work:
+    # Never run without explicit release approval and configured environment.
+    if: ${{ vars.CHESS_SCHEDULER_ENABLED == 'true' }}
+    environment: chess-staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      CHESS_SCHEDULER_ENABLED: ${{ vars.CHESS_SCHEDULER_ENABLED }}
+      CHESS_PUBLIC_ORIGIN: ${{ vars.CHESS_PUBLIC_ORIGIN }}
+      CHESS_ACTIVE_TENANT_SLUGS: ${{ vars.CHESS_ACTIVE_TENANT_SLUGS }}
+      CHESS_WORKFLOW_WORKER_TOKEN: ${{ secrets.CHESS_WORKFLOW_WORKER_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run tenant-scoped recurrence processing
+        run: node scripts/chess-run-workflows.mjs
+
+# GitHub scheduled workflows run from the default branch only. Keep disabled
+# until the tenant app is deployed, the release review is complete, and a
+# real secret + approved tenant slugs have been configured.
