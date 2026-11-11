@@ -9,7 +9,7 @@ import {getTenantBySlug} from "@/lib/tenant";
 const input=z.object({
  businessId:z.string().min(1),clientProfileId:z.string().min(1),
  serviceCaseId:z.string().min(1),legacyEntityId:z.string().min(1),
- service:z.enum(["ACCOUNTING","BOOKKEEPING","PAYROLL"]),
+ service:z.enum(["ACCOUNTING","BOOKKEEPING","PAYROLL","TAX"]),
 }).strict();
 
 /** An explicit same-tenant mapping is required. Do not infer tenants or copy
@@ -38,7 +38,7 @@ export async function linkChessFinancialEntity(value:unknown) {
 
 /** Read-only operational counters. Permission is checked against BOTH the
  * active business and the explicitly granted service link. */
-export async function financialOperationalSummary(businessId:string,clientProfileId:string,service:"ACCOUNTING"|"BOOKKEEPING"|"PAYROLL") {
+export async function financialOperationalSummary(businessId:string,clientProfileId:string,service:"ACCOUNTING"|"BOOKKEEPING"|"PAYROLL"|"TAX") {
  await assertBusinessAccess(businessId);
  const access=await getClientServiceLink(clientProfileId,businessId,service);
  if(!access)throw new PermissionError("record:read");
