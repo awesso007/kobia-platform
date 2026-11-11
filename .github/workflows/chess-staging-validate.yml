@@ -1,0 +1,62 @@
+name: CHESS staging release validation
+on:
+  workflow_dispatch:
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    environment: chess-staging
+    env:
+      NODE_ENV: production
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+      CHESS_PUBLIC_ORIGIN: ${{ vars.CHESS_PUBLIC_ORIGIN }}
+      CHESS_CONSENT_EVIDENCE_KEY: ${{ secrets.CHESS_CONSENT_EVIDENCE_KEY }}
+      CHESS_DOCUMENT_SCAN_KEY: ${{ secrets.CHESS_DOCUMENT_SCAN_KEY }}
+      CHESS_SCAN_WORKER_TOKEN: ${{ secrets.CHESS_SCAN_WORKER_TOKEN }}
+      CHESS_CLAMAV_HOST: ${{ vars.CHESS_CLAMAV_HOST }}
+      CHESS_CLAMAV_PORT: ${{ vars.CHESS_CLAMAV_PORT }}
+      KOBIA_S3_BUCKET: ${{ vars.KOBIA_S3_BUCKET }}
+      KOBIA_S3_REGION: ${{ vars.KOBIA_S3_REGION }}
+      KOBIA_S3_ENDPOINT: ${{ vars.KOBIA_S3_ENDPOINT }}
+      KOBIA_S3_ACCESS_KEY_ID: ${{ secrets.KOBIA_S3_ACCESS_KEY_ID }}
+      KOBIA_S3_SECRET_ACCESS_KEY: ${{ secrets.KOBIA_S3_SECRET_ACCESS_KEY }}
+      CHESS_PAYROLL_API_URL: ${{ vars.CHESS_PAYROLL_API_URL }}
+      CHESS_PAYROLL_ALLOWED_HOST: ${{ vars.CHESS_PAYROLL_ALLOWED_HOST }}
+      CHESS_PAYROLL_API_KEY: ${{ secrets.CHESS_PAYROLL_API_KEY }}
+      CHESS_LICENSE_API_URL: ${{ vars.CHESS_LICENSE_API_URL }}
+      CHESS_LICENSE_ALLOWED_HOST: ${{ vars.CHESS_LICENSE_ALLOWED_HOST }}
+      CHESS_LICENSE_API_KEY: ${{ secrets.CHESS_LICENSE_API_KEY }}
+      CHESS_LICENSE_SOURCE_HOSTS: ${{ vars.CHESS_LICENSE_SOURCE_HOSTS }}
+      CHESS_PAYROLL_EXECUTION_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Validate injected configuration
+        run: node scripts/chess-deploy-validate.mjs
+      - name: Validate external infrastructure (read-only)
+        run: node scripts/chess-infra-validate.mjs
+      - name: Verify tenant migration status (no write)
+        run: npx prisma migrate status --schema=prisma/tenant/schema.prisma
+      - name: Typecheck and test
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run test
+      - name: Production artifact build
+        run: npm run build
+      - name: Security HTTP smoke
+        run: |
+          npm run start -- -p 3100 > /tmp/chess-staging.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid 2>/dev/null || true' EXIT
+          node scripts/chess-security-smoke.mjs
+
+# This validation workflow DOES NOT deploy code or run migrations.
+# Production execution requires a separate approved deployment procedure.
