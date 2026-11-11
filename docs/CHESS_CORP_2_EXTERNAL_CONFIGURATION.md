@@ -76,14 +76,25 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
 - CHESS_CALENDAR_API_URL: approved HTTPS gateway's event-creation POST
   endpoint. It receives tenantSlug, businessId, workItemId, a staff reference,
   UTC start/end, a generic private title and an Idempotency-Key.
+- CHESS_CALENDAR_CANCEL_API_URL: separate HTTPS POST endpoint at the SAME
+  approved host that deletes a provider event by providerEventId and honors
+  the unique cancellation Idempotency-Key. Both create and cancel endpoints
+  must be operational before calendar sync may be enabled.
 - CHESS_CALENDAR_ALLOWED_HOST: exact approved gateway hostname.
 - CHESS_CALENDAR_API_KEY: gateway credential held in the server's secret manager.
 - The gateway must verify a staff member's Google/Microsoft delegated OAuth
   authorization, target calendar, scoped event permissions, refresh-token
   handling, privacy policy and idempotency before creating events.
 - Calendar outbox events are `PENDING`, `SUBMITTING`, `SYNCED`, `REJECTED`,
-  `UNKNOWN` or `CANCELLED`. An uncertain remote result is NEVER
+  `UNKNOWN`, `CANCEL_PENDING`, `CANCEL_UNKNOWN` or `CANCELLED`. An uncertain remote result is NEVER
   automatically retried; reconcile it with the gateway by idempotency key.
+- `PATCH /api/chess/calendar-preferences` records the signed-in
+  employee's own opt-in/opt-out. No administrator may opt in for them.
+  Events without a personal acknowledgment are WAITING_CONSENT and may not
+  be sent. The external gateway must ALSO check delegated provider OAuth.
+- Employee opt-out and task cancellation queue deletion of previously
+  synchronized events. A remote cancellation with an uncertain outcome is
+  marked CANCEL_UNKNOWN and requires provider reconciliation.
 - Calendar subscriptions via the authenticated `.ics` export are manual
   exports. The gateway hook provides optional outbound calendar event
   creation once configured. Remote cancellation, employee reassignment after
