@@ -40,6 +40,18 @@ async function main() {
   method:"POST",headers:{"Content-Type":"application/json"},
   body:"{}",
  },new Set([403]));
+ await probe("/api/chess/recurring-billing/run?t=demo",{
+  method:"POST",headers:{"Content-Type":"application/json"},body:"{}",
+ },new Set([403]));
+ await probe("/api/chess/merchant-events?t=demo",{
+  method:"POST",headers:{"Content-Type":"application/json"},body:"{}",
+ },new Set([403]));
+ await probe("/api/chess/merchant-observations?businessId=unowned",
+  {},allowedDenied);
+ await probe("/api/chess/recurring-billing?businessId=unowned",
+  {},allowedDenied);
+ await probe("/api/chess/operational-close?businessId=unowned&month=2026-10",
+  {},allowedDenied);
  await probe("/api/chess/ai-triage/run?t=demo",{
   method:"POST",headers:{"Content-Type":"application/json"},
   body:"{}",

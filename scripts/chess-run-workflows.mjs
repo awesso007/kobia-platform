@@ -77,6 +77,23 @@ for(const slug of slugs){
    console.log(`CHESS ${slug}: AI proposals ${ai.generated}; triage failed ${ai.blocked}`);
    if(ai.blocked>0)failures++;
   }
+  if(process.env.CHESS_BILLING_RECURRING_DRAFTS_ENABLED==="true"){
+   const draftsUrl=new URL("/api/chess/recurring-billing/run",base);
+   draftsUrl.searchParams.set("t",slug);
+   const response=await fetch(draftsUrl,{
+    method:"POST",redirect:"error",cache:"no-store",
+    headers:{"Authorization":`Bearer ${token}`,
+     "Content-Type":"application/json"},
+    body:"{}",signal:AbortSignal.timeout(20000),
+   });
+   if(!response.ok)throw new Error(`Recurring drafts HTTP ${response.status}`);
+   const result=await response.json();
+   if(result.disabled||typeof result.created!=="number"||
+    typeof result.blocked!=="number"||typeof result.paused!=="number")
+    throw new Error("Recurring draft worker did not confirm an approved run.");
+   console.log(`CHESS ${slug}: recurring invoice drafts ${result.created}; paused ${result.paused}; blocked ${result.blocked}`);
+   if(result.blocked>0)failures++;
+  }
   if(process.env.CHESS_CALENDAR_SYNC_ENABLED==="true"){
    const calendarUrl=new URL("/api/chess/calendar-sync/run",base);
    calendarUrl.searchParams.set("t",slug);
