@@ -52,6 +52,13 @@ export async function reconcileChessPayrollDispatches(now=new Date()){
     payRunId:item.legacyPayRunId,idempotencyKey:item.idempotencyKey,
     providerRequestId:item.providerRequestId,
    });
+   // A stale status packet must never overwrite a more recent vendor
+   // assertion. Submissions are never re-sent by this polling code.
+   if((item.providerCheckedAt&&remote.observedAt<=item.providerCheckedAt)||
+      (item.submittedAt&&remote.observedAt<item.submittedAt)){
+    unresolved++;
+    continue;
+   }
    const status=mapProviderPayrollStatus(remote.status);
    await db.$transaction(async tx=>{
     const change=await tx.chessPayrollDispatch.updateMany({where:{
