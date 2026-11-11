@@ -602,6 +602,36 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
   outcomes via the existing worker-health endpoint. A green CI job
   does not establish a real archive provider or successful live export.
 
+### Authenticated two-tenant access/CSRF regression (manual-only)
+- Create two fictional, separately configured staging tenants, at least
+  two active business units, a service case with a current accepted
+  client consent and an explicit manager service grant, plus a second
+  staff account that has NO grant to that case. Do not use real customers
+  or staff sessions.
+- Create the protected GitHub environment `chess-authz-e2e` and set
+  `CHESS_AUTHZ_E2E_VALIDATE=true`,
+  `CHESS_AUTHZ_E2E_ISOLATED=true`,
+  `CHESS_AUTHZ_E2E_BASE_URL` (HTTPS tenant A origin),
+  `CHESS_AUTHZ_E2E_OTHER_TENANT_URL` (HTTPS tenant B origin),
+  `CHESS_AUTHZ_E2E_BUSINESS_ID` (allowed unit in tenant A),
+  `CHESS_AUTHZ_E2E_OTHER_BUSINESS_ID` (unit not authorized to
+  the manager from tenant A),
+  `CHESS_AUTHZ_E2E_SERVICE_CASE_ID` (explicitly granted ACTIVE case),
+  `CHESS_AUTHZ_E2E_OTHER_CASE_ID` (inaccessible case),
+  and `CHESS_AUTHZ_E2E_MONTH` in YYYY-MM format.
+- Supply TWO distinct, temporary Clerk sandbox session cookies as
+  protected secrets: `CHESS_AUTHZ_E2E_MANAGER_COOKIE` and
+  `CHESS_AUTHZ_E2E_NO_GRANT_COOKIE`. Do not log them, reuse real
+  authentication sessions, or retain them after the test.
+- Run `chess-authz-e2e.yml` manually. It requires actual authenticated
+  200 responses for authorized reporting and an authorized case, then
+  checks denied cross-business, ungranted-staff and foreign-tenant reads
+  plus forged Origin POST denial. Redirect-to-login and generic server
+  errors never count as passing access-control checks.
+- The regression does not replace a full independent penetration test,
+  role-based browser test, record mutation race tests, accessibility audit
+  or public endpoint threat model. All remain preproduction gates.
+
 ### Verified backup and isolated restore drill (manual-only)
 - **First**, the DR operator must independently provision an encrypted,
   compliance-locked, versioned object in a backup bucket and restore
