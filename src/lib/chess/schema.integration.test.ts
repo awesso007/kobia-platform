@@ -619,6 +619,41 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    expect(fetched?.providerInvoiceId).toBeNull();
   }finally{await db.chessBillingInvoice.delete({where:{id:invoice.id}});}
  });
+ it("records merchant observations without rewriting invoice or settlement status",async()=>{
+  const invoice=await db.chessBillingInvoice.create({data:{
+   businessId:"fictional-merchant",clientProfileId:"fictional-client",
+   serviceCaseId:"fictional-case-"+Date.now(),
+   service:"BOOKKEEPING",descriptionCode:"BOOKKEEPING_MONTHLY",
+   amountCents:25000n,requestKey:"fictional_request_merchant",
+   sourceDigest:"f".repeat(64),idempotencyKey:"d".repeat(64),
+   createdByClerkUserId:"fictional-reviewer",status:"SENT",
+   providerInvoiceId:"remote-invoice-test",
+  }});
+  try{
+   const receipt=await db.chessMerchantPaymentEvent.create({data:{
+    businessId:invoice.businessId,invoiceId:invoice.id,
+    providerInvoiceId:"remote-invoice-test",providerEventId:"evt_"+Date.now(),
+    eventKind:"PAYMENT_CAPTURED",amountCents:12000n,
+    eventDigest:"a".repeat(64),occurredAt:new Date(),
+   }});
+   expect(receipt.status).toBe("OBSERVED");
+   await expect(db.chessMerchantPaymentEvent.create({data:{
+    businessId:invoice.businessId,invoiceId:invoice.id,
+    providerInvoiceId:"remote-invoice-test",
+    providerEventId:receipt.providerEventId,eventKind:"REFUND_OBSERVED",
+    amountCents:500n,eventDigest:"b".repeat(64),occurredAt:new Date(),
+   }})).rejects.toThrow();
+   await expect(db.chessMerchantPaymentEvent.update({where:{id:receipt.id},
+    data:{status:"SETTLED"},
+   })).rejects.toThrow();
+   await expect(db.chessMerchantPaymentEvent.delete({where:{id:receipt.id}}))
+    .rejects.toThrow();
+   const unchanged=await db.chessBillingInvoice.findUnique({where:{id:invoice.id}});
+   expect(unchanged?.status).toBe("SENT");
+  }finally{
+   await db.chessBillingInvoice.delete({where:{id:invoice.id}});
+  }
+ });
  it("freezes month-end operational evidence and enforces distinct review and immutability",async()=>{
   const snapshot=await db.chessOperationalPeriodSnapshot.create({data:{
    businessId:"fictional-snapshot-"+Date.now().toString(36),
