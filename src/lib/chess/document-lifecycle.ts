@@ -16,12 +16,16 @@ const action=z.discriminatedUnion("action",[
  z.object({...base,action:z.literal("SET_RETENTION"),
   retainUntil:z.string().datetime()}).strict(),
 ]);
-export function documentLifecycleEnabled(env:{
+export function documentLifecycleEnabled(env?:{
  CHESS_DOCUMENT_LIFECYCLE_ENABLED?:string;
  CHESS_DOCUMENT_RETENTION_POLICY_APPROVED?:string;
-}=process.env):boolean{
- return env.CHESS_DOCUMENT_LIFECYCLE_ENABLED==="true"&&
-  env.CHESS_DOCUMENT_RETENTION_POLICY_APPROVED==="true";
+}):boolean{
+ const flags=env??{
+  CHESS_DOCUMENT_LIFECYCLE_ENABLED:process.env.CHESS_DOCUMENT_LIFECYCLE_ENABLED,
+  CHESS_DOCUMENT_RETENTION_POLICY_APPROVED:process.env.CHESS_DOCUMENT_RETENTION_POLICY_APPROVED,
+ };
+ return flags.CHESS_DOCUMENT_LIFECYCLE_ENABLED==="true"&&
+  flags.CHESS_DOCUMENT_RETENTION_POLICY_APPROVED==="true";
 }
 /** No hard deletion or legal-hold release API exists here. A future lawful
  * deletion/release process requires an independently reviewed workflow. */
