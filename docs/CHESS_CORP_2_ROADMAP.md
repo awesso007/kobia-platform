@@ -552,3 +552,63 @@ does not satisfy the five mandatory gates above.**
 assistance and invoice coordination, but complete end-to-end production
 billing, supervised financial AI and audited accounting reports remain
 blocked pending provider configuration and independent release controls.**
+
+
+## Round 8 - audit evidence, backup/restore and release-hardening continuation
+
+### Committed and tested in code (M8 still INCOMPLETE)
+- **Audit provenance:** tenant-local `ChessAuditArchiveOutbox` points to immutable
+  `ChessSecurityEvent` records with one unique outbox entry per event.
+  PostgreSQL requires a signed SHA-256 HMAC digest and a provider receipt
+  before an event can be marked ARCHIVED. A second database trigger prevents
+  modifying or deleting archived receipts, complementing the existing
+  append-only source event trigger.
+- **Pseudonymized export:** an allowlisted, HTTPS-only independent archive
+  provider accepts bounded batches of source event metadata. Actor,
+  business and resource references are HMAC-pseudonymized with a protected
+  per-environment key. Free-form event labels are excluded. A delivery
+  timeout changes the outbox to UNKNOWN; it is resolved via a read-only
+  vendor status lookup, never by blind resubmission.
+- **Operational controls:** the archive worker is machine-authenticated,
+  tenant-allowlisted, disabled by default, and integrated into the existing
+  optional scheduler. Existing restricted worker-health reporting now
+  includes archived, pending, unqueued, rejected and ambiguous counts.
+  Staging deployment checks reject activation unless approved archive
+  retention, secret keys, endpoints and scheduler controls are supplied.
+- **Tests:** a source-to-receipt PostgreSQL test asserts uniqueness,
+  required receipt fields, archive-row immutability and audit FK checks.
+  Unit tests cover HMAC pseudonymization, source-label filtering,
+  vendor host validation and strict matching response hashes. HTTP
+  security smoke checks anonymous audit worker calls are rejected.
+- **Manual provider sandbox:** the protected
+  `chess-audit-archive-sandbox.yml` is ready to issue and status-check
+  one fictional event, but real provider connectivity cannot be verified
+  without the external vault and credentials.
+- **Disaster recovery:** a read-only, manually dispatched protected
+  `chess-dr-restore-validate.yml` checks the *externally provisioned*
+  encrypted/versioned/COMPLIANCE-locked backup object and a separately
+  restored tenant PostgreSQL database for a previously recorded immutable
+  test event and critical table presence. It performs no backup, restore,
+  failover or production mutation. DR evidence requires actual provider
+  credentials, a restored clone and independent operator measurements.
+
+### Still blocked before a production release
+1. Independent offsite WORM audit archive vendor, signed DPA and validated
+   retention/legal-hold guarantees; usable provider credentials, a
+   pseudonymization secret rotation plan and an approved sandbox acceptance.
+2. Privately provisioned PostgreSQL PITR backups, encrypted object retention,
+   recovery operator accounts and a **completed** isolated restore drill
+   with measured RPO, RTO, data reconciliation and signed evidence.
+3. Authenticated two-tenant/two-business end-to-end authorization tests
+   with realistic signed-in staff, consent revocation and CSRF scenarios;
+   accessibility, load and independent penetration testing.
+4. Alerts/incident response, key rotation and deletion workflows,
+   observability, secret scanning, per-tenant rate limits and comprehensive
+   rollback compatibility verified on production-like migrations.
+5. Actual staging deployment, release freeze, independent compliance/legal
+   sign-off and supervised production cutover for each regulated service.
+6. M3-M7 provider sandboxes and full financial/regulated transaction
+   execution remain external blockers; green CI alone does not close them.
+
+**Do not merge, claim a live release, or enable real customer automation on
+the strength of development CI and unexecuted manual-only workflows.**
