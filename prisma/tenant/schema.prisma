@@ -3950,6 +3950,82 @@ model ChessActionApproval {
   @@index([businessId,status,createdAt])
 }
 
+// M7: AI advice is restricted to generic work-item metadata. Suggestions
+// never execute tasks, financial entries, outbound communication or billing.
+enum ChessAiSuggestionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  STALE
+}
+enum ChessAiPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+enum ChessAiRecommendation {
+  KEEP_QUEUE
+  REVIEW_DEADLINE
+  ESCALATE_TO_MANAGER
+}
+model ChessAiSuggestion {
+  id String @id @default(cuid())
+  businessId String
+  workItemId String
+  sourceDigest String
+  priority ChessAiPriority
+  recommendation ChessAiRecommendation
+  rationaleCode String
+  modelVersion String
+  status ChessAiSuggestionStatus @default(PENDING)
+  requestedByClerkUserId String
+  reviewedByClerkUserId String?
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workItemId,sourceDigest])
+  @@index([businessId,status,createdAt])
+}
+
+enum ChessBillingInvoiceStatus {
+  DRAFT
+  APPROVED
+  SUBMITTING
+  SENT
+  UNKNOWN
+  REJECTED
+  VOID
+}
+model ChessBillingInvoice {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  serviceCaseId String
+  service ClientServiceArea
+  requestKey String
+  currency String @default("USD")
+  amountCents BigInt
+  descriptionCode String
+  status ChessBillingInvoiceStatus @default(DRAFT)
+  sourceDigest String
+  idempotencyKey String @unique
+  createdByClerkUserId String
+  approvedByClerkUserId String?
+  approvedAt DateTime?
+  sentByClerkUserId String?
+  sentAt DateTime?
+  providerInvoiceId String?
+  lastErrorCode String?
+  providerCheckedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([serviceCaseId,requestKey])
+  @@index([businessId,status,createdAt])
+  @@index([clientProfileId,businessId])
+}
+
 // CHESS CORP 2 M8 - append-only application audit event metadata.
 // Must be complemented by DB append-only policy and secured log export.
 model ChessSecurityEvent {
