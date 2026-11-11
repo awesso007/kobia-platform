@@ -10,6 +10,14 @@ describe("private iCalendar exports",()=>{
   expect(ics).toContain("CLASS:PRIVATE");
   expect(ics).not.toContain("Customer");
  });
+ it("never discloses appointment subjects or client details",()=>{
+  const ics=toPrivateChessCalendar([{
+   id:"appt-1",dueAt:new Date("2026-12-01T17:00:00Z"),
+   status:"SCHEDULED",kind:"APPOINTMENT",
+  }]);
+  expect(ics).toContain("SUMMARY:CHESS appointment");
+  expect(ics).not.toContain("clientProfileId");
+ });
  it("omits canceled and undated work items",()=>{
   const ics=toPrivateChessCalendar([
    {id:"no-date",dueAt:null,status:"TODO"},
