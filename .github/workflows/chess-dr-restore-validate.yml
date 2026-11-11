@@ -1,0 +1,39 @@
+name: CHESS independent backup and restore drill evidence
+on:
+  workflow_dispatch:
+jobs:
+  read-only-restore-evidence:
+    runs-on: ubuntu-latest
+    environment: chess-dr-restore
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      CHESS_DR_VALIDATE: ${{ vars.CHESS_DR_VALIDATE }}
+      CHESS_DR_ISOLATED_RESTORE: ${{ vars.CHESS_DR_ISOLATED_RESTORE }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      CHESS_DR_RESTORE_DATABASE_URL: ${{ secrets.CHESS_DR_RESTORE_DATABASE_URL }}
+      CHESS_DR_TEST_TENANT: ${{ vars.CHESS_DR_TEST_TENANT }}
+      CHESS_DR_WITNESS_SECURITY_EVENT_ID: ${{ secrets.CHESS_DR_WITNESS_SECURITY_EVENT_ID }}
+      CHESS_DR_BACKUP_BUCKET: ${{ vars.CHESS_DR_BACKUP_BUCKET }}
+      CHESS_DR_BACKUP_OBJECT_KEY: ${{ vars.CHESS_DR_BACKUP_OBJECT_KEY }}
+      CHESS_DR_BACKUP_OBJECT_VERSION: ${{ vars.CHESS_DR_BACKUP_OBJECT_VERSION }}
+      CHESS_DR_BACKUP_REGION: ${{ vars.CHESS_DR_BACKUP_REGION }}
+      CHESS_DR_BACKUP_ENDPOINT: ${{ vars.CHESS_DR_BACKUP_ENDPOINT }}
+      CHESS_DR_BACKUP_ACCESS_KEY_ID: ${{ secrets.CHESS_DR_BACKUP_ACCESS_KEY_ID }}
+      CHESS_DR_BACKUP_SECRET_ACCESS_KEY: ${{ secrets.CHESS_DR_BACKUP_SECRET_ACCESS_KEY }}
+      CHESS_DR_MAX_BACKUP_AGE_HOURS: ${{ vars.CHESS_DR_MAX_BACKUP_AGE_HOURS }}
+      CHESS_DR_REQUIRE_PG_SSL: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify isolated restore and immutable backup artifact (read-only)
+        run: node scripts/chess-dr-restore-validate.mjs
+
+# Manual only: DR operators must first restore an independent sandbox DB
+# and provision a COMPLIANCE-retained encrypted S3 backup version. This
+# workflow performs no destructive restore, production query or failover.
