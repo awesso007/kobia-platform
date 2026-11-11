@@ -57,7 +57,7 @@ export async function createChessRecurrence(input:unknown){
   interval:data.interval,anchorDay:first.getUTCDate(),nextRunAt:first,
   createdByClerkUserId:actor.clerkUserId,
  },select:{id:true,businessId:true,title:true,frequency:true,interval:true,
-   nextRunAt:true,active:true,assignedClerkUserId:true}});
+   nextRunAt:true,active:true,assignedClerkUserId:true,updatedAt:true}});
  return record;
 }
 
@@ -67,7 +67,7 @@ export async function listChessRecurrences(businessId:string){
  return db.chessWorkRecurrence.findMany({
   where:{businessId},orderBy:{nextRunAt:"asc"},take:100,
   select:{id:true,title:true,frequency:true,interval:true,active:true,
-   nextRunAt:true,lastRunAt:true,assignedClerkUserId:true},
+   nextRunAt:true,lastRunAt:true,assignedClerkUserId:true,updatedAt:true},
  });
 }
 
