@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const service = z.enum(["ACCOUNTING", "BOOKKEEPING", "PAYROLL", "TAX", "MORTGAGE", "INSURANCE", "REAL_ESTATE", "INVESTMENTS"]);
-const input = z.object({ service }).strict();
+const input = z.object({ service, businessId: z.string().min(1).max(128) }).strict();
 type Context = { params: { profileId: string } };
 
 function failure(error: unknown) {
@@ -21,7 +21,8 @@ export async function GET(request: NextRequest, { params }: Context) {
   try {
     const profile = await getClientProfile(params.profileId);
     const requestedService = service.parse(request.nextUrl.searchParams.get("service"));
-    const link = await getClientServiceLink(profile.id, requestedService);
+    const businessId = z.string().min(1).max(128).parse(request.nextUrl.searchParams.get("businessId"));
+    const link = await getClientServiceLink(profile.id, businessId, requestedService);
     return NextResponse.json({ link });
   } catch (error) {
     return failure(error);
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest, { params }: Context) {
 export async function POST(request: NextRequest, { params }: Context) {
   try {
     const body = input.parse(await request.json());
-    const link = await createClientServiceLink(params.profileId, body.service);
+    const link = await createClientServiceLink(params.profileId, body.businessId, body.service);
     return NextResponse.json({ link }, { status: 201 });
   } catch (error) {
     return failure(error);
