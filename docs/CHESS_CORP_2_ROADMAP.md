@@ -625,3 +625,39 @@ blocked pending provider configuration and independent release controls.**
 
 **Do not merge, claim a live release, or enable real customer automation on
 the strength of development CI and unexecuted manual-only workflows.**
+
+
+## CHESS CORP 3 development continuation (November 11, 2026)
+- **M7 cross-business operational reporting:** A signed-in ACTIVE tenant
+  OWNER or ADMIN can export per-unit counts and invoice face-value totals
+  from `/api/chess/operations-report/portfolio` as JSON or escaped CSV.
+  The query includes at most 100 active business units within the current
+  KOBIA tenant. Amounts are exact integer cents, not payments, earned
+  revenue, journal balances, statutory consolidation or intercompany
+  eliminations. Tests cover RBAC policy and aggregate arithmetic.
+- **M8 request limiting:** A new additive tenant-schema PostgreSQL
+  migration provisions `ChessRequestRateWindow`. Reporting, AI and billing
+  API endpoints now have transactional 60-second per-user and per-tenant
+  quotas with HTTP 429 and Retry-After, and fail closed if the DB/migration
+  is unavailable. The allowlisted recurring scheduler prunes up to 500
+  expired windows per run. Unit and DB integration regressions added.
+- **M8 credential scanning:** CI now runs a tracked-source pattern check
+  for common live credentials with synthetic scanner tests. This does
+  not replace managed GitHub secret scanning, leak response, software
+  composition analysis, or an independent penetration audit.
+- **Release documentation:** Security incident response, backup, rollback,
+  recovery, retention, HMAC key rotation and independent go/no-go evidence
+  requirements are in
+  `docs/CHESS_CORP_2_SECURITY_RELEASE_RUNBOOK.md`.
+
+### Release blockers remain unchanged
+No third-party provider account, signed DPA, regulated sponsor/firm
+license verification, real e-signature integration, staging operator
+credentials, production S3/ClamAV, authorized sandbox, verified two-tenant
+session E2E, restore drill, penetration/accessibility/load audit, deployment
+approval or legal sign-off has been supplied and successfully exercised.
+Code-only green CI cannot close those gates. In particular the M7 billing
+module is *invoice drafting/delivery coordination only*, not a payment
+processor, financial ledger posting engine, or tax/payroll provider.
+
+**No merge or production deployment is authorized by this development work.**
