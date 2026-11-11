@@ -5,6 +5,7 @@ import {canApproveInvoice,invoiceDeliveryState,invoiceDigest} from "./billing";
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});
 function configure(){
  vi.stubEnv("CHESS_BILLING_DELIVERY_ENABLED","true");
+ vi.stubEnv("CHESS_BILLING_VENDOR_CERTIFIED","true");
  vi.stubEnv("CHESS_BILLING_ALLOWED_HOST","billing.test.example");
  vi.stubEnv("CHESS_BILLING_DELIVERY_API_URL","https://billing.test.example/create");
  vi.stubEnv("CHESS_BILLING_STATUS_API_URL","https://billing.test.example/status");
