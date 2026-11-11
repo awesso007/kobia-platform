@@ -145,10 +145,19 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
   }});
   try{
    expect(pref.enabled).toBe(true);
+   expect(pref.appointmentEnabled).toBe(false);
+   const separateConsent=await db.chessCalendarPreference.update({
+    where:{clerkUserId},
+    data:{appointmentEnabled:true,appointmentAcknowledgedAt:new Date()},
+   });
+   expect(separateConsent.appointmentEnabled).toBe(true);
    const revoked=await db.chessCalendarPreference.update({
-    where:{clerkUserId},data:{enabled:false,revokedAt:new Date()},
+    where:{clerkUserId},
+    data:{enabled:false,revokedAt:new Date(),
+     appointmentEnabled:false,appointmentRevokedAt:new Date()},
    });
    expect(revoked.enabled).toBe(false);
+   expect(revoked.appointmentEnabled).toBe(false);
    expect(revoked.revokedAt).not.toBeNull();
   }finally{
    await db.chessCalendarPreference.delete({where:{clerkUserId}});
