@@ -1,3 +1,4 @@
+import {assertMutationOrigin} from "@/lib/chess/request-security";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { ZodError, z } from "zod";
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest, { params }: Context) {
 }
 
 export async function POST(request: NextRequest, { params }: Context) {
-  try {
+ try { assertMutationOrigin(request);
     const body = input.parse(await request.json());
     const link = await createClientServiceLink(params.profileId, body.businessId, body.service);
     return NextResponse.json({ link }, { status: 201 });
