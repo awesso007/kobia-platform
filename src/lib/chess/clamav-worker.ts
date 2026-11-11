@@ -3,6 +3,7 @@ import {createConnection} from "node:net";
 import {z} from "zod";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getObjectBody,headObject} from "@/lib/storage/s3";
+import {matchesPinnedDocument} from "./storage-integrity";
 
 const MAX_BYTES=20*1024*1024;
 const MAX_SCAN_BATCH=10;
@@ -68,9 +69,7 @@ export async function scanPendingChessDocuments(limit=5){
   try{
    if(!document.storageVersionId || !document.storageETag) throw new Error("Document has no pinned object version.");
    const head=await headObject(document.storageKey,document.storageVersionId);
-   if(!head || head.versionId!==document.storageVersionId || head.etag!==document.storageETag ||
-    head.size!==document.actualBytes || head.size<1 ||
-    head.size>document.maxBytes || head.size>MAX_BYTES || head.mimeType!==document.mimeType){
+   if(!matchesPinnedDocument(document,head)){
     await db.chessClientDocument.updateMany({
      where:{id:document.id,status:"QUARANTINED"},data:{status:"REJECTED"},
     });
