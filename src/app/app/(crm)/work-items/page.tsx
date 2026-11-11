@@ -3,6 +3,8 @@ import {listBusinessUnits} from "@/lib/chess/business-units";
 import {listChessWorkItems} from "@/lib/chess/workflow";
 import {getChessManagerQueue,listChessEmployeeAlerts} from "@/lib/chess/employee-operations";
 import WorkItemsClient from "./WorkItemsClient";
+import RecurrencesClient from "./RecurrencesClient";
+import {listChessRecurrences} from "@/lib/chess/recurring-work";
 export const dynamic="force-dynamic";
 export default async function ChessWorkItemsPage({searchParams}:{searchParams:{businessId?:string}}){
  let businesses:Awaited<ReturnType<typeof listBusinessUnits>>=[];
@@ -12,10 +14,11 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
  const requested=searchParams.businessId;
  const selected=businesses.find(b=>b.id===requested)??businesses[0];
  if(!selected)return <main className="mx-auto max-w-4xl p-8">No active business assignment is available.</main>;
- const [tasks,alerts,manager]=await Promise.all([
+ const [tasks,alerts,manager,recurrences]=await Promise.all([
   listChessWorkItems(selected.id).catch(()=>[]),
   listChessEmployeeAlerts(selected.id).catch(()=>[]),
   getChessManagerQueue(selected.id).catch(()=>null),
+  listChessRecurrences(selected.id).catch(()=>null),
  ]);
  const serialize=tasks.map(t=>({...t,
   dueAt:t.dueAt?.toISOString()??null,updatedAt:t.updatedAt.toISOString(),
@@ -56,6 +59,15 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
     <li key={item.id} className="rounded-lg border border-orange-200 bg-white p-3 text-sm">
      <strong>{item.title}</strong> · {item.status.replaceAll("_"," ")}
     </li>)}</ul>
+  </section>}
+  {recurrences&&<section className="space-y-3">
+   <h2 className="text-xl font-semibold">Recurring schedules</h2>
+   <p className="text-sm text-slate-600">Scheduled times are stored in UTC. New tasks are created by the configured operations worker.</p>
+   <RecurrencesClient businessId={selected.id} initialRecurrences={recurrences.map(item=>({
+    ...item,nextRunAt:item.nextRunAt.toISOString(),
+    lastRunAt:item.lastRunAt?.toISOString()??null,
+    updatedAt:item.updatedAt.toISOString(),
+   }))}/>
   </section>}
   <Link href="/app/overview" className="text-sm font-medium text-emerald-700 hover:underline">
    Back to operations overview
