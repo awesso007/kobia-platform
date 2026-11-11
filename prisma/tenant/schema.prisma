@@ -3622,7 +3622,12 @@ model ChessEmployeeAssignment {
 
 // CHESS CORP 2 M3 - explicit purpose-bound consent and onboarding checklist.
 // No raw document bytes or signatures are stored in these models.
-enum ChessConsentStatus { PENDING GRANTED WITHDRAWN EXPIRED }
+enum ChessConsentStatus {
+  PENDING
+  GRANTED
+  WITHDRAWN
+  EXPIRED
+}
 model ChessClientConsent {
   id String @id @default(cuid())
   clientProfileId String
@@ -3649,7 +3654,13 @@ model ChessIntakeItem {
 }
 
 // CHESS CORP 2 M4 - case work queue, no cross-business task visibility.
-enum ChessWorkStatus { TODO IN_PROGRESS BLOCKED COMPLETED CANCELLED }
+enum ChessWorkStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  COMPLETED
+  CANCELLED
+}
 model ChessWorkItem {
   id String @id @default(cuid())
   businessId String
@@ -3667,7 +3678,13 @@ model ChessWorkItem {
 
 // CHESS CORP 2 M5 - service orchestration metadata, NOT a general ledger,
 // tax return, payroll calculation, or source-document repository.
-enum ChessCaseStatus { INTAKE REVIEW ACTIVE HOLD CLOSED }
+enum ChessCaseStatus {
+  INTAKE
+  REVIEW
+  ACTIVE
+  HOLD
+  CLOSED
+}
 model ChessServiceCase {
   id String @id @default(cuid())
   businessId String
@@ -3684,7 +3701,12 @@ model ChessServiceCase {
 
 // CHESS CORP 2 M6 - licensing and referral gate. License verification must be
 // separately established against authoritative registries before activation.
-enum ChessCredentialStatus { UNVERIFIED VERIFIED EXPIRED SUSPENDED }
+enum ChessCredentialStatus {
+  UNVERIFIED
+  VERIFIED
+  EXPIRED
+  SUSPENDED
+}
 model ChessPractitionerCredential {
   id String @id @default(cuid())
   businessId String
@@ -3702,7 +3724,12 @@ model ChessPractitionerCredential {
 }
 
 // CHESS CORP 2 M7 - AI and financial action approvals; no direct execution.
-enum ChessApprovalStatus { PENDING APPROVED REJECTED CANCELLED }
+enum ChessApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
 model ChessActionApproval {
   id String @id @default(cuid())
   businessId String
