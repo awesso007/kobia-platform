@@ -106,14 +106,14 @@ export async function putObject(storageKey: string, data: Buffer, mimeType?: str
   );
 }
 
-export type HeadResult = { size: number; mimeType: string | null };
+export type HeadResult = { size: number; mimeType: string | null; versionId: string | null; etag: string | null };
 
-export async function headObject(storageKey: string): Promise<HeadResult | null> {
+export async function headObject(storageKey: string, versionId?: string): Promise<HeadResult | null> {
   try {
     const res = await client().send(
-      new HeadObjectCommand({ Bucket: bucketName()!, Key: storageKey }),
+      new HeadObjectCommand({ Bucket: bucketName()!, Key: storageKey, VersionId: versionId }),
     );
-    return { size: Number(res.ContentLength ?? 0), mimeType: res.ContentType ?? null };
+    return { size: Number(res.ContentLength ?? 0), mimeType: res.ContentType ?? null, versionId: res.VersionId ?? null, etag: res.ETag ?? null };
   } catch {
     return null;
   }
@@ -125,11 +125,12 @@ export async function headObject(storageKey: string): Promise<HeadResult | null>
  */
 export async function createPresignedDownloadUrl(
   storageKey: string,
-  opts?: { contentDisposition?: string; expiresIn?: number },
+  opts?: { contentDisposition?: string; expiresIn?: number; versionId?: string },
 ): Promise<string> {
   const cmd = new GetObjectCommand({
     Bucket: bucketName()!,
     Key: storageKey,
+    VersionId: opts?.versionId,
     ResponseContentDisposition: opts?.contentDisposition,
   });
   return getSignedUrl(client(), cmd, { expiresIn: opts?.expiresIn ?? 60 * 15 });
@@ -141,9 +142,9 @@ export async function deleteObject(storageKey: string): Promise<void> {
 
 /** Stream a private, quarantined object to the malware scanner.
  * Only server-side scanner workers should call this function. */
-export async function getObjectBody(storageKey: string) {
+export async function getObjectBody(storageKey: string, versionId?: string) {
   const response = await client().send(new GetObjectCommand({
-    Bucket: bucketName()!, Key: storageKey,
+    Bucket: bucketName()!, Key: storageKey, VersionId: versionId,
   }));
   if (!response.Body) throw new Error("Storage object has no body.");
   return response.Body;
