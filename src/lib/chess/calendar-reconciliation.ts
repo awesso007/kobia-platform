@@ -39,7 +39,7 @@ export async function reconcileUncertainChessCalendarEvents(){
    });
    const [pref,task]=await Promise.all([
     db.chessCalendarPreference.findUnique({where:{
-     clerkUserId:entry.recipientClerkUserId},
+     clerkUserId:entry.recipientClerkUserId,
     },select:{enabled:true,acknowledgedAt:true,revokedAt:true}}),
     db.chessWorkItem.findFirst({where:{id:entry.workItemId,businessId:entry.businessId},
      select:{status:true,assignedClerkUserId:true}}),
