@@ -3,6 +3,7 @@ import { getCurrentMembership, requirePermission, PermissionError } from "@/lib/
 import { canAccessService, canReadClientProfile } from "./policy";
 import type { ClientService, ProfileActor, ServiceGrant } from "./policy";
 import { z } from "zod";
+import { assertBusinessAccess } from "@/lib/chess/business-units";
 
 const createInput = z.object({
   displayName: z.string().trim().min(1).max(200),
@@ -66,12 +67,13 @@ export async function getClientProfile(profileId: string) {
 
 /** A service link is only returned to an explicitly granted employee.
  * Never return external IDs to a user based solely on CRM admin permissions. */
-export async function getClientServiceLink(profileId: string, service: ClientService) {
+export async function getClientServiceLink(profileId: string, businessId: string, service: ClientService) {
+  await assertBusinessAccess(idInput.parse(businessId));
   await getClientProfile(profileId);
   const actor = await currentActor();
   const { db } = getTenantDb();
   const link = await db.clientServiceLink.findUnique({
-    where: { profileId_service: { profileId: idInput.parse(profileId), service: serviceInput.parse(service) } },
+    where: { profileId_businessId_service: { profileId: idInput.parse(profileId), businessId: idInput.parse(businessId), service: serviceInput.parse(service) } },
     include: { grants: true },
   });
   if (!link) return null;
@@ -80,21 +82,22 @@ export async function getClientServiceLink(profileId: string, service: ClientSer
     canWrite: grant.canWrite, revokedAt: grant.revokedAt,
   }));
   if (!canAccessService(actor, service, grants, "read")) throw new PermissionError("record:read");
-  return { id: link.id, profileId: link.profileId, service: link.service, externalId: link.externalId };
+  return { id: link.id, profileId: link.profileId, businessId: link.businessId, service: link.service, externalId: link.externalId };
 }
 
 /** The initial administrative provisioning path. Service data is not accessible
  * until an explicit grant exists, including for the creator. */
-export async function createClientServiceLink(profileId: string, service: ClientService) {
+export async function createClientServiceLink(profileId: string, businessId: string, service: ClientService) {
+  await assertBusinessAccess(idInput.parse(businessId));
   await getClientProfile(profileId);
   const actor = await currentActor();
   if (actor.role !== "OWNER" && actor.role !== "ADMIN") throw new PermissionError("record:update");
   const { db } = getTenantDb();
   return db.clientServiceLink.upsert({
-    where: { profileId_service: { profileId: idInput.parse(profileId), service: serviceInput.parse(service) } },
-    create: { profileId, service },
+    where: { profileId_businessId_service: { profileId: idInput.parse(profileId), businessId: idInput.parse(businessId), service: serviceInput.parse(service) } },
+    create: { profileId, businessId, service },
     update: {},
-    select: { id: true, profileId: true, service: true },
+    select: { id: true, profileId: true, businessId: true, service: true },
   });
 }
 
@@ -107,8 +110,9 @@ export async function setClientServiceGrant(
   const { db } = getTenantDb();
   const target = await db.membership.findUnique({ where: { clerkUserId: idInput.parse(clerkUserId) } });
   if (!target || target.status !== "ACTIVE" || target.role === "VIEWER") throw new PermissionError("member:manage");
-  const link = await db.clientServiceLink.findUnique({ where: { id: idInput.parse(linkId) }, select: { id: true } });
+  const link = await db.clientServiceLink.findUnique({ where: { id: idInput.parse(linkId) }, select: { id: true, businessId: true } });
   if (!link) throw new Error("Service link not found in active tenant.");
+  await assertBusinessAccess(link.businessId);
   return db.clientServiceGrant.upsert({
     where: { linkId_clerkUserId: { linkId, clerkUserId } },
     create: { linkId, clerkUserId, ...privileges },
@@ -121,6 +125,9 @@ export async function revokeClientServiceGrant(linkId: string, clerkUserId: stri
   const actor = await currentActor();
   if (actor.role !== "OWNER" && actor.role !== "ADMIN") throw new PermissionError("member:manage");
   const { db } = getTenantDb();
+  const link = await db.clientServiceLink.findUnique({ where: { id: idInput.parse(linkId) }, select: { businessId: true } });
+  if (!link) throw new PermissionError("member:manage");
+  await assertBusinessAccess(link.businessId);
   return db.clientServiceGrant.updateMany({
     where: { linkId: idInput.parse(linkId), clerkUserId: idInput.parse(clerkUserId), revokedAt: null },
     data: { revokedAt: new Date(), canRead: false, canWrite: false },
