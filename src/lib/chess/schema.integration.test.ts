@@ -1,6 +1,7 @@
 import {afterAll,beforeAll,describe,expect,it} from "vitest";
 import {PrismaClient} from "@/lib/db/generated/tenant";
 import {claimChessRateWindow,ChessRateLimitError,chessRateSubject,chessRateWindow} from "./api-rate-limit";
+import {auditedClientServiceRead} from "@/lib/client-profile/service-access-audit";
 
 const integration=process.env.RUN_CHESS_DB_INTEGRATION==="1"?describe:describe.skip;
 integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
@@ -36,6 +37,64 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    linkId:link.id,clerkUserId:"integration-user",canRead:true,revokedAt:null,
   }});
   expect(active).toBe(0);
+ });
+ it("audits granted, denied, missing and revoked client-service reads atomically",async()=>{
+  const suffix=Date.now().toString(36);
+  const business=await db.chessBusinessUnit.create({data:{
+   slug:"audited-read-"+suffix,name:"Fictional access-review business",
+  }});
+  const profile=await db.clientProfile.create({data:{
+   displayName:"Fictional access-review client",
+  }});
+  const link=await db.clientServiceLink.create({data:{
+   profileId:profile.id,businessId:business.id,service:"BOOKKEEPING",
+  }});
+  const actor={
+   clerkUserId:"fictional-audit-staff-"+suffix,
+   role:"MEMBER" as const,status:"ACTIVE" as const,
+  };
+  const base={actor,businessId:business.id,profileId:profile.id,
+   service:"BOOKKEEPING" as const};
+  try{
+   const before=await auditedClientServiceRead(db,base);
+   expect(before).toEqual({status:"DENIED"});
+   const missing=await auditedClientServiceRead(db,{...base,service:"TAX"});
+   expect(missing).toEqual({status:"NOT_FOUND"});
+   const grant=await db.clientServiceGrant.create({data:{
+    linkId:link.id,clerkUserId:actor.clerkUserId,canRead:true,canWrite:false,
+   }});
+   const allowed=await auditedClientServiceRead(db,base);
+   expect(allowed.status).toBe("ALLOWED");
+   if(allowed.status==="ALLOWED"){
+    expect(allowed.link.id).toBe(link.id);
+    expect(allowed.link.businessId).toBe(business.id);
+   }
+   await db.clientServiceGrant.update({where:{id:grant.id},data:{
+    canRead:false,canWrite:false,revokedAt:new Date(),
+   }});
+   const after=await auditedClientServiceRead(db,base);
+   expect(after).toEqual({status:"DENIED"});
+   const events=await db.chessSecurityEvent.findMany({
+    where:{businessId:business.id,action:"CLIENT_SERVICE_LINK_READ"},
+    orderBy:{occurredAt:"asc"},
+   });
+   expect(events).toHaveLength(4);
+   expect(events.filter(e=>e.decision==="ALLOW")).toHaveLength(1);
+   expect(events.filter(e=>e.decision==="DENY")).toHaveLength(3);
+   expect(events.some(e=>e.resourceId===null&&e.decision==="DENY")).toBe(true);
+   expect(events.every(e=>e.actorClerkUserId===actor.clerkUserId)).toBe(true);
+   expect(events.every(e=>e.resourceType==="ClientServiceLink")).toBe(true);
+   await expect(db.chessSecurityEvent.update({where:{id:events[0].id},
+    data:{decision:"ALLOW"},
+   })).rejects.toThrow();
+  }finally{
+   await db.clientServiceGrant.deleteMany({where:{linkId:link.id}});
+   await db.clientServiceLink.delete({where:{id:link.id}});
+   await db.clientProfile.delete({where:{id:profile.id}});
+   await db.chessBusinessUnit.delete({where:{id:business.id}});
+   // Security-event rows intentionally remain in this fictional CI database;
+   // PostgreSQL write-once enforcement prohibits deleting audit evidence.
+  }
  });
  it("makes security-event rows immutable at the database layer",async()=>{
   const event=await db.chessSecurityEvent.create({data:{
