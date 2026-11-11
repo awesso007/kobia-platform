@@ -54,6 +54,28 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
   content digests and callback replay protection.
 - No scanner success means no document download.
 
+## 3A. Recurring operations and employee calendars
+- CHESS_WORKFLOW_WORKER_TOKEN: unique random 32+ character secret for the
+  machine-only `POST /api/chess/recurrences/run?t=<tenantSlug>` endpoint.
+- CHESS_ACTIVE_TENANT_SLUGS: comma-separated allowlist of active, provisioned
+  tenant slugs whose recurring jobs have been approved for processing.
+- CHESS_SCHEDULER_ENABLED: `false` by default; set to `true` only after a
+  staging pilot, production authorization and secured worker configuration.
+- CHESS_PUBLIC_ORIGIN: exact HTTPS application origin. No worker credentials
+  are ever placed in the request URL; use an Authorization Bearer header.
+- The disabled-by-default GitHub workflow `chess-recurring-operations.yml`
+  demonstrates a 15-minute worker cadence. Production may use a dedicated
+  scheduler with the same private POST API. A scheduler outage is not a
+  guarantee that appointments or tasks will run on time; monitor lag.
+- Recurrences use UTC and support DAILY, WEEKLY and MONTHLY intervals.
+  Month-end recurrences preserve their intended day where possible.
+- New assigned work creates private in-app notifications. The authorized
+  employee can export their assigned work as an authenticated `.ics` file.
+- **Not yet live calendar synchronization:** an iCalendar download is a
+  manual calendar export, not an OAuth-linked Google or Microsoft calendar.
+  A production sync integration requires provider selection, event permission,
+  per-employee delegated authorization and conflict/cancellation handling.
+
 ## 4. Payroll execution (required to enable real transfers)
 - CHESS_PAYROLL_API_URL: provider's approved HTTPS POST endpoint. The
   implementation expects {id,status:accepted|rejected|pending} and sends
