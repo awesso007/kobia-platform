@@ -1,4 +1,4 @@
-import {createHmac} from "node:crypto";
+import {createHmac,createHash} from "node:crypto";
 import {auth,currentUser} from "@clerk/nextjs/server";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {PermissionError} from "@/lib/rbac/require-permission";
@@ -39,6 +39,7 @@ export async function acceptClientConsent(input:unknown) {
  const {db}=getTenantDb();
  const consent=await db.chessClientConsent.findUnique({where:{id:data.consentId}});
  if (!consent || consent.status!=="PENDING" || consent.policyVersion!==data.policyVersion ||
+     !consent.policyText || consent.policyText.length<50 ||
      (consent.expiresAt && consent.expiresAt<=new Date())) throw new PermissionError("record:update");
  const profile=await db.clientProfile.findUnique({where:{id:consent.clientProfileId},
   select:{contactId:true}});
@@ -48,7 +49,8 @@ export async function acceptClientConsent(input:unknown) {
  const date=new Date();
  const emailDigest=hmac(email);
  const evidence=hmac([consent.id,consent.businessId,consent.clientProfileId,consent.purpose,
-  data.policyVersion,clerkUserId,emailDigest,date.toISOString(),"accept"].join("|"));
+  data.policyVersion,createHash("sha256").update(consent.policyText).digest("hex"),
+  clerkUserId,emailDigest,date.toISOString(),"accept"].join("|"));
  const result=await db.$transaction(async tx=>{
   const changed=await tx.chessClientConsent.updateMany({
    where:{id:consent.id,status:"PENDING",policyVersion:data.policyVersion,
