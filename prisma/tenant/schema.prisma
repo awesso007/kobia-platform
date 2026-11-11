@@ -3715,3 +3715,18 @@ model ChessActionApproval {
   createdAt DateTime @default(now())
   @@index([businessId,status,createdAt])
 }
+
+// CHESS CORP 2 M8 - append-only application audit event metadata.
+// Must be complemented by DB append-only policy and secured log export.
+model ChessSecurityEvent {
+  id String @id @default(cuid())
+  businessId String?
+  actorClerkUserId String?
+  action String
+  resourceType String
+  resourceId String?
+  decision String
+  occurredAt DateTime @default(now())
+  @@index([businessId,occurredAt])
+  @@index([actorClerkUserId,occurredAt])
+}
