@@ -498,7 +498,10 @@ does not satisfy the five mandatory gates above.**
   Proposals are deduplicated against a SHA-256 digest of the current
   tenant/business/task state. A changed task invalidates stale advice.
   Separate active administrators review all results. Acceptance does NOT
-  modify source work or authorize any financial execution.
+  modify source work or authorize any financial execution. An additional,
+  explicitly initiated administrator action can apply accepted, still-fresh
+  advice by creating one generic follow-up task and private alert, with
+  transactionally idempotent execution. Original tasks stay unchanged.
 - **Scheduled AI:** existing tenant-allowlisted, bearer-token-verified
   scheduler can generate a maximum of 25 unapproved proposals per tenant
   run, only when the data-sharing/vendor/scheduler gates have been explicitly
