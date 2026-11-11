@@ -11,7 +11,8 @@
   Clerk test-only API keys and an exact verified test-owner email.
 - npm run demo:setup deploys platform and tenant migrations into their
   separate schemas. It registers one demo tenant and creates idempotent
-  fictional CRM contacts, CHESS business units, staff and work items.
+  fictional CRM contacts, CHESS business units, staff and work items,
+  plus five PENDING test-only consent requests. No simulated grants exist.
 - Demo Clerk sign-in does not query the unrelated legacy row-level tenant.
   Only the primary-verified Clerk test-user email that matches the
   owner allowlist can claim a new demo OWNER membership. No existing role

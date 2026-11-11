@@ -147,6 +147,31 @@ async function main() {
           update: {},
         });
       }
+
+      // Seed only a PENDING fictional disclosure. A seed is NEVER verified
+      // consent, and never confers permission to access a service record.
+      const unitOffset = i % units.length;
+      const pending = await db.chessClientConsent.findFirst({
+        where: {
+          businessId: businessIds[unitOffset]!,
+          clientProfileId: profile.id,
+          purpose: "service:" + units[unitOffset]!.service,
+          policyVersion: "fictional-demo-v1",
+        },
+        select: { id: true },
+      });
+      if (!pending) {
+        await db.chessClientConsent.create({
+          data: {
+            businessId: businessIds[unitOffset]!,
+            clientProfileId: profile.id,
+            purpose: "service:" + units[unitOffset]!.service,
+            policyVersion: "fictional-demo-v1",
+            policyText: "FICTIONAL DEMO DISCLOSURE ONLY. This is a sample pending request. "+
+              "No real client has signed, accepted or authorized any data sharing.",
+          },
+        });
+      }
     }
 
     for (const title of ["Review fictional client intake", "Prepare sample bookkeeping checklist",
