@@ -336,3 +336,18 @@ items above are verified. Do not claim a production release.
 **Status:** Development implementation and automated CI testing only.
 Code passing CI does not establish live external calendar availability
 or regulated production readiness.
+
+
+### Separate appointment-calendar consent gate
+- Ordinary calendar opt-in previously covered task timing only; Round 4
+  adds independent, separately acknowledged appointment sharing permission.
+- The additive migration defaults appointment authorization to OFF for all
+  existing employee preferences and returns any previously queued,
+  unsent appointment events to WAITING_CONSENT.
+- Existing task opt-in cannot activate appointment sharing. Employees may
+  opt out of appointment timing alone or globally turn off calendar sharing,
+  which requests deletion of synchronized events.
+- The manager and employee UI now shows two separate opt-in controls.
+- Automated unit/integration coverage verifies default denial and revocation.
+- Actual OAuth/delegated calendar connection and provider acceptance must
+  still be tested with authorized sandbox credentials.
