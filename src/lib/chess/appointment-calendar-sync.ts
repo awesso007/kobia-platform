@@ -39,6 +39,19 @@ export async function syncChessAppointmentCalendars(){
   unresolved:0,rejected:0,
  };
  const {db,tenantId}=getTenantDb();
+ // A crashed worker must not leave SUBMITTING forever. Reconcile remote
+ // idempotency keys before any retry; never automatically resend.
+ const stale=new Date(Date.now()-2*60*1000);
+ await Promise.all([
+  db.chessAppointmentCalendarOutbox.updateMany({
+   where:{status:"SUBMITTING",updatedAt:{lt:stale}},
+   data:{status:"UNKNOWN",lastErrorCode:"STALE_CREATE_CLAIM"},
+  }),
+  db.chessAppointmentCalendarOutbox.updateMany({
+   where:{status:"CANCEL_SUBMITTING",updatedAt:{lt:stale}},
+   data:{status:"CANCEL_UNKNOWN",lastErrorCode:"STALE_CANCEL_CLAIM"},
+  }),
+ ]);
  let examined=0,synced=0,cancelled=0,unknown=0,unresolved=0,rejected=0;
  // First reconcile previous unknown outcomes. Never blindly resubmit them.
  const uncertain=await db.chessAppointmentCalendarOutbox.findMany({
