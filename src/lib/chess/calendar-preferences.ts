@@ -42,6 +42,14 @@ export async function setMyCalendarPreference(input:unknown){
     status:data.enabled?"WAITING_CONSENT":"PENDING"},
    data:{status:data.enabled?"PENDING":"WAITING_CONSENT"},
   });
+  if(!data.enabled){
+   // An already-created remote event must be explicitly deleted. Opt-out
+   // forbids all new sends, and queues idempotent cancellation for the gateway.
+   await tx.chessCalendarOutbox.updateMany({
+    where:{recipientClerkUserId:actor.clerkUserId,status:"SYNCED"},
+    data:{status:"CANCEL_PENDING"},
+   });
+  }
   await tx.chessSecurityEvent.create({data:{
    actorClerkUserId:actor.clerkUserId,
    action:data.enabled?"CALENDAR_OPT_IN":"CALENDAR_OPT_OUT",
