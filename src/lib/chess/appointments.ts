@@ -155,3 +155,27 @@ export async function listMyChessAppointmentTimes(businessId:string){
   orderBy:{startAt:"asc"},take:100,
  });
 }
+
+
+/** A manager may close only a past, still-scheduled appointment. Ending a
+ * completed appointment releases the database collision constraint. */
+export async function completeChessAppointment(input:unknown,now=new Date()){
+ const data=cancelInput.parse(input);
+ const actor=await assertBusinessManager(data.businessId);
+ const version=new Date(data.expectedUpdatedAt);
+ const {db}=getTenantDb();
+ return db.$transaction(async tx=>{
+  const changed=await tx.chessAppointment.updateMany({
+   where:{id:data.appointmentId,businessId:data.businessId,
+    status:"SCHEDULED",updatedAt:version,endAt:{lte:now}},
+   data:{status:"COMPLETED",updatedAt:now},
+  });
+  if(changed.count!==1)return {updated:false};
+  await tx.chessSecurityEvent.create({data:{
+   businessId:data.businessId,actorClerkUserId:actor.clerkUserId,
+   action:"APPOINTMENT_COMPLETED",resourceType:"ChessAppointment",
+   resourceId:data.appointmentId,decision:"ALLOW",
+  }});
+  return {updated:true};
+ });
+}
