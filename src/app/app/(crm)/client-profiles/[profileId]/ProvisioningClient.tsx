@@ -43,7 +43,7 @@ export default function ProvisioningClient({
   g.clerkUserId===viewerId&&g.canRead&&g.canWrite&&!g.revokedAt));
  const [caseLinkId,setCaseLinkId]=useState(eligibleLinks[0]?.id??"");
  const [caseOwner,setCaseOwner]=useState("");
- async function mutate(method:"POST"|"PUT"|"DELETE",url:string,body:object,
+ async function mutate(method:"POST"|"PUT"|"PATCH"|"DELETE",url:string,body:object,
   success:string):Promise<unknown|null>{
   if(busy)return null;
   setBusy(true);setError("");setMessage("");
@@ -275,8 +275,8 @@ export default function ProvisioningClient({
        {c.ownerClerkUserId?" · Assigned practitioner":""}
       </p>
      </div>
-     {transitions[c.status]?.length>0&&<div className="flex flex-wrap gap-2">
-      {transitions[c.status].map(next=><button key={next} type="button"
+     {(transitions[c.status]?.length??0)>0&&<div className="flex flex-wrap gap-2">
+      {(transitions[c.status]??[]).map(next=><button key={next} type="button"
        disabled={busy} onClick={()=>void mutate("PATCH","/api/chess/service-cases",
         {caseId:c.id,businessId:c.businessId,status:next},
         `Case status changed to ${next}.`)}
