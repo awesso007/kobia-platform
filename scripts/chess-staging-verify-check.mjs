@@ -1,3 +1,4 @@
+import {readFileSync} from "node:fs";
 import {test} from "node:test";
 import {strict as assert} from "node:assert";
 import {spawnSync} from "node:child_process";
@@ -34,4 +35,13 @@ test("deployed staging verifier refuses an imprecise release SHA",()=>{
  });
  assert.notEqual(result.status,0);
  assert.match(result.stderr,/exact 40-character SHA/);
+});
+
+test("deployed staging verifier requires explicit review and rejects anonymous access",()=>{
+ const source=readFileSync("scripts/chess-staging-verify.mjs","utf8");
+ assert.match(source,/anonymousPaths/);
+ assert.match(source,/merchant-events/);
+ assert.match(source,/document-scan/);
+ assert.match(source,/operational-close/);
+ assert.match(source,/x-frame-options/);
 });

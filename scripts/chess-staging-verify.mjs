@@ -41,5 +41,33 @@ const result=await response.json();
 if(!result||Object.keys(result).sort().join(",")!=="environment,releaseSha"||
  result.releaseSha!==expected||result.environment!=="staging")
  throw new Error("Deployed staging build identity does not match the approved commit.");
+/** Confirm anonymous access to user and machine routes fails even when
+ * the deployed release checksum is correct. No user cookie is sent. */
+const anonymousPaths=[
+ {path:"/api/chess/worker-health",method:"GET",machine:false},
+ {path:"/api/chess/merchant-observations?businessId=unowned",method:"GET",machine:false},
+ {path:"/api/chess/operational-close?businessId=unowned&month=2026-10",
+  method:"GET",machine:false},
+ {path:"/api/chess/document-scan?t=fictional",method:"POST",machine:true},
+ {path:"/api/chess/merchant-events?t=fictional",method:"POST",machine:true},
+ {path:"/api/chess/recurrences/run?t=fictional",method:"POST",machine:true},
+];
+for(const check of anonymousPaths){
+ const reply=await fetch(url.origin+check.path,{
+  method:check.method,redirect:"manual",cache:"no-store",
+  headers:{"Accept":"application/json",
+   ...(check.method==="POST"?{"Content-Type":"application/json"}:{})},
+  ...(check.method==="POST"?{body:"{}"}:{}),
+  signal:AbortSignal.timeout(10000),
+ });
+ const permitted=check.machine?reply.status===403:
+  [301,302,303,307,308,401,403].includes(reply.status);
+ if(!permitted||
+  reply.headers.get("x-content-type-options")!=="nosniff"||
+  reply.headers.get("x-frame-options")!=="DENY"||
+  !(reply.headers.get("cache-control")??"").includes("no-store"))
+  throw new Error("Deployed staging anonymous security boundary failed.");
+}
+console.log("PASS protected employee APIs and signed machine callbacks refuse anonymous access.");
 console.log("PASS deployed staging returned the expected protected build identity.");
 console.log("NOTE: Manual authenticated E2E, backup restoration, provider sandbox and approval remain separate.");
