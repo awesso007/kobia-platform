@@ -75,6 +75,46 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
   expect(conflict.count).toBe(0);
   await db.chessWorkItem.delete({where:{id:item.id}});
  });
+ it("enforces one task per recurring occurrence and one recipient alert per event",async()=>{
+  const business=await db.chessBusinessUnit.create({
+   data:{slug:"recurring-test-"+Date.now(),name:"Recurrence integration"},
+  });
+  try{
+   const schedule=await db.chessWorkRecurrence.create({data:{
+    businessId:business.id,title:"Monthly financial close",frequency:"MONTHLY",
+    interval:1,anchorDay:31,nextRunAt:new Date("2026-12-31T15:00:00.000Z"),
+    createdByClerkUserId:"test-manager",
+   }});
+   const due=new Date("2026-12-31T15:00:00.000Z");
+   const task=await db.chessWorkItem.create({data:{
+    businessId:business.id,recurrenceId:schedule.id,scheduledFor:due,
+    title:"Monthly financial close",dueAt:due,
+   }});
+   expect(task.recurrenceId).toBe(schedule.id);
+   await expect(db.chessWorkItem.create({data:{
+    businessId:business.id,recurrenceId:schedule.id,scheduledFor:due,
+    title:"Duplicate attempt",dueAt:due,
+   }})).rejects.toThrow();
+   const alert=await db.chessEmployeeAlert.create({data:{
+    businessId:business.id,recipientClerkUserId:"test-staff",workItemId:task.id,
+    type:"WORK_ASSIGNED",message:"New work item",
+    dedupeKey:"occurrence:"+task.id,
+   }});
+   await expect(db.chessEmployeeAlert.create({data:{
+    businessId:business.id,recipientClerkUserId:"test-staff",workItemId:task.id,
+    type:"WORK_ASSIGNED",message:"Duplicate alert",
+    dedupeKey:alert.dedupeKey,
+   }})).rejects.toThrow();
+   await db.chessEmployeeAlert.delete({where:{id:alert.id}});
+   await db.chessWorkItem.delete({where:{id:task.id}});
+   await db.chessWorkRecurrence.delete({where:{id:schedule.id}});
+  } finally {
+   await db.chessEmployeeAlert.deleteMany({where:{businessId:business.id}});
+   await db.chessWorkItem.deleteMany({where:{businessId:business.id}});
+   await db.chessWorkRecurrence.deleteMany({where:{businessId:business.id}});
+   await db.chessBusinessUnit.delete({where:{id:business.id}});
+  }
+ });
  it("rejects a service link whose client profile does not exist",async()=>{
   await expect(db.clientServiceLink.create({data:{
    profileId:"missing-profile-id",businessId,service:"TAX",
