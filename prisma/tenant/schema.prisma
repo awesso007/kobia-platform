@@ -3695,6 +3695,7 @@ model ChessWorkRecurrence {
 }
 
 enum ChessCalendarSyncStatus {
+  WAITING_CONSENT
   PENDING
   SUBMITTING
   SYNCED
