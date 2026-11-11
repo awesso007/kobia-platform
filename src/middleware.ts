@@ -9,6 +9,7 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import {applyChessSecurityHeaders} from "@/lib/chess/private-response-headers";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -89,7 +90,9 @@ export default clerkMiddleware((auth, req: NextRequest) => {
       const maybeTenant = hostTenant ?? (segments[0] && !NON_TENANT_SEGMENTS.has(segments[0]) ? segments[0] : null);
       const loginUrl = maybeTenant ? new URL(`/${maybeTenant}/login`, req.url) : new URL("/", req.url);
       loginUrl.searchParams.set("redirect_url", req.nextUrl.pathname);
-      return NextResponse.redirect(loginUrl);
+      const denied=NextResponse.redirect(loginUrl);
+      applyChessSecurityHeaders(denied,req.nextUrl.pathname);
+      return denied;
     }
   }
 
@@ -129,6 +132,7 @@ export default clerkMiddleware((auth, req: NextRequest) => {
   const options = { request: { headers: requestHeaders } };
   const response = rewrite ? NextResponse.rewrite(url, options) : NextResponse.next(options);
   response.headers.set("x-pathname", url.pathname);
+  applyChessSecurityHeaders(response,req.nextUrl.pathname);
   if (isCrmApp && tenantSlug && url.searchParams.get("tenant") === tenantSlug) {
     response.cookies.set("kb-tenant", tenantSlug, { path: "/", sameSite: "lax", secure: process.env.NODE_ENV==="production", httpOnly: true });
   }

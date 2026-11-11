@@ -24,6 +24,13 @@ async function main() {
  await probe("/api/chess/recurrences/run?t=demo",{
   method:"POST",headers:{"Content-Type":"application/json"},body:"{}",
  },new Set([403]));
+ const untrusted=await fetch(base+"/api/chess/staging-attestation",{
+  redirect:"manual",signal:AbortSignal.timeout(10000),
+ });
+ if(untrusted.status!==403||untrusted.headers.get("x-content-type-options")!=="nosniff"||
+    untrusted.headers.get("x-frame-options")!=="DENY"||
+    !(untrusted.headers.get("cache-control")??"").includes("no-store"))
+  throw new Error("Private attestation must refuse anonymous access with secure headers.");
  await probe("/api/chess/staging-attestation",{
   headers:{"Authorization":"Bearer invalid-demo-token"},
  },new Set([403]));
