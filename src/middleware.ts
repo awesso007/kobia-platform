@@ -18,6 +18,8 @@ const isPublicRoute = createRouteMatcher([
   "/:tenant/login(.*)",
   "/api/trpc(.*)",
   "/api/chess/document-scan",
+  // Machine-to-machine: checked against a signed, tenant-bound raw payload.
+  "/api/chess/merchant-events",
   "/api/chess/scan-worker",
   "/api/chess/recurrences/run",
   "/api/chess/calendar-sync/run",
@@ -110,7 +112,8 @@ export default clerkMiddleware((auth, req: NextRequest) => {
   const isCrmApp = url.pathname === "/app" || url.pathname.startsWith("/app/");
   const isTenantRoute = !!resolveTenantSlug(url.pathname);
   let tenantSlug = hostTenant ?? (isTenantRoute ? resolveTenantSlug(url.pathname) : null);
-  if (url.pathname === "/api/chess/document-scan" || url.pathname === "/api/chess/scan-worker" ||
+  if (url.pathname === "/api/chess/merchant-events" ||
+      url.pathname === "/api/chess/document-scan" || url.pathname === "/api/chess/scan-worker" ||
       url.pathname === "/api/chess/recurrences/run" ||
       url.pathname === "/api/chess/calendar-sync/run" ||
       url.pathname === "/api/chess/payroll-status/run" ||

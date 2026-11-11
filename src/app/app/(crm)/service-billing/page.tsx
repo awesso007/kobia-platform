@@ -3,6 +3,9 @@ import OperationsClient from "../operations-intelligence/OperationsClient";
 import {listBusinessUnits} from "@/lib/chess/business-units";
 import {listChessInvoices,listChessBillableCases} from "@/lib/chess/billing";
 import {billingProviderConfigured} from "@/lib/chess/billing-provider";
+import {merchantWebhookConfigured,listChessMerchantObservations}
+ from "@/lib/chess/merchant-observations";
+import MerchantEventsPanel from "./MerchantEventsPanel";
 export const dynamic="force-dynamic";
 export default async function ServiceBillingPage({searchParams}:{
  searchParams:{businessId?:string};
@@ -11,8 +14,9 @@ export default async function ServiceBillingPage({searchParams}:{
   const units=await listBusinessUnits();
   const selected=units.find(u=>u.id===searchParams.businessId)??units[0];
   if(!selected)return <main role="status">No active billing business unit available.</main>;
-  const [invoices,cases]=await Promise.all([
+  const [invoices,cases,merchantEvents]=await Promise.all([
    listChessInvoices(selected.id),listChessBillableCases(selected.id),
+   listChessMerchantObservations(selected.id),
   ]);
   const drafts=invoices.filter(x=>x.status==="DRAFT").length;
   const approvals=invoices.filter(x=>x.status==="APPROVED").length;
@@ -51,6 +55,11 @@ export default async function ServiceBillingPage({searchParams}:{
      updatedAt:i.updatedAt.toISOString()}))}
     suggestions={[]} tasks={[]} aiReady={false}
     billingReady={billingProviderConfigured()}/>
+   <MerchantEventsPanel configured={merchantWebhookConfigured()}
+    events={merchantEvents.map(e=>({
+     ...e,occurredAt:e.occurredAt.toISOString(),
+     receivedAt:e.receivedAt.toISOString(),
+    }))}/>
    <p className="text-xs text-slate-600">
     External SENT means vendor acknowledgment only. VOID is available only
     before a delivery attempt. Payments, tax calculations and ledger postings
