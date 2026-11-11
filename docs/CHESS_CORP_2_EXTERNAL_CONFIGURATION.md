@@ -558,6 +558,91 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
 - Never put client data, protected person identifiers, payment credentials
   or production gateway tokens into CI, sample payloads or logs.
 
+## 5C. Milestone 8 independent audit archive and disaster recovery
+
+### Immutable out-of-band audit archive (OFF by default)
+- Configure an approved independent WORM archive service exposing
+  `CHESS_AUDIT_ARCHIVE_URL` (HTTPS POST append-only event ingestion)
+  and `CHESS_AUDIT_STATUS_URL` (HTTPS POST read-only event status lookup).
+  Both must use `CHESS_AUDIT_ALLOWED_HOST` as the exact hostname and
+  must reject redirects. Provide `CHESS_AUDIT_ARCHIVE_API_KEY` as
+  a protected, scoped server secret.
+- Generate `CHESS_AUDIT_HASH_KEY` as a strong, unique, **at least
+  32-character** high-entropy HMAC key, stored in a secret vault.
+  Retain historical key versions: rotating this key before backlog
+  archival invalidates pending event digests.
+- Keep `CHESS_AUDIT_EXPORT_ENABLED=false` and
+  `CHESS_AUDIT_RETENTION_APPROVED=false` until independent
+  regulatory retention/legal hold, deletion policy, provider DPA,
+  incident response and offsite access controls are signed off.
+  Activating requires both flags true, an approved active scheduler,
+  allowlisted tenants and a protected `CHESS_WORKFLOW_WORKER_TOKEN`.
+- The exporter only sends `tenantSlug,eventId,occurredAt,action,
+  resourceType,decision,businessTag,actorTag,resourceTag,digest`.
+  Staff, business and resource identifiers are HMAC pseudonyms,
+  and arbitrary free-text source event labels are REJECTED locally.
+  Original security event records are never modified by the exporter.
+- Provider response must exactly match
+  `{eventId,digest,status:archived|pending|rejected|not_found,receiptId?}`.
+  ARCHIVED requires a provider receipt ID. UNKNOWN/PENDING outcomes
+  are resolved by the status lookup; the create request is never blindly
+  resent. PostgreSQL prevents updating/deleting confirmed archived
+  receipts, and existing CHESS source security events have their own
+  append-only trigger.
+- Set the manual protected GitHub environment `chess-audit-sandbox`
+  with `CHESS_AUDIT_SANDBOX_VALIDATE=true`,
+  `CHESS_AUDIT_SANDBOX_ISOLATED=true`,
+  `CHESS_AUDIT_SANDBOX_TENANT`, the URLs, allowlisted host and
+  both protected secrets. Manually run
+  `chess-audit-archive-sandbox.yml` with a fictional event.
+  The test checks event receipt and status identity; it CANNOT prove
+  the provider's actual regulatory WORM guarantees, independent audit
+  controls, or retention under a legal hold. Preserve vendor evidence.
+- Owners/admins can inspect aggregate archive backlog and UNKNOWN
+  outcomes via the existing worker-health endpoint. A green CI job
+  does not establish a real archive provider or successful live export.
+
+### Verified backup and isolated restore drill (manual-only)
+- **First**, the DR operator must independently provision an encrypted,
+  compliance-locked, versioned object in a backup bucket and restore
+  a separate, read-only PostgreSQL database from that backup. This
+  workflow cannot perform a backup, production access or database restore.
+- Create a protected `chess-dr-restore` GitHub environment with
+  `CHESS_DR_VALIDATE=true`,
+  `CHESS_DR_ISOLATED_RESTORE=true`,
+  `DIRECT_URL` (the source database URL; secret),
+  `CHESS_DR_RESTORE_DATABASE_URL` (a different restored database
+  name, isolated credentials; secret),
+  `CHESS_DR_TEST_TENANT` (safe fictional tenant slug), and
+  `CHESS_DR_WITNESS_SECURITY_EVENT_ID` (a real immutable test
+  event from BEFORE the backup; protected).
+- Backup object configuration:
+  `CHESS_DR_BACKUP_BUCKET`,
+  `CHESS_DR_BACKUP_OBJECT_KEY`,
+  `CHESS_DR_BACKUP_OBJECT_VERSION`,
+  `CHESS_DR_BACKUP_REGION`,
+  `CHESS_DR_BACKUP_ENDPOINT` (optional S3-compatible endpoint),
+  `CHESS_DR_BACKUP_ACCESS_KEY_ID` (secret),
+  `CHESS_DR_BACKUP_SECRET_ACCESS_KEY` (secret),
+  `CHESS_DR_MAX_BACKUP_AGE_HOURS` (1-72, default 24),
+  and `CHESS_DR_REQUIRE_PG_SSL=true`.
+- The object must be nontrivial, server-side encrypted, versioned, in
+  S3 Object Lock COMPLIANCE mode and retained more than 24 hours.
+  The read-only worker checks version, object freshness and a known
+  immutable audit-event witness in the separately restored tenant schema.
+  It also checks critical consent, audit, invoice and regulated workflow
+  tables. No production rows are changed or copied to CI logs.
+- Manually run `chess-dr-restore-validate.yml` after the external
+  restore. Keep a signed drill record with restore start/end timestamps,
+  measured recovery point objective (RPO), recovery time objective (RTO),
+  backup owner, witness provenance and independent approval. The
+  script alone does NOT prove RPO, RTO, point-in-time restore, full
+  ledger balance validation or production failover.
+- Disaster recovery remains a release blocker until an independently
+  supervised rehearsal verifies actual application startup, privacy
+  controls, accounting consistency, backups, encryption, and restore
+  time against agreed RTO/RPO targets.
+
 ## 6. Release validation steps
 1. Add these entries under GitHub Environment chess-staging as Secrets or
    Variables, following the sample workflow.
