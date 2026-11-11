@@ -1,6 +1,6 @@
 import {NextResponse} from "next/server";
 import {z} from "zod";
-import {getMyCalendarPreference,setMyCalendarPreference} from "@/lib/chess/calendar-preferences";
+import {getMyCalendarPreference,setMyCalendarPreference,setMyAppointmentCalendarPreference} from "@/lib/chess/calendar-preferences";
 import {assertMutationOrigin} from "@/lib/chess/request-security";
 import {PermissionError} from "@/lib/rbac/require-permission";
 export const runtime="nodejs";
@@ -17,6 +17,9 @@ export async function GET(){
 export async function PATCH(request:Request){
  try{
   assertMutationOrigin(request);
-  return NextResponse.json(await setMyCalendarPreference(await request.json()));
+  const input:unknown=await request.json();
+  if(input&&typeof input==="object"&&"scope" in input&&input.scope==="APPOINTMENTS")
+   return NextResponse.json(await setMyAppointmentCalendarPreference(input));
+  return NextResponse.json(await setMyCalendarPreference(input));
  }catch(error){return fail(error);}
 }
