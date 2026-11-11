@@ -3922,6 +3922,47 @@ model ChessFinancialLink {
   @@index([legacyTenantId,legacyEntityId])
 }
 
+// M5 optional bank-feed ingestion. This is metadata only; connection
+// secrets live exclusively with the approved financial-data provider.
+model ChessBankFeedConnection {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  serviceCaseId String
+  legacyTenantId String
+  legacyEntityId String
+  legacyBankAccountId String
+  providerAccountRef String
+  active Boolean @default(false)
+  createdByClerkUserId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([serviceCaseId,legacyBankAccountId])
+  @@index([businessId,active])
+}
+enum ChessBankFeedSyncStatus {
+  STARTED
+  COMPLETED
+  FAILED
+}
+model ChessBankFeedSyncRun {
+  id String @id @default(cuid())
+  businessId String
+  connectionId String
+  requestedStartAt DateTime
+  status ChessBankFeedSyncStatus @default(STARTED)
+  fetchedCount Int @default(0)
+  insertedCount Int @default(0)
+  errorCode String?
+  initiatedByClerkUserId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([connectionId,createdAt])
+  @@index([businessId,status])
+}
+
 // Milestone 5: bank review only - all raw banking data stays in the
 // existing entity's tenant-scoped ledger. This stores opaque references and
 // evidence of a human decision; approval never posts journal entries.
