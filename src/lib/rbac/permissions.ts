@@ -62,7 +62,7 @@ const MATRIX: Record<Role, Set<Action>> = {
     "member:manage", "workspace:manage",
   ]),
   MEMBER: new Set<Action>([
-    "record:read", "record:create", "record:update",
+    "record:read", "record:create",
     "activity:create", "report:run", "email:manage", "telephony:manage", "inventory:manage",
   ]),
   VIEWER: new Set<Action>([
@@ -80,6 +80,7 @@ export function can(
   action: Action,
   opts?: { ownsRecord?: boolean },
 ): boolean {
+  if (!Object.prototype.hasOwnProperty.call(MATRIX, role)) return false;
   if (MATRIX[role].has(action)) return true;
   if (role === "MEMBER" && opts?.ownsRecord) {
     // MEMBER may update records they own. Delete remains admin-only.
