@@ -3,7 +3,7 @@ import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
 import {assertBusinessManager} from "./business-manager";
 import {assertBusinessAccess} from "./business-units";
-import {maySyncCalendar} from "./calendar-preferences";
+import {maySyncAppointmentCalendar} from "./calendar-preferences";
 
 export const appointmentInput=z.object({
  businessId:z.string().min(1).max(128),
@@ -64,14 +64,15 @@ export async function createChessAppointment(input:unknown){
    assignedClerkUserId:true,startAt:true,endAt:true,updatedAt:true}});
   const employeeConsent=await tx.chessCalendarPreference.findUnique({
    where:{clerkUserId:data.assignedClerkUserId},
-   select:{enabled:true,acknowledgedAt:true,revokedAt:true},
+   select:{enabled:true,acknowledgedAt:true,revokedAt:true,
+    appointmentEnabled:true,appointmentAcknowledgedAt:true,appointmentRevokedAt:true},
   });
   await tx.chessAppointmentCalendarOutbox.create({data:{
    businessId:data.businessId,appointmentId:appointment.id,
    recipientClerkUserId:data.assignedClerkUserId,
    startsAt:startAt,endsAt:endAt,
    idempotencyKey:`appointment-calendar:${appointment.id}`,
-   status:maySyncCalendar(employeeConsent)?"PENDING":"WAITING_CONSENT",
+   status:maySyncAppointmentCalendar(employeeConsent)?"PENDING":"WAITING_CONSENT",
   }});
   await tx.chessSecurityEvent.create({data:{
    businessId:data.businessId,actorClerkUserId:actor.clerkUserId,
