@@ -1,3 +1,4 @@
+import {assertMutationOrigin} from "@/lib/chess/request-security";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createBusinessUnit, listBusinessUnits } from "@/lib/chess/business-units";
@@ -12,6 +13,6 @@ export async function GET() {
  try { return NextResponse.json({businesses:await listBusinessUnits()}); } catch(e) {return fail(e);}
 }
 export async function POST(request: Request) {
- try {return NextResponse.json({business:await createBusinessUnit(await request.json())},{status:201});}
+ try { assertMutationOrigin(request);return NextResponse.json({business:await createBusinessUnit(await request.json())},{status:201});}
  catch(e) {return fail(e);}
 }
