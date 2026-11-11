@@ -24,16 +24,21 @@ export async function getChessWorkerHealth(now=new Date()){
  if(!actor||actor.status!=="ACTIVE"||
   !["OWNER","ADMIN"].includes(actor.role))throw new PermissionError("record:read");
  const {db}=getTenantDb();
- const [runs,activeRecurrences,calendarPending]=await Promise.all([
+ const [runs,activeRecurrences,calendarPending,appointmentCalendarPending,appointmentAwaitingConsent]=await Promise.all([
   db.chessWorkerRun.findMany({orderBy:{occurredAt:"desc"},take:50,
    select:{kind:true,status:true,examined:true,processed:true,blocked:true,occurredAt:true}}),
   db.chessWorkRecurrence.count({where:{active:true,nextRunAt:{lt:now}}}),
   db.chessCalendarOutbox.count({where:{
    status:{in:["PENDING","UNKNOWN","CANCEL_PENDING","CANCEL_UNKNOWN"]},
   }}),
+  db.chessAppointmentCalendarOutbox.count({where:{
+   status:{in:["PENDING","SUBMITTING","UNKNOWN","CANCEL_PENDING","CANCEL_SUBMITTING","CANCEL_UNKNOWN"]},
+  }}),
+  db.chessAppointmentCalendarOutbox.count({where:{status:"WAITING_CONSENT"}}),
  ]);
  const latest=runs.filter(r=>r.kind==="RECURRING_WORK")[0];
  const stale=!latest||now.getTime()-latest.occurredAt.getTime()>30*60*1000;
  return {runs,activeRecurrences,calendarPending,
+  appointmentCalendarPending,appointmentAwaitingConsent,
   schedulerLastSeenAt:latest?.occurredAt??null,schedulerStale:stale};
 }
