@@ -27,7 +27,8 @@ export async function runChessOverdueAlerts(now=new Date()){
  ]);
  const liveUnits=new Set(units.map(u=>u.id));
  const employees=await db.membership.findMany({
-  where:{clerkUserId:{in:[...new Set(assignments.map(a=>a.clerkUserId))]},status:"ACTIVE"},
+  where:{clerkUserId:{in:[...new Set(assignments.map(a=>a.clerkUserId))]},
+   status:"ACTIVE",role:{not:"VIEWER"}},
   select:{clerkUserId:true},
  });
  const liveEmployees=new Set(employees.map(e=>e.clerkUserId));
@@ -57,6 +58,12 @@ export async function runChessOverdueAlerts(now=new Date()){
   }
  }
  if(!alerts.length)return {examined:tasks.length,inserted:0};
- const inserted=await db.chessEmployeeAlert.createMany({data:alerts.slice(0,250),skipDuplicates:true});
- return {examined:tasks.length,inserted:inserted.count};
+ let inserted=0;
+ for(let i=0;i<alerts.length;i+=200){
+  const chunk=await db.chessEmployeeAlert.createMany({
+   data:alerts.slice(i,i+200),skipDuplicates:true,
+  });
+  inserted+=chunk.count;
+ }
+ return {examined:tasks.length,inserted};
 }
