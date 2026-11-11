@@ -121,5 +121,29 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Apply versioned tenant migrations
         run: npx prisma migrate deploy --schema=prisma/tenant/schema.prisma
-      - name: Run PostgreSQL isolation and fictional CHESS demo seed tests
-        run: npx vitest run src/lib/chess/schema.integration.test.ts src/lib/chess/demo-fixtures.integration.test.ts
+      - name: Run tenant isolation and CHESS authorization tests (public CI schema)
+        run: npx vitest run src/lib/chess/schema.integration.test.ts
+
+      # Explicitly exercise the multi-schema migration order used by demo:setup.
+      # This is an isolated CI-only PostgreSQL database, NOT a Neon account.
+      - name: Create a separate temporary demo database
+        run: |
+          node -e 'const {Client}=require("pg"); (async()=>{const c=new Client({connectionString:process.env.DIRECT_URL}); await c.connect(); try{await c.query("CREATE DATABASE chess_demo_ci")}finally{await c.end()}})().catch(e=>{console.error(e);process.exit(1)})'
+      - name: Migrate demo platform registry in public
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=public"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=public"
+        run: npx prisma migrate deploy --schema=prisma/platform/schema.prisma
+      - name: Create isolated fictional tenant schema
+        run: |
+          node -e 'const {Client}=require("pg"); (async()=>{const c=new Client({connectionString:"postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci"}); await c.connect(); try{await c.query("CREATE SCHEMA tenant_chess_demo")}finally{await c.end()}})().catch(e=>{console.error(e);process.exit(1)})'
+      - name: Migrate isolated demo tenant without touching public tables
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+        run: npx prisma migrate deploy --schema=prisma/tenant/schema.prisma
+      - name: Verify repeatable fictional demo seed against isolated tenant schema
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+        run: npx vitest run src/lib/chess/demo-fixtures.integration.test.ts

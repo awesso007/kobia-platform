@@ -67,3 +67,15 @@ Never use real customers or production accounts in this demo.
 
 **Release status: still not merged/deployed.** No source-level demo
 completion can close the independent M1-M8 regulatory and operational gates.
+
+
+## Round 19 dedicated migration integration coverage
+
+The ordinary PostgreSQL CI job now creates a **second CI-only database**
+(chess_demo_ci), applies the platform schema migrations to public, creates
+tenant_chess_demo, deploys all tenant migrations into that dedicated schema
+and runs the repeatability/no-privilege seed test against it. The original
+tenant SQL regression tests still run separately on chess_ci. This proves
+the migrations and fictional seed can coexist without writing CHESS records
+into public. It is **not** a live Neon Codespaces test and cannot satisfy
+the external DEMO-01 or M8 staging/security approvals.
