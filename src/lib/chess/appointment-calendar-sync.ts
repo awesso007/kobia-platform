@@ -74,10 +74,18 @@ export async function syncChessAppointmentCalendars(){
    const next=decideCalendarReconciliation(entry.status,remote.status,
     access.valid&&access.consent);
    if(!next){unresolved++;continue;}
-   const updated=await db.chessAppointmentCalendarOutbox.updateMany({
-    where:{id:entry.id,status:entry.status},
-    data:{status:next,lastErrorCode:null,
-     ...(remote.id?{providerEventId:remote.id}:{})},
+   const updated=await db.$transaction(async tx=>{
+    const changed=await tx.chessAppointmentCalendarOutbox.updateMany({
+     where:{id:entry.id,status:entry.status},
+     data:{status:next,lastErrorCode:null,
+      ...(remote.id?{providerEventId:remote.id}:{})},
+    });
+    if(changed.count)await tx.chessSecurityEvent.create({data:{
+     businessId:entry.businessId,action:"APPOINTMENT_CALENDAR_RECONCILED",
+     resourceType:"ChessAppointmentCalendarOutbox",resourceId:entry.id,
+     decision:next==="REJECTED"?"DENY":"ALLOW",
+    }});
+    return changed;
    });
    if(updated.count===1){if(next==="SYNCED")synced++;else if(next==="CANCELLED")cancelled++;else rejected++;}
   }catch{unresolved++;}
@@ -100,9 +108,16 @@ export async function syncChessAppointmentCalendars(){
     providerEventId:entry.providerEventId,idempotencyKey:`cancel:${entry.id}`,
    });
    const next=remote.status==="accepted"?"CANCELLED":"CANCEL_UNKNOWN";
-   await db.chessAppointmentCalendarOutbox.updateMany({
-    where:{id:entry.id,status:"CANCEL_SUBMITTING"},
-    data:{status:next,lastErrorCode:next==="CANCELLED"?null:"CANCEL_REJECTED"},
+   await db.$transaction(async tx=>{
+    const changed=await tx.chessAppointmentCalendarOutbox.updateMany({
+     where:{id:entry.id,status:"CANCEL_SUBMITTING"},
+     data:{status:next,lastErrorCode:next==="CANCELLED"?null:"CANCEL_REJECTED"},
+    });
+    if(changed.count)await tx.chessSecurityEvent.create({data:{
+     businessId:entry.businessId,action:"APPOINTMENT_CALENDAR_CANCEL_RESULT",
+     resourceType:"ChessAppointmentCalendarOutbox",resourceId:entry.id,
+     decision:next==="CANCELLED"?"ALLOW":"REVIEW",
+    }});
    });
    if(next==="CANCELLED")cancelled++;else unknown++;
   }catch{
@@ -151,9 +166,16 @@ export async function syncChessAppointmentCalendars(){
     entry.recipientClerkUserId,entry.startsAt,entry.endsAt);
    const next=remote.status==="rejected"?"REJECTED":
     updatedAccess.valid&&updatedAccess.consent?"SYNCED":"CANCEL_PENDING";
-   await db.chessAppointmentCalendarOutbox.updateMany({
-    where:{id:entry.id,status:"SUBMITTING"},
-    data:{status:next,providerEventId:remote.id,lastErrorCode:null},
+   await db.$transaction(async tx=>{
+    const changed=await tx.chessAppointmentCalendarOutbox.updateMany({
+     where:{id:entry.id,status:"SUBMITTING"},
+     data:{status:next,providerEventId:remote.id,lastErrorCode:null},
+    });
+    if(changed.count)await tx.chessSecurityEvent.create({data:{
+     businessId:entry.businessId,action:"APPOINTMENT_CALENDAR_CREATE_RESULT",
+     resourceType:"ChessAppointmentCalendarOutbox",resourceId:entry.id,
+     decision:next==="SYNCED"?"ALLOW":"REVIEW",
+    }});
    });
    if(next==="SYNCED")synced++;else if(next==="REJECTED")rejected++;else unknown++;
   }catch{
