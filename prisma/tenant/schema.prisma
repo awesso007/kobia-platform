@@ -3720,6 +3720,7 @@ model ChessPractitionerCredential {
   service ClientServiceArea
   credentialType String
   credentialLastFour String?
+  credentialRegistryId String?
   jurisdiction String
   status ChessCredentialStatus @default(UNVERIFIED)
   expiresAt DateTime?
