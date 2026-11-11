@@ -1,5 +1,6 @@
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getTenantBySlug} from "@/lib/tenant";
+import {CHESS_DEMO_SLUG,chessDemoModeActive} from "./demo-mode";
 import {PermissionError} from "@/lib/rbac/require-permission";
 import {assertBusinessManager} from "./business-manager";
 import {getClientServiceLink} from "@/lib/client-profile/service";
@@ -7,21 +8,43 @@ import {isUsableConsent} from "./onboarding";
 
 /** Only business-unit aggregates. Never exposes ledger balances,
  * client identities, payroll employee pay or other business units. */
+/**
+ * Read-only internal demo counts are available without inventing a legacy
+ * ledger tenant. All legacy finance imports, postings, payroll and tax bridges
+ * continue to require a REAL explicit legacy tenant mapping.
+ */
+export function permitUnmappedChessDemoFinance(tenantSlug:string,
+ legacyTenantId:string|null, demoEnabled:boolean):boolean{
+ return tenantSlug===CHESS_DEMO_SLUG && legacyTenantId===null && demoEnabled;
+}
+
 export async function getChessFinanceDashboard(businessId:string){
  await assertBusinessManager(businessId);
  const {db,tenantId}=getTenantDb();
  const tenant=await getTenantBySlug(tenantId);
- if(!tenant)throw new PermissionError("record:read");
- const [
-  accountingCases,bookkeepingCases,payrollCases,taxCases,
-  bankPending,bankStale,taxDraft,taxReviewed,taxApproved,
-  payrollUnknown,payrollSubmitted,payrollProviderPaid,
-  activeBankFeeds,
- ]=await Promise.all([
+ if(!tenant && !permitUnmappedChessDemoFinance(
+  tenantId,null,chessDemoModeActive(),
+ ))throw new PermissionError("record:read");
+
+ const [accountingCases,bookkeepingCases,payrollCases,taxCases]=await Promise.all([
   db.chessServiceCase.count({where:{businessId,service:"ACCOUNTING",status:"ACTIVE"}}),
   db.chessServiceCase.count({where:{businessId,service:"BOOKKEEPING",status:"ACTIVE"}}),
   db.chessServiceCase.count({where:{businessId,service:"PAYROLL",status:"ACTIVE"}}),
   db.chessServiceCase.count({where:{businessId,service:"TAX",status:"ACTIVE"}}),
+ ]);
+
+ // A sandbox without a linked legacy ledger has NO financial balances,
+ // reconciliation or execution records. Never synthesize approved work.
+ if(!tenant){
+  return {cases:{accounting:accountingCases,bookkeeping:bookkeepingCases,
+   payroll:payrollCases,tax:taxCases},
+   reviews:{bankPending:0,bankStale:0,taxDraft:0,taxReviewed:0,taxApproved:0},
+   payroll:{unresolved:0,submitted:0,vendorReportedPaid:0},
+   bankFeed:{activeConnections:0}};
+ }
+
+ const [bankPending,bankStale,taxDraft,taxReviewed,taxApproved,
+  payrollUnknown,payrollSubmitted,payrollProviderPaid,activeBankFeeds]=await Promise.all([
   db.chessBankReview.count({where:{businessId,legacyTenantId:tenant.id,status:"PENDING"}}),
   db.chessBankReview.count({where:{businessId,legacyTenantId:tenant.id,status:"STALE"}}),
   db.chessTaxWorkpaper.count({where:{businessId,legacyTenantId:tenant.id,status:"DRAFT"}}),
@@ -39,7 +62,6 @@ export async function getChessFinanceDashboard(businessId:string){
    vendorReportedPaid:payrollProviderPaid},
   bankFeed:{activeConnections:activeBankFeeds}};
 }
-
 
 export async function listChessAuthorizedFinanceCases(businessId:string){
  await assertBusinessManager(businessId);
