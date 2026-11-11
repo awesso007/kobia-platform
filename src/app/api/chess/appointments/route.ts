@@ -1,7 +1,7 @@
 import {NextResponse} from "next/server";
 import {z} from "zod";
 import {assertMutationOrigin} from "@/lib/chess/request-security";
-import {createChessAppointment,listChessAppointments,cancelChessAppointment,isAppointmentConflict} from "@/lib/chess/appointments";
+import {createChessAppointment,listChessAppointments,cancelChessAppointment,completeChessAppointment,isAppointmentConflict} from "@/lib/chess/appointments";
 import {PermissionError} from "@/lib/rbac/require-permission";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -32,6 +32,14 @@ export async function DELETE(request:Request){
  try{
   assertMutationOrigin(request);
   const result=await cancelChessAppointment(await request.json());
+  return NextResponse.json(result,{status:result.updated?200:409});
+ }catch(error){return fail(error);}
+}
+
+export async function PATCH(request:Request){
+ try{
+  assertMutationOrigin(request);
+  const result=await completeChessAppointment(await request.json());
   return NextResponse.json(result,{status:result.updated?200:409});
  }catch(error){return fail(error);}
 }
