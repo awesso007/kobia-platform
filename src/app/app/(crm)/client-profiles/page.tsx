@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { listClientProfiles } from "@/lib/client-profile/service";
+import {getCurrentMembership} from "@/lib/rbac/require-permission";
+import CreateProfileClient from "./CreateProfileClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClientProfilesPage() {
+  const membership=await getCurrentMembership().catch(()=>null);
+  const canManage=membership?.status==="ACTIVE"&&["OWNER","ADMIN"].includes(membership.role);
   let profiles: Awaited<ReturnType<typeof listClientProfiles>> = [];
   let error = false;
   try {
@@ -21,6 +25,7 @@ export default async function ClientProfilesPage() {
           Basic relationship information only. Regulated service records remain separately permissioned.
         </p>
       </div>
+      {canManage&&<CreateProfileClient/>}
       {error ? (
         <section role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-900">
           Client profiles are unavailable or your account is not authorized.
@@ -40,7 +45,12 @@ export default async function ClientProfilesPage() {
             <tbody className="divide-y divide-slate-100">
               {profiles.map(profile => (
                 <tr key={profile.id}>
-                  <td className="p-4 font-medium text-slate-900">{profile.displayName}</td>
+                  <td className="p-4 font-medium text-slate-900">
+                    {canManage?<Link href={`/app/client-profiles/${encodeURIComponent(profile.id)}`}
+                     className="text-emerald-800 underline-offset-4 hover:underline focus-visible:underline">
+                     {profile.displayName}
+                    </Link>:profile.displayName}
+                  </td>
                   <td className="p-4 text-slate-600">{profile.contactId || "Not linked"}</td>
                   <td className="p-4 text-slate-600">{profile.updatedAt.toISOString().slice(0, 10)}</td>
                 </tr>
