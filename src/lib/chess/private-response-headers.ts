@@ -1,7 +1,8 @@
 /** Default protections for private CHESS operations and CRM surfaces.
  * Do not apply these to third-party OAuth callbacks or public webhooks. */
 export function isChessProtectedPath(pathname:string):boolean{
- return /^\/app(?:\/|$)/.test(pathname)||
+ return /^\/client-consents(?:\/|$)/.test(pathname)||
+  /^\/app(?:\/|$)/.test(pathname)||
   /^\/api\/chess(?:\/|$)/.test(pathname)||
   /^\/api\/(?:client-profiles|client-service-links)(?:\/|$)/.test(pathname);
 }

@@ -5,7 +5,7 @@ describe("M8 sensitive operation transport headers",()=>{
  it("targets signed-in CRM and CHESS, not OAuth or public websites",()=>{
   for(const path of ["/app","/app/finance-operations",
    "/api/chess/billing","/api/chess/staging-attestation",
-   "/api/client-profiles"])expect(isChessProtectedPath(path)).toBe(true);
+   "/api/client-profiles","/client-consents","/client-consents/consent-id"])expect(isChessProtectedPath(path)).toBe(true);
   for(const path of ["/api/webhooks/stripe","/pricing",
    "/api/auth/callback","/api/chess-evil"])
    expect(isChessProtectedPath(path)).toBe(false);

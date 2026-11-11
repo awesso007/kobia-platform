@@ -77,7 +77,9 @@ export default clerkMiddleware((auth, req: NextRequest) => {
     ? host.slice(0, -(`.${rootDomain}`).length) : null;
   const hostTenant = rawSubdomain && rawSubdomain !== "www" ? sanitizeSlug(rawSubdomain) : null;
   const isApi = url.pathname === "/api" || url.pathname.startsWith("/api/");
-  const rewrite = !!hostTenant && !isApi;
+  const isClientConsentPortal = url.pathname === "/client-consents" ||
+    url.pathname.startsWith("/client-consents/");
+  const rewrite = !!hostTenant && !isApi && !isClientConsentPortal;
 
   if (rewrite && hostTenant) {
     url.pathname = `/${hostTenant}${url.pathname}`;
@@ -117,9 +119,14 @@ export default clerkMiddleware((auth, req: NextRequest) => {
     tenantSlug = sanitizeSlug(url.searchParams.get("t"));
   }
 
-  if (!tenantSlug && (isCrmApp || isChessApi)) {
+  if (!tenantSlug && (isCrmApp || isChessApi || isClientConsentPortal)) {
     const fromCookie = sanitizeSlug(req.cookies.get("kb-tenant")?.value);
-    const fromQuery = isCrmApp ? sanitizeSlug(url.searchParams.get("tenant")) : null;
+    // Client consent uses the same explicitly selected tenant for
+    // document reads and authenticated POST/DELETE; verified-email checks
+    // are enforced by the service, not just the tenant selector.
+    const consentApi = url.pathname === "/api/chess/client-consent";
+    const fromQuery = (isCrmApp || isClientConsentPortal || consentApi)
+      ? sanitizeSlug(url.searchParams.get("tenant")) : null;
     const defaultTenant = sanitizeSlug(process.env.NEXT_PUBLIC_DEFAULT_TENANT);
     tenantSlug = fromQuery ?? fromCookie ?? defaultTenant;
   }
@@ -149,6 +156,7 @@ function sanitizeSlug(slug: string | null | undefined): string | null {
 const NON_TENANT_SEGMENTS = new Set([
   "app",
   "api",
+  "client-consents",
   "forms",
   "quote",
   "book",
