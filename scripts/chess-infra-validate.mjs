@@ -1,5 +1,5 @@
 // Read-only staging deployment connectivity verification, no client records.
-import {S3Client,HeadBucketCommand} from "@aws-sdk/client-s3";
+import {S3Client,HeadBucketCommand,GetBucketVersioningCommand} from "@aws-sdk/client-s3";
 import {Client as PgClient} from "pg";
 import {createConnection} from "node:net";
 
@@ -25,7 +25,9 @@ async function checkBucket() {
  });
  try {
   await client.send(new HeadBucketCommand({Bucket:process.env.KOBIA_S3_BUCKET}));
-  console.log("PASS private object-storage bucket connectivity");
+  const versioning=await client.send(new GetBucketVersioningCommand({Bucket:process.env.KOBIA_S3_BUCKET}));
+  if(versioning.Status!=="Enabled")throw new Error("Sensitive documents require ENABLED S3 bucket versioning.");
+  console.log("PASS private object-storage bucket connectivity and versioning");
  }finally{client.destroy();}
 }
 async function checkClamAv() {
