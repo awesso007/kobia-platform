@@ -1,4 +1,4 @@
-import {createHmac,timingSafeEqual} from "node:crypto";
+import {createHash,createHmac,timingSafeEqual} from "node:crypto";
 import {z} from "zod";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import * as s3 from "@/lib/storage/s3";
@@ -29,14 +29,29 @@ export async function recordDocumentScan(input:unknown) {
   id:data.documentId,businessId:data.businessId,status:"QUARANTINED",
  }});
  if(!doc)return {updated:false};
- const head=await s3.headObject(doc.storageKey);
- // A missing or altered object must not be released.
- const valid=!!head && head.size===doc.actualBytes && head.mimeType===doc.mimeType &&
-  head.size<=doc.maxBytes;
+ if(!doc.storageVersionId || !doc.storageETag || !doc.actualBytes ||
+   doc.actualBytes<1 || doc.actualBytes>20*1024*1024) {
+  await db.chessClientDocument.updateMany({where:{id:doc.id,status:"QUARANTINED"},data:{status:"REJECTED"}});
+  return {updated:true,status:"REJECTED" as const};
+ }
+ const head=await s3.headObject(doc.storageKey,doc.storageVersionId);
+ const matching=!!head && head.versionId===doc.storageVersionId &&
+  head.etag===doc.storageETag && head.size===doc.actualBytes &&
+  head.size<=doc.maxBytes && head.mimeType===doc.mimeType;
+ if(!matching)throw new Error("Pinned document does not match scanned metadata.");
+ // A signed callback alone is insufficient: compare against bytes retrieved
+ // from the exact immutable object version rather than trusting its digest.
+ const stream=await s3.getObjectBody(doc.storageKey,doc.storageVersionId);
+ const bytes=Buffer.from(await stream.transformToByteArray());
+ const checksum=createHash("sha256").update(bytes).digest("hex");
+ const valid=bytes.length===doc.actualBytes && checksum===data.checksumSha256;
+ const headAgain=await s3.headObject(doc.storageKey,doc.storageVersionId);
+ if(!headAgain || headAgain.versionId!==doc.storageVersionId ||
+   headAgain.etag!==doc.storageETag)throw new Error("Pinned document changed.");
+ const next=valid && data.result==="CLEAN"?"READY":"REJECTED";
  const updated=await db.chessClientDocument.updateMany({
   where:{id:doc.id,status:"QUARANTINED"},
-  data:{status:valid && data.result==="CLEAN"?"READY":"REJECTED",
-   checksumSha256:data.checksumSha256,verifiedAt:new Date()},
+  data:{status:next,checksumSha256:checksum,verifiedAt:new Date()},
  });
- return {updated:updated.count===1,status:valid && data.result==="CLEAN"?"READY":"REJECTED"};
+ return {updated:updated.count===1,status:next};
 }
