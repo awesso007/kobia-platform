@@ -52,6 +52,9 @@ jobs:
             exit 1
           fi
 
+      - name: Syntax-check protected synthetic merchant sandbox
+        run: node --check scripts/chess-merchant-sandbox-validate.mjs
+
       - name: Check read-only legacy consent inventory script and policy
         run: |
           node --check scripts/chess-consent-legacy-audit.mjs

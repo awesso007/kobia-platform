@@ -106,3 +106,29 @@ merchant, accountant, AI vendor or production deployment.
 M7-02/04/05 remain BOTH (code and external signoff).
 M1-M8 also have unresolved separate roadmap gates.
 No completion or live release claim is made by this guide.
+
+
+## Synthetic merchant webhook acceptance harness
+
+Run `node scripts/chess-merchant-sandbox-validate.mjs` only in an
+independently approved fictional tenant staging environment, never
+against a real client invoice. It requires:
+
+`CHESS_M7_MERCHANT_SANDBOX_VALIDATE=true`,
+`CHESS_M7_MERCHANT_SANDBOX_ISOLATED=true`,
+`CHESS_M7_MERCHANT_SANDBOX_BASE_URL` (exact HTTPS root),
+`CHESS_M7_MERCHANT_SANDBOX_ALLOWED_HOST`,
+`CHESS_M7_SANDBOX_TENANT`,
+`CHESS_M7_SANDBOX_BUSINESS_ID`,
+`CHESS_M7_SANDBOX_INVOICE_ID`,
+`CHESS_M7_SANDBOX_PROVIDER_INVOICE_ID`,
+`CHESS_MERCHANT_PROVIDER_ID` and a protected
+`CHESS_MERCHANT_WEBHOOK_HMAC_KEY`.
+
+The named fictional invoice must already be an authorized
+`SENT` invoice with an identical provider invoice ID and
+amount at least one cent. The harness signs a test-only
+one-cent observation and checks first-seen (202),
+idempotent replay (200) and tamper rejection (403).
+A successful harness proves neither merchant bank settlement
+nor an actual vendor's signature integrity/underwriting.
