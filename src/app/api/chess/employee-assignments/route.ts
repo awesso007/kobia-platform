@@ -1,3 +1,4 @@
+import {assertMutationOrigin} from "@/lib/chess/request-security";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { assignEmployee, revokeEmployeeAssignment } from "@/lib/chess/business-units";
@@ -9,11 +10,11 @@ function fail(e: unknown) {
  {status:e instanceof PermissionError?403:e instanceof z.ZodError?400:500});
 }
 export async function POST(request: Request) {
- try {return NextResponse.json({assignment:await assignEmployee(await request.json())},{status:201});}
+ try { assertMutationOrigin(request);return NextResponse.json({assignment:await assignEmployee(await request.json())},{status:201});}
  catch(e) {return fail(e);}
 }
 export async function DELETE(request: Request) {
- try {
+ try { assertMutationOrigin(request);
   const input=z.object({businessId:z.string().min(1),clerkUserId:z.string().min(1)}).strict().parse(await request.json());
   const result=await revokeEmployeeAssignment(input.businessId,input.clerkUserId);
   return NextResponse.json({revoked:result.count>0});
