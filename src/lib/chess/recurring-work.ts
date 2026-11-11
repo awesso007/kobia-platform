@@ -139,6 +139,13 @@ export async function runDueChessRecurrences(now=new Date()){
       dedupeKey:`work:${task.id}:assigned`,
      }});
     }
+    if(template.assignedClerkUserId){
+     await tx.chessCalendarOutbox.create({data:{
+      businessId:template.businessId,workItemId:task.id,
+      recipientClerkUserId:template.assignedClerkUserId,
+      scheduledFor:template.nextRunAt,idempotencyKey:`calendar:${task.id}`,
+     }});
+    }
     await tx.chessSecurityEvent.create({data:{
      businessId:template.businessId,action:"RECURRENCE_TASK_CREATED",
      resourceType:"ChessWorkItem",resourceId:task.id,decision:"ALLOW",
