@@ -164,6 +164,34 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    expect(read?.blocked).toBe(2);
   }finally{await db.chessWorkerRun.delete({where:{id:run.id}});}
  });
+ it("rejects overlapping staff appointments but permits adjacent slots and rebooking after cancellation",async()=>{
+  const business=await db.chessBusinessUnit.create({
+   data:{slug:"appt-test-"+Date.now(),name:"Appointment test workspace"},
+  });
+  try{
+   const common={businessId:business.id,assignedClerkUserId:"integration-employee",
+    subject:"Integration test",createdByClerkUserId:"integration-manager"};
+   const start=new Date("2026-12-03T17:00:00.000Z");
+   const end=new Date("2026-12-03T18:00:00.000Z");
+   const first=await db.chessAppointment.create({data:{...common,startAt:start,endAt:end}});
+   await expect(db.chessAppointment.create({data:{
+    ...common,startAt:new Date("2026-12-03T17:30:00.000Z"),
+    endAt:new Date("2026-12-03T18:30:00.000Z"),
+   }})).rejects.toThrow();
+   const adjacent=await db.chessAppointment.create({data:{
+    ...common,startAt:end,endAt:new Date("2026-12-03T19:00:00.000Z"),
+   }});
+   expect(adjacent.id).toBeTruthy();
+   await db.chessAppointment.update({where:{id:first.id},data:{status:"CANCELLED"}});
+   const rebook=await db.chessAppointment.create({data:{
+    ...common,startAt:start,endAt:new Date("2026-12-03T17:30:00.000Z"),
+   }});
+   expect(rebook.status).toBe("SCHEDULED");
+  }finally{
+   await db.chessAppointment.deleteMany({where:{businessId:business.id}});
+   await db.chessBusinessUnit.delete({where:{id:business.id}});
+  }
+ });
  it("rejects a service link whose client profile does not exist",async()=>{
   await expect(db.clientServiceLink.create({data:{
    profileId:"missing-profile-id",businessId,service:"TAX",
