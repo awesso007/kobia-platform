@@ -30,6 +30,22 @@ for(const slug of slugs){
    typeof result.examined!=="number")throw new Error("Invalid worker response.");
   console.log(`CHESS ${slug}: examined ${result.examined}; created ${result.generated}; blocked ${result.blocked}`);
   if(result.blocked>0)failures++;
+  if(process.env.CHESS_PAYROLL_STATUS_ENABLED==="true"){
+   // Read-only vendor status retrieval. Never submits a pay run.
+   const payrollUrl=new URL("/api/chess/payroll-status/run",base);
+   payrollUrl.searchParams.set("t",slug);
+   const payrollResponse=await fetch(payrollUrl,{
+    method:"POST",redirect:"error",cache:"no-store",
+    headers:{"Authorization":`Bearer ${token}`,"Content-Type":"application/json"},
+    body:"{}",signal:AbortSignal.timeout(20000),
+   });
+   if(!payrollResponse.ok)throw new Error(`Payroll status HTTP ${payrollResponse.status}`);
+   const payroll=await payrollResponse.json();
+   if(payroll.disabled || typeof payroll.unresolved!=="number")
+    throw new Error("Payroll status integration is not ready.");
+   console.log(`CHESS ${slug}: payroll runs reviewed ${payroll.examined}; status updated ${payroll.updated}; unresolved ${payroll.unresolved}`);
+   if(payroll.unresolved>0)failures++;
+  }
   if(process.env.CHESS_CALENDAR_SYNC_ENABLED==="true"){
    const calendarUrl=new URL("/api/chess/calendar-sync/run",base);
    calendarUrl.searchParams.set("t",slug);
