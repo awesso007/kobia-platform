@@ -72,6 +72,31 @@ if(process.env.CHESS_REGULATED_HANDOFF_ENABLED==="true"){
     !process.env.CHESS_AFFILIATION_SOURCE_HOSTS)
   errors.push("Regulated handoffs require approved official registry source host allowlists");
 }
+// M8 exported security events require a separate approved append-only archive.
+// Enabling export without its restricted retention policy is a release blocker.
+if(process.env.CHESS_AUDIT_EXPORT_ENABLED==="true"){
+ for(const name of ["CHESS_AUDIT_ARCHIVE_URL","CHESS_AUDIT_STATUS_URL",
+  "CHESS_AUDIT_ALLOWED_HOST","CHESS_AUDIT_ARCHIVE_API_KEY",
+  "CHESS_AUDIT_HASH_KEY"]){
+  if(!process.env[name])errors.push(`${name} required for the external audit archive`);
+ }
+ if((process.env.CHESS_AUDIT_HASH_KEY??"").length<32)
+  errors.push("Audit pseudonymization key must be at least 32 characters");
+ for(const name of ["CHESS_AUDIT_ARCHIVE_URL","CHESS_AUDIT_STATUS_URL"]){
+  const raw=process.env[name];
+  if(raw)try{
+   const url=new URL(raw);
+   if(url.protocol!=="https:"||
+     url.hostname!==process.env.CHESS_AUDIT_ALLOWED_HOST||
+     url.username||url.password||url.hash||url.port)
+    errors.push(`${name} must match the approved archive HTTPS hostname`);
+  }catch{errors.push(`${name} has an invalid URL`);}
+ }
+ if(process.env.CHESS_AUDIT_RETENTION_APPROVED!=="true")
+  errors.push("Immutable audit archive retention and deletion policy must be reviewed");
+ if(process.env.CHESS_SCHEDULER_ENABLED!=="true")
+  errors.push("Audit export requires approved tenant scheduler activation");
+}
 if(process.env.CHESS_AI_TRIAGE_ENABLED==="true"){
  for(const name of ["CHESS_AI_TRIAGE_API_URL","CHESS_AI_ALLOWED_HOST",
   "CHESS_AI_API_KEY"]){
