@@ -27,8 +27,12 @@ export async function createChessWorkItem(data:unknown) {
   if (!assigned || assigned.revokedAt || member?.status!=="ACTIVE") throw new PermissionError("record:create");
  }
  if (parsed.clientProfileId) {
-  const p=await db.clientProfile.findUnique({where:{id:parsed.clientProfileId},select:{id:true}});
-  if (!p) throw new PermissionError("record:read");
+  // A shared CRM profile is not permission to use it across CHESS businesses.
+  const link=await db.clientServiceLink.findFirst({
+   where:{profileId:parsed.clientProfileId,businessId:parsed.businessId},
+   select:{id:true},
+  });
+  if(!link)throw new PermissionError("record:read");
  }
  return db.$transaction(async tx=>{
   const item=await tx.chessWorkItem.create({data:parsed,select:{
