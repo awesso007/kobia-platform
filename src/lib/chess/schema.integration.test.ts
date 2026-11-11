@@ -97,6 +97,16 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
     idempotencyKey:"calendar:"+task.id,
    }});
    expect(calendar.status).toBe("PENDING");
+   const waiting=await db.chessCalendarOutbox.update({
+    where:{id:calendar.id},data:{status:"WAITING_CONSENT"},
+   });
+   expect(waiting.status).toBe("WAITING_CONSENT");
+   await db.chessCalendarOutbox.update({where:{id:calendar.id},data:{status:"PENDING"}});
+   await db.chessCalendarOutbox.update({where:{id:calendar.id},data:{status:"SYNCED",providerEventId:"event123"}});
+   const cancel=await db.chessCalendarOutbox.update({
+    where:{id:calendar.id},data:{status:"CANCEL_PENDING"},
+   });
+   expect(cancel.status).toBe("CANCEL_PENDING");
    await expect(db.chessCalendarOutbox.create({data:{
     businessId:business.id,workItemId:task.id,
     recipientClerkUserId:"integration-user",scheduledFor:due,
@@ -126,6 +136,22 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    await db.chessWorkItem.deleteMany({where:{businessId:business.id}});
    await db.chessWorkRecurrence.deleteMany({where:{businessId:business.id}});
    await db.chessBusinessUnit.delete({where:{id:business.id}});
+  }
+ });
+ it("persists opt-in and revocation without a provider connection",async()=>{
+  const clerkUserId="integration-calendar-"+Date.now();
+  const pref=await db.chessCalendarPreference.create({data:{
+   clerkUserId,enabled:true,acknowledgedAt:new Date(),
+  }});
+  try{
+   expect(pref.enabled).toBe(true);
+   const revoked=await db.chessCalendarPreference.update({
+    where:{clerkUserId},data:{enabled:false,revokedAt:new Date()},
+   });
+   expect(revoked.enabled).toBe(false);
+   expect(revoked.revokedAt).not.toBeNull();
+  }finally{
+   await db.chessCalendarPreference.delete({where:{clerkUserId}});
   }
  });
  it("rejects a service link whose client profile does not exist",async()=>{
