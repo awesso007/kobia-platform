@@ -4029,6 +4029,28 @@ model ChessBillingInvoice {
   @@index([clientProfileId,businessId])
 }
 
+// M7 consent-bound monthly invoice DRAFT plan. No automatic collection.
+model ChessBillingSubscriptionPlan {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  serviceCaseId String
+  service ClientServiceArea
+  descriptionCode String
+  amountCents BigInt
+  currency String @default("USD")
+  status String @default("PENDING")
+  nextDraftAt DateTime
+  lastDraftAt DateTime?
+  createdByClerkUserId String
+  approvedByClerkUserId String?
+  approvedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([serviceCaseId,descriptionCode])
+  @@index([businessId,status,nextDraftAt])
+}
+
 // Tenant-schema and business scoped AI gateway request reservation.
 // Charges reported by the vendor remain external; callCount reserves the
 // FULL per-call cap even for timeout/malformed responses.
