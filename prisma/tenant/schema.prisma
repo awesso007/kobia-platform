@@ -3808,3 +3808,31 @@ model ChessFinancialLink {
   @@unique([businessId,clientProfileId,service,legacyEntityId])
   @@index([legacyTenantId,legacyEntityId])
 }
+
+// External payroll execution queue. Provider may reject incomplete tax/onboarding
+// information. No ACH details or worker PII are stored in the CHESS registry.
+enum ChessPayrollDispatchStatus {
+  READY
+  SUBMITTING
+  SUBMITTED
+  REJECTED
+  UNKNOWN
+}
+model ChessPayrollDispatch {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  legacyTenantId String
+  legacyEntityId String
+  legacyPayRunId String
+  approvalId String @unique
+  idempotencyKey String @unique
+  providerRequestId String?
+  status ChessPayrollDispatchStatus @default(READY)
+  lastErrorCode String?
+  submittedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([businessId,legacyPayRunId])
+  @@index([businessId,status])
+}
