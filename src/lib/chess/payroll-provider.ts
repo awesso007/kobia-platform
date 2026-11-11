@@ -83,8 +83,7 @@ export async function getPayrollProviderStatus(input:{
  if(!responseRaw.ok)throw new Error(`Payroll status lookup HTTP ${responseRaw.status}`);
  const reply=providerStatusResponse.parse(await responseRaw.json());
  if(reply.payRunId!==input.payRunId ||
-   (input.providerRequestId&&reply.providerRequestId &&
-    input.providerRequestId!==reply.providerRequestId))
+   (input.providerRequestId&&reply.providerRequestId!==input.providerRequestId))
   throw new Error("Payroll provider returned a status for a different run.");
  const observedAt=new Date(reply.observedAt);
  if(!Number.isFinite(observedAt.getTime())||
