@@ -61,19 +61,25 @@ marked production complete by green CI.
   encryption, versioning, retention, object-lock policy as applicable,
   isolated scanner/ClamAV credentials and real CLEAN/INFECTED
   sandbox outcomes; code alone cannot activate storage.
-- **M3-04 [BOTH]** Complete document retention/deletion/legal-hold
-  policies and operational revocation workflows for already
-  delivered/externally shared information. No assumption of
-  automatic external cancellation after client withdrawal.
+- **M3-04 [BOTH]** Finish independent document legal-hold,
+  retention/deletion and external revocation policies. Round 15 adds
+  versioned write-once retention/hold/suppression metadata, owner-only
+  audit-controlled actions, server-denied future download links, and
+  PostgreSQL tamper/deletion regressions. No hard purge/hold-release
+  operation exists; S3 object lock, already issued short-lived
+  links, provider revocation, signed legal policy and authenticated
+  staging E2E are NOT verified.
 - **M3-05 [EXTERNAL]** Supply a strong consent-evidence signing key
   from a managed vault, historical key-rotation verification plan,
   independent policy approval and any external identity/evidence
   provider credentials.
-- **M3-06 [BOTH]** Apply and rehearse the Round 11
-  `20261111334000_chess_m3_consent_evidence_integrity` migration
-  on each authorized tenant with a backup, read-only legacy-evidence
-  inspection and independently approved reissuance of malformed
-  or unverifiable historical consent records.
+- **M3-06 [BOTH]** Apply/rehearse both the Round 11 immutable-consent
+  migration and the Round 15 write-once document lifecycle migration
+  on each approved tenant with independently verified backup and
+  rollback compatibility. Round 15 adds a protected, read-only,
+  SQL-role-restricted legacy consent aggregate inventory script and
+  manual staging workflow. No live tenant inventory, migration,
+  historical evidence reissuance or external review has occurred.
 - **M3-07 [BOTH]** End-to-end verify client grant, version display,
   withdrawal, expiry and downstream finance/regulated authorization
   fail-closed behavior using real fictional signed-in sessions.
@@ -84,9 +90,15 @@ marked production complete by green CI.
   with allowlisted create/status/cancel HTTPS URLs, scoped token,
   employee Google/Microsoft delegated OAuth and appointment-specific
   sharing authorization. All gateway activation flags remain off.
-- **M4-02 [BOTH]** Complete user-facing provider OAuth connection/
-  renewal/revocation UX and verify both independent task-calendar
-  and appointment-calendar permissions with employee accounts.
+- **M4-02 [BOTH]** Deploy and validate per-employee delegated OAuth
+  connection, renewal, revocation, task and appointment permission
+  flows. Round 15 adds default-off connection/status/renew/revoke
+  screens and a host-pinned, nonce/identity-bound gateway adapter,
+  which blocks token revocation while remote event cancellation
+  remains unresolved. A contracted gateway must itself handle
+  provider PKCE/state, callback, secure token storage and expiry;
+  real employee provider sign-in tests and privacy approvals are
+  still pending.
 - **M4-03 [BOTH]** Run actual fictional vendor create/status/cancel
   sandbox and asynchronous reconciliation tests, including
   UNKNOWN/CANCEL_UNKNOWN, consent race, webhook/status semantics
@@ -114,10 +126,15 @@ marked production complete by green CI.
   general ledger with real approved entity/COA mapping, matched bank
   sources, journal posting/reversals and independent reconciliation
   and final review. Current CHESS bridge is largely read-only.
-- **M5-02 [BOTH]** Contract and configure the real Plaid (or approved)
-  bank connection: verified bank-feed consent, scoped credentials,
-  signed webhooks, incremental pagination and backfill, duplicate/
-  replay and disconnect processing, retention, and sandbox evidence.
+- **M5-02 [BOTH]** Contract and configure the actual approved Plaid
+  gateway, verified bank consent and delegated access, signed
+  webhook/disconnect/replay processing, incremental bank sync,
+  retention and sandbox evidence. Round 15 adds independently
+  gated, bounded eight-page cursor pagination (up to 4,000 rows)
+  with complete snapshot, duplicate-ID, repeated-cursor and
+  truncation rejection before UNMATCHED-only import; it does NOT
+  establish actual bank authorization, webhook security, provider
+  completeness/atomicity or reconciliation/settlement.
 - **M5-03 [BOTH]** Integrate a certified payroll processor with
   tested wage/tax calculation, employee enrollment, funding
   segregation, ACH release, disbursement, payroll tax filings,
@@ -148,10 +165,15 @@ marked production complete by green CI.
 - **M6-03 [BOTH]** Obtain service and external-handoff specific signed
   disclosures, customer consent provenance, cancellation and
   retention/incident policies acceptable to regulators and partners.
-- **M6-04 [BOTH]** Supply four appropriately approved partner IDs,
-  delegated credentials and provider endpoints. Run fictional
-  create/status/uncertain/revocation/retention sandbox tests
-  with signed DPAs and no accidental regulated financial execution.
+- **M6-04 [BOTH]** Supply and independently certify four regulated
+  partner IDs, separately scoped API keys and HTTPS gateway contracts,
+  with real sandbox create/status/uncertain/revocation/retention
+  tests and signed DPAs. Round 15 requires the response to echo the
+  exact service, partner and workflow, with independently scoped
+  per-service API keys; a new default-off binding approval gate
+  prevents legacy unbound responses from being considered verified.
+  The gateway still creates only opaque coordination tickets,
+  not mortgages, policies, agreements or trades.
 - **M6-05 [BOTH]** Connect separate licensed systems for actual
   mortgage origination/disclosures, insurance quoting and binding,
   real-estate agency/offers and investment suitability/supervision/

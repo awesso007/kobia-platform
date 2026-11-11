@@ -919,3 +919,47 @@ Deployment and external acceptance remain blocked.
 
 Acceptance and independent inputs:
 `docs/CHESS_CORP_2_M1_ROUND14_SERVICE_AUDIT.md`.
+
+
+## Round 15 - M3-M6 partial-item remediation, CI and release blockers
+
+The following **code-only subitems** were implemented on the draft
+development branch, requiring current-commit CI verification:
+
+- **M3-04:** versioned tenant SQL migration
+  `20261111335000_chess_m3_document_lifecycle`, immutable
+  `retentionUntil`, `legalHoldAt` and `suppressedAt` provenance,
+  no direct metadata deletion, owner/admin + explicit write-grant
+  lifecycle action route and client-service UI, short-lived
+  READY-only download block if suppressed or retention expired.
+  The original S3 object remains intact; hold release and deletion
+  are not implemented or authorized.
+- **M3-06:** manual, independently opted-in read-only PostgreSQL
+  legacy-consent evidence inventory with verified TLS, explicit
+  tenant allowlist and non-admin SELECT-only account, anonymous
+  aggregate counts and failed-release status on anomalies. No
+  historical record data is copied or manufactured.
+- **M4-02:** optional employee delegated calendar OAuth gateway
+  with selected task/appointment scopes, five-minute server nonce,
+  verified tenant/account response, host-pinned HTTPS redirect,
+  status/renew/revoke UI and cancellation-safe disconnect block.
+  Real provider OAuth callback/PKCE/token custody is delegated to
+  an independently certified gateway and remains unverified.
+- **M5-02:** bounded bank feed pagination and fail-closed provider
+  truncation and replay handling. The complete bounded snapshot
+  must arrive before deduplicated UNMATCHED-only import is
+  attempted. Actual Plaid delegated consent, webhooks and
+  financial reconciliation remain external gates.
+- **M6-04:** independent per-service regulated gateway API keys
+  and positive service/partner/workflow response binding required
+  for both create and status checks. All handoff execution remains
+  disabled without explicit flags, current license/affiliation
+  evidence and consent.
+
+**No milestone has been promoted to production-complete.** The
+backlog remains authoritative for external credentials, licensed
+professional scope, two-tenant signed-in E2E, real S3 and financial
+provider tests, legal e-signature, independent audits, retention,
+disaster recovery and production release approval.
+Read exact interface contracts and missing inputs at
+`docs/CHESS_CORP_2_M3_M6_ROUND15_ACCEPTANCE.md`.

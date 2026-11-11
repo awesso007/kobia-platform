@@ -829,3 +829,47 @@ Code, unit and PostgreSQL checks cannot substitute for signed-in
 E2E, archive vendor evidence, external retention approval or
 a staged migration/rollback rehearsal. Full guide:
 `docs/CHESS_CORP_2_M1_ROUND14_SERVICE_AUDIT.md`.
+
+
+## Round 15 - additional M3-M6 credentials, approvals and release hold
+
+The new paths default to DISABLED and require the following separate
+protected staging configuration. Never commit real credentials:
+
+| Setting | Required only for | Safe initial state |
+|---|---|---|
+| `CHESS_DOCUMENT_LIFECYCLE_ENABLED` | M3 write-once hold, retention, suppress UI | `false` |
+| `CHESS_DOCUMENT_RETENTION_POLICY_APPROVED` | Independent client document legal hold and retention review | `false` |
+| `CHESS_CONSENT_AUDIT_ENABLED` | Read-only M3 historical consent inventory | `false` |
+| `CHESS_CONSENT_AUDIT_ISOLATED` | Independently approved isolated audit operation | `false` |
+| `CHESS_CONSENT_AUDIT_TENANT` | Exactly one approved tenant slug | unset |
+| `CHESS_CONSENT_AUDIT_DATABASE_URL` | SELECT-only, nonowner PostgreSQL user with `sslmode=verify-full` | unset protected secret |
+| `CHESS_CONSENT_AUDIT_ALLOWED_HOST` | Exact PostgreSQL allowlisted host | unset |
+| `CHESS_CONSENT_AUDIT_REVIEW_TICKET` | External signed change-review reference | unset |
+| `CHESS_CALENDAR_OAUTH_ENABLED` | Delegated employee connection UI and gateway | `false` |
+| `CHESS_CALENDAR_OAUTH_PROVIDER_CERTIFIED` | Independently verified gateway PKCE/state, token custody, expiry and DPA | `false` |
+| `CHESS_CALENDAR_OAUTH_START_URL` | Start URL (HTTPS same pinned host) | unset |
+| `CHESS_CALENDAR_OAUTH_STATUS_URL` | User/tenant-scoped status URL | unset |
+| `CHESS_CALENDAR_OAUTH_REVOKE_URL` | User/tenant-scoped revocation URL | unset |
+| `CHESS_CALENDAR_OAUTH_ALLOWED_HOST` | Exact provider gateway hostname | unset |
+| `CHESS_CALENDAR_OAUTH_API_KEY` | Privileged employee OAuth gateway bearer key | unset protected secret |
+| `CHESS_BANK_FEED_PAGINATION_ENABLED` | Approved cursor-complete Plaid backfill | `false` |
+| `CHESS_REGULATED_RESPONSE_BINDING_REQUIRED` | Echo-verified workflow/service/partner acknowledgment | `false` |
+| `CHESS_REGULATED_PARTNER_<SERVICE>_API_KEY` | Separate scoped MORTGAGE, INSURANCE, REAL_ESTATE, INVESTMENTS credentials | unset, four distinct protected secrets |
+
+The protected staging workflow leaves all new activation toggles
+false. These are **configuration placeholders**, not vendor contracts.
+A status of `true` cannot legitimately be set until the named
+independent reviewer has approved the tested provider sandbox,
+employee consents, token revocation, gateway response binding,
+signed client disclosure, retention schedule and incident policy.
+
+Run `chess-consent-legacy-audit.yml` only on an approved
+READ-ONLY tenant copy or protected read-only account, using
+fictional/authorized data. It never issues consent, applies a
+migration or prints personal records. Consent audit results
+cannot prove the actual authenticity of HMAC or legal signatures.
+The M3 document migration cannot be deployed without backup,
+legacy document review, S3 object-lock and external hold-release
+policy approval. Previously issued 60-second download links
+cannot be remotely invalidated by database suppression.
