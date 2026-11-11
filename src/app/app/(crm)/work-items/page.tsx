@@ -109,7 +109,9 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
    <p className="text-sm text-slate-700">
     Scheduler: {workerHealth.schedulerStale?"Not recently observed":"Reporting"}
     {" · "}Late recurring schedules: {workerHealth.activeRecurrences}
-    {" · "}Pending or uncertain calendar events: {workerHealth.calendarPending}
+    {" · "}Pending or uncertain task calendar events: {workerHealth.calendarPending}
+    {" · "}Appointment calendar backlog: {workerHealth.appointmentCalendarPending}
+    {" · "}Appointments awaiting staff consent: {workerHealth.appointmentAwaitingConsent}
    </p>
    <p className="text-xs text-slate-500">Scheduler health requires an approved, running tenant worker and live monitoring.
     A green status here does not mean external calendar connections are configured.</p>
