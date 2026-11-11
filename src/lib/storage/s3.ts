@@ -138,3 +138,13 @@ export async function createPresignedDownloadUrl(
 export async function deleteObject(storageKey: string): Promise<void> {
   await client().send(new DeleteObjectCommand({ Bucket: bucketName()!, Key: storageKey }));
 }
+
+/** Stream a private, quarantined object to the malware scanner.
+ * Only server-side scanner workers should call this function. */
+export async function getObjectBody(storageKey: string) {
+  const response = await client().send(new GetObjectCommand({
+    Bucket: bucketName()!, Key: storageKey,
+  }));
+  if (!response.Body) throw new Error("Storage object has no body.");
+  return response.Body;
+}
