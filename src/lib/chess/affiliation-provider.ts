@@ -20,7 +20,7 @@ export function affiliationProviderConfigured():boolean{
  try{
   const url=new URL(raw);
   return url.protocol==="https:"&&url.hostname===host&&
-   !url.username&&!url.password&&!url.hash;
+   !url.username&&!url.password&&!url.hash&&!url.port;
  }catch{return false;}
 }
 export function validAffiliationEvidence(raw:unknown,expected:{
@@ -40,7 +40,7 @@ export function validAffiliationEvidence(raw:unknown,expected:{
   evidence.service!==expected.service||
   evidence.jurisdiction.toUpperCase()!==expected.jurisdiction.toUpperCase()||
   evidence.status!=="ACTIVE"||source.protocol!=="https:"||
-  source.username||source.password||!allow.includes(source.hostname)||
+  source.username||source.password||source.port||!allow.includes(source.hostname)||
   !Number.isFinite(date.getTime())||date>now||
   now.getTime()-date.getTime()>24*60*60_000||
   (expiry!==null&&expiry<=now))return null;
