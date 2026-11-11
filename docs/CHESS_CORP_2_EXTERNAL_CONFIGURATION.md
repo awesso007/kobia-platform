@@ -198,6 +198,63 @@ real secrets. Code is on feature/operations-overview; nothing is deployed.
 - Provider status "accepted" means submitted, NOT proof wages were paid.
   Unknown network outcomes must be reconciled with provider; never blind retry.
 
+## 4A. Milestone 5 accounting, bookkeeping, payroll status and tax integration
+
+### Accounting and bookkeeping
+- KOBIA's existing tenant-scoped accounting database must have provisioned
+  and ACTIVE `Entity`, `Account`, `BankAccount`, `BankTransaction`,
+  `JournalEntry` and `JournalLine` records.
+- Each client business needs a current ACTIVE CHESS service case and
+  authenticated service grant; an administrator explicitly maps the case
+  to the correct existing ledger entity via `POST /api/chess/finance`.
+- Bookkeeping review APIs `/api/chess/bank-reviews` only store opaque
+  transaction/account references and a digest of current ledger evidence.
+  Human review must be independent of the suggestion creator. An approved
+  category is not posted to the general ledger. A separate accounting
+  posting approval and same-tenant ledger transaction path remain required.
+- Direct feeds from outside banks have NOT been activated. Bank feed
+  onboarding requires a provider selection and DPA, customer bank consent,
+  explicit mapping to a permitted legacy BankAccount, token vault,
+  webhook verification, idempotent import and reconciliation sandbox tests.
+  Existing ledger CSV import remains available independently of CHESS.
+
+### Tax
+- A TAX service case must be ACTIVE, have validated `service:TAX` consent,
+  an explicit TAX service grant, and a mapped existing ledger Entity.
+- `/api/chess/tax-workpapers` snapshots posted journal entries, checks
+  double-entry balance and stores an immutable checksum and entry count.
+  Three distinct humans must perform creation, review and final approval.
+- This is NOT tax preparation, a calculation of taxable income, electronic
+  filing, a signature, an IRS acknowledgment or a substitute for preparer
+  PTIN/EFIN and professional review. No tax return is sent from this API.
+- To add real tax-filing integration supply the selected tax software vendor,
+  licensed/preparer authorization, sandbox API agreement, e-signature policy,
+  approved document exchange method and federal/state e-file status API
+  contracts. No real taxpayer information should be transmitted until
+  regulatory and client authorization has been reviewed.
+
+### Read-only payroll-provider outcome reconciliation
+- CHESS_PAYROLL_STATUS_API_URL: exact approved vendor HTTPS status lookup
+  endpoint, on the SAME hostname as CHESS_PAYROLL_ALLOWED_HOST.
+- CHESS_PAYROLL_STATUS_ENABLED: default `false`; enable only after
+  CHESS_PAYROLL_PROVIDER_CERTIFIED=true and CHESS_SCHEDULER_ENABLED=true
+  have been formally approved.
+- Reuse the existing secret CHESS_PAYROLL_API_KEY and the tenant-worker
+  token CHESS_WORKFLOW_WORKER_TOKEN (both held server-side).
+- The status endpoint must accept tenantId, entityId, payRunId,
+  idempotencyKey and providerRequestId, and return a JSON object with
+  the exact same payRunId, matching providerRequestId (if previously known),
+  status (accepted|pending|paid|failed|rejected|unknown|not_found), and
+  an ISO 8601 observedAt timestamp. No employee PII or bank coordinates
+  are included.
+- `PROVIDER_PAID` means **vendor-reported payment only**. Do not present
+  that status as verified final employee receipt, IRS deposit or settlement.
+- The machine-only endpoint `POST /api/chess/payroll-status/run?t=<tenant>`
+  is tenant allowlisted and authenticated by the worker bearer token.
+  It never submits payroll, tax filings or ACH instructions.
+- Unknown provider results are preserved for review and are NOT treated as
+  permission to resubmit a payroll run.
+
 ## 5. Official license registry (required to enable regulated services)
 - CHESS_LICENSE_API_URL: contracted official registry access or approved
   aggregator's verified lookup POST endpoint. It must return registryId,
