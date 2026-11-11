@@ -162,7 +162,8 @@ export async function sendChessInvoice(input:unknown){
  const {actor,db,invoice}=state;
  if(invoice.status!=="APPROVED"||!invoice.approvedByClerkUserId||
   !invoice.approvedAt||invoice.createdByClerkUserId===invoice.approvedByClerkUserId||
-  invoice.approvedByClerkUserId===actor.clerkUserId)
+  invoice.approvedByClerkUserId===actor.clerkUserId||
+  invoice.createdByClerkUserId===actor.clerkUserId)
   throw new PermissionError("record:update");
  const [creator,reviewer]=await Promise.all([
   db.membership.findUnique({where:{clerkUserId:invoice.createdByClerkUserId},
@@ -264,7 +265,16 @@ export async function listChessInvoices(businessId:string){
    amountCents:true,descriptionCode:true,status:true,createdAt:true,
    updatedAt:true,providerCheckedAt:true,
   }});
- return rows.map(row=>({...row,amountCents:row.amountCents.toString()}));
+ const authorized:typeof rows=[];
+ for(const row of rows){
+  if(!(row.service in productCodes))continue;
+  try{
+   await scopedInvoiceCase(businessId,row.clientProfileId,row.serviceCaseId,
+    row.service as BillableService);
+   authorized.push(row);
+  }catch{/* No invoice metadata escapes without a live client billing grant. */}
+ }
+ return authorized.map(row=>({...row,amountCents:row.amountCents.toString()}));
 }
 
 
