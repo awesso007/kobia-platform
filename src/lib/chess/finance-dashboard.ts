@@ -21,7 +21,15 @@ export function permitUnmappedChessDemoFinance(tenantSlug:string,
 export async function getChessFinanceDashboard(businessId:string){
  await assertBusinessManager(businessId);
  const {db,tenantId}=getTenantDb();
- const tenant=await getTenantBySlug(tenantId);
+ // The intentionally separate demo database has no legacy accounting schema.
+ // An unavailable legacy table is handled ONLY for this explicitly isolated
+ // preview. For every other tenant, a failed legacy lookup must propagate.
+ let tenant:Awaited<ReturnType<typeof getTenantBySlug>>=null;
+ try{tenant=await getTenantBySlug(tenantId);}
+ catch(error){
+  if(!permitUnmappedChessDemoFinance(tenantId,null,chessDemoModeActive()))
+   throw error;
+ }
  if(!tenant && !permitUnmappedChessDemoFinance(
   tenantId,null,chessDemoModeActive(),
  ))throw new PermissionError("record:read");
