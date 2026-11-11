@@ -402,6 +402,14 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
     id:suggestion.id,status:"PENDING",updatedAt:suggestion.updatedAt,
    },data:{status:"REJECTED"}});
    expect(replay.count).toBe(0);
+   await expect(db.chessAiSuggestion.update({where:{id:suggestion.id},
+    data:{appliedAt:new Date(),status:"REJECTED",followupWorkItemId:"synthetic-task"},
+   })).rejects.toThrow();
+   const applied=await db.chessAiSuggestion.update({where:{id:suggestion.id},
+    data:{appliedAt:new Date(),followupWorkItemId:"synthetic-task"},
+   });
+   expect(applied.status).toBe("ACCEPTED");
+   expect(applied.followupWorkItemId).toBe("synthetic-task");
   }finally{await db.chessAiSuggestion.delete({where:{id:suggestion.id}});}
   const invoice=await db.chessBillingInvoice.create({data:{
    businessId:business,clientProfileId:"fictional-client",
