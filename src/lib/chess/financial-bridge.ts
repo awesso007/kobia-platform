@@ -56,13 +56,13 @@ export async function financialOperationalSummary(businessId:string,clientProfil
  if(service==="PAYROLL") {
   const [employees,payRuns]=await Promise.all([
    legacyDb.employee.count({where:{tenantId:legacyTenant.id,entityId:entity.id,isActive:true}}),
-   legacyDb.payRun.count({where:{tenantId,entityId:entity.id}}),
+   legacyDb.payRun.count({where:{tenantId:legacyTenant.id,entityId:entity.id}}),
   ]);
   return {linked:true,service,employees,payRuns};
  }
  const [accounts,entries]=await Promise.all([
-  legacyDb.account.count({where:{tenantId,entityId:entity.id,isActive:true}}),
-  legacyDb.journalEntry.count({where:{tenantId,entityId:entity.id}}),
+  legacyDb.account.count({where:{tenantId:legacyTenant.id,entityId:entity.id,isActive:true}}),
+  legacyDb.journalEntry.count({where:{tenantId:legacyTenant.id,entityId:entity.id}}),
  ]);
  return {linked:true,service,accounts,entries};
 }
