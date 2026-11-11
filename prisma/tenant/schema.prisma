@@ -4029,6 +4029,17 @@ model ChessBillingInvoice {
   @@index([clientProfileId,businessId])
 }
 
+// Tenant-schema and business scoped AI gateway request reservation.
+// Charges reported by the vendor remain external; callCount reserves the
+// FULL per-call cap even for timeout/malformed responses.
+model ChessAiUsageDaily {
+  businessId String
+  day DateTime
+  callCount Int @default(0)
+  createdAt DateTime @default(now())
+  @@id([businessId,day])
+}
+
 // M7 signed merchant observation receipts. These are claims from the
 // contracted gateway, NOT bank settlement, GL posting or earned revenue.
 model ChessMerchantPaymentEvent {
