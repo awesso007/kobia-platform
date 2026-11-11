@@ -198,3 +198,28 @@ staging run cannot be reported as a completed production milestone.
 7. Production-like staged pilot and verified production release gates.
 
 The presence of these commits does not establish production readiness.
+
+
+## 2026-11-10 continuation: calendar gateway and employee controls
+- **Calendar outbox:** tasks with an active assignee and due date create
+  per-employee private calendar events in the same database transaction as
+  the task. A unique work-item key prevents duplicate deliveries.
+- **Optional calendar gateway adapter:** allows only a configured HTTPS host,
+  vendor token and explicit `CHESS_CALENDAR_SYNC_ENABLED=true`. It sends
+  generic event descriptions; the vendor gateway must resolve per-employee
+  delegated OAuth authorization. It is not enabled by default.
+- **Calendar reconciliation safety:** pending outbox messages are claimed
+  atomically, and uncertain network outcomes are marked UNKNOWN rather than
+  resent automatically. Calendar synchronization is not a confirmed event
+  until the external vendor acknowledges it.
+- **Employee dashboard:** manager controls create/pause/resume recurrence,
+  task status changes use optimistic locking, and employees can mark private
+  notifications as read.
+- **Testing:** PostgreSQL integration tests enforce uniqueness of calendar
+  outbox records; CI HTTP smoke covers unauthorized calendar worker access.
+- **Remaining M4 blockers:** live vendor sandbox, employee OAuth consent
+  screens, provider event cancellation/update reconciliation, collision
+  checks, user-friendly employee selection, overdue reminders and calendar
+  bidirectional sync. These still need code and external sign-off.
+- **No production release:** configuration placeholders cannot establish
+  provider permission, privacy compliance or reliable deployment.
