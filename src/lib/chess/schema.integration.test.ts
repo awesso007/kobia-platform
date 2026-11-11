@@ -165,8 +165,12 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
   }finally{await db.chessWorkerRun.delete({where:{id:run.id}});}
  });
  it("rejects overlapping staff appointments but permits adjacent slots and rebooking after cancellation",async()=>{
+  const suffix=Date.now().toString(36);
   const business=await db.chessBusinessUnit.create({
-   data:{slug:"appt-test-"+Date.now(),name:"Appointment test workspace"},
+   data:{slug:"appt-test-"+suffix,name:"Appointment test workspace"},
+  });
+  const otherBusiness=await db.chessBusinessUnit.create({
+   data:{slug:"appt-other-"+suffix,name:"Second appointment workspace"},
   });
   try{
    const common={businessId:business.id,assignedClerkUserId:"integration-employee",
@@ -174,6 +178,11 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    const start=new Date("2026-12-03T17:00:00.000Z");
    const end=new Date("2026-12-03T18:00:00.000Z");
    const first=await db.chessAppointment.create({data:{...common,startAt:start,endAt:end}});
+   // No sensitive details cross businesses, but the same employee cannot
+   // be scheduled by two CHESS business units at once within this tenant.
+   await expect(db.chessAppointment.create({data:{
+    ...common,businessId:otherBusiness.id,startAt:start,endAt:end,
+   }})).rejects.toThrow();
    await expect(db.chessAppointment.create({data:{
     ...common,startAt:new Date("2026-12-03T17:30:00.000Z"),
     endAt:new Date("2026-12-03T18:30:00.000Z"),
@@ -188,8 +197,8 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    }});
    expect(rebook.status).toBe("SCHEDULED");
   }finally{
-   await db.chessAppointment.deleteMany({where:{businessId:business.id}});
-   await db.chessBusinessUnit.delete({where:{id:business.id}});
+   await db.chessAppointment.deleteMany({where:{businessId:{in:[business.id,otherBusiness.id]}}});
+   await db.chessBusinessUnit.deleteMany({where:{id:{in:[business.id,otherBusiness.id]}}});
   }
  });
  it("rejects a service link whose client profile does not exist",async()=>{
