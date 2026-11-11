@@ -19,7 +19,7 @@ jobs:
           node-version: "20"
       - name: Check tracked source for known live credentials
         run: |
-          node --test scripts/chess-secret-scan.test.mjs
+          node --test scripts/chess-secret-scan-check.mjs
           node scripts/chess-secret-scan.mjs
 
 
