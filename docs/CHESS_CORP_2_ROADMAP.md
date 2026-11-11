@@ -422,3 +422,67 @@ or regulated production readiness.
 These are production blockers, NOT items silently marked complete by code or
 green GitHub CI. CHESS and each licensed operating company must preserve
 their separate legal scopes and data-sharing permissions.
+
+
+## Round 6 - Regulated mortgage, insurance, real estate and investments (development)
+
+- **Service-specific workflows:** MORTGAGE application coordination/document
+  intake, INSURANCE coverage/application intake, REAL_ESTATE buyer/seller
+  intake, and INVESTMENTS goal/risk discovery have separately typed workflow
+  kinds and per-service required manual checklists. These are private
+  case-coordination records; no financial/health/property application payload
+  is stored in the new workflow metadata tables.
+- **Segregation of duties:** the original creator, independent reviewer and
+  final approving owner/admin must be different active employees. Each case
+  requires a current explicit service-write grant and validated client
+  acceptance for the service. Provider handoff additionally requires a
+  separate purpose-bound external_handoff client consent.
+- **Professional authorization:** check current verified individual
+  credential, approved official registry source, active employee assignment,
+  independent reviewer's identity, and a distinct recently verified
+  practitioner-to-employing-firm/partner affiliation. Affiliation registration
+  starts UNVERIFIED. A separate allowlisted HTTPS official evidence provider
+  is the only path to mark it VERIFIED.
+- **Private documents:** optional checklist evidence references only an
+  authenticated client's own READY, scanned, immutable-version document.
+  Raw document contents are not sent in coordination requests.
+- **Provider boundary:** disabled-by-default, allowlisted HTTPS gateway
+  accepts only opaque tenant/business/case/workflow identifiers, typed
+  coordination kind, idempotency key, and contractually approved partner ID.
+  Acknowledgment means a request for coordination was received. It cannot
+  originate a mortgage, issue an insurance quote or policy, create/bind
+  a brokerage contract, provide investment advice, or place trades.
+- **No blind retries:** uncertain external submissions remain UNKNOWN and
+  can only be checked by a read-only status lookup tied to the original
+  idempotency key and provider request ID. Consent and current individual/
+  firm eligibility are rechecked after remote acknowledgment.
+- **Interface:** /app/regulated-services lists only service cases with
+  explicit record grants and validated client consent, provides official
+  affiliation verification controls and separate case intake, checklist,
+  review, approval, partner ticket and reconciliation actions.
+- **Testing:** policy/segregation/idempotency unit tests, official source
+  validation and provider payload tests, PostgreSQL uniqueness and
+  optimistic-lock regression, anonymous HTTP route-denial checks.
+  Manual protected `chess-regulated-sandbox.yml` contract tests are ready
+  but CANNOT run until authorized fictional provider sandbox credentials
+  and official test registry evidence are supplied.
+
+### M6 still BLOCKED for real clients
+1. Firm and individual registry coverage and contractual authority for
+   each licensed service/jurisdiction (NMLS, state DOI, DRE and applicable
+   CRD/IARD/SEC/FINRA registries; independent compliance validation).
+2. Authenticated signed client service and external-handoff disclosures,
+   broker/company sponsorship and affiliation verification.
+3. Four approved provider/partner identifiers, real delegated connection,
+   sandbox create/status acceptance, revocation/deletion/retention behavior,
+   and vendor incident/compliance agreements.
+4. Separate licensed systems for loan origination and disclosures, insurance
+   quoting/binding, real estate agency/offer documents, investment suitability,
+   supervision, disclosures and transactions. None is implemented by these
+   opaque coordination workflows.
+5. External penetration/role testing, staging deployment and legal
+   authorization before handling any regulated real client data.
+
+**M6 is code-implemented for internal metadata coordination only, not a
+production-approved end-to-end regulated execution platform. Green CI alone
+does not satisfy the five mandatory gates above.**
