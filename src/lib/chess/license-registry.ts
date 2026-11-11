@@ -102,3 +102,23 @@ export async function verifyChessPractitionerCredential(input:unknown){
  });
  return {verified:valid,credentialId:credential.id};
 }
+
+
+/** Registry checks are admin-only and must never expose raw credential
+ * documents or provider tokens in employee responses. */
+export async function listChessLicensesForReview(businessId:string){
+ const id=z.string().min(1).max(128).parse(businessId);
+ await assertBusinessAccess(id);
+ const actor=await getCurrentMembership();
+ if(!actor||actor.status!=="ACTIVE"||!["OWNER","ADMIN"].includes(actor.role))
+  throw new PermissionError("record:read");
+ const {db}=getTenantDb();
+ const records=await db.chessPractitionerCredential.findMany({
+  where:{businessId:id},orderBy:{updatedAt:"desc"},take:100,
+  select:{id:true,clerkUserId:true,service:true,credentialType:true,
+   jurisdiction:true,status:true,verifiedAt:true,registryCheckedAt:true,
+   expiresAt:true,credentialRegistryId:true},
+ });
+ return {records,viewerId:actor.clerkUserId,
+  registryConfigured:licenseRegistryConfigured()};
+}
