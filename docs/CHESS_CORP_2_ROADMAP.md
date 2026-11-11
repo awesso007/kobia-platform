@@ -125,3 +125,40 @@ New code commits have added the following beyond the initial models.
 Code-level milestones and CI jobs do not mean Milestones 3-8 are
 production complete. Do not merge or deploy to handle real regulated client
 records until all release gates are independently verified.
+
+
+## 2026-11-10 continued implementation: document integrity and task concurrency
+- **M3 document integrity (code and tests):** private S3 documents now require
+  versioned object storage; upload confirmation records the version ID and ETag.
+  ClamAV and optional signed scanner callbacks read the exact recorded version,
+  and presigned downloads retrieve only that version after matching metadata.
+  A reusable fail-closed integrity policy has unit tests; PostgreSQL migration
+  and integration tests cover version metadata.
+- **M4 task lifecycle (code and tests):** assigned staff can request explicitly
+  allowed task-state transitions; updates require an expected timestamp,
+  reject stale writes, and commit an append-only audit event atomically.
+- **M8 staging validation:** the read-only infrastructure preflight verifies
+  S3 versioning is Enabled; permission and backup requirements are documented.
+- These are code-level implementations, not evidence of external service
+  activation or production release.
+
+### Current remaining release gates
+1. Production S3 bucket, encryption/KMS policy, versioning, private ClamAV and
+   scheduled scan worker deployment, plus end-to-end test files.
+2. Signed and legally reviewed client disclosure/e-signature integration where
+   the relevant regulated service requires it.
+3. Recurring operational workflows, calendar synchronization, staff alerts,
+   manager reviews, and user-facing task update controls.
+4. Approved payroll vendor sandbox submission and reconciliation, actual
+   withholding/funding/tax calculations; no live transfers without compliance.
+5. Official NMLS / insurance / real estate / securities registry contracts
+   and broker/employer affiliations verified by authorized professionals.
+6. Full bank, accounting, payroll and regulated-service integrations, billing,
+   cross-business reporting and supervised AI actions.
+7. Authenticated multi-tenant end-to-end tests, performance/accessibility tests,
+   external penetration test, backups and recovery exercise.
+8. Staging pilot, audit/incident response, privacy/regulatory sign-off and
+   approval for live data before production deployment.
+
+**Release hold stays in force.** Missing provider credentials or an unverified
+staging run cannot be reported as a completed production milestone.
