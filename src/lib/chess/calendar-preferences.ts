@@ -37,6 +37,11 @@ export async function setMyCalendarPreference(input:unknown){
     revokedAt:data.enabled?null:now},
    select:{enabled:true,acknowledgedAt:true,revokedAt:true},
   });
+  await tx.chessCalendarOutbox.updateMany({
+   where:{recipientClerkUserId:actor.clerkUserId,
+    status:data.enabled?"WAITING_CONSENT":"PENDING"},
+   data:{status:data.enabled?"PENDING":"WAITING_CONSENT"},
+  });
   await tx.chessSecurityEvent.create({data:{
    actorClerkUserId:actor.clerkUserId,
    action:data.enabled?"CALENDAR_OPT_IN":"CALENDAR_OPT_OUT",
