@@ -8,7 +8,7 @@ export const dynamic="force-dynamic";
 const querySchema=z.object({
  businessId:z.string().min(1).max(128),
  clientProfileId:z.string().min(1).max(128),
- service:z.enum(["ACCOUNTING","BOOKKEEPING","PAYROLL"]),
+ service:z.enum(["ACCOUNTING","BOOKKEEPING","PAYROLL","TAX"]),
 }).strict();
 function fail(error:unknown){
  return NextResponse.json({error:error instanceof PermissionError?"Forbidden":error instanceof z.ZodError?"Invalid input":"Request failed"},
