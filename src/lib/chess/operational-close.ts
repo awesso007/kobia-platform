@@ -1,7 +1,7 @@
 import {createHash} from "node:crypto";
 import {z} from "zod";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
-import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
+import {PermissionError} from "@/lib/rbac/require-permission";
 import {assertBusinessManager} from "./business-manager";
 import {getChessOperationsReport,reportWindow} from "./operations-reporting";
 
@@ -105,7 +105,7 @@ export async function reviewChessOperationsSnapshot(input:unknown){
 export async function listChessOperationalSnapshots(businessId:string){
  const id=business.parse(businessId);
  const actor=await reviewer(id);
- const {db,tenantId}=getTenantDb();
+ const {db}=getTenantDb();
  const snapshots=await db.chessOperationalPeriodSnapshot.findMany({
   where:{businessId:id},orderBy:{createdAt:"desc"},take:100,
   select:{id:true,businessId:true,month:true,sourceDigest:true,
