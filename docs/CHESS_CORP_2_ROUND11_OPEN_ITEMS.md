@@ -244,16 +244,25 @@ marked production complete by green CI.
   archive service, signed DPA/retention/legal-hold guarantees,
   vault-held pseudonymization keys and historical rotation rules;
   run a protected fake-event create/status/receipt sandbox.
-- **M8-03 [EXTERNAL]** Provision real encrypted PostgreSQL PITR and
-  immutable versioned object backups; complete an isolated restore
-  drill with independently measured RTO/RPO, app startup, privacy,
-  triggers, audit witnesses, ledger/record reconciliation and
-  independently signed operator evidence.
-- **M8-04 [EXTERNAL]** Run the protected authenticated two-tenant,
-  two-business, three-user end-to-end test matrix using separately
-  deployed fictional tenant apps, Clerk sessions, live/withdrawn
-  consent evidence, cross-tenant/CSRF test fixtures and a signed report.
-  CI currently verifies the harness and synthetic regressions only.
+- **M8-03 [BOTH]** Provision real encrypted PostgreSQL PITR and
+  compliance-locked versioned object backups, and complete a REAL
+  isolated restoration, independently measured RTO/RPO and signed
+  operator evidence. Round 17 hardens the pre-restored-clone checker:
+  verify-full PostgreSQL TLS, nonadministrator/SELECT-only account,
+  presence of eight critical CHESS tables and six immutable triggers,
+  and separate audit-event, consent and invoice identity witnesses.
+  An approval-gated GitHub workflow runs read-only checks, but the
+  workflow does NOT restore data or establish independently measured
+  timing by itself. App startup, ledger reconciliations and signing
+  remain outstanding.
+- **M8-04 [BOTH]** Execute authenticated two-tenant/two-business,
+  three-identity E2E on two independently deployed fictional HTTPS
+  applications, with real Clerk sessions, correct grant/revocation
+  fixtures, separate pinned build attestations, CSRF checks and signed
+  acceptance. Round 17 adds required distinct per-tenant attestation
+  tokens, expected identical 40-character release SHA, M7 unauthorized
+  historical/merchant report checks and M3 CSRF. The protected manual
+  workflow is NOT a result until actually dispatched and passed.
 - **M8-05 [EXTERNAL]** Finish independent penetration test,
   authenticated browser/role audit, real accessibility audit
   (keyboard/screen readers), realistic load/stress testing,
@@ -266,10 +275,15 @@ marked production complete by green CI.
   push protection and independently audit software dependencies;
   remediate high/critical production package findings and document
   review of alerts. CI's basic pattern scanner is not sufficient.
-- **M8-08 [BOTH]** Complete operations observability: paging,
-  on-call incident ownership, key/event-export failures, retries,
-  retention/deletion monitoring and incident rehearsal. A status
-  dashboard and draft runbook are not an approved alert response.
+- **M8-08 [BOTH]** Complete production on-call paging,
+  incident ownership, archive delivery failures, retries, retention,
+  monitoring and rehearsal. Round 17 adds a tenant-allowlisted,
+  distinct-secret machine-only read-only health endpoint with
+  fail-closed health signals for stale scheduler, failed work,
+  unknown/rejected/overdue audit archive receipts and uncertain
+  calendar cancellations. Endpoint remains disabled until separate
+  `CHESS_INCIDENT_MONITOR_OPS_APPROVED` review. Real external
+  monitoring/paging escalation and incident drill remain required.
 - **M8-09 [BOTH]** Audit all sensitive access and denied requests
   with privacy-limited provenance, verify WORM export integrity
   under independent retention and deletion policies. Round 14
@@ -278,11 +292,14 @@ marked production complete by green CI.
   service reads, actual remote archival receipts, infrastructure
   least-privilege, retention/erasure and signed-in staging E2E
   remain unresolved.
-- **M8-10 [EXTERNAL]** Deploy actual private HTTPS staging on the
-  reviewed SHA, separately inject the build attestation token and
-  confirmed release SHA, supply real DB/S3/ClamAV sandbox credentials,
-  run the protected staging configuration/dependency/migration/build
-  checks and record results. The workflow itself does not deploy.
+- **M8-10 [BOTH]** Deploy REAL private HTTPS staging at the
+  reviewed SHA and supply DB/S3/scanner/Clerk sandbox credentials,
+  separately injected build token and controlled release SHA. Round 17
+  extends the read-only deployed staging verifier with anonymous
+  denied sensitive API and signed machine callback tests, and adds
+  manual E2E and isolated DR verification workflows. GitHub CI only
+  verifies the code paths; it does NOT deploy the staging app or
+  demonstrate real external endpoint success.
 - **M8-11 [EXTERNAL]** Independently approve backup/rollback,
   contracts/provider sandboxes, staff permissions, accessibility,
   security, privacy, signed consent, employment/licensing, and

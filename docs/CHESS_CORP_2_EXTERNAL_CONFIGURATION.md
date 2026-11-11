@@ -925,3 +925,70 @@ CHESS report is operational evidence only, not GAAP financials.
 
 Detailed contract and acceptance checklist:
 `docs/CHESS_CORP_2_M7_ROUND16_ACCEPTANCE.md`.
+
+
+## Round 17 M8 — protected staging, E2E, restore and monitoring inputs
+
+Never commit real session cookies, credentials, client data or
+release tickets. All variables below are setup placeholders; no
+real staging workflow has been dispatched by development CI.
+
+- **Isolated DR workflow:** `CHESS_DR_VALIDATE=true`,
+  `CHESS_DR_ISOLATED_RESTORE=true` ONLY following independent
+  authorization; restore to a different PostgreSQL host/database
+  using `CHESS_DR_RESTORE_DATABASE_URL` with
+  `sslmode=verify-full` and a nonowner SELECT-only role,
+  `CHESS_DR_RESTORE_ALLOWED_HOST`, `CHESS_DR_REQUIRE_PG_SSL=true`.
+  Supply normal `DIRECT_URL` only for source-host comparison.
+  Also supply known opaque `CHESS_DR_WITNESS_SECURITY_EVENT_ID`,
+  `CHESS_DR_WITNESS_CONSENT_ID`, and
+  `CHESS_DR_WITNESS_INVOICE_ID` all expected in that clone,
+  `CHESS_DR_TEST_TENANT`, S3 bucket/key/region/version and
+  allowlisted endpoint, least-privilege S3 credentials,
+  `CHESS_DR_DRILL_STARTED_AT`, `CHESS_DR_RESTORE_READY_AT`,
+  `CHESS_DR_SOURCE_LATEST_AT`, `CHESS_DR_RESTORED_LATEST_AT`,
+  RTO/RPO targets and `CHESS_DR_EVIDENCE_TICKET`. Supply
+  independent signed timing/restore evidence separately;
+  timestamps passed as variables are operator claims.
+- **Real E2E:** Two different, protected HTTPS tenant origins
+  and exact hostname allowlist (`CHESS_AUTHZ_E2E_BASE_URL`,
+  `CHESS_AUTHZ_E2E_OTHER_TENANT_URL`,
+  `CHESS_AUTHZ_E2E_ALLOWED_HOSTS`), two different
+  `CHESS_AUTHZ_E2E_ATTESTATION_TOKEN_A` and `_B` vault
+  secrets, `CHESS_AUTHZ_E2E_RELEASE_SHA` supplied from
+  checked out approved git ref, three distinct REAL fictional
+  Clerk session cookie secrets, correctly scoped business/case
+  fixtures, revoked consent and report month; explicitly approved
+  `CHESS_AUTHZ_E2E_VALIDATE=true` and
+  `CHESS_AUTHZ_E2E_ISOLATED=true` in a protected environment.
+- **Staging release:** Real private HTTPS deployment at
+  `CHESS_STAGING_EXPECTED_SHA`, independently configured
+  `CHESS_RELEASE_SHA` and
+  `CHESS_STAGING_ATTESTATION_TOKEN`, approved
+  `CHESS_STAGING_BASE_URL`, `CHESS_STAGING_ALLOWED_HOST`,
+  and `CHESS_STAGING_VALIDATE=true`. Run existing staging
+  validation workflow only after deployment and migration
+  approval; it does not perform those actions itself.
+- **On-call monitoring:** To activate an external monitoring
+  poller, provide `CHESS_INCIDENT_MONITOR_ENABLED=true`
+  and `CHESS_INCIDENT_MONITOR_OPS_APPROVED=true` only
+  following signed on-call ownership, paging policy, review
+  of retention and rate limits; a separate, vault-held
+  32+ character `CHESS_INCIDENT_MONITOR_TOKEN`, never
+  equal to `CHESS_WORKFLOW_WORKER_TOKEN`.
+  External monitor polls
+  `/api/chess/incident-health?t=<approved-tenant>`
+  using `Authorization: Bearer <monitor-token>`.
+  The endpoint uses the existing `CHESS_SCHEDULER_ENABLED`
+  and `CHESS_ACTIVE_TENANT_SLUGS` tenant allowlist and
+  returns only short, nonclient signal codes (HTTP 503 if
+  degraded). Actual vendor paging, deduplication, escalation
+  and rehearsal must be supplied by the operator.
+
+**Still independently required:** WORM signed receipts, complete
+PITR restore, independent vulnerability/dependency/pentest review,
+Clerk/managed vault rotation, GDPR/CCPA retention, legal hold
+release, cross-tenant penetration tests, browser accessibility
+and load/chaos testing, regulated provider and consent contracts,
+approved incident runbook, independent security/privacy/legal
+sign-off and production go/no-go.

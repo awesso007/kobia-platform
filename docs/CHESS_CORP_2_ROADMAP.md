@@ -1019,3 +1019,51 @@ are NOT satisfied by local CI, placeholders or committed screens.
 `docs/CHESS_CORP_2_M7_ROUND16_ACCEPTANCE.md`.
 Neither the draft PR nor any of the eight milestones is
 production complete from development CI alone.
+
+
+## Round 17 — Security, authenticated E2E, restore evidence and release review
+
+**Recovered actual Round 16 head:** `fd227c84e62e22cd83d285476c234f6252c31bfd`;
+both normal CI jobs completed successfully on GitHub Actions run
+`43057238636`. Draft PR #24 remained open/unmerged.
+This verified HEAD superseded the interrupted Round 16 response.
+
+**Round 17 M8 engineering implemented (pending latest SHA CI until checked):**
+
+- M8-03: Strict restored PostgreSQL `sslmode=verify-full`,
+  isolated source/restore hosts, nonowner read-only role,
+  immutable S3/KMS object-version checks, eight mandatory
+  restored tenant tables, six active PostgreSQL immutability
+  triggers, and separate known immutable security-event,
+  purpose-bound consent and billable-invoice record witnesses.
+  An explicitly approved isolated backup/restore acceptance
+  workflow now exists.
+- M8-04: Explicit two-tenant deployed SHA attestation and two
+  separate machine credentials before ANY authenticated
+  cross-tenant browser-session matrix runs. Expanded E2E checks
+  for unauthorized merchant observations, frozen operational
+  snapshots and cross-origin document lifecycle mutation.
+  New protected `workflow_dispatch` acceptance workflow.
+- M8-08: Read-only, token-only per-tenant incident health for
+  stale worker, audit archive unresolved/rejected/old,
+  appointment consent cancellation backlog and overdue
+  recurring work. Independent on-call review and a different
+  monitor secret are required. Unhealthy returns HTTP 503;
+  real external paging escalation is not in place.
+- M8-10: Protected deployed staging attestation expanded to
+  require anonymous employee-route and unsigned machine
+  callback denial with no-store/nosniff/frame restrictions.
+  Staging validation still does not deploy, migrate or test
+  a real vendor without approved credentials.
+- New tests and CI checks cover DR policy and structural
+  acceptance, authenticated E2E preconditions, staging
+  security boundaries, and incident-health classification.
+
+**Milestone 8 remains PARTIAL / RELEASE BLOCKED.** A green CI
+check proves source compilation and fictional database tests,
+not independent infrastructure DR, a real live deployment,
+security penetration testing, endpoint provider certification,
+signed on-call, staff privacy or regulatory approval.
+All unresolved `M8-01`–`M8-12` remain in the open register.
+
+Reference: `docs/CHESS_CORP_2_M8_ROUND17_ACCEPTANCE.md`.
