@@ -4,7 +4,7 @@ import {assertBusinessManager} from "./business-manager";
 import {PermissionError} from "@/lib/rbac/require-permission";
 
 export function chessAiDailyLimit(raw?:string):number{
- const value=raw===undefined?25:Number(raw);
+ const value=raw===undefined||raw.trim()===""?25:Number(raw);
  if(!Number.isSafeInteger(value)||value<1||value>100)
   throw new Error("AI daily call budget requires a reviewed integer between 1 and 100.");
  return value;

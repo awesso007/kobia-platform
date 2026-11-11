@@ -10,8 +10,9 @@ describe("M7 AI request budget controls",()=>{
  });
  it("fails closed for invalid daily AI budget settings",()=>{
   expect(chessAiDailyLimit()).toBe(25);
+  expect(chessAiDailyLimit("")).toBe(25);
   expect(chessAiDailyLimit("5")).toBe(5);
-  for(const value of ["0","101","-1","1.5","abc",""])
+  for(const value of ["0","101","-1","1.5","abc"])
    expect(()=>chessAiDailyLimit(value)).toThrow();
  });
 });
