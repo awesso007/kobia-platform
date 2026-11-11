@@ -21,7 +21,7 @@ export function licenseRegistryConfigured():boolean {
  try {
   const url=new URL(base);
   return url.protocol==="https:" && url.hostname===host &&
-   !url.username && !url.password && !url.hash;
+   !url.username && !url.password && !url.hash && !url.port;
  }catch{return false;}
 }
 
@@ -36,7 +36,7 @@ export function isAuthoritativeRegistryResponse(
  let source:URL;
  try{source=new URL(data.sourceUrl);}catch{return false;}
  const checkedAt=new Date(data.checkedAt);
- if(!allow.includes(source.hostname) || source.protocol!=="https:" ||
+ if(!allow.includes(source.hostname) || source.protocol!=="https:" || source.port ||
   data.registryId!==expected.registryId || data.service!==expected.service ||
   data.jurisdiction.toUpperCase()!==expected.jurisdiction.toUpperCase() ||
   data.status!=="ACTIVE" ||
