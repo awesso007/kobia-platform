@@ -743,3 +743,42 @@ restoration observation and signing, archival DPA/WORM, independent
 vulnerability/accessibility/pen tests, all provider integrations,
 compliance/regulated-service legal sign-offs and authorized production
 cutover are still outstanding. Do NOT merge or deploy production.
+
+
+## Round 11 - full Milestones 1-8 reconciliation and M3 security priority
+
+The complete, deduplicated inventory of still-unfinished engineering,
+external vendor/credential requirements, staging, privacy and operational
+release gates is maintained in
+`docs/CHESS_CORP_2_ROUND11_OPEN_ITEMS.md`. The initial summaries at the
+start of this document are historical; later development rounds supersede
+their claims about missing recurrence, calendar, AI, billing and reporting
+code without establishing production readiness.
+
+**Highest-priority code-only risk addressed:** client consent policy and
+accepted evidence could not previously rely on a database-enforced
+write-once lifecycle. The additive tenant migration
+`20261111334000_chess_m3_consent_evidence_integrity` now requires consent
+to originate PENDING, rejects policy/subject/expiry modifications,
+requires full structured acceptance proof for GRANTED status,
+prevents unsupported reversions and all deletion, and permits only
+controlled withdrawal or expiry transitions. Administrative requests
+and withdrawals now append immutable audit events in the same DB
+transaction. Access gates reject malformed or legacy evidence digests.
+
+Automated regression coverage includes consent lifecycle, direct
+database attempts to rewrite accepted policy/evidence, invalid grant
+evidence, forbidden deletion/regrant and staff-side fail-closed
+structural evidence checks.
+
+**Remaining:** Real e-signature/identity source, approved policy and
+privacy sign-off, configured secret-vault signing key, historical
+key-version validation, per-tenant migration and rollback rehearsal,
+real signed-in client portal E2E, data retention/legal holds and safe
+external revocation behavior. Applying the migration without a
+verified backup and review of existing legacy records is prohibited.
+No historical consent evidence is manufactured by this migration.
+
+No merge, production deployment or activation of regulated providers
+is authorized. All Milestones 1-8 are still subject to unresolved
+external production gates.

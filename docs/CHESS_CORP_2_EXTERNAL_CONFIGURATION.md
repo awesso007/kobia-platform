@@ -721,3 +721,29 @@ environment variable names and expected test fixtures.
   for unresolved high/critical production dependencies.
 - External audit WORM, sandbox vendors, security review and signed
   legal/compliance approval remain release blockers.
+
+
+## Round 11 - consent evidence write-once migration requirements
+
+- Apply the additive tenant-schema migration
+  `20261111334000_chess_m3_consent_evidence_integrity` to each
+  approved tenant ONLY after verified backup, legacy consent evidence
+  inventory, rollback compatibility rehearsal and compliance sign-off.
+  It does not retroactively authenticate a legacy GRANTED row.
+- Configure the existing `CHESS_CONSENT_EVIDENCE_KEY` as a unique,
+  high-entropy, 32+-character secret in the approved vault; do not
+  reuse an AI, audit, S3, or webhook token. Preserve necessary old key
+  versions with independent retention/rotation approval.
+- Restrict the runtime DB role from `ALTER TABLE`, `DROP TRIGGER`,
+  `CREATE FUNCTION`, schema ownership or superuser privileges.
+  A schema owner could otherwise bypass PostgreSQL trigger protections.
+- The owner must supply a verified client identity/signature provider
+  when required, signed disclosures and retention/deletion/legal-hold
+  guidance, separate fictional client test sessions and approved
+  migration evidence. Use the exact existing M3 S3/ClamAV and Clerk
+  configuration placeholders from earlier sections for independent
+  staging tests.
+- `docs/CHESS_CORP_2_ROUND11_OPEN_ITEMS.md` is the current full
+  checklist of remaining Milestones 1-8 code, vendor credentials,
+  authenticated E2E and release approvals. This migration is a
+  development security control, NOT a legal e-signature integration.
