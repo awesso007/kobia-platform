@@ -156,6 +156,12 @@ export async function reviewChessBankSuggestion(input:unknown){
   throw new PermissionError("record:update");
  const grant=await getClientServiceLink(existing.clientProfileId,data.businessId,serviceCase.service);
  if(!grant)throw new PermissionError("record:update");
+ const mapping=await db.chessFinancialLink.findFirst({where:{
+  serviceCaseId:existing.serviceCaseId,businessId:data.businessId,
+  clientProfileId:existing.clientProfileId,service:serviceCase.service,
+  legacyTenantId:existing.legacyTenantId,legacyEntityId:existing.legacyEntityId,
+ },select:{id:true}});
+ if(!mapping)throw new PermissionError("record:update");
  const txn=await loadTxn(existing.legacyTenantId,existing.legacyEntityId,existing.legacyBankTransactionId);
  const digest=bankTransactionFingerprint(txn,existing.legacyTenantId,existing.legacyEntityId);
  const stale=digest!==existing.transactionDigest || txn.status!=="UNMATCHED";
