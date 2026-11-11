@@ -1,4 +1,5 @@
 import {NextResponse} from "next/server";
+import {assertAuthorizedWorkflowTenant} from "@/lib/chess/worker-authorization";
 import {isAuthorizedRecurrenceWorker} from "@/lib/chess/recurring-work";
 import {syncChessPendingCalendarEvents} from "@/lib/chess/calendar-sync";
 export const runtime="nodejs";
@@ -10,6 +11,7 @@ export async function POST(request:Request){
  if(!isAuthorizedRecurrenceWorker(token))
   return NextResponse.json({error:"Forbidden"},{status:403});
  try{
+  assertAuthorizedWorkflowTenant(true);
   return NextResponse.json(await syncChessPendingCalendarEvents(),{
    headers:{"Cache-Control":"no-store"},
   });
