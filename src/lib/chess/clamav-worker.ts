@@ -69,7 +69,7 @@ export async function scanPendingChessDocuments(limit=5){
   try{
    if(!document.storageVersionId || !document.storageETag) throw new Error("Document has no pinned object version.");
    const head=await headObject(document.storageKey,document.storageVersionId);
-   if(!matchesPinnedDocument(document,head)){
+   if(!head || !matchesPinnedDocument(document,head)){
     await db.chessClientDocument.updateMany({
      where:{id:document.id,status:"QUARANTINED"},data:{status:"REJECTED"},
     });
