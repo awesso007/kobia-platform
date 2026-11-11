@@ -40,6 +40,18 @@ jobs:
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_ZXhhbXBsZS5jb20k"
           CLERK_SECRET_KEY: "sk_test_placeholder"
 
+      - name: Security end-to-end HTTP smoke
+        run: |
+          npm run start -- -p 3100 > /tmp/chess-smoke.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid 2>/dev/null || true' EXIT
+          node scripts/chess-security-smoke.mjs
+        env:
+          DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_ZXhhbXBsZS5jb20k"
+          CLERK_SECRET_KEY: "sk_test_placeholder"
+          CHESS_PUBLIC_ORIGIN: "http://127.0.0.1:3100"
+
   chess-db-integration:
     runs-on: ubuntu-latest
     services:
