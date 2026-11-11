@@ -98,7 +98,8 @@ export async function getChessDocumentDownload(
  },select:{storageKey:true,storageVersionId:true,storageETag:true,fileName:true,
   actualBytes:true,mimeType:true,maxBytes:true,status:true,
   suppressedAt:true,retentionUntil:true}});
- if(!document || !documentDownloadAllowed(document))
+ if(!document || !document.storageVersionId || !document.storageETag ||
+  !documentDownloadAllowed(document))
   throw new PermissionError("record:read");
  const pinned=await s3.headObject(document.storageKey,document.storageVersionId);
  if(!matchesPinnedDocument(document,pinned))
