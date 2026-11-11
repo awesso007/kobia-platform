@@ -69,3 +69,59 @@ that a single legal entity holds all operating licenses.
 
 Completed tasks in this branch represent committed development code only.
 Do not merge or deploy solely based on the existence of these models.
+
+
+## 2026-11-10 follow-up implementation
+New code commits have added the following beyond the initial models.
+
+### M3 authenticated consent and private documents
+- Consent acceptance requires a signed-in Clerk identity, verified primary email
+  matching the linked client contact, matching policy version, explicit acceptance,
+  evidence HMAC and conditional pending-to-granted update.
+- Service authorization rejects GRANTED flags without recorded acceptance evidence.
+- Authenticated withdrawal and same-origin JSON mutation checks.
+- Private S3 presigned upload with service write grant, size/type restrictions,
+  metadata validation, mandatory quarantine, and READY-only short-lived downloads.
+- Scanner callback verifies a 5-minute HMAC over tenant, timestamp and exact body.
+  READY requires trusted CLEAN result plus consistent object HEAD metadata.
+- Not complete: no configured scanner provider or production S3 credentials;
+  signature/evidence provider and document retention policies still required.
+
+### M5 accounting / payroll adapter
+- Read-only counts from existing legacy Entity, Account, JournalEntry, Employee,
+  and PayRun records, linked via explicit ChessFinancialLink.
+- Active legacy tenant ID is resolved from the validated tenant slug.
+- Not complete: no payroll calculations/disbursement, payroll tax filing, external
+  bank connection, or transaction-level integration through these CHESS APIs.
+
+### M6 credentials
+- VERIFIED alone is insufficient; verification timestamp, reviewer, registry
+  source and current check date are needed for regulated service case assignment.
+- Not complete: connection to actual official license registries and review/audit
+  policy, broker/firm affiliation verification and external execution integrations.
+
+### M8 migrations and hardening
+- Additive Prisma tenant SQL migration covering M1-M8 data models.
+- PostgreSQL CI test job applies migrations and tests data isolation and revocation.
+- DB trigger prevents update/delete of ChessSecurityEvent rows.
+- Middleware forwards sanitized tenant context via request headers for CRM and
+  CHESS API paths. Client-controlled x-tenant headers are removed.
+- CHESS mutation APIs require same-origin JSON requests.
+- Not complete: deployment secrets, vulnerability review, database roles,
+  production schema rollouts, recovery drills, dedicated scanner, penetration
+  tests, client portal UX, signature provider, third-party compliance approvals.
+
+### Environment for production (set in secret manager; never commit values)
+- DATABASE_URL and DIRECT_URL (tenant database and migration connection)
+- Clerk publishable/secret keys (real credentials)
+- NEXT_PUBLIC_ROOT_DOMAIN / NEXT_PUBLIC_DEFAULT_TENANT / CHESS_PUBLIC_ORIGIN
+- CHESS_CONSENT_EVIDENCE_KEY (strong HMAC key, 32+ characters)
+- CHESS_DOCUMENT_SCAN_KEY (strong HMAC key, 32+ characters)
+- KOBIA_S3_BUCKET, KOBIA_S3_REGION, KOBIA_S3_ACCESS_KEY_ID,
+  KOBIA_S3_SECRET_ACCESS_KEY and optional KOBIA_S3_ENDPOINT
+- Signed scanner integration that sends HMAC-authenticated CLEAN/INFECTED events
+
+## Explicit production hold
+Code-level milestones and CI jobs do not mean Milestones 3-8 are
+production complete. Do not merge or deploy to handle real regulated client
+records until all release gates are independently verified.
