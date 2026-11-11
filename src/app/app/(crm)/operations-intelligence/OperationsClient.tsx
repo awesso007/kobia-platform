@@ -1,3 +1,4 @@
+import {formatChessUsdCents} from "@/lib/chess/report-format";
 "use client";
 import {useState,type FormEvent} from "react";
 import {useRouter} from "next/navigation";
@@ -169,8 +170,7 @@ export default function OperationsClient({
      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 p-4">
      <div>
       <strong className="text-sm">{invoice.descriptionCode.replaceAll("_"," ")} ·
-       {(Number(invoice.amountCents)/100).toLocaleString("en-US",{
-        style:"currency",currency:"USD"})}</strong>
+       {formatChessUsdCents(invoice.amountCents)}</strong>
       <p className="text-xs text-slate-600">Status {invoice.status} · Invoice {invoice.id}</p>
      </div>
      <div className="flex flex-wrap items-center gap-2">

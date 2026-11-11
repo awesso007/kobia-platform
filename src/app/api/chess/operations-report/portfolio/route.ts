@@ -1,3 +1,4 @@
+import {quoteChessCsvCell} from "@/lib/chess/report-format";
 import {NextResponse} from "next/server";
 import {z} from "zod";
 import {assertChessRateLimit,ChessRateLimitError} from "@/lib/chess/api-rate-limit";
@@ -6,10 +7,6 @@ import {getChessPortfolioOperationsReport} from "@/lib/chess/operations-portfoli
 
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
-function cell(raw:string){
- const safe=/^[=+@\-\t\r]/.test(raw)?"'"+raw:raw;
- return '"'+safe.replaceAll('"','""')+'"';
-}
 export async function GET(request:Request){
  try{
   const q=new URL(request.url).searchParams;
@@ -37,7 +34,7 @@ export async function GET(request:Request){
    for(const x of b.clientConsentCounts)
     append("client_consents",x.status,String(x.count));
   }
-  const content=rows.map(row=>row.map(cell).join(",")).join("\r\n")+"\r\n";
+  const content=rows.map(row=>row.map(quoteChessCsvCell).join(",")).join("\r\n")+"\r\n";
   return new Response(content,{headers:{
    "Content-Type":"text/csv; charset=utf-8",
    "Content-Disposition":`attachment; filename="chess-portfolio-${report.month}.csv"`,

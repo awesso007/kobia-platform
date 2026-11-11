@@ -1,3 +1,4 @@
+import {quoteChessCsvCell} from "@/lib/chess/report-format";
 import {NextResponse} from "next/server";
 import {getChessOperationsReport} from "@/lib/chess/operations-reporting";
 import {assertChessRateLimit,ChessRateLimitError} from "@/lib/chess/api-rate-limit";
@@ -5,10 +6,6 @@ import {PermissionError} from "@/lib/rbac/require-permission";
 import {z} from "zod";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
-function csvCell(input:string){
- const value=/^[=+@\-\t\r]/.test(input)?`'${input}`:input;
- return `"${value.replaceAll('"','""')}"`;
-}
 export async function GET(request:Request){
  try{
   const q=new URL(request.url).searchParams;
@@ -44,7 +41,7 @@ export async function GET(request:Request){
    "client_consent",item.status,String(item.count),
   ]);
   const lines=[["metric","category","value"],...records].map(
-   row=>row.map(csvCell).join(",")).join("\r\n");
+   row=>row.map(quoteChessCsvCell).join(",")).join("\r\n");
   return new Response(lines+"\r\n",{status:200,headers:{
    "Content-Type":"text/csv; charset=utf-8",
    "Cache-Control":"private, no-store",

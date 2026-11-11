@@ -1,3 +1,4 @@
+import {formatChessUsdCents} from "@/lib/chess/report-format";
 import Link from "next/link";
 import {listBusinessUnits} from "@/lib/chess/business-units";
 import {getChessOperationsReport} from "@/lib/chess/operations-reporting";
@@ -44,6 +45,11 @@ export default async function OperationsIntelligencePage({
      independently approved billing. This is not a consolidated financial statement.
     </p>
    </header>
+   <nav aria-label="Milestone 7 workspaces" className="flex flex-wrap gap-3 text-sm">
+    <Link href="/app/ai-operations" className="rounded-lg border px-4 py-2 font-semibold text-emerald-800">AI review queue</Link>
+    <Link href="/app/service-billing" className="rounded-lg border px-4 py-2 font-semibold text-emerald-800">Invoice approval desk</Link>
+    <Link href="/app/operations-reports" className="rounded-lg border px-4 py-2 font-semibold text-emerald-800">Monthly reports</Link>
+   </nav>
    <nav className="flex flex-wrap gap-2" aria-label="Choose business">
     {units.map(u=><Link key={u.id}
      href={`/app/operations-intelligence?businessId=${encodeURIComponent(u.id)}&month=${month}`}
@@ -79,8 +85,7 @@ export default async function OperationsIntelligencePage({
        <p className="text-sm font-semibold">{status.replaceAll("_"," ")}</p>
        <p className="text-sm text-slate-600">{data.invoices} invoices</p>
        <strong className="text-xl">
-        {(Number(data.amountCents)/100).toLocaleString("en-US",{
-         style:"currency",currency:"USD"})}
+        {formatChessUsdCents(data.amountCents)}
        </strong>
       </div>)}
     </div>
