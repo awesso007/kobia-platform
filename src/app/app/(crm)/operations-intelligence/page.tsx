@@ -95,6 +95,7 @@ export default async function OperationsIntelligencePage({
     }))}
     suggestions={suggestions.map(x=>({
      ...x,updatedAt:x.updatedAt.toISOString(),
+     appliedAt:x.appliedAt?.toISOString()??null,
     }))}
     tasks={tasks.map(x=>({...x,
      dueAt:x.dueAt?.toISOString()??null,
