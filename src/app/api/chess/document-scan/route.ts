@@ -6,6 +6,9 @@ export const dynamic="force-dynamic";
 /** Server-to-server only. The scanner must sign timestamp + tenant + raw body.
  * Authorization is independent from user cookies and Clerk sessions. */
 export async function POST(req:Request) {
+ if(process.env.CHESS_SCAN_CALLBACK_ENABLED!=="true") {
+  return NextResponse.json({error:"Scanner callback is disabled"},{status:403});
+ }
  const tenant=new URL(req.url).searchParams.get("t") ?? "";
  if(!/^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/.test(tenant)) {
   return NextResponse.json({error:"Forbidden"},{status:403});
