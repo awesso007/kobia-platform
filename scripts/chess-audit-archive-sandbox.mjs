@@ -24,7 +24,12 @@ if(!/^[a-z0-9][a-z0-9-]{0,49}$/.test(tenantSlug))
 const eventId="sandbox-"+randomUUID();
 const metadata={
  tenantSlug,eventId,occurredAt:new Date().toISOString(),
- action:"TEST_AUDIT_ARCHIVE",resourceType:"SANDBOX",decision:"REVIEW",
+ actionTag:createHmac("sha256",key).update(JSON.stringify({
+  tenantSlug,kind:"ACTION",value:"TEST_AUDIT_ARCHIVE",
+ })).digest("hex"),
+ resourceTypeTag:createHmac("sha256",key).update(JSON.stringify({
+  tenantSlug,kind:"RESOURCE_TYPE",value:"SANDBOX",
+ })).digest("hex"),decision:"REVIEW",
  businessTag:null,actorTag:null,resourceTag:null,
 };
 const digest=createHmac("sha256",key).update(JSON.stringify(metadata)).digest("hex");
