@@ -6,6 +6,7 @@ import {getTenantBySlug} from "@/lib/tenant";
 import {PermissionError,getCurrentMembership} from "@/lib/rbac/require-permission";
 import {getClientServiceLink} from "@/lib/client-profile/service";
 import {assertBusinessManager} from "./business-manager";
+import {isUsableConsent} from "./onboarding";
 
 const accountService=z.enum(["ACCOUNTING","BOOKKEEPING"]);
 const contextSchema=z.object({
@@ -50,14 +51,20 @@ async function context(raw:unknown){
  const grant=await getClientServiceLink(data.clientProfileId,data.businessId,data.service);
  if(!grant)throw new PermissionError("record:read");
  const {db,tenantId}=getTenantDb();
- const [serviceCase,tenant]=await Promise.all([
+ const [serviceCase,consents,tenant]=await Promise.all([
   db.chessServiceCase.findFirst({where:{
    id:data.serviceCaseId,businessId:data.businessId,clientProfileId:data.clientProfileId,
    service:data.service,status:"ACTIVE",
   },select:{id:true}}),
+  db.chessClientConsent.findMany({where:{
+   businessId:data.businessId,clientProfileId:data.clientProfileId,
+   purpose:`service:${data.service}`,
+  },select:{status:true,expiresAt:true,consentedAt:true,
+   acceptedByClerkUserId:true,verifiedEmailDigest:true,acceptanceEvidenceDigest:true}}),
   getTenantBySlug(tenantId),
  ]);
- if(!serviceCase || !tenant)throw new PermissionError("record:read");
+ if(!serviceCase || !consents.some(x=>isUsableConsent(x)) || !tenant)
+  throw new PermissionError("record:read");
  const mapping=await db.chessFinancialLink.findUnique({where:{
   serviceCaseId:data.serviceCaseId,
  },select:{businessId:true,clientProfileId:true,legacyTenantId:true,
@@ -133,12 +140,20 @@ export async function reviewChessBankSuggestion(input:unknown){
  const legacyTenant=await getTenantBySlug(tenantId);
  if(!legacyTenant || legacyTenant.id!==existing.legacyTenantId)
   throw new PermissionError("record:update");
- const serviceCase=await db.chessServiceCase.findFirst({where:{
-  id:existing.serviceCaseId,businessId:data.businessId,
-  clientProfileId:existing.clientProfileId,status:"ACTIVE",
-  service:{in:["ACCOUNTING","BOOKKEEPING"]},
- },select:{service:true}});
- if(!serviceCase)throw new PermissionError("record:update");
+ const [serviceCase,consents]=await Promise.all([
+  db.chessServiceCase.findFirst({where:{
+   id:existing.serviceCaseId,businessId:data.businessId,
+   clientProfileId:existing.clientProfileId,status:"ACTIVE",
+   service:{in:["ACCOUNTING","BOOKKEEPING"]},
+  },select:{service:true}}),
+  db.chessClientConsent.findMany({where:{
+   businessId:data.businessId,clientProfileId:existing.clientProfileId,
+   purpose:{in:["service:ACCOUNTING","service:BOOKKEEPING"]},
+  },select:{purpose:true,status:true,expiresAt:true,consentedAt:true,
+   acceptedByClerkUserId:true,verifiedEmailDigest:true,acceptanceEvidenceDigest:true}}),
+ ]);
+ if(!serviceCase || !consents.some(x=>x.purpose===`service:${serviceCase.service}`&&isUsableConsent(x)))
+  throw new PermissionError("record:update");
  const grant=await getClientServiceLink(existing.clientProfileId,data.businessId,serviceCase.service);
  if(!grant)throw new PermissionError("record:update");
  const txn=await loadTxn(existing.legacyTenantId,existing.legacyEntityId,existing.legacyBankTransactionId);
