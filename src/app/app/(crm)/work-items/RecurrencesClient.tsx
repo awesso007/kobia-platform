@@ -1,0 +1,99 @@
+"use client";
+import {useState} from "react";
+type Recurrence={
+ id:string;title:string;frequency:"DAILY"|"WEEKLY"|"MONTHLY";interval:number;
+ active:boolean;nextRunAt:string;lastRunAt:string|null;
+ assignedClerkUserId:string|null;updatedAt:string;
+};
+export default function RecurrencesClient({
+ businessId,initialRecurrences,
+}:{businessId:string;initialRecurrences:Recurrence[]}){
+ const [items,setItems]=useState(initialRecurrences);
+ const [title,setTitle]=useState("");
+ const [frequency,setFrequency]=useState<Recurrence["frequency"]>("MONTHLY");
+ const [interval,setInterval]=useState(1);
+ const [when,setWhen]=useState("");
+ const [assignee,setAssignee]=useState("");
+ const [error,setError]=useState("");
+ const [busy,setBusy]=useState(false);
+ async function refresh(){
+  const response=await fetch(`/api/chess/recurrences?businessId=${encodeURIComponent(businessId)}`,{cache:"no-store"});
+  if(!response.ok)throw new Error("Unable to refresh schedules.");
+  const data=await response.json() as {recurrences:Recurrence[]};
+  setItems(data.recurrences);
+ }
+ async function create(event:React.FormEvent){
+  event.preventDefault();setBusy(true);setError("");
+  try{
+   const date=new Date(when);
+   if(!Number.isFinite(date.getTime()))throw new Error("Choose a valid start time.");
+   const response=await fetch("/api/chess/recurrences",{
+    method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",
+    body:JSON.stringify({businessId,title,frequency,interval,firstRunAt:date.toISOString(),
+     ...(assignee.trim()?{assignedClerkUserId:assignee.trim()}:{})}),
+   });
+   if(!response.ok)throw new Error("Schedule was rejected. Check the business assignment and start time.");
+   await refresh();setTitle("");setWhen("");setAssignee("");
+  }catch(e){setError(e instanceof Error?e.message:"Unable to create schedule.");}
+  finally{setBusy(false);}
+ }
+ async function toggle(item:Recurrence){
+  setBusy(true);setError("");
+  try{
+   const response=await fetch("/api/chess/recurrences",{
+    method:"PATCH",headers:{"Content-Type":"application/json"},credentials:"same-origin",
+    body:JSON.stringify({businessId,id:item.id,active:!item.active,
+     expectedUpdatedAt:item.updatedAt}),
+   });
+   const data=await response.json() as {updated?:boolean};
+   if(!response.ok||!data.updated)throw new Error("Schedule changed. Refresh before editing.");
+   await refresh();
+  }catch(e){setError(e instanceof Error?e.message:"Unable to change schedule.");}
+  finally{setBusy(false);}
+ }
+ return <div className="space-y-4">
+  {error&&<p role="alert" className="rounded-lg border border-red-200 p-3 text-sm text-red-700">{error}</p>}
+  <form onSubmit={create} className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
+   <label className="text-sm">Task title
+    <input required minLength={2} maxLength={250} value={title} onChange={e=>setTitle(e.target.value)}
+     className="mt-1 block w-full rounded-md border border-slate-300 p-2"/>
+   </label>
+   <label className="text-sm">First due date and time (local)
+    <input required type="datetime-local" value={when} onChange={e=>setWhen(e.target.value)}
+     className="mt-1 block w-full rounded-md border border-slate-300 p-2"/>
+   </label>
+   <label className="text-sm">Repeat
+    <select value={frequency} onChange={e=>setFrequency(e.target.value as Recurrence["frequency"])}
+     className="mt-1 block w-full rounded-md border border-slate-300 p-2">
+     <option value="DAILY">Daily</option><option value="WEEKLY">Weekly</option><option value="MONTHLY">Monthly</option>
+    </select>
+   </label>
+   <label className="text-sm">Every N periods
+    <input type="number" min={1} max={12} required value={interval}
+     onChange={e=>setInterval(Number(e.target.value))}
+     className="mt-1 block w-full rounded-md border border-slate-300 p-2"/>
+   </label>
+   <label className="text-sm sm:col-span-2">Assigned employee ID (optional)
+    <input value={assignee} onChange={e=>setAssignee(e.target.value)}
+     placeholder="Active employee's Clerk user ID"
+     className="mt-1 block w-full rounded-md border border-slate-300 p-2"/>
+   </label>
+   <button disabled={busy} type="submit"
+    className="rounded-lg bg-emerald-800 px-4 py-3 font-semibold text-white disabled:opacity-40">
+    Create recurring schedule
+   </button>
+  </form>
+  <ul className="space-y-2">{items.map(item=><li key={item.id}
+   className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 p-4 text-sm">
+   <div><strong className="block">{item.title}</strong>
+    {item.frequency.toLowerCase()} · Every {item.interval} ·
+    Next {new Date(item.nextRunAt).toLocaleString()} ·
+    {item.active?" Active":" Paused"}
+   </div>
+   <button type="button" disabled={busy} onClick={()=>toggle(item)}
+    className="rounded-lg border border-slate-300 px-3 py-2 font-medium disabled:opacity-40">
+    {item.active?"Pause":"Resume"}
+   </button>
+  </li>)}</ul>
+ </div>;
+}
