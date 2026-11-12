@@ -72,20 +72,41 @@ export async function assignEmployee(input: unknown) {
   if (!isBusinessAdmin(user.role)) throw new PermissionError("member:manage");
   const data = assignmentInput.parse(input);
   const { db } = getTenantDb();
-  const [business, employee] = await Promise.all([
-    db.chessBusinessUnit.findUnique({ where: { id: data.businessId }, select: { status: true } }),
-    db.membership.findUnique({ where: { clerkUserId: data.clerkUserId }, select: { status: true, role: true } }),
-  ]);
-  if (!business || business.status !== "ACTIVE" ||
-      !employee || employee.status !== "ACTIVE" || employee.role === "VIEWER") {
-    throw new PermissionError("member:manage");
-  }
-  return db.chessEmployeeAssignment.upsert({
-    where: { businessId_clerkUserId: { businessId: data.businessId, clerkUserId: data.clerkUserId } },
-    create: data,
-    update: { role: data.role, revokedAt: null },
-    select: { id: true, businessId: true, clerkUserId: true, role: true, revokedAt: true },
-  });
+  // A former owner must not regain access by reusing an older authenticated
+  // page after its role is revoked. The recheck, assignment and audit are one
+  // SERIALIZABLE transaction. A failed audit rolls back the assignment.
+  return db.$transaction(async tx=>{
+    const [current,business,employee]=await Promise.all([
+      tx.membership.findUnique({
+        where:{clerkUserId:user.clerkUserId},select:{status:true,role:true},
+      }),
+      tx.chessBusinessUnit.findUnique({
+        where:{id:data.businessId},select:{status:true},
+      }),
+      tx.membership.findUnique({
+        where:{clerkUserId:data.clerkUserId},select:{status:true,role:true},
+      }),
+    ]);
+    if(current?.status!=="ACTIVE"||!isBusinessAdmin(current.role)||
+       business?.status!=="ACTIVE"||employee?.status!=="ACTIVE"||
+       employee.role==="VIEWER"){
+      throw new PermissionError("member:manage");
+    }
+    const assigned=await tx.chessEmployeeAssignment.upsert({
+      where:{businessId_clerkUserId:{
+        businessId:data.businessId,clerkUserId:data.clerkUserId,
+      }},
+      create:data,
+      update:{role:data.role,revokedAt:null},
+      select:{id:true,businessId:true,clerkUserId:true,role:true,revokedAt:true},
+    });
+    await tx.chessSecurityEvent.create({data:{
+      businessId:data.businessId,actorClerkUserId:user.clerkUserId,
+      action:"BUSINESS_EMPLOYEE_ASSIGNED",resourceType:"ChessEmployeeAssignment",
+      resourceId:assigned.id,decision:"ALLOW",
+    }});
+    return assigned;
+  },{isolationLevel:"Serializable"});
 }
 
 export async function revokeEmployeeAssignment(businessId: string, clerkUserId: string) {
