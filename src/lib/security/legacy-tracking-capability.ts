@@ -63,8 +63,11 @@ export function verifyLegacyTrackingCapability(
   if (!secret || !raw || raw.length > 4096 || !safeRecipient(expectedRecipient)) return null;
   const match = /^([A-Za-z0-9_-]{12,3500})\.([A-Za-z0-9_-]{43})$/.exec(raw);
   if (!match) return null;
-  const payload = match[1];
-  const actual = Buffer.from(match[2], "base64url");
+  // noUncheckedIndexedAccess: a regex match does not prove capture indexes.
+  const payload = match[1] ?? "";
+  const signature = match[2] ?? "";
+  if (!payload || !signature) return null;
+  const actual = Buffer.from(signature, "base64url");
   const expected = createHmac("sha256", secret).update(payload).digest();
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
   let parsed: LegacyTrackingCapability;
