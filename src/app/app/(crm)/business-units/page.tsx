@@ -44,7 +44,7 @@ export default async function ChessBusinessUnitsPage({searchParams}:{searchParam
         {unit.name}
       </Link>)}
     </nav>
-    <BusinessUnitAdmin selectedBusiness={selected?{id:selected.id,name:selected.name}:null}
+    <BusinessUnitAdmin key={selected?.id??"new-business"} selectedBusiness={selected?{id:selected.id,name:selected.name}:null}
       directory={admin?{
         members:admin.members,assignments:admin.assignments.map(a=>({
           ...a,assignedAt:a.assignedAt.toISOString(),
