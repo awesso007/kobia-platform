@@ -119,12 +119,36 @@ export async function createClientServiceLink(profileId: string, businessId: str
   const actor = await currentActor();
   if (actor.role !== "OWNER" && actor.role !== "ADMIN") throw new PermissionError("record:update");
   const { db } = getTenantDb();
-  return db.clientServiceLink.upsert({
-    where: { profileId_businessId_service: { profileId: idInput.parse(profileId), businessId: idInput.parse(businessId), service: serviceInput.parse(service) } },
-    create: { profileId, businessId, service },
-    update: {},
-    select: { id: true, profileId: true, businessId: true, service: true },
-  });
+  // Existing page-level checks are only a preflight. Recheck the tenant
+  // admin role, business and profile ownership in the same SERIALIZABLE
+  // transaction as the link and its immutable event.
+  return db.$transaction(async tx=>{
+    const [current,unit,profile]=await Promise.all([
+      tx.membership.findUnique({where:{clerkUserId:actor.clerkUserId},
+       select:{status:true,role:true}}),
+      tx.chessBusinessUnit.findUnique({where:{id:businessId},
+       select:{status:true}}),
+      tx.clientProfile.findUnique({where:{id:profileId},select:{id:true}}),
+    ]);
+    if(current?.status!=="ACTIVE"||!["OWNER","ADMIN"].includes(current.role)||
+       unit?.status!=="ACTIVE"||!profile)
+      throw new PermissionError("member:manage");
+    const link=await tx.clientServiceLink.upsert({
+      where:{profileId_businessId_service:{
+       profileId:idInput.parse(profileId),businessId:idInput.parse(businessId),
+       service:serviceInput.parse(service),
+      }},
+      create:{profileId,businessId,service},
+      update:{},
+      select:{id:true,profileId:true,businessId:true,service:true},
+    });
+    await tx.chessSecurityEvent.create({data:{
+      businessId,actorClerkUserId:actor.clerkUserId,
+      action:"SERVICE_LINK_PROVISIONED",resourceType:"ClientServiceLink",
+      resourceId:link.id,decision:"ALLOW",
+    }});
+    return link;
+  },{isolationLevel:"Serializable"});
 }
 
 export async function setClientServiceGrant(
