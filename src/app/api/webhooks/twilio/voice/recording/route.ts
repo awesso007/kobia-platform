@@ -10,15 +10,16 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { NextResponse, type NextRequest } from "next/server";
-import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
+import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { validatedWebhookTenantSlug, activeWebhookTenantSchema } from "@/lib/security/legacy-webhook-tenant";
 import { validateSignature } from "@/lib/telephony/twilio";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_TENANT = "acme";
 
 export async function POST(req: NextRequest) {
-  const slug = (req.nextUrl.searchParams.get("tenant") ?? DEFAULT_TENANT).toLowerCase();
+  const slug = validatedWebhookTenantSlug(req.nextUrl.searchParams.get("tenant"));
+  if (!slug) return NextResponse.json({ ok: false, error: "Missing or invalid tenant." }, { status: 400 });
 
   const form = await req.formData();
   const params: Record<string, string> = {};
@@ -28,12 +29,16 @@ export async function POST(req: NextRequest) {
   const ok = await validateSignature(signature, req.nextUrl.toString(), params);
   if (!ok) return NextResponse.json({ ok: false, error: "Invalid signature." }, { status: 401 });
 
+  // Require an ACTIVE platform registry entry bound to the signed URL selector.
+  const schema = await activeWebhookTenantSchema(slug);
+  if (!schema) return NextResponse.json({ ok: false, error: "Recipient unavailable." }, { status: 404 });
+
   const callSid = params.CallSid || null;
   const recordingUrl = params.RecordingUrl || null;
   const recordingDurationSec = Number(params.RecordingDuration ?? "0") || 0;
   if (!callSid || !recordingUrl) return NextResponse.json({ ok: true });
 
-  const db = getTenantPrisma(schemaNameForSlug(slug));
+  const db = getTenantPrisma(schema);
   const call = await db.call.findFirst({ where: { providerCallSid: callSid } });
   if (!call) return NextResponse.json({ ok: true });
 

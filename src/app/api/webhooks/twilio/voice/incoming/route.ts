@@ -13,20 +13,21 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { NextResponse, type NextRequest } from "next/server";
-import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
+import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { validatedWebhookTenantSlug, activeWebhookTenantSchema } from "@/lib/security/legacy-webhook-tenant";
 import { resolveLinkForPhone } from "@/lib/telephony/link";
 import { validateSignature, generateTwiML } from "@/lib/telephony/twilio";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_TENANT = "acme";
 
 function xml(body: string) {
   return new NextResponse(body, { status: 200, headers: { "Content-Type": "text/xml" } });
 }
 
 export async function POST(req: NextRequest) {
-  const slug = (req.nextUrl.searchParams.get("tenant") ?? DEFAULT_TENANT).toLowerCase();
+  const slug = validatedWebhookTenantSlug(req.nextUrl.searchParams.get("tenant"));
+  if (!slug) return NextResponse.json({ ok: false, error: "Missing or invalid tenant." }, { status: 400 });
 
   const form = await req.formData();
   const params: Record<string, string> = {};
@@ -36,12 +37,16 @@ export async function POST(req: NextRequest) {
   const ok = await validateSignature(signature, req.nextUrl.toString(), params);
   if (!ok) return NextResponse.json({ ok: false, error: "Invalid signature." }, { status: 401 });
 
+  // Require an ACTIVE platform registry entry bound to the signed URL selector.
+  const schema = await activeWebhookTenantSchema(slug);
+  if (!schema) return NextResponse.json({ ok: false, error: "Recipient unavailable." }, { status: 404 });
+
   const from = (params.From ?? "").trim();
   const to = (params.To ?? "").trim();
   const callSid = params.CallSid || null;
   const direction = params.Direction?.startsWith("outbound") ? "OUTBOUND" : "INBOUND";
 
-  const db = getTenantPrisma(schemaNameForSlug(slug));
+  const db = getTenantPrisma(schema);
 
   // The "our" number is To for inbound, From for outbound-dial legs.
   const ourE164 = direction === "OUTBOUND" ? from : to;

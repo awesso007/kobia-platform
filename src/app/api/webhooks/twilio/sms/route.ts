@@ -16,14 +16,14 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { NextResponse, type NextRequest } from "next/server";
-import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
+import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { validatedWebhookTenantSlug, activeWebhookTenantSchema } from "@/lib/security/legacy-webhook-tenant";
 import { resolveLinkForPhone } from "@/lib/telephony/link";
 import { validateSignature } from "@/lib/telephony/twilio";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_TENANT = "acme";
 const EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
 
 function twiml(body = EMPTY_TWIML) {
@@ -31,7 +31,8 @@ function twiml(body = EMPTY_TWIML) {
 }
 
 export async function POST(req: NextRequest) {
-  const slug = (req.nextUrl.searchParams.get("tenant") ?? DEFAULT_TENANT).toLowerCase();
+  const slug = validatedWebhookTenantSlug(req.nextUrl.searchParams.get("tenant"));
+  if (!slug) return NextResponse.json({ ok: false, error: "Missing or invalid tenant." }, { status: 400 });
 
   const form = await req.formData();
   const params: Record<string, string> = {};
@@ -41,6 +42,10 @@ export async function POST(req: NextRequest) {
   const signature = req.headers.get("x-twilio-signature");
   const ok = await validateSignature(signature, req.nextUrl.toString(), params);
   if (!ok) return NextResponse.json({ ok: false, error: "Invalid signature." }, { status: 401 });
+
+  // Require an ACTIVE platform registry entry bound to the signed URL selector.
+  const schema = await activeWebhookTenantSchema(slug);
+  if (!schema) return NextResponse.json({ ok: false, error: "Recipient unavailable." }, { status: 404 });
 
   const from = (params.From ?? "").trim();
   const to = (params.To ?? "").trim();
@@ -55,7 +60,7 @@ export async function POST(req: NextRequest) {
     if (u) mediaUrls.push(u);
   }
 
-  const db = getTenantPrisma(schemaNameForSlug(slug));
+  const db = getTenantPrisma(schema);
 
   // Find the phone number row to know its routing rule + assigned user.
   const ourNumber = await db.phoneNumber.findUnique({ where: { e164: to } });
