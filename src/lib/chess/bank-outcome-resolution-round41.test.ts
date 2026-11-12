@@ -42,6 +42,14 @@ describe("Round 41 independent bank ambiguity resolution",()=>{
    ...base,status:"EXECUTING",executionStartedAt:null,
   },now)).toBe(false);
  });
+ it("denies unproven legacy replay and forbids an executor from repairing UNKNOWN",()=>{
+  const source=readFileSync("src/lib/chess/bank-review.ts","utf8");
+  const segment=source.slice(source.indexOf('if(txn.status==="CATEGORIZED"'),
+   source.indexOf('if(txn.status!=="UNMATCHED"'));
+  expect(segment).toContain('if(!attempt||attempt.status!=="COMMITTED"');
+  expect(segment).not.toMatch(/markChessBankPostingAttemptCommitted\s*\(/);
+  expect(segment).toContain('attempt.journalEntryId!==reconciled.journalEntryId');
+ });
  it("only pins a proven posted journal and never calls the write adapter",()=>{
   const source=readFileSync("src/lib/chess/bank-review.ts","utf8");
   const section=source.slice(source.indexOf("export async function resolveChessApprovedBankPostingOutcome"));
