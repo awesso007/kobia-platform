@@ -9,10 +9,12 @@ import {auditedChessSensitiveRead} from "./sensitive-read-audit";
 
 export function documentDownloadAllowed(
  doc:{status:string;suppressedAt:Date|null;retentionUntil:Date|null;
-  storageVersionId:string|null;storageETag:string|null}|null,
+  storageVersionId:string|null;storageETag:string|null;
+  supersededAt?:Date|null;purgedAt?:Date|null}|null,
  now=new Date(),
 ):boolean{
  return !!doc&&doc.status==="READY"&&!doc.suppressedAt&&
+  !doc.supersededAt&&!doc.purgedAt&&
   !!doc.storageVersionId&&!!doc.storageETag&&
   (!doc.retentionUntil||doc.retentionUntil>now);
 }
@@ -26,7 +28,11 @@ const request=z.object({
  fileName:z.string().trim().min(1).max(180),
  mimeType:z.enum(types),
  size:z.number().int().min(1).max(MAX_SIZE),
-}).strict();
+ revisionKind:z.enum(["REPLACEMENT","REDACTED"]).optional(),
+ replacesDocumentId:z.string().min(1).max(128).optional(),
+}).strict().refine(data=>Boolean(data.replacesDocumentId)===Boolean(data.revisionKind),{
+ message:"Revision kind and predecessor must both be provided.",
+});
 
 /** Only explicit service grantees may initiate a document upload.
  * S3 must be configured. No production fallback to local disk. */
@@ -48,12 +54,40 @@ export async function initiateChessDocumentUpload(input:unknown) {
   tenantSlug:tenantId,fileName:`${data.businessId}-${data.fileName}`,
   mimeType:data.mimeType,size:data.size,
  });
- const doc=await db.chessClientDocument.create({
-  data:{businessId:data.businessId,clientProfileId:data.clientProfileId,service:data.service,
-   fileName:data.fileName,mimeType:data.mimeType,maxBytes:data.size,
-   storageKey:upload.storageKey,uploadedByClerkUserId:member.clerkUserId},
-  select:{id:true},
- });
+ // A new immutable object version/replacement is created, not an overwrite.
+ // The parent and live service authorization are rechecked transactionally.
+ const doc=await db.$transaction(async tx=>{
+  const live=await authorizeChessDocumentService(tx,{
+   businessId:data.businessId,clientProfileId:data.clientProfileId,
+   service:data.service,actorClerkUserId:member.clerkUserId,requireWrite:true,
+  });
+  if(!live)throw new PermissionError("record:create");
+  const predecessor=data.replacesDocumentId?
+   await tx.chessClientDocument.findFirst({where:{
+    id:data.replacesDocumentId,businessId:data.businessId,
+    clientProfileId:data.clientProfileId,service:data.service,status:"READY",
+    supersededAt:null,purgedAt:null,
+   },select:{id:true,revisionNumber:true,retentionUntil:true}}):null;
+  if(data.replacesDocumentId&&!predecessor)throw new PermissionError("record:create");
+  if(predecessor?.retentionUntil&&predecessor.retentionUntil<=new Date())
+   throw new PermissionError("record:create");
+  const created=await tx.chessClientDocument.create({
+   data:{businessId:data.businessId,clientProfileId:data.clientProfileId,
+    service:data.service,fileName:data.fileName,mimeType:data.mimeType,
+    maxBytes:data.size,storageKey:upload.storageKey,
+    uploadedByClerkUserId:member.clerkUserId,
+    replacesDocumentId:predecessor?.id??null,
+    revisionNumber:predecessor?predecessor.revisionNumber+1:1,
+    revisionKind:data.revisionKind??"ORIGINAL",
+   },select:{id:true},
+  });
+  await tx.chessSecurityEvent.create({data:{
+   businessId:data.businessId,actorClerkUserId:member.clerkUserId,
+   action:predecessor?"DOCUMENT_REVISION_UPLOAD_REQUESTED":"DOCUMENT_UPLOAD_REQUESTED",
+   resourceType:"ChessClientDocument",resourceId:created.id,decision:"REVIEW",
+  }});
+  return created;
+ },{isolationLevel:"Serializable"});
  return {documentId:doc.id,uploadUrl:upload.uploadUrl,expiresInSeconds:900};
 }
 
@@ -100,7 +134,7 @@ async function authorizedChessDocumentDownload(
   id:documentId,businessId,clientProfileId,service,status:"READY",
  },select:{storageKey:true,storageVersionId:true,storageETag:true,fileName:true,
   actualBytes:true,mimeType:true,maxBytes:true,status:true,
-  suppressedAt:true,retentionUntil:true}});
+  suppressedAt:true,retentionUntil:true,supersededAt:true,purgedAt:true}});
  if(!document || !document.storageVersionId || !document.storageETag ||
   !documentDownloadAllowed(document))
   throw new PermissionError("record:read");
@@ -121,7 +155,7 @@ async function authorizedChessDocumentDownload(
   const latest=await tx.chessClientDocument.findFirst({where:{
    id:documentId,businessId,clientProfileId,service,status:"READY",
   },select:{status:true,suppressedAt:true,retentionUntil:true,
-   storageVersionId:true,storageETag:true}});
+   supersededAt:true,purgedAt:true,storageVersionId:true,storageETag:true}});
   return documentDownloadAllowed(latest)&&
    latest?.storageVersionId===document.storageVersionId&&
    latest.storageETag===document.storageETag?true:null;
@@ -199,7 +233,9 @@ export async function listChessServiceDocuments(
    where:{businessId,clientProfileId,service},
    select:{id:true,fileName:true,mimeType:true,status:true,
     actualBytes:true,createdAt:true,verifiedAt:true,
-    retentionUntil:true,legalHoldAt:true,suppressedAt:true},
+    retentionUntil:true,legalHoldAt:true,suppressedAt:true,
+    revisionNumber:true,revisionKind:true,replacesDocumentId:true,
+    redactionApprovedAt:true,supersededAt:true,purgedAt:true},
    orderBy:{createdAt:"desc"},take:100,
   });
   return {canUpload:authorization.canWrite,records};
