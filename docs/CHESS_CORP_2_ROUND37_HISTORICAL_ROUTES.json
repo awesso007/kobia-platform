@@ -1,0 +1,664 @@
+{
+  "title": "CHESS CORP 2 Round 37: Historical KOBIA API route inventory",
+  "generated_utc": "2026-11-12",
+  "scope": "All non-/api/chess route.ts files, including reads and writes; source inventory not a security certificate",
+  "base_ref": "feature/operations-overview",
+  "source_verified": "reviewed route markers only; audited scopes require protected role + vendor acceptance",
+  "counts": {
+    "READ_PATH_REVIEW_REQUIRED": 111,
+    "PUBLIC_CAPABILITY_NEEDS_REVIEW": 9,
+    "MACHINE_CALLBACK_NEEDS_REVIEW": 26,
+    "SOURCE_GUARDED_SUBSET": 13,
+    "UNVERIFIED_SESSION_DISABLED": 3
+  },
+  "routes": [
+    {
+      "path": "src/app/api/active-module/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/book/[slug]/cancel/route.ts",
+      "status": "PUBLIC_CAPABILITY_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/book/[slug]/slots/route.ts",
+      "status": "PUBLIC_CAPABILITY_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/book/[slug]/submit/route.ts",
+      "status": "PUBLIC_CAPABILITY_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/calls/dial/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/chat/channels/[id]/messages/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/chat/channels/[id]/read/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/chat/channels/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/chat/dm/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/chat/messages/[id]/pin/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/chat/messages/[id]/react/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/chat/messages/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/chat/prefs/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/chat/unread/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/client-profiles/[profileId]/services/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/client-profiles/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/client-service-links/[linkId]/grants/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/cron/automations/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/cron/broadcast-sender/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/cron/calendar-sync/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/cron/campaign-runner/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/cron/chat-digest/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/cron/chat-presence-cleanup/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/cron/email-sync/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/cron/envelope-reminder/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/cron/event-reminders/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/cron/feed-digest/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/cron/feed-poll-closer/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/cron/low-stock-checker/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/cron/notifications/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/cron/portal-session-cleanup/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/cron/sla-breach-checker/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/cron/tasks-due-soon/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/cron/workflow-resumer/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/documents/[id]/download/route.ts",
+      "status": "SOURCE_GUARDED_SUBSET"
+    },
+    {
+      "path": "src/app/api/documents/[id]/upload-version/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/email/inbound/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/esign/[token]/complete/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/f2/[slug]/payment-intent/route.ts",
+      "status": "PUBLIC_CAPABILITY_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/f2/[slug]/submit/route.ts",
+      "status": "PUBLIC_CAPABILITY_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/f2/[slug]/track/route.ts",
+      "status": "PUBLIC_CAPABILITY_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/feed/comments/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/feed/follows/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/feed/mentions/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/feed/polls/[pollId]/vote/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/feed/posts/[id]/comments/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/feed/posts/[id]/pin/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/feed/posts/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/feed/posts/[id]/view/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/feed/posts/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/feed/reactions/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/files/[id]/complete/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/files/local-upload/[...key]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/files/local/[...key]/route.ts",
+      "status": "SOURCE_GUARDED_SUBSET"
+    },
+    {
+      "path": "src/app/api/files/upload-url/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/forms/[slug]/submit/route.ts",
+      "status": "PUBLIC_CAPABILITY_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/forms2/[id]/fields/[fieldId]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/forms2/[id]/fields/reorder/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/forms2/[id]/fields/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/forms2/[id]/publish/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/forms2/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/forms2/[id]/steps/[stepId]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/forms2/[id]/steps/reorder/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/forms2/[id]/steps/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/forms2/[id]/submissions/route.ts",
+      "status": "SOURCE_GUARDED_SUBSET"
+    },
+    {
+      "path": "src/app/api/forms2/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/helpdesk/categories/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/helpdesk/categories/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/helpdesk/kb-categories/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/helpdesk/kb-categories/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/helpdesk/kb/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/helpdesk/kb/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/helpdesk/sla/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/helpdesk/sla/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/helpdesk/teams/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/helpdesk/teams/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/helpdesk/tickets/[id]/assign/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/helpdesk/tickets/[id]/reply/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/helpdesk/tickets/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/helpdesk/tickets/[id]/status/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/helpdesk/tickets/[id]/watchers/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/helpdesk/tickets/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/inventory/movements/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/inventory/purchase-orders/[id]/receive/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/inventory/purchase-orders/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/inventory/purchase-orders/[id]/send/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/inventory/purchase-orders/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/inventory/stock/adjust/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/inventory/stock/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/inventory/transfers/[id]/receive/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/inventory/transfers/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/inventory/transfers/[id]/send/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/inventory/transfers/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/inventory/vendors/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/inventory/vendors/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/inventory/warehouses/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/inventory/warehouses/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/kb/[id]/feedback/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/mail/[accountId]/drafts/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/mail/[accountId]/drafts/route.ts",
+      "status": "SOURCE_GUARDED_SUBSET"
+    },
+    {
+      "path": "src/app/api/mail/[accountId]/filters/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/mail/[accountId]/filters/[id]/run/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/mail/[accountId]/filters/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/mail/[accountId]/labels/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/mail/[accountId]/labels/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/mail/[accountId]/messages/[id]/labels/[labelId]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/mail/[accountId]/messages/[id]/labels/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/mail/[accountId]/messages/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/mail/[accountId]/messages/route.ts",
+      "status": "SOURCE_GUARDED_SUBSET"
+    },
+    {
+      "path": "src/app/api/mail/[accountId]/send/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/mail/[accountId]/signatures/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/mail/[accountId]/signatures/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/mail/[accountId]/sync/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/mail/[accountId]/threads/[threadId]/route.ts",
+      "status": "SOURCE_GUARDED_SUBSET"
+    },
+    {
+      "path": "src/app/api/mail/accounts/route.ts",
+      "status": "SOURCE_GUARDED_SUBSET"
+    },
+    {
+      "path": "src/app/api/portal/login/route.ts",
+      "status": "UNVERIFIED_SESSION_DISABLED"
+    },
+    {
+      "path": "src/app/api/portal/logout/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/portal/tickets/[id]/reply/route.ts",
+      "status": "UNVERIFIED_SESSION_DISABLED"
+    },
+    {
+      "path": "src/app/api/portal/tickets/route.ts",
+      "status": "UNVERIFIED_SESSION_DISABLED"
+    },
+    {
+      "path": "src/app/api/quotes/[id]/pdf/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/reports/1099-misc.csv/route.ts",
+      "status": "SOURCE_GUARDED_SUBSET"
+    },
+    {
+      "path": "src/app/api/reports/1099-nec.csv/route.ts",
+      "status": "SOURCE_GUARDED_SUBSET"
+    },
+    {
+      "path": "src/app/api/reports/general-ledger.csv/route.ts",
+      "status": "SOURCE_GUARDED_SUBSET"
+    },
+    {
+      "path": "src/app/api/reports/trial-balance.csv/route.ts",
+      "status": "SOURCE_GUARDED_SUBSET"
+    },
+    {
+      "path": "src/app/api/search/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/share/[slug]/route.ts",
+      "status": "SOURCE_GUARDED_SUBSET"
+    },
+    {
+      "path": "src/app/api/sites/[siteId]/domains/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/sites/[siteId]/pages/[pageId]/blocks/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/sites/[siteId]/pages/[pageId]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/sites/[siteId]/pages/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/sites/[siteId]/publish/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/sites/[siteId]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/sites/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/sites/themes/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/sites/track/route.ts",
+      "status": "PUBLIC_CAPABILITY_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/track/click/[recipientId]/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/track/open/[recipientId]/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/trpc/[trpc]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/unsubscribe/route.ts",
+      "status": "PUBLIC_CAPABILITY_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/webhooks/stripe-billing/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/webhooks/stripe/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/webhooks/twilio/sms/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/webhooks/twilio/sms/status/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/webhooks/twilio/voice/incoming/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/webhooks/twilio/voice/recording/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/webhooks/twilio/voice/status/route.ts",
+      "status": "MACHINE_CALLBACK_NEEDS_REVIEW"
+    },
+    {
+      "path": "src/app/api/workflows/[id]/publish/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/workflows/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/workflows/[id]/runs/[runId]/cancel/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/workflows/[id]/runs/[runId]/route.ts",
+      "status": "SOURCE_GUARDED_SUBSET"
+    },
+    {
+      "path": "src/app/api/workflows/[id]/runs/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/workflows/[id]/test/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/workflows/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/workgroups/[id]/join-requests/[requestId]/approve/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/workgroups/[id]/join-requests/[requestId]/reject/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/workgroups/[id]/join/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/workgroups/[id]/leave/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/workgroups/[id]/members/[memberId]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/workgroups/[id]/members/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/workgroups/[id]/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/workgroups/invites/[token]/accept/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    },
+    {
+      "path": "src/app/api/workgroups/route.ts",
+      "status": "READ_PATH_REVIEW_REQUIRED"
+    }
+  ]
+}
