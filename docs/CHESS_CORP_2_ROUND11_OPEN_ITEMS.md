@@ -512,3 +512,29 @@ missing approved inputs, and a role/accessibility test checklist.
 See docs/CHESS_CORP_2_ROUND23_M3_M7_CODE_AUDIT.md. None of M3-M7 is
 production-certified; all previously listed external and mixed code
 requirements remain release blockers.
+
+
+## Round 25 — isolated fictional Codespaces demo acceptance
+
+- **DEMO-01 [CODE IMPROVED, EXTERNAL OPEN]:** Versioned Node20 devcontainer
+  automatically installs locked dependencies and forwards port 3000.
+  npm run demo:setup is the only database setup command after owner-provided
+  isolated Neon and Clerk TEST credentials. The pre-DDL guard now refuses
+  unrelated public tables, ANY unrelated application schema and ALL foreign
+  tenant registrations. CI invokes the shared registration and seed path,
+  validates idempotency and forbids fake consent/grants/financial execution.
+- **DEMO-02 [CODE ADDED, EXTERNAL OPEN]:** npm run demo:verify runs a
+  read-only registry and fixture check; CI exercises the same helper.
+  The actual Codespaces browser login and verified Clerk-owner membership,
+  denied anonymous/unallowlisted-user behavior, eight-service tour and
+  test-operator acceptance remain **UNVERIFIED without sandbox credentials
+  and an actual running Codespace**.
+- **DEMO-03 [RELEASE SAFETY]:** External finance, licensed provider, AI,
+  calendar, billing, scanner, consent portal and scheduler switches must
+  remain OFF in a demo; validation refuses active switches. Nothing was
+  merged to main or deployed to production. See
+  docs/CHESS_CORP_2_ROUND25_CODESPACES_ACCEPTANCE.md.
+
+The canonical owner-supply register is
+docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md item 01; no duplicate new
+credential list is created by this round. All M1–M8 release gates remain.

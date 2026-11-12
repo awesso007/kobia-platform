@@ -1191,3 +1191,18 @@ consent cross-DB races, live provider settlement/filing, approved
 licensing, statutory accounting close, production DR and external
 authorization still block a finished build. Full details:
 docs/CHESS_CORP_2_ROUND23_M3_M7_CODE_AUDIT.md.
+
+
+## Round 25 — Codespaces fictional demo hardening (M1–M8 preview)
+
+Added a versioned Node20 Codespaces environment (auto npm ci, port 3000),
+stronger pre-migration PostgreSQL schema/registry isolation, shared
+idempotent tenant registration+fixture seeding exercised by disposable
+PostgreSQL integration, read-only post-setup verification, disabled
+external service activation checks and accurate README browser steps.
+No real Codespaces/Neon/Clerk test credentials were accessible for
+sign-in, so live browser E2E is **EXTERNAL / NOT VERIFIED** rather than
+complete. Reference
+docs/CHESS_CORP_2_ROUND25_CODESPACES_ACCEPTANCE.md for exact evidence
+and docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md (item 01) for the sole
+external dependency. No production release gate status changes.

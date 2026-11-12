@@ -79,3 +79,17 @@ tenant SQL regression tests still run separately on chess_ci. This proves
 the migrations and fictional seed can coexist without writing CHESS records
 into public. It is **not** a live Neon Codespaces test and cannot satisfy
 the external DEMO-01 or M8 staging/security approvals.
+
+
+## Round 25 superseding Codespaces instructions
+
+The authoritative setup and real-vs-CI acceptance matrix have moved to
+[CHESS_CORP_2_ROUND25_CODESPACES_ACCEPTANCE.md](CHESS_CORP_2_ROUND25_CODESPACES_ACCEPTANCE.md).
+GitHub Codespaces now has a versioned Node20 devcontainer with automatic
+package installation, so only npm run demo:setup is required *after*
+isolated test credentials and .env.local are configured. A separate
+npm run demo:verify performs read-only registry/fixture validation.
+Round 25 adds complete tenant registration in CI and rejects non-tenant_
+custom schemas / all unexpected tenant registrations before migration.
+Authenticated real Clerk Codespaces browser acceptance still requires
+the owner to supply a separately secured sandbox and run the steps.
