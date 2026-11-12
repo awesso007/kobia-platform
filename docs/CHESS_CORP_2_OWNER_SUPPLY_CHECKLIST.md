@@ -1,16 +1,19 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 41 | Engineering evidence through Round 40 CI baseline (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 42 | Engineering evidence through verified Round 41 CI (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
 **Latest independently observed completed normal CI baseline (not
-external acceptance):** Round 40 source commit
-`8749b59f43fef931cda34ed340fb2b33ba9706e1` passed **3/3**
-GitHub Actions jobs in [run 43286579398](https://github.com/awesso007/kobia-platform/actions/runs/43286579398).
-Round 38 finance fault CI baseline and other exact checkpoints are in the
-[authoritative Round 41 M1–M8 matrix](CHESS_CORP_2_ROADMAP.md).
-Round 41 requires its own exact-final-commit CI verification.
+external acceptance):** Round 41 final source commit
+`b6054ee3915f735f3b40140cf2a1e6bfac00b88d` passed **3/3**
+GitHub Actions jobs in [run 43291060523](https://github.com/awesso007/kobia-platform/actions/runs/43291060523):
+`build`, `chess-db-integration`, and `chess-legacy-ledger-integration`.
+The earlier Round 38 financial-fault and Round 40 demo-fixture checkpoints are
+recorded in the [authoritative Round 42 M1–M8 matrix](CHESS_CORP_2_ROADMAP.md).
+The final Round 42 documentation commit requires its own **exact-head-SHA**
+green CI verification; CI does **not** count as licensed, legal, vendor,
+staging, or production acceptance.
 No normal CI run can establish a real signed-in Clerk/Neon browser/axe
 acceptance, private S3 redaction/deletion, vendor settlement, WORM/PITR,
 or independent legal/security approval. All feature activation and
@@ -18,6 +21,36 @@ external credentials remain under this one checklist; source-only
 placeholder values are NOT owner approval.
 
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 42 verification-to-owner handoff (no new credentials or approvals created)
+
+This round reconciles **already committed and verified Round 41 source**,
+not an assertion that the external requirements have been completed.
+Verified exact source `b6054ee3915f735f3b40140cf2a1e6bfac00b88d`
+passed 3/3 normal GitHub Actions CI jobs in
+[run 43291060523](https://github.com/awesso007/kobia-platform/actions/runs/43291060523).
+No genuine Clerk/Neon browser login, provider settlement, private S3
+erasure or independent external approval is proven by that run.
+
+| Verified code/source change | What a named owner / independent reviewer must still supply and witness | Existing checklist groups |
+| --- | --- | --- |
+| M1/M4 employee task list and mutation roles checked atomically with audit | Two protected Clerk TEST employee/manager/owner identities, actual role downgrade and revoked-assignment races, cross-tenant private task denial, audit-outage denial and keyboard/screen-reader evidence | **01,02,03,17,18** |
+| M3 document lifecycle, third-person read-only UNKNOWN resolution and pinned-version inventory | Approved per-service retention/hold/erasure/legal review; private bucket permission for `s3:ListBucketVersions`, `HeadObject`, `DeleteObjectVersion`; immutable WORM record, scanner, duplicate-version, hold race, recovery/PITR and replica/backup accounting; distinct requester/approver/resolver | **04,05,15,16,17,18** |
+| M5 four-person, evidence-only reconciliation of UNKNOWN/stale EXECUTING and denial of receipt-less replay | Four independently verified finance approvers, protected separate banks/GL staging, witnessed lost-ACK/UNPOSTED/DIVERGED and consent withdrawal, accountant signoff; retain default-OFF `CHESS_BANK_OUTCOME_RESOLUTION_ENABLED` and `CHESS_BANK_OUTCOME_POLICY_APPROVED` | **07,14,16,17,18** |
+| M6/M7 regulated workflows, AI and draft-only billing remain non-executing | Certified licensed partners, data-sharing contract/DPAs, merchant/payout/chargeback and statutory close evidence, accountant or licensed review | **03,04,10,11,12,13,14,15,17,18** |
+| M8 source CI green but real production readiness absent | Protected signed-in browser/a11y, two-tenant penetration and load tests, worker/pager, vault, external immutable/WORM archive and witnessed PITR/DR, independently signed go/no-go | **01,02,05,15,16,17,18** |
+
+**Checklist state: all existing 18 numbered owner-supply groups remain
+OPEN / NOT INDEPENDENTLY VERIFIED**; none is silently checked off by
+source CI. **Release state: 8/8 milestones blocked, 0/8 signed.**
+Remaining code-only audits and incident/exception workflows also remain
+unfinished, notably historical sensitive-read route review; the Round 42
+documentation commit does not close them. **No new credential, contract,
+approval, feature flag, or extra numbered group is required for the
+documentation-only Round 42 changes.** The previously registered
+`CHESS_DOCUMENT_PURGE_WORKER_TOKEN` and independently controlled bank
+outcome flags remain required only when protected testing is approved;
+do not enable them now.
 
 ## Round 41 exception resolution and storage version inventory — owner-supply updates
 
