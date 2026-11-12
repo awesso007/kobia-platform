@@ -8,7 +8,7 @@ import {getClientServiceLink} from "@/lib/client-profile/service";
 import {assertBusinessManager} from "./business-manager";
 import {isUsableConsent} from "./onboarding";
 import {createBankPostingPreview,BankPostingPreviewError} from "./bank-posting-preview";
-import {postJournalEntry} from "@/lib/accounting/ledger";
+import {commitLegacyBankClassification} from "./bank-ledger-commit";
 import {chessBankPostingEnabled,postingSourceRef,bankGlAccountMatchesType} from "./bank-posting-gate";
 import {chessDemoModeActive} from "./demo-mode";
 import {auditedChessSensitiveRead} from "./sensitive-read-audit";
@@ -431,31 +431,13 @@ export async function executeChessApprovedBankPosting(input:unknown){
  // remains a cross-DB race requiring independent pre-production review.
  await context({businessId:data.businessId,clientProfileId:data.clientProfileId,
   serviceCaseId:data.serviceCaseId,service:data.service});
- const created=await ledger.$transaction(async tx=>{
-  // First lock the bank row with a conditional UPDATE. A concurrent posting
-  // will fail this predicate; no account balance or JE changes will persist.
-  const claim=await tx.bankTransaction.updateMany({where:{
-   id:txn.id,tenantId:state.legacyTenantId,
-   bankAccountId:txn.bankAccountId,status:"UNMATCHED",
-   dedupHash:txn.dedupHash,amountCents:txn.amountCents,
-   postedDate:txn.postedDate,
-  },data:{status:"CATEGORIZED"}});
-  if(claim.count!==1)throw new PermissionError("record:update");
-  const journal=await postJournalEntry({
-   tenantId:state.legacyTenantId,entityId:state.legacyEntityId,
-   entryDate:txn.postedDate,description:"CHESS approved bank classification",
-   source:"BANK_FEED",sourceRefId,
-   lines:preview.lines.map(line=>({
-    accountId:line.accountId,debitCents:BigInt(line.debitCents),
-    creditCents:BigInt(line.creditCents),
-   })),
-  },{client:tx});
-  await tx.bankTransaction.update({where:{id:txn.id},data:{
-   categorizedJournalEntryId:journal.id,
-   categorizedAt:new Date(),categorizedByUserId:state.actor.clerkUserId,
-  }});
-  return journal.id;
- },{isolationLevel:"Serializable"});
+ const created=await commitLegacyBankClassification(ledger,{
+  tenantId:state.legacyTenantId,entityId:state.legacyEntityId,
+  bankTransactionId:txn.id,bankAccountId:txn.bankAccountId,
+  dedupHash:txn.dedupHash,postedDate:txn.postedDate,
+  amountCents:txn.amountCents,bankGlAccountId:bank.glAccountId,
+  offsetAccountId:offset.id,sourceRefId,actorId:state.actor.clerkUserId,
+ });
 
  // If the audit receipt fails, the API must not claim the external outcome
  // succeeded. A retry resolves the verified source journal without posting.

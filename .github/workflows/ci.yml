@@ -147,3 +147,34 @@ jobs:
           DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
           DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
         run: npx vitest run src/lib/chess/demo-fixtures.integration.test.ts
+
+  chess-legacy-ledger-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: chess
+          POSTGRES_PASSWORD: chess_test_only
+          POSTGRES_DB: chess_legacy_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U chess -d chess_legacy_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_legacy_ci?schema=public"
+      RUN_CHESS_LEGACY_DB_INTEGRATION: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install dependencies and generate Prisma
+        run: npm ci --no-audit --no-fund
+      - name: Materialize disposable legacy accounting schema (CI ONLY)
+        run: npx prisma db push --schema=prisma/schema.prisma --skip-generate --accept-data-loss
+      - name: Verify atomic ledger post, replay refusal and period rollback
+        run: npx vitest run src/lib/chess/bank-ledger-commit.integration.test.ts
