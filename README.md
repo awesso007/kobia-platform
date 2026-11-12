@@ -63,6 +63,32 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS CORP 2 Round 50 — atomic historical GET and tRPC SELECT auditing
+
+Round 50 moves the 39 formerly response-only audited historical
+tenant GETs and the read-only search POST into an isolated
+**serializable SELECT + live-membership + audit-event transaction**.
+It also makes the one historical protected tRPC GET route atomic
+using the separate legacy-ledger Prisma transaction and read-only
+router selector, including its bank-reconciliation helper queries.
+Two sensitive client-profile GETs retain their existing more
+specific transaction-coupled source/grant audits.
+
+New regression tests and CI guards cover the entire 42-GET
+historical inventory, transaction mismatches, revoked membership,
+no-audit/no-data, concurrent request scope, forbidden tRPC writes,
+and a disposable PostgreSQL transaction rollback. No live
+financial or vendor requests are made.
+
+**Not a production release approval:** separate public tokens,
+provider webhooks, service/business-specific authorization,
+source-helper bypass review, immutable external audit receipts,
+Clerk browser and two-tenant race acceptance are still open.
+Review [Round 50 report](docs/CHESS_CORP_2_ROUND50_TRANSACTIONAL_SENSITIVE_READS.md),
+[roadmap](docs/CHESS_CORP_2_ROADMAP.md) and
+[owner checklist](docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md).
+Draft PR #24 only; production main stays unchanged.
+
 ## CHESS CORP 2 Round 49 — tenant-scoped historical API mutations
 
 Round 49 works against the historical 111-file authenticated-read

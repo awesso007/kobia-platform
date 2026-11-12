@@ -8,18 +8,22 @@ business-operations layer within an isolated KOBIA tenant, not an assertion
 that a single legal entity holds all operating licenses.
 
 
-## CURRENT / AUTHORITATIVE — Round 49 milestone matrix (Rounds 31–49 engineering)
+## CURRENT / AUTHORITATIVE — Round 50 milestone matrix (Rounds 31–50 engineering)
 
 **This table is the current M1–M8 development and release-gate matrix.**
 The detailed Round 24 matrix below is historical and must not be mistaken for
 the latest code inventory. Round 48 secures selected public and machine entrypoints. Round 49 adds
 specific authenticated mutation protections and full inventory source
-gating; neither round certifies all legacy method/resource behavior. Each row separates **implemented and CI-verified
+gating. Round 50 replaces the historical authenticated response-release
+audit with a transaction-bound SELECT and audit boundary, including a
+separate legacy accounting/tRPC transaction scope. Neither modification
+establishes complete cross-business authorization, external immutable
+receipt custody or protected staging acceptance. Each row separates **implemented and CI-verified
 source** from **incomplete engineering or real-world acceptance**.
 
 | Milestone | Implemented source and test scope through Round 46 (exact final CI status below) | Outstanding engineering, protected staging and independent evidence | Owner-supply groups | Production gate |
 | --- | --- | --- | --- | --- |
-| **M1 — Shared profiles, authorization and sensitive reads** | Tenant-scoped client profiles, service grants and revocation; transaction-coupled ALLOW/DENY access audit for selected directories; Round 32 verified-client consent index/disclosure reads with same-transaction identity checks; Round 33 owner/manager/staff link separation; Round 35 business/regulated directory and client profile/link/grant writes now recheck live authorization in audited serializable transactions; Round 36 legacy 1099 tax exports require live finance roles/audit; Round 37 legacy GL/TB CSV, file/document, mail and selected workflow/form reads add live role/audit guards, while 162 historical API route files are inventoried; Round 41 applies a serializable, audit-coupled live role/business/assignment check to employee task-list reads; Round 43 source adds 41 authenticated historical GET audit-before-release wrappers, global search read-only POST response audit, protected tRPC successful-query legacy audit and explicit tenant selector; Round 48 removes payment stub settlement, exact-binds inbound mail to active tenant/mailbox, enforces signed expiring public tracking capabilities, strengthens booking cancellation and inventories legacy API method entrypoint controls; Round 49 hardens explicit-tenant module selection, LOCAL uploads, nested forms/sites/workflow resources, private chat and DM membership, and gates classified non-GET admission in CI | All-method historical sensitive-read audit and query-level authorization remain open: wrapper audits response release **after** original SELECT, not within the SELECT transaction; mutation responses, 9 public capability and 26 machine callbacks need separate review; external immutable audit receipts, authenticated two-tenant and multi-business role/grant revocation races and legal data-sharing approval remain outstanding | **01,02,03,15,17,18** | **PARTIAL CODE — BLOCKED** |
+| **M1 — Shared profiles, authorization and sensitive reads** | Tenant-scoped client profiles, service grants and revocation; transaction-coupled ALLOW/DENY access audit for selected directories; Round 32 verified-client consent index/disclosure reads with same-transaction identity checks; Round 33 owner/manager/staff link separation; Round 35 business/regulated directory and client profile/link/grant writes now recheck live authorization in audited serializable transactions; Round 36 legacy 1099 tax exports require live finance roles/audit; Round 37 legacy GL/TB CSV, file/document, mail and selected workflow/form reads add live role/audit guards, while 162 historical API route files are inventoried; Round 41 applies a serializable, audit-coupled live role/business/assignment check to employee task-list reads; Round 43 source adds 41 authenticated historical GET audit-before-release wrappers, global search read-only POST response audit, protected tRPC successful-query legacy audit and explicit tenant selector; Round 48 removes payment stub settlement, exact-binds inbound mail to active tenant/mailbox, enforces signed expiring public tracking capabilities, strengthens booking cancellation and inventories legacy API method entrypoint controls; Round 49 hardens explicit-tenant module selection, LOCAL uploads, nested forms/sites/workflow resources, private chat and DM membership, and gates classified non-GET admission in CI; Round 50 moves all inventoried authenticated historical GETs into either a serializable tenant SELECT+membership+security-event transaction (39 routes), a previously verified scoped profile SELECT transaction (2 routes), or a separate legacy-ledger tRPC protected query+membership+AuditLog transaction (1 route). The read-only search POST uses the tenant transaction wrapper. | Transaction-coupled historical read source now covers inventoried authenticated GET/read-only search paths, but NOT all helper-internal independent DB access, platform PUBLIC/machine reads or all business/client grant selectors; mutation responses, 9 public capability and 26 machine callbacks need separate review; external immutable audit receipts, authenticated two-tenant and multi-business role/grant revocation races and legal data-sharing approval remain outstanding | **01,02,03,15,17,18** | **PARTIAL CODE — BLOCKED** |
 | **M2 — Business units and employee assignments** | Business unit provisioning and atomic assignment/service-grant revocation; Round 33 current MANAGER assignment selects only authorized finance units, revoked deep links no longer fall back to a different business, and business-local admin forms reset on unit change; Round 35 business/staff provisioning and assignment directories recheck live roles and append immutable events atomically | Real legal-company/firm and licensed-staff records, staged proof of active vs revoked roles, cross-business employee separation and least-privilege review | **01,02,03,10,17,18** | **PARTIAL CODE — BLOCKED** |
 | **M3 — Client consent, onboarding and documents** | Policy/purpose versioned consent, default-OFF verified Clerk client preview, withdrawn/expired-state guards, audit-coupled verified-own-consent reads (Round 32), reduced directory exposure, private version/scan/hold document controls in source; Round 37 legacy direct document download audited and insecure email-only helpdesk portal disabled; Round 39 added immutable revisions, scan-then-independent-review redaction, two-actor disposal decision, default-OFF exact-version S3 purge/UNKNOWN audit source and employee panel; Round 41 adds third-party UNKNOWN reconciliation, exact one-version-before/zero-versions-after private S3 inventory, tenant prefix and live signers/hold rechecks; Round 45 adds DB-enforced descendant retention/hold/suppression inheritance, strict S3 HEAD and single-version confirmation with atomic upload audit, one-time scan with version inventory, post-scan independent byte-verified redaction review/attestation, and employee UNKNOWN read-only reconciliation UI with unit and real PostgreSQL tests | Counsel-approved jurisdiction-specific retention/disclosure/e-signature and hold-release/erasure policy; genuine client acceptance/withdrawal and verified separate reviewer sessions; protected S3 versioning, Object Lock/WORM/scanner, ListBucketVersions IAM, real redaction QA including hidden layers, backup/replica erasure and witnessed restore; independent audit archive and external signoff | **01,02,04,05,16,17,18** | **PARTIAL CODE — BLOCKED** |
 | **M4 — Tasks, recurrences and calendar** | Employee queue, alerts, manager reassignment, appointment conflict checks and calendar consent; Round 29 fairness worker persists inspection time, Round 31 screen displays it; Round 33 named staff selector, actionable empty/permission states, no false OFF when calendar preference lookup fails, business-keyed UI; Round 40 extended protected demo-browser employee/manager workflow and stale task conflict scenarios; Round 41 rechecks live roles, business assignments, target assignees and client links within serializable, audit-coupled task creation/transition, and audits work-item lists; Round 46 adds six protected browser test cases covering two-tab 409 resolution, cross-business POST/PATCH denial, calendar+appointment opt-in/opt-out persistence and mobile employee/client WCAG checks | Real deployed recurring worker/pager and backlog checks, Google/Microsoft delegated OAuth sandbox and cancel confirmations, signed-in revocation/consent and accessible mobile/keyboard/screen-reader tests; optional cross-tenant calendar conflict service deferred | **01,02,03,06,15,17,18** | **PARTIAL CODE — BLOCKED** |
@@ -27,6 +31,76 @@ source** from **incomplete engineering or real-world acceptance**.
 | **M6 — Mortgage, insurance, real estate and investments** | Official-source verification adapters, service-specific consent and opaque licensed-partner coordination with UNKNOWN resolution; Round 33 revoked-business links fail closed; Round 35 regulated case directory exposes only currently granted, client-consented case ID/service via one audited transaction instead of unlogged overfetch | Current professional/firm sponsorship evidence, certified partner APIs and legal sector disclosures, independent licensed review, real execution-systems validation; **no origination/binding/closing/trading** | **03,04,10,11,17,18** | **PARTIAL COORDINATION CODE — REGULATED EXECUTION OFF** |
 | **M7 — AI triage, invoicing and reporting** | Budgeted metadata-only AI review and human approval, consent-bound invoice drafts/vendor observations, fairness-capped **draft-only** recurring billing and immutable operational snapshots; Round 33 business-scoped billing, approval and bank-feed forms reset; revoked billing link cannot silently select another company; Round 35 AI suggestions/budget/worker reads and approval inbox are role-rechecked and audit-coupled, actor IDs removed from browser review payloads, and report/AI screens fail closed on revoked unit links | Certified AI/invoice/merchant contracts and DPAs; actual settlement, chargeback/refund and tax policies; accountant-controlled ledger close, statutory consolidation and financial-statement review; **no real money or GAAP/IFRS close** | **12,13,14,15,17,18** | **PARTIAL CODE — COLLECTION/STATUTORY REPORTING OFF** |
 | **M8 — Security, CI, E2E and recovery** | Versioned migrations, tenant audit and monitoring; Round 32 OWNER/ADMIN worker/calendar/archive health reads now use a serializable access audit; Round 33 role-based menus and error states; Round 35 audited business/staff/AI/approval/regulated source reads, atomic M1/M2 writes, and added negative regressions; Round 36 legacy tax export restrictions and Round 37 selected historical read guards, short-lived local file capability, disabled insecure helpdesk login and explicit unreviewed-route inventory; Round 38 final commit passed **3/3** normal CI jobs with the dual-Postgres finance fault suite; Round 40 adds browser test source-policy and isolated demo fixture integrity checks; Round 41 adds isolated unit checks for ambiguous document S3 inventory, separate reviewers and bank replay controls; authenticated browser run remains manual; Round 44 adds eight executable two-database financial fault scenarios; Round 45 adds versioned document lineage migration and mandatory disposable-PostgreSQL inheritance tests, upload/redaction/disposal audit regression tests without a real S3 destructive test; Round 46 registers another six authenticated owner/employee/client browser cases in manual protected workflow and extends normal CI source gates plus disposable demo PostgreSQL test of five client scopes, pending consent and missing grants; Round 47 adds fail-closed, exact-Bearer CRON_SECRET authentication before work in all 17 legacy Vercel cron GET routes, a machine-auth unit regression suite and a CI source-drift gate for scheduled cron endpoints; Round 48 fixes Clerk middleware machine ingress, requires explicit active tenant and signed Twilio callback paths, quarantines two replay-unsafe legacy Stripe webhook handlers, adds public/machine method CI source gates and unsigned HTTP denial probes; Round 49 adds explicit auth before delegated feed-follow mutations, local upload owner/size/tenant checks, nested URL ancestry, private chat isolation and an authenticated historical-method source drift gate | Full all-method historical sensitive-read audit is NOT complete; Round 43 adds source CI drift gate for authenticated GET, protected tRPC reads and search POST, not same-transaction SELECT coverage; **actual** protected Clerk/Neon signed-in browser and accessibility run; separate two-tenant staging, vendor tests, independent pen/load review, WORM/PITR and witnessed recovery, vault/pager approval and authorized rollout | **01,02,04,05,15,16,17,18** | **PARTIAL CODE — NO STAGING/PRODUCTION RELEASE AUTHORIZATION** |
+
+### Round 50 — tenant and legacy-accounting transaction-coupled sensitive-read auditing (M1/M8)
+
+**Authenticated historical GET inventory:** 42 method endpoints in
+111 `READ_PATH_REVIEW_REQUIRED` route files. Current source assigns
+39 ordinary tenant-schema GETs to the `withAuditedHistoricalGet`
+wrapper, two CHESS profile reads to their existing *source-level*
+`auditedChessSensitiveRead`/`auditedClientServiceRead` transactions,
+and the remaining tRPC GET to its separately protected legacy
+accounting transaction middleware. The authenticated read-only search
+POST uses the same tenant-schema transaction-bound wrapper.
+
+- **Tenant-schema transaction:** the middleware/header-resolved tenant
+  database client is redirected to an isolated `AsyncLocalStorage`
+  request-local `Prisma.TransactionClient` during GET execution.
+  Both `getTenantDb` and direct `getTenantPrisma` refuse
+  a tenant/schema swap or an escaped/closed transaction.
+  The `Serializable` transaction rechecks an ACTIVE membership,
+  invokes the handler's source SELECT and writes
+  `HISTORICAL_AUTHENTICATED_GET_ATOMIC` to
+  `ChessSecurityEvent` before releasing the response.
+  An event, SELECT or commit failure returns generic 503 without the
+  constructed response; a suspended/removed member is denied. Scope
+  validation rejects successful handler responses without any tracked
+  tenant database access. Errors are no-store.
+- **Already source-audited profile services:** two specific profile GET
+  routes use an explicit `withAlreadyAuditedHistoricalGet` marker,
+  rejecting use of that exception in any other route. The underlying
+  sensitive record, live role and explicit client-service grant
+  checks remain in their existing audited serializable transactions;
+  these are not blanket exemptions for CRM data.
+- **Legacy-ledger protected tRPC queries:** independent
+  `src/server/trpc-read-scope.ts` and `src/server/trpc-db.ts`
+  intercept all seven tRPC router database selectors (and nested bank
+  reconciliation query helpers). A protected query now rechecks the
+  active user, tenant and membership in one legacy Prisma transaction,
+  passes the *live* identity context to the resolver, executes
+  SELECTs through that transaction, then commits a privacy-limited
+  `AuditLog` event before returning bytes. Any failed audit/commit
+  fails closed; the query-scoped client rejects mutations and nested
+  transactions. Public tenant branding reads remain outside the
+  authenticated policy by design. Ordinary tRPC **mutations are not**
+  given read-only privileges or included in this certification.
+- **Tests:** scoped request-concurrency/mismatch tests; mocked source
+  read/permission/event/commit failures and read-only tRPC proxy
+  enforcement; a disposable PostgreSQL tenant-schema integration test
+  verifies a real SELECT and audit INSERT committed together, revoked
+  denial evidence and rollback on failed event insertion. Round 43
+  source audit gate is updated; a new Round 50 CI gate enumerates all
+  42 GETs and validates the 39+2+1 audited boundary plus search POST.
+  Independent three-job latest SHA CI is still necessary.
+
+**Limitations:** static coverage and controlled CI are not proof of
+every helper's dynamic SQL path in every workflow. No real Clerk
+browser sign-in, two-tenant or per-business and per-service
+authorization/race acceptance, immutable WORM receipt, external audit
+custody, public-token/machine callback review, live mortgage/health
+record authorization, third-party attestation or provider approval is
+performed. More code work remains on mutation authorization,
+independent DB access through helper code, public/machine routes,
+document consent and replay/recovery.
+
+Protected owner-supplied inputs are unchanged except for requiring
+formal acceptance evidence: isolated Clerk TEST identities,
+Neon/staging tenant schemas, independent audit custody and reviewer
+signoff; see [single owner checklist](CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md).
+No new secret was generated or committed. **8/8 production milestones
+remain blocked; 0/8 independently signed off.**
+
+See [Round 50 engineering report](CHESS_CORP_2_ROUND50_TRANSACTIONAL_SENSITIVE_READS.md).
 
 ### Round 49 — authenticated historical non-GET API review and focused remediation (M1/M8)
 

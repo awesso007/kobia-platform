@@ -35,6 +35,10 @@
 # NEXT_PUBLIC_ROOT_DOMAIN=
 # NEXT_PUBLIC_DEFAULT_TENANT=
 # CHESS_PUBLIC_ORIGIN=             # Exact HTTPS protected-staging origin, no wildcard
+# Round 50: serializable historical SELECT + live membership + audit
+# inside an isolated source transaction. No extra secret; verify DB
+# capacity/timeout, TEST Clerk tenant roles and audit WORM custody in
+# protected staging before release. Unverified access always fails closed.
 # Round 49: local upload fallback always refuses NODE_ENV=production.
 # Protected browser test identities and isolated tenant scopes remain required.
 

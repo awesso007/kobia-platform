@@ -1,6 +1,6 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 49 | Final exact-SHA Round 49 CI evidence required (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 50 | Final exact-SHA Round 50 CI evidence required (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
@@ -21,6 +21,53 @@ external credentials remain under this one checklist; source-only
 placeholder values are NOT owner approval.
 
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 50 — transaction-coupled sensitive reads: external acceptance
+
+**No new secret is necessary for the code-only audited SELECT changes.**
+The following evidence remains **NOT supplied** under existing
+owner-supply groups **01, 02, 03, 15, 17, and 18**:
+
+- **Two independent tenants and identities (01/02/03/17):**
+  protected Clerk TEST credentials and separate migrated tenant
+  schemas with OWNER/ADMIN/MEMBER/VIEWER, a suspended user,
+  revoked client-service grants and concurrently changing
+  business-unit assignments. Run signed-in HTTP read/response
+  tests against real isolated fixtures. Confirm a 403/404/503
+  never leaks data to any wrong-tenant, wrong-business or revoked
+  principal and retry behavior does not bypass transaction checks.
+- **Legacy accounting tenant membership (01/02/17):** separate
+  legacy-ledger Prisma TEST schema/DB matching the authenticated
+  tRPC tenant and membership registry; re-run protected tRPC
+  queries for revoked users, suspended tenants, read failures,
+  long-running queries, serialization conflicts and audit insert
+  outage. Test independent customer/owner privacy boundaries.
+- **Immutable audit custody (15/17/18):** configure approved
+  external WORM/archive retention and a reviewer with no access
+  to production credentials. Confirm `ChessSecurityEvent` and
+  legacy `AuditLog` receipts are externally preserved and
+  selectively accessible for compliance. CI DB-local receipt
+  tests are not external immutable evidence.
+- **Regulated scope/review (03/15/17/18):** independent counsel/
+  license-holder decisions for which mortgage, insurance, tax,
+  employee, payroll and investment data may be read under which
+  client grant. Perform a witnessed tenant, business and client
+  role-revocation race test plus a separate penetration review.
+- **Availability (02/17):** verify serializable transaction
+  timeouts and PostgreSQL connection-pool capacity under
+  production-like load before approving release. A timeout must
+  deny a read, not silently bypass the audit. Keep all regulated
+  actions default-OFF.
+
+Current placeholders (no additional keys):
+`DATABASE_URL`, `DIRECT_URL`,
+`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`,
+`CLERK_SECRET_KEY`, `CHESS_PUBLIC_ORIGIN`,
+and the existing audit archive vault/provider configuration.
+Do not record values in source or this list. The isolated CI
+PostgreSQL fixture requires **none** of the owner's production
+secrets. No workflow is merged or deployed.
+**8/8 production milestones remain BLOCKED, 0/8 approved.**
 
 ## Round 49 historical authenticated mutations — protected owner acceptance
 
