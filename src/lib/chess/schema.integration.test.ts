@@ -818,4 +818,32 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    await db.chessBusinessUnit.delete({where:{id:unit.id}});
   }
  });
+ it("allows one source-bound payroll approval per business and digest, not duplicated concurrent submissions",async()=>{
+  const digest="a".repeat(64),businessId="fictional-payroll-"+Date.now().toString(36);
+  const data={businessId,actionType:"PAYROLL_EXECUTE",payloadDigest:digest,
+   requestedBy:"fictional-requester"};
+  try{
+   const attempts=await Promise.allSettled([
+    db.chessActionApproval.create({data}),
+    db.chessActionApproval.create({data}),
+   ]);
+   expect(attempts.filter(x=>x.status==="fulfilled")).toHaveLength(1);
+   expect(attempts.filter(x=>x.status==="rejected")).toHaveLength(1);
+   expect(await db.chessActionApproval.count({where:{
+    businessId,actionType:"PAYROLL_EXECUTE",payloadDigest:digest,
+   }})).toBe(1);
+   await db.chessActionApproval.create({data:{
+    ...data,actionType:"INTERNAL_PROCESS_REVIEW",
+   }});
+   await db.chessActionApproval.create({data:{
+    ...data,actionType:"INTERNAL_PROCESS_REVIEW",
+   }});
+   expect(await db.chessActionApproval.count({where:{
+    businessId,actionType:"INTERNAL_PROCESS_REVIEW",
+   }})).toBe(2);
+  }finally{
+   await db.chessActionApproval.deleteMany({where:{businessId}});
+  }
+ });
+
 });
