@@ -2,6 +2,7 @@ import Link from "next/link";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getCurrentMembership} from "@/lib/rbac/require-permission";
 import {listBusinessUnits} from "@/lib/chess/business-units";
+import {selectChessWorkspace} from "@/lib/chess/workspace-selection";
 import {getClientServiceLink} from "@/lib/client-profile/service";
 import {isUsableConsent} from "@/lib/chess/onboarding";
 import {listChessRegulatedAffiliations} from "@/lib/chess/regulated-affiliations";
@@ -21,9 +22,19 @@ export default async function ChessRegulatedServicesPage({
   return <main role="alert" className="mx-auto max-w-5xl p-8">
    Regulated business workspaces are unavailable.</main>;
  }
- const chosen=units.find(u=>u.id===searchParams.businessId)??units[0];
- if(!chosen)return <main className="mx-auto max-w-5xl p-8">
-  No assigned regulated business unit.</main>;
+ const workspace=selectChessWorkspace(units,searchParams.businessId);
+ if(workspace.status!=="READY")return <main role="status" className="mx-auto max-w-5xl space-y-3 p-8">
+  <h1 className="text-2xl font-semibold">Regulated service workspace unavailable</h1>
+  <p className="text-sm text-slate-700">
+   {workspace.status==="UNAVAILABLE"?
+    "The requested business is no longer assigned to you. No other business was selected.":
+    "No active regulated-service business unit is assigned to your account."}
+  </p>
+  <Link href="/app/chess-desk" className="text-sm font-semibold text-emerald-800 underline">
+   Return to service desk
+  </Link>
+ </main>;
+ const chosen=workspace.selected;
  const {db}=getTenantDb();
  const rawCases=await db.chessServiceCase.findMany({where:{
   businessId:chosen.id,service:{in:[
