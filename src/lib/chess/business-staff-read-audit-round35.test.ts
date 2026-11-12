@@ -30,7 +30,7 @@ function setup(currentRole="OWNER",currentStatus="ACTIVE"){
   chessBusinessUnit:{findUnique:vi.fn(async()=>({
    status:"ACTIVE",assignments:[],
   }))},
-  $transaction:vi.fn(async (cb:(tx:typeof tx)=>Promise<unknown>,
+  $transaction:vi.fn(async (cb:(client:unknown)=>Promise<unknown>,
     _opts:unknown)=>cb(tx)),
  };
  vi.mocked(getTenantDb).mockReturnValue({db} as never);
@@ -74,7 +74,7 @@ describe("Round 35 M2 staff provisioning directory audit",()=>{
   ]){
    vi.clearAllMocks();
    const {tx,events}=setup(role,status);
-   tx.chessBusinessUnit.findUnique.mockResolvedValueOnce({status:unit});
+   tx.chessBusinessUnit.findUnique.mockResolvedValueOnce({status:unit!});
    await expect(getChessBusinessAssignmentAdmin("bookkeeping")).rejects.toThrow();
    expect(tx.membership.findMany).not.toHaveBeenCalled();
    expect(events).toEqual([{data:expect.objectContaining({decision:"DENY"})}]);
