@@ -1,18 +1,40 @@
 import {beforeAll,afterAll,describe,expect,it} from "vitest";
 import {PrismaClient} from "@/lib/db/generated/tenant";
+import {PrismaClient as PlatformClient} from "@/lib/db/generated/platform";
+import {registerChessDemoTenant,setupAndVerifyChessDemoFixtures} from "./demo-setup-core";
+import {assertIsolatedChessDemoDatabase} from "./demo-target-policy";
 import {seedChessDemoRecords,verifyChessDemoRecords} from "./demo-fixtures";
 
 const integration=process.env.RUN_CHESS_DB_INTEGRATION==="1"?describe:describe.skip;
 
 integration("CHESS fictional demo seed on isolated PostgreSQL",()=>{
  let db:PrismaClient;
- beforeAll(async()=>{db=new PrismaClient();await db.$connect();});
- afterAll(async()=>{if(db)await db.$disconnect();});
+ let platform:PlatformClient;
+ beforeAll(async()=>{
+  if(!process.env.DATABASE_URL?.includes("chess_demo_ci"))
+   throw new Error("Demo integration test requires disposable chess_demo_ci DB.");
+  const url=new URL(process.env.DATABASE_URL);
+  url.searchParams.set("schema","public");
+  platform=new PlatformClient({datasources:{db:{url:url.toString()}}});
+  db=new PrismaClient();
+  await Promise.all([platform.$connect(),db.$connect()]);
+ });
+ afterAll(async()=>{
+  if(db)await db.$disconnect();
+  if(platform)await platform.$disconnect();
+ });
 
  it("seeds idempotently and NEVER grants consent, service rights, or regulated execution",async()=>{
-  await seedChessDemoRecords(db);
-  await seedChessDemoRecords(db);
-  const fixture=await verifyChessDemoRecords(db);
+  await assertIsolatedChessDemoDatabase(platform);
+  await registerChessDemoTenant(platform);
+  await registerChessDemoTenant(platform);
+  const registry=await platform.tenantRegistry.findMany();
+  expect(registry).toHaveLength(1);
+  expect(registry[0]).toMatchObject({slug:"chess-demo",
+   schemaName:"tenant_chess_demo",plan:"DEMO",status:"ACTIVE"});
+  await assertIsolatedChessDemoDatabase(platform);
+  await setupAndVerifyChessDemoFixtures(db);
+  const fixture=await setupAndVerifyChessDemoFixtures(db);
   expect(fixture).toEqual({businessUnits:8,employeeAssignments:24,
    clients:5,pendingDisclosures:5});
   const unitSlugs=["accounting","bookkeeping","payroll","tax",
@@ -63,4 +85,41 @@ integration("CHESS fictional demo seed on isolated PostgreSQL",()=>{
    title:{startsWith:"Fictional "},
   }})).toBe(8);
  });
+ it("fails safely if a foreign application schema exists in the demo database",async()=>{
+  await platform.$executeRawUnsafe('CREATE SCHEMA "unrelated_fictional_customer"');
+  try{
+   await expect(assertIsolatedChessDemoDatabase(platform)).rejects.toThrow(
+    /unrelated application schemas/);
+  }finally{
+   await platform.$executeRawUnsafe('DROP SCHEMA "unrelated_fictional_customer"');
+  }
+  await assertIsolatedChessDemoDatabase(platform);
+ });
+ it("refuses an unrelated registry even when more than three registrations exist",async()=>{
+  const foreign=Array.from({length:4},(_,i)=>({
+   slug:"foreign-fixture-"+i,schemaName:"foreign_schema_"+i,
+   plan:"FREE",status:"ACTIVE",displayName:"UNRELATED FICTIONAL TENANT",
+  }));
+  await platform.tenantRegistry.createMany({data:foreign});
+  try{
+   await expect(assertIsolatedChessDemoDatabase(platform)).rejects.toThrow(
+    /non-demo or inactive tenant/);
+  }finally{
+   await platform.tenantRegistry.deleteMany({where:{
+    slug:{in:foreign.map(x=>x.slug)},
+   }});
+  }
+  await assertIsolatedChessDemoDatabase(platform);
+ });
+ it("refuses unrelated public tables before registry mutation",async()=>{
+  await platform.$executeRawUnsafe('CREATE TABLE "unrelated_fictional_demo" ("id" integer)');
+  try{
+   await expect(registerChessDemoTenant(platform)).rejects.toThrow(
+    /unrelated public tables/);
+  }finally{
+   await platform.$executeRawUnsafe('DROP TABLE "unrelated_fictional_demo"');
+  }
+  await assertIsolatedChessDemoDatabase(platform);
+ });
+
 });
