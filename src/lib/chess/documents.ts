@@ -235,7 +235,8 @@ export async function listChessServiceDocuments(
     actualBytes:true,createdAt:true,verifiedAt:true,
     retentionUntil:true,legalHoldAt:true,suppressedAt:true,
     revisionNumber:true,revisionKind:true,replacesDocumentId:true,
-    redactionApprovedAt:true,supersededAt:true,purgedAt:true},
+    redactionApprovedAt:true,supersededAt:true,purgedAt:true,
+    disposal:{select:{status:true}}},
    orderBy:{createdAt:"desc"},take:100,
   });
   return {canUpload:authorization.canWrite,records};
