@@ -44,6 +44,16 @@ export async function runChessDocumentPurge(limit=10){
       !claim.approvedByClerkUserId||
       claim.approvedByClerkUserId===claim.requestedByClerkUserId||
       !eligibleForDocumentPurge(claim.document))return null;
+   const [unit,signers]=await Promise.all([
+    tx.chessBusinessUnit.findUnique({where:{id:claim.businessId},
+     select:{status:true}}),
+    tx.membership.findMany({where:{
+     clerkUserId:{in:[claim.requestedByClerkUserId,
+      claim.approvedByClerkUserId]},status:"ACTIVE",
+     role:{in:["OWNER","ADMIN"]},
+    },select:{clerkUserId:true}}),
+   ]);
+   if(unit?.status!=="ACTIVE"||signers.length!==2)return null;
    const changed=await tx.chessDocumentDisposal.updateMany({where:{
     id:item.id,status:"APPROVED",
    },data:{status:"EXECUTING",executionStartedAt:new Date()}});
@@ -58,6 +68,18 @@ export async function runChessDocumentPurge(limit=10){
   },{isolationLevel:"Serializable"});
   if(!picked){blocked++;continue;}
   try{
+   // Recheck a legal hold immediately before the external operation.
+   // Cross-service S3/DB writes cannot be atomic; WORM/hold enforcement
+   // at the storage provider remains mandatory for live approval.
+   const latest=await db.chessClientDocument.findUnique({
+    where:{id:picked.documentId},
+    select:{legalHoldAt:true,retentionUntil:true,purgedAt:true,
+     storageVersionId:true},
+   });
+   if(!latest||latest.legalHoldAt||latest.purgedAt||
+      !latest.retentionUntil||latest.retentionUntil>new Date()||
+      latest.storageVersionId!==picked.versionId)
+    throw new Error("Document legal hold or retention changed");
    // A signed PUT can create multiple historical versions of the same key.
    // Never delete one and pretend all sensitive bytes are erased.
    const before=await s3.inventoryPinnedStorageVersions(
