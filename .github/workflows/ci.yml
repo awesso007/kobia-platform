@@ -89,8 +89,15 @@ jobs:
           node --check scripts/chess-audit-archive-sandbox.mjs
 
       - name: Build
-        run: npm run build
+        run: |
+          npm run build
+          # A terminated Next worker must not turn into a false green build.
+          test -s .next/BUILD_ID || { echo "Next.js BUILD_ID missing after build" >&2; exit 1; }
         env:
+          # The full KOBIA+CHESS route graph exceeded Node's ~2 GiB heap
+          # during Round 37 source compilation in isolated GitHub CI.
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          NEXT_TELEMETRY_DISABLED: "1"
           DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_ZXhhbXBsZS5jb20k"
           CLERK_SECRET_KEY: "sk_test_placeholder"
