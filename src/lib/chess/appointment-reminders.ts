@@ -1,4 +1,5 @@
 import {getTenantDb} from "@/lib/db/get-tenant-db";
+import {scanChessWorkerPages} from "./worker-pages";
 
 /** Reminder keys are independent of worker retry timing. */
 export function appointmentReminderKey(id:string,startAt:Date):string{
@@ -11,12 +12,15 @@ export function appointmentReminderKey(id:string,startAt:Date):string{
 export async function runChessAppointmentReminders(now=new Date()){
  const {db}=getTenantDb();
  const end=new Date(now.getTime()+60*60*1000);
- const appointments=await db.chessAppointment.findMany({
+ return scanChessWorkerPages(
+ async(after,take)=>db.chessAppointment.findMany({
   where:{status:"SCHEDULED",startAt:{gte:now,lt:end}},
   select:{id:true,businessId:true,assignedClerkUserId:true,startAt:true},
-  take:200,orderBy:{startAt:"asc"},
- });
- if(!appointments.length)return {examined:0,inserted:0};
+  orderBy:[{startAt:"asc"},{id:"asc"}],take,
+  ...(after?{cursor:{id:after},skip:1}:{}),
+ }),
+ async appointments=>{
+  if(!appointments.length)return 0;
  const businessIds=[...new Set(appointments.map(a=>a.businessId))];
  const userIds=[...new Set(appointments.map(a=>a.assignedClerkUserId))];
  const [businesses,assignments,members]=await Promise.all([
@@ -39,5 +43,6 @@ export async function runChessAppointmentReminders(now=new Date()){
  const result=alerts.length?await db.chessEmployeeAlert.createMany({
   data:alerts,skipDuplicates:true,
  }):{count:0};
- return {examined:appointments.length,inserted:result.count};
+ return result.count;
+ });
 }

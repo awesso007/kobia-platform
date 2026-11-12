@@ -23,7 +23,7 @@ export async function POST(request:Request){
   await recordChessWorkerRun("RECURRING_WORK",{
    examined:result.examined+overdue.examined+appointments.examined,
    processed:result.generated+overdue.inserted+appointments.inserted,
-   blocked:result.blocked,
+   blocked:result.blocked+Number(overdue.backlog)+Number(appointments.backlog),
   });
   return NextResponse.json({...result,overdue,appointments,rateWindowsPruned},{headers:{"Cache-Control":"no-store"}});
  }catch{

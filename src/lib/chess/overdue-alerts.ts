@@ -1,4 +1,5 @@
 import {getTenantDb} from "@/lib/db/get-tenant-db";
+import {scanChessWorkerPages} from "./worker-pages";
 
 /** Deduplication uses the UTC date, so a 15-minute scheduler cannot
  * flood staff or managers with duplicate overdue reminders. */
@@ -9,14 +10,18 @@ export function overdueAlertKey(workItemId:string,date:Date,kind:"OVERDUE"|"BLOC
 export async function runChessOverdueAlerts(now=new Date()){
  const {db}=getTenantDb();
  const stale=new Date(now.getTime()-365*24*60*60*1000);
- const tasks=await db.chessWorkItem.findMany({
+ return scanChessWorkerPages(
+ async(after,take)=>db.chessWorkItem.findMany({
   where:{
    status:{in:["TODO","IN_PROGRESS","BLOCKED"]},
    dueAt:{gte:stale,lt:now},
   },
   select:{id:true,businessId:true,assignedClerkUserId:true,status:true},
-  orderBy:{dueAt:"asc"},take:100,
- });
+  orderBy:[{dueAt:"asc"},{id:"asc"}],take,
+  ...(after?{cursor:{id:after},skip:1}:{}),
+ }),
+ async tasks=>{
+  if(!tasks.length)return 0;
  const [units,assignments]=await Promise.all([
   db.chessBusinessUnit.findMany({where:{id:{in:[...new Set(tasks.map(t=>t.businessId))]},
    status:"ACTIVE"},select:{id:true}}),
@@ -57,7 +62,7 @@ export async function runChessOverdueAlerts(now=new Date()){
    }
   }
  }
- if(!alerts.length)return {examined:tasks.length,inserted:0};
+ if(!alerts.length)return 0;
  let inserted=0;
  for(let i=0;i<alerts.length;i+=200){
   const chunk=await db.chessEmployeeAlert.createMany({
@@ -65,5 +70,6 @@ export async function runChessOverdueAlerts(now=new Date()){
   });
   inserted+=chunk.count;
  }
- return {examined:tasks.length,inserted};
+ return inserted;
+ });
 }
