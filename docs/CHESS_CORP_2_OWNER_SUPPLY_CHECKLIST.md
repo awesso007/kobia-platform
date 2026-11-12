@@ -1,6 +1,6 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 47 | Final exact-SHA Round 47 CI evidence required (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 48 | Final exact-SHA Round 48 CI evidence required (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
@@ -21,6 +21,52 @@ external credentials remain under this one checklist; source-only
 placeholder values are NOT owner approval.
 
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 48 — historical public/machine route owner supply and protected acceptance
+
+**Open requirements; none evidenced by normal CI.** These belong in
+existing groups **02,03,05,13,15,17,18**, not new numbered groups.
+
+- **Machine mail (02/15/17):** supply unique 32+-byte
+  `EMAIL_INBOUND_SECRET` to the approved relay and server vault (never
+  client or source). Set `EMAIL_INBOUND_DOMAIN` to the approved exact
+  inbound recipient host (default `inbound.kobia.ai`). Configure ACTIVE
+  per-tenant aliases `kobia+<slug>@domain` on their own ACTIVE EmailAccount
+  rows, and prove invalid/foreign/suspended aliases fail before writes.
+  Relay TLS, body limits, duplicate Message-ID handling and attachment
+  malware/delivery controls need independent staging review.
+- **Tracking (03/15/17):** create a unique high-entropy 32+-byte
+  `KOBIA_TRACKING_SIGNING_KEY` in a protected server vault. Tokens
+  are purpose, recipient, tenant and expiry bound; a missing secret
+  disables tracked clicks/pixel issuance. Move legacy unsigned campaign
+  click URLs to server-minted tokens and validate expired/replayed links
+  in staging. Do not expose signing keys in client HTML.
+- **Twilio (02/15/17):** supply certified `TWILIO_AUTH_TOKEN` and
+  provider configuration. Reconfigure all number/SMS/voice/recording
+  callbacks to include an explicit tenant query signed as part of the
+  provider callback; no default-tenant links are accepted. Prove the
+  tenant registry ACTIVE check, number ownership and provider replay
+  idempotency under separate test tenants. No protected provider run
+  occurred.
+- **Billing (13/17/18):** both historical Stripe webhook handlers remain
+  deliberately non-operational regardless of existing Stripe keys.
+  Supply trusted sandbox credentials, authoritative customer/plan/price
+  mapping and legal merchant approvals only to a replacement signed,
+  idempotent, transactional event-inbox implementation. Test duplicate,
+  out-of-order, payment-failed, refund, trial and cancellation outcomes
+  before independently reviewing activation. No payment is collected by
+  the public Forms 2.0 payment endpoint.
+- **Security/abuse (03/15/17/18):** independent authenticated two-tenant
+  and adversarial public-form submissions, distributed rate-limit
+  storage, record-specific mutation authorization/atomic response audit,
+  audit WORM receipts, webhook retries, replay windows and real
+  source-data deletion tests remain open. Current form rate limits
+  are memory-local, not a distributed admission-control guarantee.
+
+All new named configuration variables are represented as commented
+placeholders in `docs/CHESS_CORP_2_ENV_PLACEHOLDERS.example`; do not
+paste live secrets into this checklist or Git. All eight release gates
+remain BLOCKED, zero independently approved.
 
 ## Round 47 — protected scheduler secret and acceptance (M4/M8)
 

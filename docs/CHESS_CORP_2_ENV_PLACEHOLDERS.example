@@ -70,6 +70,19 @@ CHESS_DOCUMENT_PURGE_STORAGE_APPROVED=false
 # deliberately disables all 17 historical /api/cron routes with HTTP 503.
 # Not a consent/financial approval and not used by CHESS private worker APIs.
 
+# Round 48: machine mail relay and signed public email tracking.
+# EMAIL_INBOUND_SECRET=              # independent 32+ byte relay secret (vault-only)
+# EMAIL_INBOUND_DOMAIN=inbound.kobia.ai  # approved exact domain / active aliases
+# KOBIA_TRACKING_SIGNING_KEY=        # independent 32+ byte HMAC key, vault-only
+# Missing tracking key intentionally disables signed-click redirects and
+# omission of open-pixel injection; old unsigned campaign links do not work.
+# TWILIO_AUTH_TOKEN=                 # from protected certified Twilio sandbox
+# Reconfigure provider webhooks with signed ?tenant=<slug> query selector.
+# Historical Stripe billing and signup webhooks remain permanently quarantined
+# at HTTP 503 pending a separately implemented, independently verified inbox.
+# No feature switch in this file can reenable unsafe legacy Stripe callbacks.
+# Public Forms 2.0 payment initiation is also 503 until a real receipt exists.
+
 # M4: private schedulers and per-staff delegated calendar provider
 CHESS_SCHEDULER_ENABLED=false
 # CHESS_ACTIVE_TENANT_SLUGS=

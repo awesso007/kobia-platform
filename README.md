@@ -63,6 +63,32 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS CORP 2 Round 48 — historical public and machine API protections
+
+Round 48 makes selected unsafe legacy public and machine endpoints fail
+closed or require verifiable signed capabilities. The Forms 2.0 payment
+initiation route can no longer fake `PAID`; two replay-unsafe Stripe
+legacy webhooks are quarantined; email relay and Twilio callbacks now
+require strict active tenant resolution, and Twilio provisioning and
+voicemail URLs include signed tenant selectors. Booking cancellation
+uses an opaque 18-byte token and conditional idempotent transition.
+Open/click email tracking requires server-minted expiring HMAC tokens:
+unsigned clicks fail, unsigned pixels are inert.
+
+A new historical-method CI inventory/source drift gate and black-box
+default-deny HTTP smoke extend the prior Round 37/43 and Round 47 tests.
+**This is a bounded security improvement, not a full historical sensitive
+SELECT and mutation-authorization review.** Provider sandbox acceptance,
+distributed public-form abuse controls, immutable audit and replay-safe
+billing replacement remain open. New secrets are in the owner checklist
+as names-only vault inputs, never committed values.
+
+See [Round 48 security audit](docs/CHESS_CORP_2_ROUND48_HISTORICAL_API_SECURITY.md),
+[authoritative milestones](docs/CHESS_CORP_2_ROADMAP.md) and
+[owner supply](docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md).
+Development branch / draft PR only; main and production untouched.
+Eight production milestones remain blocked, zero independently signed.
+
 ## CHESS CORP 2 Round 47 — fail-closed legacy machine cron authentication
 
 All **17** `vercel.json` /api/cron handlers now refuse requests without
