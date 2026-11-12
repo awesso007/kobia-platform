@@ -152,6 +152,9 @@ jobs:
       - name: Run tenant isolation and CHESS authorization tests (public CI schema)
         run: npx vitest run src/lib/chess/schema.integration.test.ts src/lib/chess/recurring-fairness.integration.test.ts
 
+      - name: Verify document lifecycle inheritance in disposable tenant PostgreSQL
+        run: npx vitest run src/lib/chess/document-lineage-round45.integration.test.ts
+
       # Round 38 uses two distinct disposable PostgreSQL DATABASES in one
       # job. Production credentials and CHESS live-posting flags are absent.
       - name: Create independent legacy database for cross-DB financial fault tests
