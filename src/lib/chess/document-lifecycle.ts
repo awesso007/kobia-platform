@@ -40,7 +40,8 @@ export function documentPurgeEnabled(env?:{
  CHESS_DOCUMENT_PURGE_STORAGE_APPROVED?:string;
 }):boolean{
  const flags=env??process.env;
- return documentLifecycleEnabled(flags)&&
+ return flags.CHESS_DOCUMENT_LIFECYCLE_ENABLED==="true"&&
+  flags.CHESS_DOCUMENT_RETENTION_POLICY_APPROVED==="true"&&
   flags.CHESS_DOCUMENT_PURGE_EXECUTION_ENABLED==="true"&&
   flags.CHESS_DOCUMENT_PURGE_STORAGE_APPROVED==="true";
 }
