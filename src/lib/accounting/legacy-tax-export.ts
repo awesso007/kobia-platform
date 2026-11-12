@@ -14,11 +14,12 @@ import {db} from "@/lib/db";
 
 export type LegacyTaxExportEntity={id:string;name:string};
 export type LegacyTaxForm="1099_NEC"|"1099_MISC";
+export type LegacyEntityReport=LegacyTaxForm|"GENERAL_LEDGER"|"TRIAL_BALANCE";
 
-export async function auditedLegacyTaxExport<T>(
+export async function auditedLegacyEntityExport<T>(
  auth:AuthContext,
  entityId:string,
- form:LegacyTaxForm,
+ form:LegacyEntityReport,
  read:(tx:Prisma.TransactionClient,entity:LegacyTaxExportEntity)=>Promise<T>,
  database:typeof db=db,
 ):Promise<{entity:LegacyTaxExportEntity;data:T}|null>{
@@ -40,7 +41,12 @@ export async function auditedLegacyTaxExport<T>(
   const data=allowed&&entity ? await read(tx,entity) : null;
   await tx.auditLog.create({data:{
    tenantId:auth.tenant.id,userId:auth.user.id,
-   action:form==="1099_NEC"?"sensitive.export.1099_nec":"sensitive.export.1099_misc",
+   action:({
+    "1099_NEC":"sensitive.export.1099_nec",
+    "1099_MISC":"sensitive.export.1099_misc",
+    "GENERAL_LEDGER":"sensitive.export.general_ledger",
+    "TRIAL_BALANCE":"sensitive.export.trial_balance",
+   } as const)[form],
    entityType:"Entity",entityId:entity?.id??null,
    metadata:{decision:allowed?"ALLOW":"DENY",form},
   }});
@@ -54,4 +60,27 @@ export function parseLegacyTaxYear(value:string|null,now=new Date()):number|null
  if(!/^\d{4}$/.test(value))return null;
  const year=Number(value);
  return year>=1900&&year<=9998?year:null;
+}
+
+/** Backwards-compatible name for the two 1099 exports. */
+export const auditedLegacyTaxExport=auditedLegacyEntityExport;
+
+/** Validate a UTC calendar date before using it to query financial records. */
+export function parseLegacyReportDate(value:string|null, fallback:Date):Date|null{
+ if(value===null)return fallback;
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return null;
+ const date=new Date(value+"T00:00:00.000Z");
+ return Number.isFinite(date.getTime())&&
+  date.toISOString().slice(0,10)===value?date:null;
+}
+
+export function parseLegacyLedgerRange(
+ start:string|null,end:string|null,now=new Date(),
+):{startDate:Date;endDate:Date}|null{
+ const startDate=parseLegacyReportDate(start,new Date(Date.UTC(now.getUTCFullYear(),0,1)));
+ const endDay=parseLegacyReportDate(end,new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate())));
+ if(!startDate||!endDay)return null;
+ const endDate=new Date(endDay.getTime()+24*60*60*1000-1);
+ if(startDate>endDate)return null;
+ return {startDate,endDate};
 }
