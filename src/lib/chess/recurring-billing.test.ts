@@ -1,8 +1,14 @@
 import {describe,expect,it} from "vitest";
 import {nextUtcBillingMonth,subscriptionInvoiceKey,
- recurringInvoiceDraftsEnabled} from "./recurring-billing";
+ recurringInvoiceDraftsEnabled,RECURRING_DRAFT_PAGE_SIZE,
+ RECURRING_DRAFT_MAX_PAGES} from "./recurring-billing";
 
 describe("M7 recurring invoice draft safety",()=>{
+ it("caps each run to bounded draft-only pages while exposing overflow",()=>{
+  expect(RECURRING_DRAFT_PAGE_SIZE).toBe(20);
+  expect(RECURRING_DRAFT_MAX_PAGES).toBe(25);
+  expect(RECURRING_DRAFT_PAGE_SIZE*RECURRING_DRAFT_MAX_PAGES).toBe(500);
+ });
  it("moves to first of next UTC calendar month",()=>{
   expect(nextUtcBillingMonth(new Date("2026-11-30T23:59:59Z")).toISOString())
    .toBe("2026-12-01T00:00:00.000Z");

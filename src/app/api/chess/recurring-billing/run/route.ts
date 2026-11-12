@@ -16,7 +16,9 @@ export async function POST(request:Request){
   if(result.disabled)return NextResponse.json({error:"Recurring billing is disabled"},{
    status:503,headers:{"Cache-Control":"no-store"},
   });
-  return NextResponse.json(result,{headers:{"Cache-Control":"no-store"}});
+  return NextResponse.json(result,{
+   status:result.backlog?503:200,headers:{"Cache-Control":"no-store"},
+  });
  }catch{
   return NextResponse.json({error:"Recurring draft creation unavailable"},{
    status:503,headers:{"Cache-Control":"no-store"},

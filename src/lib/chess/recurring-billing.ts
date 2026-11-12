@@ -142,15 +142,27 @@ export async function listChessRecurringPlans(businessId:string){
 /** Scheduler generates DRAFT invoices only, with existing client
  * permissions, live billing consent and independent plan approval.
  * It never delivers an invoice or charges a customer. */
+export const RECURRING_DRAFT_PAGE_SIZE=20;
+export const RECURRING_DRAFT_MAX_PAGES=25;
+/** 500 due plans maximum per invocation; a nonempty backlog MUST be
+ * visible to the scheduler and operator, never silently abandoned. */
 export async function runChessRecurringInvoiceDrafts(now=new Date()){
  if(!recurringInvoiceDraftsEnabled())
-  return {disabled:true,examined:0,created:0,blocked:0,paused:0};
+  return {disabled:true,examined:0,created:0,blocked:0,paused:0,backlog:false};
  const {db,tenantId}=getTenantDb();
- const plans=await db.chessBillingSubscriptionPlan.findMany({where:{
-  status:"ACTIVE",nextDraftAt:{lte:now},
- },orderBy:{nextDraftAt:"asc"},take:20});
- let created=0,blocked=0,paused=0;
- for(const plan of plans){
+ const visitedIds:string[]=[];
+ let created=0,blocked=0,paused=0,exhausted=false;
+ for(let page=0;page<RECURRING_DRAFT_MAX_PAGES;page++){
+  // Source rows advance or pause while processing. Re-query with an
+  // exclusion list rather than a cursor pointing to a mutated sort key.
+  // Retry-unsafe/blocked plans are visited once, so no batch can spin.
+  const plans=await db.chessBillingSubscriptionPlan.findMany({where:{
+   status:"ACTIVE",nextDraftAt:{lte:now},
+   ...(visitedIds.length?{id:{notIn:visitedIds}}:{}),
+  },orderBy:[{nextDraftAt:"asc"},{id:"asc"}],take:RECURRING_DRAFT_PAGE_SIZE});
+  if(!plans.length){exhausted=true;break;}
+  visitedIds.push(...plans.map(plan=>plan.id));
+  for(const plan of plans){
   try{
    const outcome=await db.$transaction(async tx=>{
     const current=await tx.chessBillingSubscriptionPlan.findUnique({
@@ -264,6 +276,11 @@ export async function runChessRecurringInvoiceDrafts(now=new Date()){
    if(outcome==="CREATED")created++;
    if(outcome==="PAUSED")paused++;
   }catch{blocked++;}
+  }
+  if(plans.length<RECURRING_DRAFT_PAGE_SIZE){exhausted=true;break;}
  }
- return {disabled:false,examined:plans.length,created,blocked,paused};
+ // Conservative on exact full last page: alerting makes overflow visible
+ // without a risky unbounded scan. Subsequent permitted runs can drain it.
+ return {disabled:false,examined:visitedIds.length,created,blocked,paused,
+  backlog:!exhausted};
 }
