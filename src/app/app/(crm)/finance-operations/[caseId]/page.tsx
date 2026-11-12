@@ -160,6 +160,9 @@ export default async function ChessFinanceCasePage({
      retentionUntil:d.retentionUntil?.toISOString()??null,
      legalHoldAt:d.legalHoldAt?.toISOString()??null,
      suppressedAt:d.suppressedAt?.toISOString()??null,
+     supersededAt:d.supersededAt?.toISOString()??null,
+     purgedAt:d.purgedAt?.toISOString()??null,
+     redactionApprovedAt:d.redactionApprovedAt?.toISOString()??null,
     }))}/>
    <Link href={`/app/finance-operations?businessId=${encodeURIComponent(businessId)}`}
     className="text-sm font-semibold text-emerald-700 hover:underline">
