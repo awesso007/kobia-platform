@@ -16,7 +16,9 @@ run("Round 50 audited SELECT and immutable receipt commit together in tenant Pos
  beforeAll(async()=>{db=new PrismaClient();await db.$connect();});
  afterAll(async()=>{
   if(db){
-   await db.chessSecurityEvent.deleteMany({where:{resourceId:id}});
+   // Audit receipts are append-only in the real PostgreSQL schema.
+   // Never bypass that invariant for tests; the entire disposable CI
+   // database is destroyed with its container after the run.
    await db.membership.deleteMany({where:{clerkUserId:id}});
    await db.$disconnect();
   }
