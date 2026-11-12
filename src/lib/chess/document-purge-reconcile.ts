@@ -35,11 +35,12 @@ export async function reconcileChessUnknownDocumentDisposal(input:unknown){
  if(!actor||actor.status!=="ACTIVE"||
    !["OWNER","ADMIN"].includes(actor.role))
   throw new PermissionError("record:update");
- const {db}=getTenantDb();
+ const {db,tenantId}=getTenantDb();
  const row=await db.chessDocumentDisposal.findFirst({where:{
   id:data.disposalId,businessId:data.businessId,status:"UNKNOWN",
  },include:{document:true}});
- if(!row||!independentDisposalResolver({
+ if(!row||!row.document.storageKey.startsWith("tenants/"+tenantId+"/")||
+  !independentDisposalResolver({
   requester:row.requestedByClerkUserId,
   approver:row.approvedByClerkUserId,
   resolver:actor.clerkUserId,
@@ -53,6 +54,11 @@ export async function reconcileChessUnknownDocumentDisposal(input:unknown){
   row.document.storageKey,row.document.storageVersionId!);
  if(!absent)return {status:"UNKNOWN" as const,
   versionAbsent:false,automaticallyRetried:false};
+ const inventory=await s3.inventoryPinnedStorageVersions(
+  row.document.storageKey,row.document.storageVersionId!);
+ if(inventory!=="NO_CONTENT_VERSIONS")
+  return {status:"UNKNOWN" as const,versionAbsent:false,
+   automaticallyRetried:false};
 
  return db.$transaction(async tx=>{
   const [member,unit,latest]=await Promise.all([
