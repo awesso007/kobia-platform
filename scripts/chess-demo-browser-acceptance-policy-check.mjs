@@ -78,3 +78,23 @@ test("protected workflow actually interpolates secrets and never deploys", () =>
   assert.match(source,/environment: chess-demo-e2e/);
   assert.doesNotMatch(source,/vercel\/deploy|actions\/deploy|git push|gh pr merge/);
 });
+
+test("Round 40 employee and client workflow suite runs only in protected Clerk demo project",()=>{
+  const config=readFileSync("playwright.config.mjs","utf8");
+  const source=readFileSync("e2e/chess-demo-employee-client.spec.mjs","utf8");
+  const workflow=readFileSync(".github/workflows/chess-demo-browser-e2e.yml","utf8");
+  assert.match(config,/chess-demo\(\?:-employee-client\)\?/);
+  assert.match(config,/assertSafeChessDemoBrowserEnvironment/);
+  assert.match(workflow,/environment: chess-demo-e2e/);
+  assert.match(workflow,/npm run test:e2e/);
+  assert.match(source,/clerk\.signIn/);
+  assert.match(source,/unassigned business sees no fallback/);
+  assert.match(source,/stale optimistic task update is rejected/);
+  assert.match(source,/support employee cannot open manager task controls/);
+  assert.match(source,/client cannot read a copied employee business ID/);
+  assert.match(source,/concurrent browser contexts/);
+  assert.match(source,/expectedUpdatedAt:"2001-01-01T00:00:00\.000Z"/);
+  assert.match(source,/status\)\.toBe\(409\)/);
+  assert.match(source,/toBe\(403\)/);
+  assert.doesNotMatch(source,/sessionCookie|setCookie\(|sk_live_|pk_live_|CHESS_BANK_POSTING_ENABLED\s*=\s*true/);
+});
