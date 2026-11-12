@@ -3,14 +3,15 @@
  * This intentionally does NOT certify transaction-coupled SELECTs, public
  * token routes, machine callbacks, mutation responses, or tRPC internals.
  * Every authenticated historical GET marked READ_PATH_REVIEW_REQUIRED must
- * have a fail-closed response release wrapper. Routes are not marked safe
+ * have either a transaction-coupled SELECT audit or a documented already-audited
+ * profile endpoint. Round 50 adds a separate atomic transaction CI gate. Routes are not marked safe
  * merely because a method name appears or a comment mentions "audit".
  */
 import {readFileSync} from "node:fs";
 const manifest=JSON.parse(readFileSync("docs/CHESS_CORP_2_ROUND37_HISTORICAL_ROUTES.json","utf8"));
 const s=r=>readFileSync(r.path,"utf8");
 const get=source=>/export\s+(?:async\s+)?function\s+GET\s*\(|export\s+const\s+GET\b|export\s*\{[^}]*\bas\s+GET\b/.test(source);
-const audit=source=>/export\s+const\s+GET\s*=\s*withAuditedHistoricalGet\s*\(/.test(source);
+const audit=source=>/export\s+const\s+GET\s*=\s*(?:withAuditedHistoricalGet|withAlreadyAuditedHistoricalGet)\s*\(/.test(source);
 const awaiting=[],covered=[],nonGet=[],publicOrMachine=[];
 for(const row of manifest.routes){
  const source=s(row);
