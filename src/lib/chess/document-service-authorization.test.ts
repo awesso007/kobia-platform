@@ -2,7 +2,9 @@ import {describe,expect,it,vi} from "vitest";
 import type {Prisma} from "@/lib/db/generated/tenant";
 import {authorizeChessDocumentService} from "./document-service-authorization";
 const digest="a".repeat(64);
-const valid={status:"GRANTED",consentedAt:new Date("2026-10-01"),
+const valid:{status:string;consentedAt:Date;expiresAt:Date|null;withdrawnAt:Date|null;
+ acceptedByClerkUserId:string;verifiedEmailDigest:string;
+ acceptanceEvidenceDigest:string|null}={status:"GRANTED",consentedAt:new Date("2026-10-01"),
  expiresAt:null,withdrawnAt:null,
  acceptedByClerkUserId:"signed-test-client",
  verifiedEmailDigest:digest,acceptanceEvidenceDigest:digest};
@@ -35,7 +37,7 @@ describe("M3 document access requires live, purpose-bound consent as well as a g
    fakeTx({consents:[]}),fakeTx({consents:[{...valid,status:"PENDING"}]}),
    fakeTx({consents:[{...valid,withdrawnAt:new Date("2026-11-01")}]}),
    fakeTx({consents:[{...valid,expiresAt:new Date("2026-11-01")}]}),
-   fakeTx({consents:[{...valid,acceptanceEvidenceDigest:null as never}]}),
+   fakeTx({consents:[{...valid,acceptanceEvidenceDigest:null}]}),
   ])expect(await authorizeChessDocumentService(tx,opts)).toBeNull();
  });
  it("denies document mutations to a read-only service grantee",async()=>{
