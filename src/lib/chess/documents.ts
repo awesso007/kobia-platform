@@ -1,3 +1,4 @@
+import {createHash} from "node:crypto";
 import {z} from "zod";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
@@ -229,7 +230,8 @@ export async function streamChessRedactionReview(
    supersededAt:null,suppressedAt:null},
   select:{storageKey:true,storageVersionId:true,storageETag:true,
    actualBytes:true,mimeType:true,maxBytes:true,fileName:true,
-   uploadedByClerkUserId:true,verifiedAt:true,retentionUntil:true},
+   uploadedByClerkUserId:true,verifiedAt:true,retentionUntil:true,
+   checksumSha256:true},
  });
  if(!preview||preview.uploadedByClerkUserId===actor.clerkUserId||
     !preview.storageVersionId||!preview.storageETag||
@@ -237,6 +239,14 @@ export async function streamChessRedactionReview(
   throw new PermissionError("record:read");
  const head=await s3.headObject(preview.storageKey,preview.storageVersionId);
  if(!matchesPinnedDocument(preview,head))throw new PermissionError("record:read");
+ // Consume and verify the exact CLEAN-scanned bytes BEFORE committing a
+ // reviewer-read audit. A storage 404/timeout or checksum mismatch must never
+ // create false evidence that a reviewer had retrievable content.
+ const content=await s3.getObjectBody(preview.storageKey,preview.storageVersionId);
+ const bytes=Buffer.from(await content.transformToByteArray());
+ if(!preview.checksumSha256||bytes.length!==preview.actualBytes||
+    createHash("sha256").update(bytes).digest("hex")!==preview.checksumSha256)
+  throw new PermissionError("record:read");
  await auditedChessSensitiveRead(db,{
   businessId,actorClerkUserId:actor.clerkUserId,
   action:"DOCUMENT_REDACTION_REVIEW_CONTENT_READ",
@@ -261,8 +271,13 @@ export async function streamChessRedactionReview(
    doc?.checksumSha256&&
    (!doc.retentionUntil||doc.retentionUntil>new Date())?true:null;
  });
- const body=await s3.getObjectBody(preview.storageKey,preview.storageVersionId);
- return {stream:body.transformToWebStream(),fileName:preview.fileName,
+ // Return only the bytes already scanned and audited, not a second, possibly
+ // unavailable storage read after the access event committed.
+ const payload=new Uint8Array(bytes);
+ const stream=new ReadableStream<Uint8Array>({
+  start(controller){controller.enqueue(payload);controller.close();},
+ });
+ return {stream,fileName:preview.fileName,
   mimeType:preview.mimeType,actualBytes:preview.actualBytes};
 }
 
