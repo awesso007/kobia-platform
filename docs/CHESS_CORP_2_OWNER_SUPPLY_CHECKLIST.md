@@ -1,19 +1,19 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 45 | Engineering evidence through verified Round 44 CI (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 46 | Engineering evidence through verified Round 45 CI (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
 **Latest independently observed completed normal CI baseline (not
-external acceptance):** Round 44 final commit
-`4e29c22e07fc4d951b39546640a680f29add9455` passed **3/3**
-GitHub Actions jobs in [run 43300160700](https://github.com/awesso007/kobia-platform/actions/runs/43300160700):
+external acceptance):** Round 45 final commit
+`b6b41f590292c4b8335c092f82afe0cb666c1b29` passed **3/3**
+GitHub Actions jobs in [run 43306304711](https://github.com/awesso007/kobia-platform/actions/runs/43306304711):
 `build`, `chess-db-integration`, and `chess-legacy-ledger-integration`.
-Earlier Round 38–43 baselines are in the
-[authoritative Round 45 M1–M8 matrix](CHESS_CORP_2_ROADMAP.md).
-Round 45 requires its own **exact-final-SHA green normal CI verification**.
-No normal CI run supplies independent legal, storage, provider, protected
-browser or production approval.
+Earlier Round 38–44 baselines are in the
+[authoritative Round 46 M1–M8 matrix](CHESS_CORP_2_ROADMAP.md).
+Round 46 requires its **own exact-final-SHA green normal CI verification**.
+No normal CI run supplies actual Clerk browser sign-in, security/axe
+acceptance, legal, storage, provider, staging or production approval.
 No normal CI run can establish a real signed-in Clerk/Neon browser/axe
 acceptance, private S3 redaction/deletion, vendor settlement, WORM/PITR,
 or independent legal/security approval. All feature activation and
@@ -21,6 +21,61 @@ external credentials remain under this one checklist; source-only
 placeholder values are NOT owner approval.
 
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 46 protected fictional demo employee/client E2E — remaining owner supply
+
+Round 46 added **six actual browser test cases** for OWNER, SUPPORT
+employee and CLIENT in a separate file registered with Playwright's
+protected `chromium` project. The cases exercise an eight-business
+owner tour, employee two-tab optimistic conflict, foreign-business
+write denial, client identity/consent/privacy isolation, opt-in/out
+work-item and appointment calendar preference, and mobile employee/client
+axe WCAG checks. The prior Round 40 specs remain in place.
+
+Normal CI now syntax-checks the browser spec and runs source-policy
+guards; it also executes **real disposable PostgreSQL tests** proving
+five fictional profiles each retain two independent business links,
+no service grants, no private documents/cases, and exactly one PENDING
+consent with unsigned acceptance denied. **No real Clerk TEST
+sign-in or browser/axe execution has been performed by normal CI**.
+
+- **Existing group 17:** An authorized owner must provision/approve the
+  protected GitHub Environment named `chess-demo-e2e` with
+  `secrets.DATABASE_URL` targeting **only** the non-pooled, TLS,
+  completely isolated fictional Neon `chess_demo` database;
+  `secrets.CLERK_PUBLISHABLE_KEY` beginning `pk_test_` and
+  `secrets.CLERK_SECRET_KEY` beginning `sk_test_`, both from the
+  **same** development/test Clerk instance; and three
+  **distinct, verified test-user** variables
+  `vars.CHESS_DEMO_OWNER_EMAIL`,
+  `vars.CHESS_DEMO_EMPLOYEE_EMAIL`,
+  `vars.CHESS_DEMO_CLIENT_EMAIL`. Do not reuse a production
+  account, real client profile, payroll credential or linked data.
+- **Existing groups 01,02,17:** After protected environment approval,
+  deliberately invoke the manual workflow
+  `.github/workflows/chess-demo-browser-e2e.yml` on
+  `feature/operations-overview` with the mandatory
+  `confirm_isolated_demo=true` assertion. Its browser is pinned
+  to `http://127.0.0.1:3000`, its provider flags are OFF, and it
+  refuses remote/prod or pooled targets. Confirm owner/employee/client
+  can sign in independently, restore the calendar preference OFF and
+  keep all fictional consent PENDING.
+- **Existing groups 17,18:** Independently review and retain the
+  actual Playwright results, failure traces and screenshots, including
+  mobile keyboard/screen-reader/axe acceptance, cross-business data
+  access and a separate signed-off role/consent downgrade matrix.
+  The ordinary `build` job **cannot certify** those results.
+  Complete client privacy and accessibility approvals before P1/P2.
+
+**No new external service, 19th supply group, API key or provider
+execution flag is introduced.** This is still a **pending protected
+workflow requiring human-provisioned Clerk TEST/Neon credentials**,
+even when normal GitHub Actions CI is green. No real customer consent,
+financial transaction, licensed service or external calendar event
+is authorized by these fictional tests.
+See [Round 46 test matrix](CHESS_CORP_2_ROUND46_EMPLOYEE_CLIENT_BROWSER_E2E.md).
+All 18 existing owner-supply groups remain OPEN, with
+**8/8 production milestones blocked and 0/8 independently signed**.
 
 ## Round 45 M3 document lifecycle — legal, storage, scanning and audit evidence
 
