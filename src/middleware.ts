@@ -30,6 +30,9 @@ const isPublicRoute = createRouteMatcher([
   "/api/chess/audit-archive/run",
   // Exact token authenticated before returning only the deployed build SHA.
   "/api/chess/staging-attestation",
+  // Scheduled machine endpoints must reach their own exact CRON_SECRET guard;
+  // Clerk browser authentication is not a machine authorization mechanism.
+  "/api/cron(.*)",
   "/api/webhooks(.*)",
   // Public web-to-lead forms (Sprint 5): the hosted form page and its submit
   // endpoint are intentionally unauthenticated. Tenant is resolved from a
