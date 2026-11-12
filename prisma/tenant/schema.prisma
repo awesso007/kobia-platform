@@ -4042,6 +4042,7 @@ model ChessBillingSubscriptionPlan {
   status String @default("PENDING")
   nextDraftAt DateTime
   lastDraftAt DateTime?
+  lastInspectedAt DateTime?
   createdByClerkUserId String
   approvedByClerkUserId String?
   approvedAt DateTime?

@@ -97,7 +97,7 @@ export async function pauseChessRecurringPlan(input:unknown){
   plan.service as keyof typeof productCodes);
  return db.$transaction(async tx=>{
   const changed=await tx.chessBillingSubscriptionPlan.updateMany({
-   where:{id:plan.id,status:"ACTIVE"},data:{status:"PAUSED"},
+   where:{id:plan.id,status:"ACTIVE"},data:{status:"PAUSED",lastInspectedAt:now},
   });
   if(changed.count!==1)throw new PermissionError("record:update");
   await tx.chessSecurityEvent.create({data:{
@@ -159,7 +159,8 @@ export async function runChessRecurringInvoiceDrafts(now=new Date()){
   const plans=await db.chessBillingSubscriptionPlan.findMany({where:{
    status:"ACTIVE",nextDraftAt:{lte:now},
    ...(visitedIds.length?{id:{notIn:visitedIds}}:{}),
-  },orderBy:[{nextDraftAt:"asc"},{id:"asc"}],take:RECURRING_DRAFT_PAGE_SIZE});
+  },orderBy:[{lastInspectedAt:{sort:"asc",nulls:"first"}},
+   {nextDraftAt:"asc"},{id:"asc"}],take:RECURRING_DRAFT_PAGE_SIZE});
   if(!plans.length){exhausted=true;break;}
   visitedIds.push(...plans.map(plan=>plan.id));
   for(const plan of plans){
@@ -261,7 +262,8 @@ export async function runChessRecurringInvoiceDrafts(now=new Date()){
     const next=nextUtcBillingMonth(current.nextDraftAt);
     const advanced=await tx.chessBillingSubscriptionPlan.updateMany({
      where:{id:current.id,status:"ACTIVE",nextDraftAt:current.nextDraftAt},
-     data:{nextDraftAt:next,lastDraftAt:current.nextDraftAt},
+     data:{nextDraftAt:next,lastDraftAt:current.nextDraftAt,
+      lastInspectedAt:now},
     });
     if(advanced.count!==1)throw new Error("Recurring plan schedule changed.");
     await tx.chessSecurityEvent.create({data:{
@@ -275,12 +277,34 @@ export async function runChessRecurringInvoiceDrafts(now=new Date()){
    },{isolationLevel:"Serializable"});
    if(outcome==="CREATED")created++;
    if(outcome==="PAUSED")paused++;
-  }catch{blocked++;}
+  }catch{
+   blocked++;
+   // A denied or uncertain plan remains ACTIVE with its original
+   // due date, but is moved behind never-examined work on the NEXT run.
+   // This does not advance a billing date or fabricate an invoice.
+   try{
+    await db.chessBillingSubscriptionPlan.updateMany({where:{
+     id:plan.id,status:"ACTIVE",nextDraftAt:plan.nextDraftAt,
+    },data:{lastInspectedAt:now}});
+   }catch{
+    // Preserve fail-closed: if the DB is unavailable the caller still
+    // sees blocked/backlog. Never retry a financial action blindly.
+   }
+  }
   }
   if(plans.length<RECURRING_DRAFT_PAGE_SIZE){exhausted=true;break;}
  }
- // Conservative on exact full last page: alerting makes overflow visible
- // without a risky unbounded scan. Subsequent permitted runs can drain it.
+ // A full final page can be exactly the end of the queue. Inspect only
+ // one remaining ID, without an unbounded scan; the HTTP handler returns
+ // 503 if and only if work still remains beyond this cap.
+ let backlog=false;
+ if(!exhausted){
+  const pending=await db.chessBillingSubscriptionPlan.findFirst({where:{
+   status:"ACTIVE",nextDraftAt:{lte:now},
+   id:{notIn:visitedIds},
+  },select:{id:true}});
+  backlog=!!pending;
+ }
  return {disabled:false,examined:visitedIds.length,created,blocked,paused,
-  backlog:!exhausted};
+  backlog};
 }
