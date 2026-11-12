@@ -3,6 +3,7 @@ import {PrismaClient} from "@/lib/db/generated/tenant";
 import {claimChessRateWindow,ChessRateLimitError,chessRateSubject,chessRateWindow} from "./api-rate-limit";
 import {auditedClientServiceRead} from "@/lib/client-profile/service-access-audit";
 import {claimChessAiDailyCall} from "./ai-daily-budget";
+import {auditedChessSensitiveRead} from "./sensitive-read-audit";
 
 const integration=process.env.RUN_CHESS_DB_INTEGRATION==="1"?describe:describe.skip;
 integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
@@ -788,5 +789,33 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
   await expect(db.clientServiceLink.create({data:{
    profileId:"missing-profile-id",businessId,service:"TAX",
   }})).rejects.toThrow();
+ });
+
+ it("commits scoped sensitive read decisions atomically and refuses tampering",async()=>{
+  const name="audited-sensitive-"+Date.now().toString(36);
+  const unit=await db.chessBusinessUnit.create({data:{
+   slug:name,name:"Fictional sensitive workflow unit",
+  }});
+  const context={
+   businessId:unit.id,actorClerkUserId:"fictional-audit-signer",
+   action:"REGULATED_WORKFLOW_READ" as const,
+   resourceType:"ChessServiceCase" as const,resourceId:"fictional-case",
+  };
+  try{
+   const result=await auditedChessSensitiveRead(db,context,
+    async tx=>tx.chessBusinessUnit.findUnique({where:{id:unit.id},
+     select:{id:true}}));
+   expect(result).toEqual({id:unit.id});
+   await expect(auditedChessSensitiveRead(db,context,async()=>null)).rejects.toThrow();
+   const rows=await db.chessSecurityEvent.findMany({where:{
+    businessId:unit.id,action:"REGULATED_WORKFLOW_READ",
+    resourceId:"fictional-case",
+   },orderBy:{occurredAt:"asc"}});
+   expect(rows.map(r=>r.decision).sort()).toEqual(["ALLOW","DENY"]);
+   await expect(db.chessSecurityEvent.update({where:{id:rows[0]!.id},
+    data:{decision:"ERROR"}})).rejects.toThrow();
+  }finally{
+   await db.chessBusinessUnit.delete({where:{id:unit.id}});
+  }
  });
 });

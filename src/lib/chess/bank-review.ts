@@ -322,7 +322,7 @@ export async function executeChessApprovedBankPosting(input:unknown){
   CHESS_BANK_POSTING_POLICY_APPROVED:process.env.CHESS_BANK_POSTING_POLICY_APPROVED,
   CHESS_BANK_POSTING_BANK_SANDBOX_APPROVED:process.env.CHESS_BANK_POSTING_BANK_SANDBOX_APPROVED,
   CHESS_BANK_POSTING_OPERATOR_APPROVED:process.env.CHESS_BANK_POSTING_OPERATOR_APPROVED,
- })||chessDemoModeActive())
+ })||process.env.CHESS_DEMO_MODE==="true"||chessDemoModeActive())
   throw new PermissionError("record:update");
  const state=await context({
   businessId:data.businessId,clientProfileId:data.clientProfileId,
@@ -344,6 +344,36 @@ export async function executeChessApprovedBankPosting(input:unknown){
  const snapshotDigest=bankTransactionFingerprint({...txn,status:"UNMATCHED"},
   state.legacyTenantId,state.legacyEntityId);
  if(snapshotDigest!==data.expectedTransactionDigest)
+  throw new PermissionError("record:update");
+
+ // Historical approvals are not perpetual execution rights: the creator
+ // and reviewer must still be active, and the reviewer must still be
+ // authorized to manage this same business at posting time.
+ const signers=await state.db.membership.findMany({where:{
+  clerkUserId:{in:[review.createdByClerkUserId,
+   review.reviewedByClerkUserId??""]},
+  status:"ACTIVE",
+ },select:{clerkUserId:true,role:true}});
+ const signerById=new Map(signers.map(s=>[s.clerkUserId,s]));
+ const creator=signerById.get(review.createdByClerkUserId);
+ const approver=signerById.get(review.reviewedByClerkUserId??"");
+ if(!creator||!approver)throw new PermissionError("record:update");
+ const [creatorAssignment,reviewerAssignment]=await Promise.all([
+  state.db.chessEmployeeAssignment.findUnique({where:{
+   businessId_clerkUserId:{businessId:data.businessId,
+    clerkUserId:creator.clerkUserId},
+  },select:{revokedAt:true}}),
+  state.db.chessEmployeeAssignment.findUnique({where:{
+   businessId_clerkUserId:{businessId:data.businessId,
+    clerkUserId:approver.clerkUserId},
+  },select:{revokedAt:true,role:true}}),
+ ]);
+ const creatorAllowed=["OWNER","ADMIN"].includes(creator.role)||
+  !!creatorAssignment&&!creatorAssignment.revokedAt;
+ const reviewerAllowed=["OWNER","ADMIN"].includes(approver.role)||
+  (!!reviewerAssignment&&!reviewerAssignment.revokedAt&&
+   reviewerAssignment.role==="MANAGER");
+ if(!creatorAllowed||!reviewerAllowed)
   throw new PermissionError("record:update");
  const sourceRefId=postingSourceRef(review.id);
  // Only the identical recorded CHESS posting may be replayed. The ledger
@@ -391,6 +421,11 @@ export async function executeChessApprovedBankPosting(input:unknown){
   resourceId:review.id,decision:"REVIEW",
  }});
 
+ // Re-evaluate current case, grant, mapping, and consent after the
+ // durable attempt audit, immediately before the legacy write. There
+ // remains a cross-DB race requiring independent pre-production review.
+ await context({businessId:data.businessId,clientProfileId:data.clientProfileId,
+  serviceCaseId:data.serviceCaseId,service:data.service});
  const created=await ledger.$transaction(async tx=>{
   // First lock the bank row with a conditional UPDATE. A concurrent posting
   // will fail this predicate; no account balance or JE changes will persist.
