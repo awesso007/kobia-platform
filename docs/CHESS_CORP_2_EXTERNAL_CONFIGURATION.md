@@ -1045,3 +1045,34 @@ CHESS_WORKFLOW_WORKER_TOKEN, independent pager and WORM vendor.
 
 These flags are NOT release evidence; a signed test-tenant browser role
 and accessibility matrix is required before live staff use.
+
+
+## Round 23 - source-bound payroll / regulated receipt / draft-worker inputs
+
+NEW (default OFF): CHESS_PAYROLL_APPROVAL_REQUESTS_ENABLED=false.
+Enable only under an approved three-human, posted-pay-run-specific finance
+policy, current Clerk test identities and a written legal/operations sign-off.
+The generic action-approvals API cannot request or review financial digests.
+Current source-bound payroll POST/GET/PATCH requires a current case/client
+grant, accepted purpose-specific consent, tenant-mapped POSTED ledger run,
+independent reviewer and separate executing operator. It still does not
+create payroll or permit unlicensed ACH, wage or tax settlement.
+
+NEW regulated vendor reply contract: mandatory tenantSlug, businessId,
+serviceCaseId, workflowId, service, partnerId, status and id when
+accepted/pending. These must match the original request exactly. An
+unbound, mismatched or ID-less response remains UNKNOWN/blocked. Obtain
+updated official signed provider contracts, distinct service API keys,
+approved HTTPS gateway endpoints and verified staff affiliations.
+
+Recurring draft scheduler: a fully enabled source-only run now reports
+backlog=true with HTTP 503 after inspecting 500 due plans; operations
+must provision approved paging/alerts before relying on it. The
+CHESS_BILLING_RECURRING_DRAFTS_ENABLED and
+CHESS_BILLING_RECURRING_POLICY_APPROVED flags remain OFF until authorized.
+
+Migration guard: 20261111340000_chess_m5_payroll_source_uniqueness
+will fail if duplicate historical PAYROLL_EXECUTE approvals share one
+business and fingerprint. Supply staging backup, privileged migration
+owner, immutable historical review and independently signed
+remediation plan rather than deleting evidence.

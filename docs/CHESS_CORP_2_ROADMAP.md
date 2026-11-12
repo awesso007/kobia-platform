@@ -1108,3 +1108,21 @@ regulated activities or a production security incident drill.
 
 See docs/CHESS_CORP_2_ROUND21_UI_COVERAGE.md for the exact screen
 inventory, access checks, activation placeholders and still-open gates.
+
+
+## Round 23 - Milestones 3-7 code completion audit
+
+Corrected interrupted Round 22 payroll reviewer TypeScript failure.
+Added tenant-transaction source/consent/grant rechecks (M3),
+PostgreSQL appointment cursor/backlog regression (M4), source-bound
+payroll approval database uniqueness and audit provenance gates (M5),
+strict tenant/business/case/partner receipt correlation (M6), and
+bounded multi-page, DRAFT-only recurring invoice worker with degraded
+overflow signal (M7).
+
+Remaining roadmap items marked BOTH or EXTERNAL have **not** been
+automatically closed. Vendor credentials, legal retention/e-signature,
+consent cross-DB races, live provider settlement/filing, approved
+licensing, statutory accounting close, production DR and external
+authorization still block a finished build. Full details:
+docs/CHESS_CORP_2_ROUND23_M3_M7_CODE_AUDIT.md.

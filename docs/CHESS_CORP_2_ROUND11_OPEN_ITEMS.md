@@ -466,3 +466,39 @@ See docs/CHESS_CORP_2_ROUND20_CODE_AUDIT.md. All M1-M8 release holds remain.
 
 See docs/CHESS_CORP_2_ROUND21_UI_COVERAGE.md for the backend-to-UI matrix,
 missing approved inputs, and a role/accessibility test checklist.
+
+
+## Round 23 - unfinished M3-M7 release boundaries after code review
+
+- **M3-07 [CODE HARDENED, BOTH OPEN]:** Payroll approval requests now
+  recheck live consent and service-grant/mapping in a SERIALIZABLE tenant
+  transaction. Documented historical GRANTED-with-withdrawnAt anomalies
+  now fail the common consent predicate on all newly updated core finance,
+  billing and regulated read paths. Sign-in, consent version,
+  signature vendor, legal object lifecycle and cross-DB revocation races
+  remain unresolved.
+- **M4-04 [CODE TESTED, EXTERNAL OPEN]:** Added 241-appointment PostgreSQL
+  cursor paging and capped-backlog tests with isolated staff slots.
+  Actual scheduler deploy, queue monitoring, provider delivery and
+  access/privacy acceptance still need credentials and approvals.
+- **M5-03 [CODE HARDENED, BOTH OPEN]:** Duplicate PAYROLL_EXECUTE
+  source approvals are rejected by a partial unique PostgreSQL index;
+  CI verifies the concurrency invariant. Pre-existing duplicated source
+  decisions explicitly block migration until independently reconciled.
+  Execution requires audited original request and independent signed-off
+  review, plus posted run/current case checks. Real processor/ACH/tax
+  provider and finance staging tests remain mandatory.
+- **M6-04 [CODE HARDENED, EXTERNAL OPEN]:** Handoff create and read-only
+  status replies must echo the requested tenant, business and case in
+  addition to workflow, service, partner and correlatable remote ID.
+  Providers must update their certified contract; no regulated execution
+  approval or license is inferred.
+- **M7-04 [CODE HARDENED, EXTERNAL OPEN]:** Recurring draft-only worker
+  scans up to 500 due plans per invocation (25x20); blocked plans are
+  not repeatedly selected in one run, and the endpoint reports
+  backlog:true/503 instead of silently truncating. Real scheduler,
+  merchant provider, cash settlement, tax and financial close remain open.
+
+See docs/CHESS_CORP_2_ROUND23_M3_M7_CODE_AUDIT.md. None of M3-M7 is
+production-certified; all previously listed external and mixed code
+requirements remain release blockers.
