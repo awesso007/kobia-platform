@@ -3,8 +3,8 @@ import {PermissionError} from "@/lib/rbac/require-permission";
 
 type SensitiveReadContext={
  businessId?:string;actorClerkUserId:string;
- action:"REGULATED_WORKFLOW_READ"|"BANK_REVIEW_DETAILS_READ"|"OPERATIONS_PORTFOLIO_READ"|"SECURITY_OPERATIONS_READ"|"DOCUMENT_LIST_READ"|"DOCUMENT_DOWNLOAD_READ"|"OPERATIONS_REPORT_READ"|"BANK_CANDIDATES_READ"|"PAYROLL_DISPATCH_READ"|"BANK_POSTING_RECONCILIATION_READ";
- resourceType:"ChessServiceCase"|"ChessOperationsPortfolio"|"ChessSecurityEvent"|"ChessClientDocument"|"ChessOperationsReport"|"ChessPayrollDispatch"|"ChessBankReview";resourceId:string;
+ action:"REGULATED_WORKFLOW_READ"|"BANK_REVIEW_DETAILS_READ"|"OPERATIONS_PORTFOLIO_READ"|"SECURITY_OPERATIONS_READ"|"DOCUMENT_LIST_READ"|"DOCUMENT_DOWNLOAD_READ"|"OPERATIONS_REPORT_READ"|"BANK_CANDIDATES_READ"|"PAYROLL_DISPATCH_READ"|"BANK_POSTING_RECONCILIATION_READ"|"CLIENT_PROFILE_DIRECTORY_READ"|"CLIENT_PROFILE_DETAIL_READ"|"CLIENT_PROVISIONING_READ";
+ resourceType:"ChessServiceCase"|"ChessOperationsPortfolio"|"ChessSecurityEvent"|"ChessClientDocument"|"ChessOperationsReport"|"ChessPayrollDispatch"|"ChessBankReview"|"ClientProfile";resourceId:string;
 };
 /** Privacy-minimal record-access outcome. No names, properties, amounts,
  * document keys or raw service payloads are persisted in the audit. */

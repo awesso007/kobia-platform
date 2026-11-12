@@ -5,6 +5,7 @@ import type { ClientService, ProfileActor } from "./policy";
 import { z } from "zod";
 import { assertBusinessAccess } from "@/lib/chess/business-units";
 import {auditedClientServiceRead} from "./service-access-audit";
+import {auditedChessSensitiveRead} from "@/lib/chess/sensitive-read-audit";
 
 const createInput = z.object({
   displayName: z.string().trim().min(1).max(200),
@@ -28,13 +29,25 @@ export async function listClientProfiles() {
   await requirePermission("record:read");
   const actor = await currentActor();
   const { db } = getTenantDb();
-  return db.clientProfile.findMany({
-    where: actor.role === "OWNER" || actor.role === "ADMIN"
-      ? {} : { ownerClerkUserId: actor.clerkUserId },
-    select: { id: true, displayName: true, contactId: true, ownerClerkUserId: true, createdAt: true, updatedAt: true },
-    orderBy: { displayName: "asc" },
-    take: 100,
+  return auditedChessSensitiveRead(db,{
+    actorClerkUserId:actor.clerkUserId,
+    action:"CLIENT_PROFILE_DIRECTORY_READ",resourceType:"ClientProfile",
+    resourceId:"DIRECTORY",
+  },async tx=>{
+    const current=await tx.membership.findUnique({
+      where:{clerkUserId:actor.clerkUserId},
+      select:{status:true,role:true},
+    });
+    if(current?.status!=="ACTIVE"||current.role==="VIEWER")return null;
+    const administrator=["OWNER","ADMIN"].includes(current.role);
+    return tx.clientProfile.findMany({
+      where:administrator?{}:{ownerClerkUserId:actor.clerkUserId},
+      select:{id:true,displayName:true,contactId:true,
+       ownerClerkUserId:true,createdAt:true,updatedAt:true},
+      orderBy:{displayName:"asc"},take:100,
+    });
   });
+
 }
 
 export async function createClientProfile(input: unknown) {
@@ -56,14 +69,26 @@ export async function getClientProfile(profileId: string) {
   await requirePermission("record:read");
   const actor = await currentActor();
   const { db } = getTenantDb();
-  const profile = await db.clientProfile.findUnique({
-    where: { id: idInput.parse(profileId) },
-    select: { id: true, displayName: true, contactId: true, ownerClerkUserId: true, createdAt: true, updatedAt: true },
+  return auditedChessSensitiveRead(db,{
+    actorClerkUserId:actor.clerkUserId,
+    action:"CLIENT_PROFILE_DETAIL_READ",resourceType:"ClientProfile",
+    resourceId:idInput.parse(profileId),
+  },async tx=>{
+    const [member,profile]=await Promise.all([
+      tx.membership.findUnique({where:{clerkUserId:actor.clerkUserId},
+        select:{status:true,role:true}}),
+      tx.clientProfile.findUnique({
+       where:{id:idInput.parse(profileId)},
+       select:{id:true,displayName:true,contactId:true,
+        ownerClerkUserId:true,createdAt:true,updatedAt:true},
+      }),
+    ]);
+    if(!member||!profile||!canReadClientProfile({
+      clerkUserId:actor.clerkUserId,role:member.role,status:member.status,
+    },profile.ownerClerkUserId))return null;
+    return profile;
   });
-  if (!profile || !canReadClientProfile(actor, profile.ownerClerkUserId)) {
-    throw new PermissionError("record:read");
-  }
-  return profile;
+
 }
 
 /** A service link is only returned to an explicitly granted employee.
