@@ -1,19 +1,19 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 44 | Engineering evidence through verified Round 43 CI (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 45 | Engineering evidence through verified Round 44 CI (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
 **Latest independently observed completed normal CI baseline (not
-external acceptance):** Round 43 final commit
-`ab7d1f51c6c3b7d379c1207ea1348582632aa0dc` passed **3/3**
-GitHub Actions jobs in [run 43297225931](https://github.com/awesso007/kobia-platform/actions/runs/43297225931):
+external acceptance):** Round 44 final commit
+`4e29c22e07fc4d951b39546640a680f29add9455` passed **3/3**
+GitHub Actions jobs in [run 43300160700](https://github.com/awesso007/kobia-platform/actions/runs/43300160700):
 `build`, `chess-db-integration`, and `chess-legacy-ledger-integration`.
-Earlier Round 38–42 baselines are recorded in the
-[authoritative Round 44 M1–M8 matrix](CHESS_CORP_2_ROADMAP.md).
-Round 44 requires its **own exact-final-SHA green normal CI verification**.
-No normal CI run supplies independent bank, legal, provider, staging or
-production approval.
+Earlier Round 38–43 baselines are in the
+[authoritative Round 45 M1–M8 matrix](CHESS_CORP_2_ROADMAP.md).
+Round 45 requires its own **exact-final-SHA green normal CI verification**.
+No normal CI run supplies independent legal, storage, provider, protected
+browser or production approval.
 No normal CI run can establish a real signed-in Clerk/Neon browser/axe
 acceptance, private S3 redaction/deletion, vendor settlement, WORM/PITR,
 or independent legal/security approval. All feature activation and
@@ -21,6 +21,50 @@ external credentials remain under this one checklist; source-only
 placeholder values are NOT owner approval.
 
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 45 M3 document lifecycle — legal, storage, scanning and audit evidence
+
+The code now inherits **immutable retention, legal hold and download
+suppression** across replacement/redacted version chains in the
+PostgreSQL migration. Upload confirmation requires a strict S3 HEAD
+and an exhaustive single-version inventory, then records an
+audited live-grant/consent-bound outcome; malware scanning remains
+quarantined and single-use. Separate owner/admin review of a clean-scanned
+REDACTED derivative now verifies full pinned bytes and SHA-256 and
+requires a post-scan review-read event plus reviewer attestation before
+publication. The employee interface exposes the preexisting third-person
+UNKNOWN S3 **read-only** reconciliation; physical deletion is still
+default OFF and can NEVER be retried automatically after an UNKNOWN
+provider result.
+
+| Open groups | Independent owner/provider evidence still required |
+| --- | --- |
+| **01, 02, 03** | Genuine active/revoked OWNER/ADMIN, uploader and independent redaction/disposal reviewer identities, per-business/current-client purpose consent and role transitions, legal sharing authorization; prove actor separation and revocation mid-operation |
+| **04** | Counsel-approved signed service/jurisdiction retention schedules, legal-hold issue and release/appeal procedure, subject access/erasure request workflow, e-sign disclosures; confirm neither a replacement nor a redaction shortens an original retention duty |
+| **05, 16** | A private, versioned and Object-Locked S3 provider with isolated runtime/worker/migration IAM, vault-only `KOBIA_S3_*` and `CHESS_DOCUMENT_PURGE_WORKER_TOKEN`, full `HeadObject`, `GetObject`, `s3:ListBucketVersions` and exact `DeleteObjectVersion` rights at approved scope; Object Lock/WORM, legal hold, backup/replica purge accounting, independent KMS/PITR and witnessed restore |
+| **15** | External immutable/WORM archive receipts and monitoring of DENY/REVIEW/ALLOW scan, upload, download, supersession, hold, disposal and UNKNOWN events; local append-only DB events do NOT meet the external audit retention requirement |
+| **17** | Protected isolated tenant/Clerk TEST and S3 sandbox, realistic double-PUT/multiple-version race, scan timeout/invalid HMAC, malware corpus, inaccessible storage and revoked grant tests, forced UNKNOWN/reconnection plus no second DELETE, proof that the S3 upload grant cannot overwrite accepted evidence unnoticed |
+| **18** | Independent cybersecurity, privacy and records reviewers attest to actual complete PDF-layer/image redaction (not only visual overlays), legal hold and backup retention, third-person disposal witness, inspector identity, accessibility, negative tests and final authorized rollout |
+
+**No new API key, external contract, flag, credential or checklist
+group is introduced by this round.** Existing provider credentials
+and reviewer identities are still REQUIRED to perform P1/P2,
+not for running source-only tests. The already-listed
+`s3:ListBucketVersions` permission is now also required during
+**upload confirmation, malware scan and independent redaction review**,
+not only before deletion; grant it only on the approved private tenant
+bucket with least-privilege policies and separate storage roles.
+
+`CHESS_DOCUMENT_LIFECYCLE_ENABLED=false`,
+`CHESS_DOCUMENT_RETENTION_POLICY_APPROVED=false`,
+`CHESS_DOCUMENT_PURGE_EXECUTION_ENABLED=false`,
+`CHESS_DOCUMENT_PURGE_STORAGE_APPROVED=false` and
+`CHESS_SCAN_CALLBACK_ENABLED=false` must remain OFF until
+independent approvals are collected. See
+[Round 45 exact code and acceptance report](CHESS_CORP_2_ROUND45_DOCUMENT_LIFECYCLE_AUDIT.md).
+All **18** owner groups remain OPEN; all **8** production milestones
+remain blocked with **0 independently signed**. No real customer
+documents were deleted or restored in this coding round.
 
 ## Round 44 dual-database financial failure testing — remaining owner evidence
 
