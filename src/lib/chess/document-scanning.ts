@@ -47,10 +47,41 @@ export async function recordDocumentScan(input:unknown) {
  const headAgain=await s3.headObject(doc.storageKey,doc.storageVersionId);
  if(!headAgain || headAgain.versionId!==doc.storageVersionId ||
    headAgain.etag!==doc.storageETag)throw new Error("Pinned document changed.");
- const next=valid && data.result==="CLEAN"?"READY":"REJECTED";
- const updated=await db.chessClientDocument.updateMany({
-  where:{id:doc.id,status:"QUARANTINED"},
-  data:{status:next,checksumSha256:checksum,verifiedAt:new Date()},
- });
- return {updated:updated.count===1,status:next};
+ const clean=valid&&data.result==="CLEAN";
+ const next=clean?(doc.revisionKind==="REDACTED"?"QUARANTINED":"READY"):"REJECTED";
+ // A redacted derivative stays quarantined after clean scanning until a
+ // second, independent owner/admin has reviewed the actual redacted content.
+ // Parent supersession and child publication commit in the same transaction.
+ return db.$transaction(async tx=>{
+  const current=await tx.chessClientDocument.findFirst({where:{
+   id:doc.id,businessId:doc.businessId,status:"QUARANTINED",
+   storageVersionId:doc.storageVersionId,storageETag:doc.storageETag,
+  },select:{id:true,replacesDocumentId:true,revisionKind:true,
+   businessId:true,clientProfileId:true,service:true}});
+  if(!current)return {updated:false,status:next};
+  if(clean&&current.replacesDocumentId&&next==="READY"){
+   const parent=await tx.chessClientDocument.updateMany({where:{
+    id:current.replacesDocumentId,businessId:current.businessId,
+    clientProfileId:current.clientProfileId,service:current.service,
+    status:"READY",supersededAt:null,purgedAt:null,
+   },data:{supersededAt:new Date()}});
+   if(parent.count!==1)throw new Error("Predecessor changed before publication");
+  }
+  const updated=await tx.chessClientDocument.updateMany({where:{
+   id:doc.id,status:"QUARANTINED",storageVersionId:doc.storageVersionId,
+   storageETag:doc.storageETag,
+  },data:{status:next,checksumSha256:checksum,verifiedAt:new Date()}});
+  if(updated.count!==1)throw new Error("Scan result is stale");
+  await tx.chessSecurityEvent.create({data:{
+   businessId:current.businessId,actorClerkUserId:null,
+   action:clean&&current.revisionKind==="REDACTED"?
+    "DOCUMENT_REDACTION_AWAITING_REVIEW":
+    clean?"DOCUMENT_SCAN_PUBLISHED":"DOCUMENT_SCAN_REJECTED",
+   resourceType:"ChessClientDocument",resourceId:doc.id,
+   decision:clean&&current.revisionKind==="REDACTED"?"REVIEW":
+    clean?"ALLOW":"DENY",
+  }});
+  return {updated:true,status:next,
+   reviewRequired:clean&&current.revisionKind==="REDACTED"};
+ },{isolationLevel:"Serializable"});
 }
