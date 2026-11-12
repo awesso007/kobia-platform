@@ -21,7 +21,7 @@ describe("Round 21 protected employee UI render states",()=>{
   for(const markup of [locked,configured]){
    expect(markup).toContain("Preview balanced entry (no posting)");
    expect(markup).not.toContain("Post approved journal to ledger");
-   expect(markup).toContain("Nothing");
+   expect(markup).toContain("Suggestions and approvals do not post an accounting entry");
   }
  });
  it("keeps payroll execution out of disabled human workspaces",()=>{
