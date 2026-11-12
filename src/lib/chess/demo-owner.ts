@@ -87,7 +87,7 @@ export async function ensureChessDemoEmployeeMembership(): Promise<void> {
   });
   if (!business || business.status !== "ACTIVE") return;
 
-  await actor.db.chessEmployeeAssignment.upsert({
+  const assignment = await actor.db.chessEmployeeAssignment.upsert({
     where: {
       businessId_clerkUserId: {
         businessId: business.id,
@@ -100,7 +100,9 @@ export async function ensureChessDemoEmployeeMembership(): Promise<void> {
       role: "SUPPORT",
     },
     update: {}, // A revoked demo assignment is never silently reinstated.
+    select: { revokedAt: true },
   });
+  if (assignment.revokedAt) return;
 
   const title = "Fictional employee browser acceptance task";
   const existingTask = await actor.db.chessWorkItem.findFirst({
