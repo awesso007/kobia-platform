@@ -11,6 +11,7 @@ type Metric = { title: string; value: number; description: string; href: string 
 type Shortcut = { title: string; description: string; href: string };
 
 const shortcuts: Shortcut[] = [
+  { title: "CHESS service desk", description: "Employee and manager CHESS workflows", href: "/app/chess-desk" },
   { title: "Contacts", description: "People and client relationships", href: "/app/contacts" },
   { title: "Companies", description: "Client and prospect organizations", href: "/app/companies" },
   { title: "Leads", description: "New inquiries and follow-up", href: "/app/leads" },
@@ -78,7 +79,7 @@ export default async function OperationsOverviewPage() {
             <p className="mt-2 text-sm text-slate-600">Open your assigned work in the current company workspace.</p>
           </header>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {shortcuts.filter((item) => ["Tasks", "Calendar", "Projects", "CHESS work items"].includes(item.title)).map((item) => <ShortcutCard key={item.href} {...item} />)}
+            {shortcuts.filter((item) => ["Tasks", "Calendar", "Projects", "CHESS work items", "CHESS service desk"].includes(item.title)).map((item) => <ShortcutCard key={item.href} {...item} />)}
           </div>
         </div>
       );
