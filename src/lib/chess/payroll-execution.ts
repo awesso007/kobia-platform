@@ -7,6 +7,7 @@ const request=z.object({
  businessId:z.string().min(1).max(128),
  clientProfileId:z.string().min(1).max(128),
  legacyPayRunId:z.string().min(1).max(128),
+ serviceCaseId:z.string().min(1).max(128),
  approvalId:z.string().min(1).max(128),
 }).strict();
 
@@ -23,12 +24,13 @@ export async function executeChessPayroll(input:unknown) {
  const data=request.parse(input);
  const actor=await getCurrentMembership();
  if(!actor || !["OWNER","ADMIN"].includes(actor.role))throw new PermissionError("record:update");
- if(process.env.CHESS_PAYROLL_PROVIDER_CERTIFIED!=="true"){
+ if(process.env.CHESS_DEMO_MODE==="true"||
+  process.env.CHESS_PAYROLL_PROVIDER_CERTIFIED!=="true"){
   throw new Error("Payroll provider compliance gate disabled.");
  }
  const {db,legacyTenant,run,payload,digest}=await resolveChessPostedPayrollRun({
   businessId:data.businessId,clientProfileId:data.clientProfileId,
-  legacyPayRunId:data.legacyPayRunId,
+  legacyPayRunId:data.legacyPayRunId,serviceCaseId:data.serviceCaseId,
  });
  const approval=await db.chessActionApproval.findFirst({where:{
   id:data.approvalId,businessId:data.businessId,actionType:"PAYROLL_EXECUTE",

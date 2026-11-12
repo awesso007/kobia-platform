@@ -2,7 +2,7 @@ import {z} from "zod";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
 import {resolveChessPostedPayrollRun} from "./payroll-source";
 import {isUsableConsent} from "./onboarding";
-import {payrollApprovalRequesterAllowed} from "./payroll-approval-request";
+import {payrollApprovalRequesterAllowed,payrollApprovalRequestEnabled} from "./payroll-approval-request";
 
 const sourceSchema=z.object({
  businessId:z.string().min(1).max(128),
@@ -81,6 +81,10 @@ export async function listChessPayrollApprovalEvidence(input:unknown){
  * A generic approval PATCH can never approve PAYROLL_EXECUTE. */
 export async function reviewChessPayrollSourceApproval(input:unknown){
  const data=decisionSchema.parse(input);
+ if(!payrollApprovalRequestEnabled({
+  CHESS_PAYROLL_APPROVAL_REQUESTS_ENABLED:process.env.CHESS_PAYROLL_APPROVAL_REQUESTS_ENABLED,
+  CHESS_DEMO_MODE:process.env.CHESS_DEMO_MODE,
+ }))throw new PermissionError("record:update");
  const actor=await getCurrentMembership();
  if(!actor||actor.status!=="ACTIVE"||!["OWNER","ADMIN"].includes(actor.role))
   throw new PermissionError("record:update");
