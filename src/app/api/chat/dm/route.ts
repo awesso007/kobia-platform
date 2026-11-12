@@ -9,7 +9,6 @@ import { getTenantDb, NoTenantError } from "@/lib/db/get-tenant-db";
 import { requirePermission, PermissionError, getCurrentMembership } from "@/lib/rbac/require-permission";
 import { findOrCreateDm } from "@/lib/chat/mutations";
 
-import { authorizedChatChannel } from "@/lib/security/historical-chat-scope";
 
 export const dynamic = "force-dynamic";
 
