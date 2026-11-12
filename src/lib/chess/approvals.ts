@@ -9,12 +9,19 @@ const request=z.object({
  payloadDigest:z.string().regex(/^[0-9a-f]{64}$/),
 }).strict();
 
+/** Financial/regulated decisions must never originate from arbitrary
+ * user-supplied digests at the generic review endpoint. */
+export function protectedChessApprovalType(actionType:string):boolean {
+ return /^(?:PAYROLL_|BANK_|TAX_|REGULATED_|MORTGAGE_|INSURANCE_|INVESTMENT_|REAL_ESTATE_|FINANCIAL_|MERCHANT_|BILLING_)/.test(actionType);
+}
+
 export function canReviewAction(requestedBy:string,reviewer:string,role:string):boolean {
  return requestedBy!==reviewer && ["OWNER","ADMIN"].includes(role);
 }
 
 export async function requestChessApproval(input:unknown) {
  const data=request.parse(input);
+ if(protectedChessApprovalType(data.actionType))throw new PermissionError("record:create");
  await assertBusinessAccess(data.businessId);
  const actor=await getCurrentMembership();
  if (!actor || actor.status!=="ACTIVE") throw new PermissionError("record:create");
