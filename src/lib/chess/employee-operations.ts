@@ -3,7 +3,7 @@ import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
 import {assertBusinessAccess} from "./business-units";
 import {assertBusinessManager} from "./business-manager";
-import {auditedChessManagerRead} from "./sensitive-read-audit";
+import {auditedChessEmployeeRead,auditedChessManagerRead} from "./sensitive-read-audit";
 
 /** Only the signed-in recipient can list/read their own in-app alerts.
  * Alert text intentionally excludes sensitive client data. */
@@ -12,12 +12,17 @@ export async function listChessEmployeeAlerts(businessId:string){
  const member=await getCurrentMembership();
  if(!member||member.status!=="ACTIVE")throw new PermissionError("record:read");
  const {db}=getTenantDb();
- return db.chessEmployeeAlert.findMany({
+ return auditedChessEmployeeRead(db,{
+  businessId,actorClerkUserId:member.clerkUserId,
+  action:"EMPLOYEE_ALERTS_READ",resourceType:"ChessEmployeeAlert",
+  resourceId:"recipient:"+member.clerkUserId,
+ },async tx=>tx.chessEmployeeAlert.findMany({
   where:{businessId,recipientClerkUserId:member.clerkUserId},
   select:{id:true,type:true,message:true,workItemId:true,readAt:true,createdAt:true},
   orderBy:{createdAt:"desc"},take:100,
- });
+ }));
 }
+
 
 export async function markChessAlertRead(businessId:string,alertId:string){
  await assertBusinessAccess(businessId);
