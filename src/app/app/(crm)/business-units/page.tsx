@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {listBusinessUnits,getChessBusinessAssignmentAdmin} from "@/lib/chess/business-units";
 import {getCurrentMembership} from "@/lib/rbac/require-permission";
+import {selectChessWorkspace} from "@/lib/chess/workspace-selection";
 import BusinessUnitAdmin from "./BusinessUnitAdmin";
 export const dynamic="force-dynamic";
 
@@ -10,7 +11,8 @@ export default async function ChessBusinessUnitsPage({searchParams}:{searchParam
  try {units=await listBusinessUnits();} catch {denied=true;}
  const actor=await getCurrentMembership().catch(()=>null);
  const canManage=actor?.status==="ACTIVE"&&["OWNER","ADMIN"].includes(actor.role);
- const selected=units.find(u=>u.id===searchParams.businessId)??units[0];
+ const workspace=selectChessWorkspace(units,searchParams.businessId);
+ const selected=workspace.status==="READY"?workspace.selected:null;
  const admin=canManage&&selected
   ?await getChessBusinessAssignmentAdmin(selected.id).catch(()=>null)
   :null;
@@ -20,6 +22,13 @@ export default async function ChessBusinessUnitsPage({searchParams}:{searchParam
    <h1 className="mt-1 text-3xl font-semibold text-slate-950">Business units</h1>
    <p className="mt-2 text-slate-600">Your assigned business workspaces. Data permissions are checked by the server.</p>
   </header>
+  {workspace.status==="UNAVAILABLE"&&!denied&&<p role="alert"
+   className="space-y-2 rounded-xl border border-amber-200 p-5 text-sm text-slate-800">
+   The requested business is no longer available to your account. No other unit was selected
+   automatically. <Link href="/app/business-units" className="font-semibold text-emerald-800 underline">
+    Choose an authorized business
+   </Link>
+  </p>}
   {denied?<p role="alert" className="rounded-xl border border-red-200 p-6 text-red-800">
    Business units are unavailable or you do not have access.
   </p>:units.length===0?<p className="rounded-xl border border-slate-200 p-6">
