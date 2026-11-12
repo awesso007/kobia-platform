@@ -240,6 +240,31 @@ verifies the fixtures, starts a local development server and runs the browser
 suite. It never merges or deploys. Keep all financial, consent, calendar,
 licensed-provider, AI and outbound-service switches OFF.
 
+### Round 30: signed-in acceptance journeys and server-side demo guards
+
+The [Round 30 browser acceptance matrix](docs/CHESS_CORP_2_ROUND30_BROWSER_ACCEPTANCE.md)
+documents twelve Clerk/Playwright tests covering the fictional owner tour,
+employee service desk and task-state persistence, denied other-business access,
+client pending-disclosure privacy, employee/client role boundaries and
+axe-core accessibility scans. These use **real verified Clerk development users**
+with a dedicated fictional Neon `chess_demo` database, not mocked sessions.
+
+For local acceptance use `npm run demo:setup`, `npm run demo:verify`,
+install the pinned browser dependencies listed above, then run
+`npm run test:e2e` with **port 3000 free**. The Playwright runner refuses
+live Clerk keys, remote URLs, non-demo databases and enabled external providers.
+If the server is already running, stop it first; the acceptance runner will
+not silently attach to an arbitrary local service.
+
+Normal CI syntax-checks these tests and runs fail-closed policy regressions.
+It **does not execute authenticated browsers** without the protected Clerk
+identities and isolated Neon credentials in owner-supply checklist item 01.
+The manual workflow is a prepared acceptance path; dispatch availability
+may require an explicitly approved GitHub workflow registration on the
+default branch. Do not change `main` just to enable test execution.
+Client consent acceptance is server-gated and impossible in fictional demo
+mode, even through a direct API request.
+
 ## Getting Started
 
 ### Option A — Legacy KOBIA development on main (NOT the CHESS demo)
