@@ -163,6 +163,31 @@ integration("CHESS durable cross-database bank posting reservation", () => {
     }))?.status).toBe("WITHDRAWN");
   });
 
+  it("never cancels another business reservation on a mismatched admin request", async () => {
+    const suffix = Date.now().toString(36) + "-foreign";
+    const consent = await grantedConsent(suffix);
+    const attempt = await reserveChessBankPostingAttempt(
+      db,
+      reservation(consent.id, suffix),
+    );
+    await expect(db.$transaction(async (tx) => {
+      await guardAndCancelReservedFinancialAttempts(
+        tx,
+        consent.id,
+        new Date(),
+        undefined,
+        "unrelated-business",
+      );
+    }, { isolationLevel: "Serializable" })).rejects.toThrow();
+    const remaining = await db.chessFinancialAttempt.findUnique({
+      where: { id: attempt.id },
+    });
+    expect(remaining?.status).toBe("RESERVED");
+    expect((await db.chessClientConsent.findUnique({
+      where: { id: consent.id },
+    }))?.status).toBe("GRANTED");
+  });
+
   it("pins source evidence and rejects edits or deletion at the database layer", async () => {
     const suffix = Date.now().toString(36) + "-immutable";
     const consent = await grantedConsent(suffix);
