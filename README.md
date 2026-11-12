@@ -63,6 +63,28 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS CORP 2 Round 37 — historical sensitive-read hardening
+
+On draft PR #24, selected legacy KOBIA accounting exports, mail, document,
+file-share/local-storage, form-submission and workflow-run reads now require
+more explicit authorization and privacy-minimal read auditing. LOCAL fallback
+downloads need a **protected server-only** `KOBIA_LOCAL_DOWNLOAD_SIGNING_KEY`
+of at least 32 bytes; missing keys fail closed. Do not use LOCAL fallback for
+real customer document storage.
+
+The old helpdesk portal that granted a session solely from a matching email
+address is deliberately disabled until verified email challenges or an
+approved identity gateway are implemented. Other KOBIA client portal flows
+are separate.
+
+See [Round 37 source review](docs/CHESS_CORP_2_ROUND37_HISTORICAL_READ_AUDIT.md)
+and the [162-route historical API inventory](docs/CHESS_CORP_2_ROUND37_HISTORICAL_ROUTES.json).
+Normal `npm test` checks that newly added historical API routes are
+classified. The inventory and code-marker tests **do not prove complete
+sensitive-read coverage or authorize deployment**. All unreconciled routes,
+staging tests, licensed workflows, external WORM and DR approval remain
+pending. Production `main` is unchanged.
+
 ## CHESS / KOBIA legacy taxpayer export hardening — Round 36
 
 The development branch now restricts legacy KOBIA 1099-NEC and 1099-MISC
