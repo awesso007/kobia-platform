@@ -15,7 +15,13 @@ const read=path=>readFileSync(path,"utf8");
 const problems=[];
 const counts={};
 const methods={};
-const exportsIn=source=>new Set([...source.matchAll(/export\s+(?:async\s+function\s+|function\s+|const\s+)(GET|POST|PUT|PATCH|DELETE|OPTIONS)\s*(?:\(|=)/g)].map(x=>x[1]));
+const exportsIn=source=>{
+ const result=new Set([...source.matchAll(/export\\s+(?:async\\s+function\\s+|function\\s+|const\\s+)(GET|POST|PUT|PATCH|DELETE|OPTIONS)\\s*(?:\\(|=)/g)].map(x=>x[1]));
+ // tRPC and other Next.js adapters export a handler alias, not a function.
+ for(const group of source.matchAll(/export\\s*\\{([^}]+)\\}/g))
+  for(const alias of group[1].matchAll(/\\bas\\s+(GET|POST|PUT|PATCH|DELETE|OPTIONS)\\b/g))result.add(alias[1]);
+ return result;
+};
 const requireTokens=(path,tokens)=>{
  const src=read(path);
  for(const token of tokens)if(!src.includes(token))problems.push(`${path} missing security boundary ${token}`);
