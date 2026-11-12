@@ -42,6 +42,11 @@ jobs:
       - name: Inventory all CHESS service API security boundaries
         run: node --test scripts/chess-sensitive-route-inventory-check.mjs
 
+      - name: Gate historical authenticated read response audit coverage
+        run: |
+          node --check scripts/chess-round43-historical-get-audit-gate.mjs
+          node scripts/chess-round43-historical-get-audit-gate.mjs
+
       - name: Validate signed-in browser and accessibility test harness
         run: |
           node --check playwright.config.mjs
