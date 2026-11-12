@@ -4,7 +4,7 @@ import {listBusinessUnits} from "@/lib/chess/business-units";
 import {listChessWorkItemTriage} from "@/lib/chess/ai-triage";
 import {listChessWorkItems} from "@/lib/chess/workflow";
 import {aiTriageConfigured} from "@/lib/chess/ai-triage-provider";
-import {getChessAiDailyUsage} from "@/lib/chess/ai-daily-budget";
+import {getChessAiDailyUsage,getChessAiWorkerSnapshot} from "@/lib/chess/ai-daily-budget";
 import {getCurrentMembership} from "@/lib/rbac/require-permission";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {isAuthorizedWorkflowTenant} from "@/lib/chess/worker-authorization";
@@ -14,25 +14,33 @@ export default async function AiOperationsPage({searchParams}:{
 }){
  try{
   const units=await listBusinessUnits();
-  const selected=units.find(u=>u.id===searchParams.businessId)??units[0];
-  if(!selected)return <main role="status">No active business unit available.</main>;
+  const requested=searchParams.businessId;
+  const selected=requested?units.find(u=>u.id===requested):units[0];
+  if(!selected)return <main role="status" className="mx-auto max-w-4xl space-y-3 p-8">
+   <h1 className="text-2xl font-semibold">AI review workspace unavailable</h1>
+   <p className="text-sm text-slate-700">
+    {requested?"The requested business is no longer available to this account.":
+     "No active business unit is available."}
+   </p>
+   <Link href="/app/chess-desk" className="font-semibold text-emerald-800 underline">Return to service desk</Link>
+  </main>;
   const [suggestions,tasks]=await Promise.all([
    listChessWorkItemTriage(selected.id),listChessWorkItems(selected.id),
   ]);
   const actor=await getCurrentMembership();
-  const {db,tenantId}=getTenantDb();
+  const {tenantId}=getTenantDb();
   const canSeeWorker=actor?.status==="ACTIVE"&&
    ["OWNER","ADMIN"].includes(actor.role);
   const scheduled=aiTriageConfigured()&&isAuthorizedWorkflowTenant(tenantId,{
    schedulerEnabled:process.env.CHESS_SCHEDULER_ENABLED,
    allowedTenants:process.env.CHESS_ACTIVE_TENANT_SLUGS,
   });
-  const usage=canSeeWorker?await getChessAiDailyUsage(selected.id):null;
-  const latestAiRun=canSeeWorker?await db.chessWorkerRun.findFirst({where:{
-   kind:"AI_TRIAGE",
-  },orderBy:{occurredAt:"desc"},select:{
-   status:true,examined:true,processed:true,blocked:true,occurredAt:true,
-  }}):null;
+  const [usage,workerSnapshot]=canSeeWorker?
+   await Promise.all([
+    getChessAiDailyUsage(selected.id),
+    getChessAiWorkerSnapshot(selected.id),
+   ]):[null,null];
+  const latestAiRun=workerSnapshot?.latest??null;
   const pending=suggestions.filter(x=>x.status==="PENDING").length;
   const accepted=suggestions.filter(x=>x.status==="ACCEPTED").length;
   const applied=suggestions.filter(x=>!!x.appliedAt).length;
