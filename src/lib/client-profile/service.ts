@@ -55,14 +55,30 @@ export async function createClientProfile(input: unknown) {
   const actor = await currentActor();
   const data = createInput.parse(input);
   const { db } = getTenantDb();
-  if (data.contactId) {
-    const contact = await db.contact.findUnique({ where: { id: data.contactId }, select: { id: true } });
-    if (!contact) throw new Error("Contact not found in active tenant.");
-  }
-  return db.clientProfile.create({
-    data: { displayName: data.displayName, contactId: data.contactId, ownerClerkUserId: actor.clerkUserId },
-    select: { id: true, displayName: true, contactId: true, ownerClerkUserId: true, createdAt: true, updatedAt: true },
-  });
+  return db.$transaction(async tx=>{
+    const current=await tx.membership.findUnique({
+      where:{clerkUserId:actor.clerkUserId},select:{status:true,role:true},
+    });
+    if(current?.status!=="ACTIVE"||current.role==="VIEWER")
+      throw new PermissionError("record:create");
+    if(data.contactId){
+      const contact=await tx.contact.findUnique({
+        where:{id:data.contactId},select:{id:true},
+      });
+      if(!contact)throw new PermissionError("record:create");
+    }
+    const profile=await tx.clientProfile.create({
+      data:{displayName:data.displayName,contactId:data.contactId,
+       ownerClerkUserId:actor.clerkUserId},
+      select:{id:true,displayName:true,contactId:true,ownerClerkUserId:true,
+       createdAt:true,updatedAt:true},
+    });
+    await tx.chessSecurityEvent.create({data:{
+      actorClerkUserId:actor.clerkUserId,action:"CLIENT_PROFILE_CREATED",
+      resourceType:"ClientProfile",resourceId:profile.id,decision:"ALLOW",
+    }});
+    return profile;
+  },{isolationLevel:"Serializable"});
 }
 
 export async function getClientProfile(profileId: string) {
