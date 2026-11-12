@@ -113,7 +113,7 @@ test("distinguishes machine, verified-client and employee boundaries",()=>{
  const counted={machine:0,client:0,employee:0,reads:0};
  for(const path of actual){
   const boundary=machine.has(path)?"machine":
-   client.has(path)?"verified-client":"employee";
+   client.has(path)?"client":"employee";
   counted[boundary]++;
   const source=readFileSync(join(root,path),"utf8");
   assert.match(source,/export\s+(?:async\s+)?function\s+(?:GET|POST|PATCH|PUT|DELETE)|export\s+const\s+(?:GET|POST|PATCH|PUT|DELETE)/,
