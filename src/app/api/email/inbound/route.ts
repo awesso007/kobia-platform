@@ -8,7 +8,7 @@
  *
  * Tenant routing: the recipient address encodes the tenant slug as
  *   kobia+<slug>@inbound.kobia.ai
- * Anything that does not match falls back to the default tenant "acme".
+ * Invalid or unknown recipient/tenant fails closed; no default tenant.
  *
  * On receipt we resolve / create the EmailThread (by inReplyTo / references,
  * else a new thread auto-linked to a CRM record via resolveLinkForAddress),
@@ -24,10 +24,10 @@ import { dispatchAutomation } from "@/lib/automations/dispatch";
 import { ingestObject } from "@/lib/storage";
 import { attachFile } from "@/lib/files/files";
 import { reindex } from "@/lib/search";
+import { getPlatformDb } from "@/lib/db/platform";
+import { inboundMailCredentialDecision, inboundMailTenantSlug } from "@/lib/security/legacy-inbound-mail";
 
 export const dynamic = "force-dynamic";
-
-const DEFAULT_TENANT = "acme";
 
 type InboundAttachment = { filename: string; mimeType: string; size?: number; contentBase64?: string };
 type InboundBody = {
@@ -42,26 +42,24 @@ type InboundBody = {
   attachments?: InboundAttachment[];
 };
 
-/** Extract the tenant slug from kobia+<slug>@inbound.kobia.ai (else default). */
-function tenantSlugFromAddress(to: string): string {
-  const m = to.match(/kobia\+([a-z0-9-]+)@/i);
-  return m?.[1]?.toLowerCase() ?? DEFAULT_TENANT;
-}
-
 function snippetOf(html: string, text?: string): string {
   const raw = (text ?? html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
   return raw.slice(0, 160);
 }
 
 export async function POST(req: NextRequest) {
-  const secret = process.env.EMAIL_INBOUND_SECRET;
-  if (!secret) {
-    console.warn("[email/inbound] EMAIL_INBOUND_SECRET not set - rejecting inbound mail.");
-    return NextResponse.json({ ok: false, error: "Inbound email is not configured." }, { status: 503 });
-  }
-  if (req.headers.get("x-kobia-inbound-secret") !== secret) {
-    return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
-  }
+  const auth = inboundMailCredentialDecision(
+    req.headers.get("x-kobia-inbound-secret"),
+    process.env.EMAIL_INBOUND_SECRET,
+  );
+  if (auth === "UNCONFIGURED")
+    return NextResponse.json({ ok: false, error: "Inbound email is not configured." }, {
+      status: 503, headers: { "Cache-Control": "no-store" },
+    });
+  if (auth !== "AUTHORIZED")
+    return NextResponse.json({ ok: false, error: "Unauthorized." }, {
+      status: 401, headers: { "Cache-Control": "no-store" },
+    });
 
   let body: InboundBody;
   try {
@@ -70,19 +68,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Invalid JSON." }, { status: 400 });
   }
 
-  const to = (body.to ?? "").trim();
-  const from = (body.from ?? "").trim();
-  if (!from) return NextResponse.json({ ok: false, error: "Missing from address." }, { status: 400 });
+  const to = typeof body.to === "string" ? body.to.trim().toLowerCase() : "";
+  const from = typeof body.from === "string" ? body.from.trim() : "";
+  if (!from || from.length > 320) return NextResponse.json({ ok: false, error: "Invalid sender." }, { status: 400 });
 
-  const slug = tenantSlugFromAddress(to);
-  const db = getTenantPrisma(schemaNameForSlug(slug));
-
-  // An inbound message lands on whichever account owns the recipient address.
-  // We pick the first active account as the inbox owner (alpha: single mailbox).
-  const account = await db.emailAccount.findFirst({ orderBy: { createdAt: "asc" } });
-  if (!account) {
-    return NextResponse.json({ ok: false, error: "No email account for tenant." }, { status: 404 });
+  // A forwarded address is not authorization to write to an arbitrary
+  // tenant. Route only a single exact approved alias to an ACTIVE registry
+  // entry and an ACTIVE mailbox for that same recipient, before any writes.
+  const slug = inboundMailTenantSlug(to, process.env.EMAIL_INBOUND_DOMAIN);
+  if (!slug) return NextResponse.json({ ok: false, error: "Invalid inbound recipient." }, { status: 400 });
+  const tenant = await getPlatformDb().tenantRegistry.findUnique({
+    where: { slug }, select: { status: true, schemaName: true },
+  });
+  if (!tenant || tenant.status !== "ACTIVE" || tenant.schemaName !== schemaNameForSlug(slug)) {
+    return NextResponse.json({ ok: false, error: "Recipient unavailable." }, { status: 404 });
   }
+  const db = getTenantPrisma(tenant.schemaName);
+  const account = await db.emailAccount.findFirst({
+    where: { address: { equals: to, mode: "insensitive" }, status: "ACTIVE" },
+    select: { id: true },
+  });
+  if (!account) return NextResponse.json({ ok: false, error: "Recipient unavailable." }, { status: 404 });
 
   // Thread resolution: try to match an existing message by the referenced ids.
   let threadId: string | null = null;
