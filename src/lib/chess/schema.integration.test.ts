@@ -5,6 +5,7 @@ import {auditedClientServiceRead} from "@/lib/client-profile/service-access-audi
 import {claimChessAiDailyCall} from "./ai-daily-budget";
 import {auditedChessSensitiveRead} from "./sensitive-read-audit";
 import {scanChessWorkerPages} from "./worker-pages";
+import {revokeBusinessAssignmentAndServiceGrants} from "./business-assignment-revocation";
 
 const integration=process.env.RUN_CHESS_DB_INTEGRATION==="1"?describe:describe.skip;
 integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
@@ -889,6 +890,79 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
   }finally{
    await db.chessAppointment.deleteMany({where:{businessId:unit.id}});
    await db.chessBusinessUnit.delete({where:{id:unit.id}});
+  }
+ });
+
+ it("atomically revokes every business service grant and does not restore them on reassignment",async()=>{
+  const suffix=Date.now().toString(36);
+  const unit=await db.chessBusinessUnit.create({data:{
+   slug:"revocation-"+suffix,name:"FICTIONAL business revocation",
+  }});
+  const other=await db.chessBusinessUnit.create({data:{
+   slug:"revocation-other-"+suffix,name:"FICTIONAL other unit",
+  }});
+  const profile=await db.clientProfile.create({data:{
+   displayName:"Fictional grant revocation client",
+  }});
+  const staff="fictional-staff-"+suffix;
+  try{
+   await db.chessEmployeeAssignment.createMany({data:[
+    {businessId:unit.id,clerkUserId:staff,role:"PRACTITIONER"},
+    {businessId:other.id,clerkUserId:staff,role:"PRACTITIONER"},
+   ]});
+   const linked=await Promise.all([
+    db.clientServiceLink.create({data:{
+     profileId:profile.id,businessId:unit.id,service:"BOOKKEEPING",
+    }}),
+    db.clientServiceLink.create({data:{
+     profileId:profile.id,businessId:other.id,service:"TAX",
+    }}),
+   ]);
+   await db.clientServiceGrant.createMany({data:linked.map(link=>({
+    linkId:link.id,clerkUserId:staff,canRead:true,canWrite:true,
+   }))});
+   const before=await db.chessSecurityEvent.count({where:{
+    businessId:unit.id,action:"EMPLOYEE_ASSIGNMENT_AND_GRANTS_REVOKED",
+   }});
+   expect(await revokeBusinessAssignmentAndServiceGrants(
+    db,unit.id,staff,"fictional-admin")).toEqual({
+    count:1,revokedGrants:1,
+   });
+   expect(await db.clientServiceGrant.findUnique({where:{
+    linkId_clerkUserId:{linkId:linked[0]!.id,clerkUserId:staff},
+   }})).toMatchObject({canRead:false,canWrite:false});
+   const otherGrant=await db.clientServiceGrant.findUnique({where:{
+    linkId_clerkUserId:{linkId:linked[1]!.id,clerkUserId:staff},
+   }});
+   expect(otherGrant?.revokedAt).toBeNull();
+   expect(otherGrant?.canRead).toBe(true);
+   expect(await revokeBusinessAssignmentAndServiceGrants(
+    db,unit.id,staff,"fictional-admin")).toEqual({
+    count:0,revokedGrants:0,
+   });
+   expect(await db.chessSecurityEvent.count({where:{
+    businessId:unit.id,action:"EMPLOYEE_ASSIGNMENT_AND_GRANTS_REVOKED",
+   }})).toBe(before+1);
+   await db.chessEmployeeAssignment.updateMany({where:{
+    businessId:unit.id,clerkUserId:staff,
+   },data:{revokedAt:null}});
+   expect((await db.clientServiceGrant.findUnique({where:{
+    linkId_clerkUserId:{linkId:linked[0]!.id,clerkUserId:staff},
+   }}))?.revokedAt).not.toBeNull();
+  }finally{
+   await db.chessSecurityEvent.deleteMany({where:{
+    businessId:unit.id,action:"EMPLOYEE_ASSIGNMENT_AND_GRANTS_REVOKED",
+   }});
+   await db.clientServiceLink.deleteMany({where:{
+    profileId:profile.id,
+   }});
+   await db.clientProfile.delete({where:{id:profile.id}});
+   await db.chessEmployeeAssignment.deleteMany({where:{
+    businessId:{in:[unit.id,other.id]},
+   }});
+   await db.chessBusinessUnit.deleteMany({where:{
+    id:{in:[unit.id,other.id]},
+   }});
   }
  });
 

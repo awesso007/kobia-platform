@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { getCurrentMembership, PermissionError } from "@/lib/rbac/require-permission";
+import {revokeBusinessAssignmentAndServiceGrants} from "./business-assignment-revocation";
 
 export const businessUnitInput = z.object({
   slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(64),
@@ -90,10 +91,8 @@ export async function revokeEmployeeAssignment(businessId: string, clerkUserId: 
   const user = await actor();
   if (!isBusinessAdmin(user.role)) throw new PermissionError("member:manage");
   const { db } = getTenantDb();
-  return db.chessEmployeeAssignment.updateMany({
-    where: { businessId, clerkUserId, revokedAt: null },
-    data: { revokedAt: new Date() },
-  });
+  return revokeBusinessAssignmentAndServiceGrants(db,businessId,
+    clerkUserId,user.clerkUserId);
 }
 
 
