@@ -1,18 +1,19 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 43 | Engineering evidence through verified Round 42 CI (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 44 | Engineering evidence through verified Round 43 CI (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
 **Latest independently observed completed normal CI baseline (not
-external acceptance):** Round 42 final documentation commit
-`35d3d88dd64c50a73024feedd3cde6fa39dcd935` passed **3/3**
-GitHub Actions jobs in [run 43292695459](https://github.com/awesso007/kobia-platform/actions/runs/43292695459):
+external acceptance):** Round 43 final commit
+`ab7d1f51c6c3b7d379c1207ea1348582632aa0dc` passed **3/3**
+GitHub Actions jobs in [run 43297225931](https://github.com/awesso007/kobia-platform/actions/runs/43297225931):
 `build`, `chess-db-integration`, and `chess-legacy-ledger-integration`.
-Earlier Round 38–41 baselines are in the
-[authoritative Round 43 M1–M8 matrix](CHESS_CORP_2_ROADMAP.md).
-Round 43 requires its own exact-final-SHA green normal CI verification.
-No CI run supplies independent legal, provider, staging or production approval.
+Earlier Round 38–42 baselines are recorded in the
+[authoritative Round 44 M1–M8 matrix](CHESS_CORP_2_ROADMAP.md).
+Round 44 requires its **own exact-final-SHA green normal CI verification**.
+No normal CI run supplies independent bank, legal, provider, staging or
+production approval.
 No normal CI run can establish a real signed-in Clerk/Neon browser/axe
 acceptance, private S3 redaction/deletion, vendor settlement, WORM/PITR,
 or independent legal/security approval. All feature activation and
@@ -20,6 +21,38 @@ external credentials remain under this one checklist; source-only
 placeholder values are NOT owner approval.
 
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 44 dual-database financial failure testing — remaining owner evidence
+
+Eight additional synthetic-but-real-database integration tests now cover
+lost reservation acknowledgments, simultaneous duplicate posting,
+conflicting source fingerprints, failed GL-offset validation after an
+UNMATCHED bank claim, account deactivation after claim, timeout during
+read-only outcome observation, simultaneous receipt writes and
+alternate-source replay. The existing six Round 38 scenarios remain
+in the CI suite, for **14 total isolated cases**. These use two
+**disposable database names on one GitHub PostgreSQL service**, not
+separate live finance clusters or payment providers.
+
+| Existing owner-supply groups | Required independent acceptance before financial posting is enabled |
+| --- | --- |
+| **07** | Verified sandbox bank/aggregator/transaction source, certified bank-to-GL idempotency and source binding, **real** rejected-replay and timeout/late-ACK evidence; no customer credentials in code |
+| **14** | Accounting owner approves the UNKNOWN, UNPOSTED and DIVERGED human-only decision tree, four distinct user roles for late receipt reconciliation, bank/ledger balance evidence and statutory period controls |
+| **16** | Witnessed two-system recovery (PITR/restore) after intentionally terminated cross-database transaction, side-effect inventory and evidence for both independent systems |
+| **17** | Protected **two separately operated databases/services**, realistic network-cut and reconnect tests (before/after COMMIT, partial write, double dispatch), staged client consent revocation, disabled retries, monitoring/pager |
+| **18** | Independent security and accountant signoff of exactly once GL/journal behavior, source-digest and audit access, race conditions, restore evidence and no premature customer consent unlock |
+
+**Existing feature gates remain OFF:** live posting and fourth-person
+outcome resolution are not activated by the tests or their success.
+The new CI cases do not issue an external financial API call, settle
+a bank deposit or authorize wages, taxes or ledger close.
+`RUN_CHESS_DISTRIBUTED_DB_INTEGRATION=1` and
+`CHESS_FAULT_LEGACY_DATABASE_URL` remain **CI-only disposable database
+settings**, NOT an owner-supplied production credential.
+**No new external credentials, API keys, contracts, approvals, environment
+placeholders, or checklist item 19 are required** for this test-only
+round. Existing 18 groups remain OPEN until signed by independently
+authorized reviewers. See [Round 44 fault matrix](CHESS_CORP_2_ROUND44_FINANCIAL_FAULT_MATRIX.md).
 
 ## Round 43 historical sensitive reads — owner/staging acceptance, no new secrets
 
