@@ -1,6 +1,6 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 46 | Engineering evidence through verified Round 45 CI (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 47 | Final exact-SHA Round 47 CI evidence required (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
@@ -21,6 +21,32 @@ external credentials remain under this one checklist; source-only
 placeholder values are NOT owner approval.
 
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 47 — protected scheduler secret and acceptance (M4/M8)
+
+**Status: OPEN, not independently verified.** Existing owner-supply groups
+**02 (protected environment), 15 (operations monitoring), 17 (staging tests)
+and 18 (independent release review)** now explicitly include the legacy
+KOBIA Vercel scheduler. Supply and keep in the protected target environment
+a **unique, 32+-byte, high-entropy server-only `CRON_SECRET`**. Configure
+it in the Vercel project's protected environment variables for the
+appropriate *reviewed staging* deployment. Vercel Cron sends
+`Authorization: Bearer <CRON_SECRET>` with scheduler invocations; never
+copy the value into Git, chat, a URL, client JavaScript or an example file.
+Rotate with the deployment/operator runbook. Do not reuse Clerk, bank,
+worker, scan or webhook credentials.
+
+Acceptance evidence required: an unauthorized HTTPS call to each scheduled
+route yields 401 (503 with missing/weak secret); no tenant work occurs
+without bearer auth; all 17 authorized staging cron invocations work under
+the configured Vercel scheduler and respect tenant/worker scope; failures,
+rate/abuse patterns, duplicate delivery, idempotency and retry handling are
+reviewed. Normal CI tests only the source and local auth contract; it
+**does not** have this secret or attest live scheduling. Leaving
+`CRON_SECRET` unset deliberately disables all 17 legacy cron routes.
+The rest of the 26 inventoried machine/callback surfaces and 9 public
+capabilities still need separate security review. No new numbered owner
+group is added, and no release gate is cleared.
 
 ## Round 46 protected fictional demo employee/client E2E — remaining owner supply
 

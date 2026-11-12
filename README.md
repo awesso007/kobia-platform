@@ -63,6 +63,29 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS CORP 2 Round 47 — fail-closed legacy machine cron authentication
+
+All **17** `vercel.json` /api/cron handlers now refuse requests without
+the exact server-only `Authorization: Bearer <CRON_SECRET>` credential.
+No configured secret or a key under 32 bytes returns HTTP 503; wrong or
+missing bearer returns 401. The check occurs before tenant iteration or
+side effects. The new ordinary-CI source drift gate rejects unguarded
+scheduled cron GET methods and the Vitest suite checks negative/positive
+machine-auth behavior. This hardening applies **only** to the 17 legacy
+scheduled endpoints, not all 26 historical machine callbacks.
+
+To exercise this in a *separate protected staging project*, the owner must
+supply an independently generated high-entropy `CRON_SECRET` in server
+environment settings and arrange actual Vercel-scheduler and replay/race
+acceptance with monitored operator evidence. **Do not** set it in Git or
+the fictional demo; missing secret intentionally disables scheduling.
+The full historical API security and third-party reviews remain open.
+See [Round 47 audit](docs/CHESS_CORP_2_ROUND47_CRON_AUTH.md),
+[milestone matrix](docs/CHESS_CORP_2_ROADMAP.md) and
+[owner checklist](docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md).
+Draft PR #24 stays unmerged, main and production unchanged; 8/8
+production milestones remain blocked.
+
 ## CHESS CORP 2 Round 46 — additional employee and client fictional-demo browser workflows
 
 Recovered Round 45 final SHA

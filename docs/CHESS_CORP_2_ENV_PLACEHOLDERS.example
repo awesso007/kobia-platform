@@ -64,6 +64,12 @@ CHESS_DOCUMENT_PURGE_EXECUTION_ENABLED=false
 CHESS_DOCUMENT_PURGE_STORAGE_APPROVED=false
 # CHESS_DOCUMENT_PURGE_WORKER_TOKEN=  # vault-only; 32+ characters, distinct from scanner token
 
+# Round 47: legacy Vercel scheduler-only Bearer admission control.
+# CRON_SECRET=                   # 32+ bytes fresh high-entropy secret, server-only.
+# Must be supplied in protected Vercel staging/runtime environment; absence
+# deliberately disables all 17 historical /api/cron routes with HTTP 503.
+# Not a consent/financial approval and not used by CHESS private worker APIs.
+
 # M4: private schedulers and per-staff delegated calendar provider
 CHESS_SCHEDULER_ENABLED=false
 # CHESS_ACTIVE_TENANT_SLUGS=
