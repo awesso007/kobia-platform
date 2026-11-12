@@ -78,6 +78,10 @@ CHESS_BANK_POSTING_ENABLED=false
 CHESS_BANK_POSTING_POLICY_APPROVED=false
 CHESS_BANK_POSTING_BANK_SANDBOX_APPROVED=false
 CHESS_BANK_POSTING_OPERATOR_APPROVED=false
+# Round 41: no-new-journal, independently authorized ambiguous receipt
+# confirmation. Both default-OFF; never enable from a green CI alone.
+CHESS_BANK_OUTCOME_RESOLUTION_ENABLED=false
+CHESS_BANK_OUTCOME_POLICY_APPROVED=false
 
 # M5: payroll source-bound review requires separate approved reviewer/operator
 CHESS_PAYROLL_APPROVAL_REQUESTS_ENABLED=false
