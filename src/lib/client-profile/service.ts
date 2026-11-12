@@ -164,6 +164,21 @@ export async function setClientServiceGrant(
   if (!link) throw new Error("Service link not found in active tenant.");
   await assertBusinessAccess(link.businessId);
   return db.$transaction(async tx => {
+    const [current,subject,liveLink,unit]=await Promise.all([
+      tx.membership.findUnique({where:{clerkUserId:actor.clerkUserId},
+       select:{status:true,role:true}}),
+      tx.membership.findUnique({where:{clerkUserId},
+       select:{status:true,role:true}}),
+      tx.clientServiceLink.findUnique({where:{id:linkId},
+       select:{businessId:true}}),
+      tx.chessBusinessUnit.findUnique({where:{id:link.businessId},
+       select:{status:true}}),
+    ]);
+    if(current?.status!=="ACTIVE"||
+       !["OWNER","ADMIN"].includes(current.role)||
+       subject?.status!=="ACTIVE"||subject.role==="VIEWER"||
+       liveLink?.businessId!==link.businessId||unit?.status!=="ACTIVE")
+      throw new PermissionError("member:manage");
     const grant = await tx.clientServiceGrant.upsert({
       where: { linkId_clerkUserId: { linkId, clerkUserId } },
       create: { linkId, clerkUserId, ...privileges },
@@ -175,7 +190,7 @@ export async function setClientServiceGrant(
       action:"SERVICE_GRANT_UPDATED",resourceType:"ClientServiceGrant",resourceId:grant.id,decision:"ALLOW",
     }});
     return grant;
-  });
+  },{isolationLevel:"Serializable"});
 }
 
 export async function revokeClientServiceGrant(linkId: string, clerkUserId: string) {
