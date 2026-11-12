@@ -63,6 +63,28 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS CORP 2 Round 38 — distributed financial fault simulation
+
+The source-only CI test `distributed-financial-outcome-round38.integration.test.ts`
+uses two **independent disposable PostgreSQL databases** within GitHub's
+isolated test service: a CHESS tenant schema and a separate legacy KOBIA
+ledger. The tests inject lost acknowledgments, pre-commit timeouts, a
+closed-period rollback, an interrupted CHESS receipt write, concurrent
+duplicate attempts and consent withdrawal. They verify that ambiguous
+`EXECUTING/UNKNOWN` bank-classification outcomes do not automatically
+repost a journal or allow consent withdrawal; verified ledger receipts
+are pinned idempotently. Nothing is posted to any real bank.
+
+Use `RUN_CHESS_DISTRIBUTED_DB_INTEGRATION=1` **only with isolated CI**
+and a distinct test-only `CHESS_FAULT_LEGACY_DATABASE_URL`. The normal
+`chess-db-integration` GitHub Actions job provisions these test databases
+and runs the suite. All CHESS financial execution flags are OFF by default.
+See [Round 38 fault matrix](docs/CHESS_CORP_2_ROUND38_FINANCIAL_FAULT_AUDIT.md).
+Actual independent provider outages, immutable receipts, protected
+two-tenant identity tests, independent `UNKNOWN` resolution, recovery
+and licensed/finance approvals remain open. Draft PR #24 must stay unmerged;
+production `main` is unchanged.
+
 ## CHESS CORP 2 Round 37 — historical sensitive-read hardening
 
 On draft PR #24, selected legacy KOBIA accounting exports, mail, document,
