@@ -856,7 +856,7 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
   try{
    await db.chessAppointment.createMany({data:Array.from({length:241},(_,i)=>({
     businessId:unit.id,subject:"Synthetic reminder appointment",
-    assignedClerkUserId:"fictional-employee",
+    assignedClerkUserId:"fictional-employee-"+i,
     createdByClerkUserId:"fictional-calendar-owner",
     startAt:new Date(start.getTime()+((i%59)+1)*60_000),
     endAt:new Date(start.getTime()+((i%59)+2)*60_000),
