@@ -31,9 +31,24 @@ export async function createBusinessUnit(input: unknown) {
   if (!isBusinessAdmin(user.role)) throw new PermissionError("workspace:manage");
   const data = businessUnitInput.parse(input);
   const { db } = getTenantDb();
-  return db.chessBusinessUnit.create({
-    data, select: { id: true, slug: true, name: true, legalName: true, status: true },
-  });
+  // A stale owner/admin browser tab must not create a new unit after role
+  // revocation. Unit creation and its event share the same transaction.
+  return db.$transaction(async tx=>{
+    const current=await tx.membership.findUnique({
+      where:{clerkUserId:user.clerkUserId},select:{status:true,role:true},
+    });
+    if(current?.status!=="ACTIVE"||!isBusinessAdmin(current.role))
+      throw new PermissionError("workspace:manage");
+    const unit=await tx.chessBusinessUnit.create({
+      data,select:{id:true,slug:true,name:true,legalName:true,status:true},
+    });
+    await tx.chessSecurityEvent.create({data:{
+      businessId:unit.id,actorClerkUserId:user.clerkUserId,
+      action:"BUSINESS_UNIT_CREATED",resourceType:"ChessBusinessUnit",
+      resourceId:unit.id,decision:"ALLOW",
+    }});
+    return unit;
+  },{isolationLevel:"Serializable"});
 }
 
 /** Tenant staff see only units assigned to their CURRENT active role.
