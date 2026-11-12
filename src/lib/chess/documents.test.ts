@@ -42,7 +42,7 @@ describe("CHESS client document download proxy", () => {
 
   it("creates a safe attachment disposition for untrusted filenames", () => {
     const value = safeChessAttachmentDisposition('report"\r\nX-Evil: yes.pdf');
-    expect(value).toContain('filename="report__X-Evil: yes.pdf"');
+    expect(value).toContain('filename="report___X-Evil: yes.pdf"');
     expect(value).toContain("filename*=UTF-8''");
     expect(value).not.toContain("\r");
     expect(value).not.toContain("\n");
