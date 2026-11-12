@@ -1,4 +1,5 @@
 import {getTenantDb} from "@/lib/db/get-tenant-db";
+import type {Prisma} from "@/lib/db/generated/tenant";
 import {auditArchiveConfigured,auditArchiveEnvelope,
  postAuditArchive,checkAuditArchive} from "./audit-archive-provider";
 
@@ -80,8 +81,10 @@ export async function runChessAuditArchive(){
  return {disabled:false,queued:unqueued.length,examined:rows.length,
   archived,unresolved,blocked};
 }
-export async function getChessAuditArchiveHealth(){
- const {db}=getTenantDb();
+/** Accept the caller's tenant snapshot to keep an archived-data health read
+ * and its access decision in one audited serializable transaction. */
+export async function getChessAuditArchiveHealth(snapshot?:Prisma.TransactionClient){
+ const db=snapshot??getTenantDb().db;
  const [pending,unknown,archived,rejected,unqueued]=await Promise.all([
   db.chessAuditArchiveOutbox.count({where:{status:{in:["PENDING","SUBMITTING"]}}}),
   db.chessAuditArchiveOutbox.count({where:{status:"UNKNOWN"}}),
