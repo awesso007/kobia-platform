@@ -21,10 +21,11 @@ describe("Round 47: machine cron authorization", () => {
   it("accepts only an exact Vercel Bearer secret", () => {
     expect(cronAuthorizationDecision(request(`Bearer ${secret}`), secret)).toBe("AUTHORIZED");
     expect(requireKobiaCronAuth(request(`Bearer ${secret}`), secret)).toBeNull();
+    // Request Headers normalizes outer whitespace, so use altered internal separators.
     for (const candidate of [
       undefined, "", `Bearer ${secret}x`, `Bearer ${secret.slice(0, -1)}`,
       `Basic ${secret}`, `bearer ${secret}`, secret,
-      `Bearer  ${secret}`, `Bearer${secret}` // HTTP Headers normalizes trailing whitespace; test missing separator,
+      `Bearer  ${secret}`, `Bearer${secret}`,
     ]) {
       expect(cronAuthorizationDecision(request(candidate), secret)).toBe("UNAUTHORIZED");
     }
