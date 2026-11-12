@@ -4,6 +4,7 @@ import {claimChessRateWindow,ChessRateLimitError,chessRateSubject,chessRateWindo
 import {auditedClientServiceRead} from "@/lib/client-profile/service-access-audit";
 import {claimChessAiDailyCall} from "./ai-daily-budget";
 import {auditedChessSensitiveRead} from "./sensitive-read-audit";
+import {scanChessWorkerPages} from "./worker-pages";
 
 const integration=process.env.RUN_CHESS_DB_INTEGRATION==="1"?describe:describe.skip;
 integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
@@ -843,6 +844,51 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
    }})).toBe(2);
   }finally{
    await db.chessActionApproval.deleteMany({where:{businessId}});
+  }
+ });
+
+ it("scans more than 200 eligible appointments in stable cursor order without missing a staff reminder",async()=>{
+  const suffix=Date.now().toString(36);
+  const unit=await db.chessBusinessUnit.create({data:{
+   slug:"appointment-page-"+suffix,name:"Fictional paginated calendar unit",
+  }});
+  const start=new Date("2026-12-05T12:00:00Z");
+  try{
+   await db.chessAppointment.createMany({data:Array.from({length:241},(_,i)=>({
+    businessId:unit.id,subject:"Synthetic reminder appointment",
+    assignedClerkUserId:"fictional-employee",
+    createdByClerkUserId:"fictional-calendar-owner",
+    startAt:new Date(start.getTime()+((i%59)+1)*60_000),
+    endAt:new Date(start.getTime()+((i%59)+2)*60_000),
+   }))});
+   await db.chessAppointment.create({data:{
+    businessId:unit.id,subject:"Cancelled synthetic appointment",
+    assignedClerkUserId:"fictional-employee",
+    createdByClerkUserId:"fictional-calendar-owner",
+    status:"CANCELLED",
+    startAt:new Date(start.getTime()+15*60_000),
+    endAt:new Date(start.getTime()+16*60_000),
+   }});
+   const seen:string[]=[];
+   const load=async(afterId:string|null,take:number)=>db.chessAppointment.findMany({
+    where:{businessId:unit.id,status:"SCHEDULED",
+     startAt:{gte:start,lt:new Date(start.getTime()+60*60_000)}},
+    select:{id:true},
+    orderBy:[{startAt:"asc"},{id:"asc"}],take,
+    ...(afterId?{cursor:{id:afterId},skip:1}:{}),
+   });
+   const result=await scanChessWorkerPages(load,async rows=>{
+    seen.push(...rows.map(row=>row.id));return rows.length;
+   },{pageSize:75,maxPages:8});
+   expect(result).toEqual({examined:241,inserted:241,backlog:false});
+   expect(new Set(seen).size).toBe(241);
+   const bounded=await scanChessWorkerPages(load,async rows=>rows.length,{
+    pageSize:75,maxPages:2,
+   });
+   expect(bounded).toEqual({examined:150,inserted:150,backlog:true});
+  }finally{
+   await db.chessAppointment.deleteMany({where:{businessId:unit.id}});
+   await db.chessBusinessUnit.delete({where:{id:unit.id}});
   }
  });
 
