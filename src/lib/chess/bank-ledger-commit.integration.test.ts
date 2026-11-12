@@ -1,6 +1,7 @@
 import {beforeAll,afterAll,describe,it,expect} from "vitest";
 import {PrismaClient} from "@prisma/client";
 import {commitLegacyBankClassification} from "./bank-ledger-commit";
+import {reconcileLegacyChessPosting} from "./bank-ledger-reconcile";
 const integration=process.env.RUN_CHESS_LEGACY_DB_INTEGRATION==="1"?describe:describe.skip;
 
 integration("legacy ledger atomic CHESS classification in isolated PostgreSQL",()=>{
@@ -45,6 +46,19 @@ integration("legacy ledger atomic CHESS classification in isolated PostgreSQL",(
   expect(won).toHaveLength(1);
   expect(competing.filter(r=>r.status==="rejected")).toHaveLength(1);
   const jeId=won[0]!.value;
+  const reconciled=await reconcileLegacyChessPosting(db,{
+   tenantId:tenant.id,entityId:entity.id,bankTransactionId:txn.id,
+   sourceRefId:draft.sourceRefId,
+  });
+  expect(reconciled).toEqual({
+   status:"MATCHED_POSTED",journalEntryId:jeId,
+   bankSettled:false,requiresIndependentReview:false,
+  });
+  expect(await reconcileLegacyChessPosting(db,{
+   tenantId:tenant.id,entityId:entity.id,bankTransactionId:txn.id,
+   sourceRefId:"chess-bank-review:unrelated",
+  })).toMatchObject({status:"DIVERGED",
+   journalEntryId:null,requiresIndependentReview:true});
   const [posted,after,cash,income]=await Promise.all([
    db.journalEntry.findUnique({where:{id:jeId},include:{lines:true}}),
    db.bankTransaction.findUnique({where:{id:txn.id}}),
@@ -88,6 +102,10 @@ integration("legacy ledger atomic CHESS classification in isolated PostgreSQL",(
    tenantId:tenant.id,bankAccountId:bank.id,postedDate,
    description:"Fictional debit",dedupHash:"closed-"+tenant.id,amountCents:-2500n,
   }});
+  expect(await reconcileLegacyChessPosting(db,{
+   tenantId:tenant.id,entityId:entity.id,bankTransactionId:txn.id,
+   sourceRefId:"chess-bank-review:closed-"+tenant.id,
+  })).toMatchObject({status:"UNPOSTED",bankSettled:false});
   await expect(commitLegacyBankClassification(db,{
    tenantId:tenant.id,entityId:entity.id,
    bankTransactionId:txn.id,bankAccountId:bank.id,
