@@ -19,6 +19,10 @@ const shortcuts: Shortcut[] = [
   { title: "Projects", description: "Coordinate team work", href: "/app/projects" },
   { title: "Documents", description: "Organize working documents", href: "/app/documents" },
   { title: "Calendar", description: "Appointments and scheduled work", href: "/app/calendar" },
+  { title: "CHESS work items", description: "Assigned work and calendar consent", href: "/app/work-items" },
+  { title: "Finance operations", description: "Approved accounting, payroll and tax service cases", href: "/app/finance-operations" },
+  { title: "Security assurance", description: "Audit-archive and worker exceptions (owner/admin)", href: "/app/security-operations" },
+  { title: "Service billing", description: "Invoice approval and merchant observations", href: "/app/service-billing" },
 ];
 
 function ShortcutCard({ title, description, href }: Shortcut) {
@@ -74,7 +78,7 @@ export default async function OperationsOverviewPage() {
             <p className="mt-2 text-sm text-slate-600">Open your assigned work in the current company workspace.</p>
           </header>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {shortcuts.filter((item) => ["Tasks", "Calendar", "Projects"].includes(item.title)).map((item) => <ShortcutCard key={item.href} {...item} />)}
+            {shortcuts.filter((item) => ["Tasks", "Calendar", "Projects", "CHESS work items"].includes(item.title)).map((item) => <ShortcutCard key={item.href} {...item} />)}
           </div>
         </div>
       );

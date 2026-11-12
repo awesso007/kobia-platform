@@ -3,8 +3,8 @@ import {PermissionError} from "@/lib/rbac/require-permission";
 
 type SensitiveReadContext={
  businessId?:string;actorClerkUserId:string;
- action:"REGULATED_WORKFLOW_READ"|"BANK_REVIEW_DETAILS_READ"|"OPERATIONS_PORTFOLIO_READ";
- resourceType:"ChessServiceCase"|"ChessOperationsPortfolio";resourceId:string;
+ action:"REGULATED_WORKFLOW_READ"|"BANK_REVIEW_DETAILS_READ"|"OPERATIONS_PORTFOLIO_READ"|"SECURITY_OPERATIONS_READ";
+ resourceType:"ChessServiceCase"|"ChessOperationsPortfolio"|"ChessSecurityEvent";resourceId:string;
 };
 /** Privacy-minimal record-access outcome. No names, properties, amounts,
  * document keys or raw service payloads are persisted in the audit. */
