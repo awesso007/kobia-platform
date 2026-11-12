@@ -1,6 +1,7 @@
 import Link from "next/link";
 import OperationsClient from "../operations-intelligence/OperationsClient";
 import {listBusinessUnits} from "@/lib/chess/business-units";
+import {selectChessWorkspace} from "@/lib/chess/workspace-selection";
 import {listChessInvoices,listChessBillableCases} from "@/lib/chess/billing";
 import {billingProviderConfigured} from "@/lib/chess/billing-provider";
 import {merchantWebhookConfigured,listChessMerchantObservations}
@@ -15,8 +16,20 @@ export default async function ServiceBillingPage({searchParams}:{
 }){
  try{
   const units=await listBusinessUnits();
-  const selected=units.find(u=>u.id===searchParams.businessId)??units[0];
-  if(!selected)return <main role="status">No active billing business unit available.</main>;
+  const workspace=selectChessWorkspace(units,searchParams.businessId);
+  if(workspace.status!=="READY")return <main role="status"
+   className="mx-auto max-w-4xl space-y-3 p-8">
+   <h1 className="text-2xl font-semibold">Billing workspace unavailable</h1>
+   <p className="text-sm text-slate-700">
+    {workspace.status==="UNAVAILABLE"?
+     "The requested business is not available to your current role. No other business was selected.":
+     "No active billing business unit is available."}
+   </p>
+   <Link href="/app/chess-desk" className="text-sm font-semibold text-emerald-800 underline">
+    Return to service desk
+   </Link>
+  </main>;
+  const selected=workspace.selected;
   const [invoices,cases,merchantEvents,plans]=await Promise.all([
    listChessInvoices(selected.id),listChessBillableCases(selected.id),
    listChessMerchantObservations(selected.id),
