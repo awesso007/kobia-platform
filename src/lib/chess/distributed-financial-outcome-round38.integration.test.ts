@@ -279,4 +279,78 @@ integration("Round 38 distributed outcome faults on two separate Postgres databa
     expect(after.journals).toHaveLength(0);
     await expect(reserveChessBankPostingAttempt(tenantDb,f.reservation)).rejects.toThrow();
   });
+  // Round 44: test true Postgres state transitions across two disposable
+  // DATABASES, not real provider payments or multi-cluster network failures.
+  it("reservation acknowledgment timeout is safely repeatable without duplicate attempts or audit receipts",async()=>{
+    const f=await fixture("reserve-ack");
+    const first=await reserveChessBankPostingAttempt(tenantDb,f.reservation);
+    expect(first.status).toBe("RESERVED");
+    // The first tenant transaction committed but its HTTP acknowledgment was lost.
+    await expect((async()=>{throw new Error("SYNTHETIC_RESERVATION_ACK_TIMEOUT");})())
+      .rejects.toThrow("SYNTHETIC_RESERVATION_ACK_TIMEOUT");
+    const retries=await Promise.all([
+      reserveChessBankPostingAttempt(tenantDb,f.reservation),
+      reserveChessBankPostingAttempt(tenantDb,f.reservation),
+    ]);
+    expect(retries.map(x=>x.id)).toEqual([first.id,first.id]);
+    expect(await tenantDb.chessFinancialAttempt.count({
+      where:{sourceRefId:f.reservation.sourceRefId},
+    })).toBe(1);
+    expect(await tenantDb.chessSecurityEvent.count({
+      where:{resourceType:"ChessFinancialAttempt",resourceId:first.id,
+        action:"BANK_POSTING_ATTEMPT_RESERVED"},
+    })).toBe(1);
+    expect((await f.receipts()).journals).toHaveLength(0);
+    expect((await f.read()).status).toBe("UNPOSTED");
+  },15000);
+
+  it("simultaneous duplicate legacy commits post exactly one double-entry journal and never retry the ambiguous attempt",async()=>{
+    const f=await fixture("dupe-commit");
+    const attempt=await start(f);
+    const results=await Promise.allSettled([
+      commitLegacyBankClassification(ledgerDb,f.posting),
+      commitLegacyBankClassification(ledgerDb,f.posting),
+    ]);
+    const posted=results.filter((x):x is PromiseFulfilledResult<string>=>x.status==="fulfilled");
+    expect(posted).toHaveLength(1);
+    expect(results.filter(x=>x.status==="rejected")).toHaveLength(1);
+    const journalId=posted[0]!.value;
+    await markChessBankPostingAttemptUnknown(tenantDb,attempt.id,f.actor);
+    expect(await startChessBankPostingAttempt(tenantDb,attempt.id,f.actor)).toBe(false);
+    await expect(commitLegacyBankClassification(ledgerDb,f.posting)).rejects.toThrow();
+    const observed=await f.read();
+    expect(observed).toMatchObject({
+      status:"MATCHED_POSTED",journalEntryId:journalId,bankSettled:false,
+    });
+    const after=await f.receipts();
+    expect(after.tenant?.status).toBe("UNKNOWN");
+    expect(after.journals).toHaveLength(1);
+    expect(after.journals[0]?.lines).toHaveLength(2);
+    expect(after.cash?.balanceCents).toBe(f.posting.amountCents);
+    expect(after.income?.balanceCents).toBe(f.posting.amountCents);
+    await expect(withdraw(f)).rejects.toThrow();
+  },15000);
+
+  it("different retry fingerprint or source reference cannot hijack an existing financial reservation",async()=>{
+    const f=await fixture("fingerprint");
+    const attempt=await reserveChessBankPostingAttempt(tenantDb,f.reservation);
+    await expect(reserveChessBankPostingAttempt(tenantDb,{
+      ...f.reservation,sourceDigest:"d".repeat(64),
+    })).rejects.toThrow();
+    await expect(reserveChessBankPostingAttempt(tenantDb,{
+      ...f.reservation,legacyBankTransactionId:"fictional-unrelated-bank-row",
+    })).rejects.toThrow();
+    await expect(reserveChessBankPostingAttempt(tenantDb,{
+      ...f.reservation,sourceRefId:f.reservation.sourceRefId+"-different",
+    })).rejects.toThrow();
+    const after=await f.receipts();
+    expect(after.tenant?.id).toBe(attempt.id);
+    expect(after.tenant?.sourceDigest).toBe(f.reservation.sourceDigest);
+    expect(await tenantDb.chessFinancialAttempt.count({
+      where:{consentId:f.consent.id},
+    })).toBe(1);
+    expect(after.journals).toHaveLength(0);
+    expect(after.bank?.status).toBe("UNMATCHED");
+  },15000);
+
 });
