@@ -5,6 +5,7 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
 import { getAuthContext, type AuthContext } from "@/lib/auth";
+import {db} from "@/lib/db";
 
 export type CreateContextOptions = {
   tenantSlug: string;
@@ -41,4 +42,32 @@ const enforceAuth = t.middleware(({ ctx, next }) => {
   return next({ ctx: { ...ctx, auth: ctx.auth as AuthContext } });
 });
 
-export const protectedProcedure = t.procedure.use(enforceAuth);
+/** Audits every successful protected tRPC query before its result leaves the
+ * procedure. Public tenant.bySlug branding is intentionally outside this
+ * private-read boundary. This is an after-query fail-closed release gate:
+ * it does not make an arbitrary legacy SELECT share the audit transaction. */
+const auditProtectedQuery = t.middleware(async ({ctx,path,type,next})=>{
+ const result=await next();
+ if(type!=="query"||!result.ok)return result;
+ if(!ctx.auth)throw new TRPCError({code:"UNAUTHORIZED"});
+ try{
+  await db.$transaction(async tx=>{
+   const membership=await tx.membership.findUnique({where:{
+    userId_tenantId:{userId:ctx.auth!.user.id,tenantId:ctx.auth!.tenant.id},
+   },select:{isActive:true}});
+   if(!membership?.isActive)
+    throw new TRPCError({code:"FORBIDDEN"});
+   await tx.auditLog.create({data:{
+    tenantId:ctx.auth!.tenant.id,userId:ctx.auth!.user.id,
+    action:"HISTORICAL_TRPC_PROTECTED_QUERY_READ",
+    entityType:"TRPC_PROCEDURE",entityId:path,
+   }});
+  },{isolationLevel:"Serializable"});
+ }catch{
+  throw new TRPCError({code:"INTERNAL_SERVER_ERROR",
+   message:"Protected query audit unavailable"});
+ }
+ return result;
+});
+
+export const protectedProcedure = t.procedure.use(enforceAuth).use(auditProtectedQuery);
