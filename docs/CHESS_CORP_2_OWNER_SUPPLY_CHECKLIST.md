@@ -1,6 +1,6 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 35 | Engineering evidence through Round 34 baseline (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 36 | Engineering evidence through Round 35 baseline (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
@@ -13,7 +13,7 @@ Prior checkpoints: Round 31
 and Round 32
 [`ac9123aa` / run 43174744357](https://github.com/awesso007/kobia-platform/actions/runs/43174744357).
 All three normal jobs test source and disposable PostgreSQL only.
-**Round 34 documentation head `6d241a2a0efdad2cd3e0494d7f859cf1f79169c0` passed 3/3 normal CI jobs in [run 43179174988](https://github.com/awesso007/kobia-platform/actions/runs/43179174988). Round 35 engineering commits need their own exact-final-head check.**
+**Round 34 documentation head `6d241a2a0efdad2cd3e0494d7f859cf1f79169c0` passed 3/3 normal CI jobs in [run 43179174988](https://github.com/awesso007/kobia-platform/actions/runs/43179174988). Round 35 final `d0b0677b25d862959c4a490340bf3cd904d63200` passed 3/3 normal CI jobs in [run 43184184877](https://github.com/awesso007/kobia-platform/actions/runs/43184184877). Round 36 needs its own exact-final-head CI verification.**
 No protected, real Clerk authenticated browser/axe, private staging,
 vendor settlement, WORM/PITR restore or independent legal/security signoff
 is proven by normal CI. No outside credential was newly required by
@@ -22,6 +22,19 @@ their responsible owner/contracting professional supplies and approves
 the required inputs. Source changes are recorded in
 [the authoritative Round 35 M1–M8 milestone matrix](CHESS_CORP_2_ROADMAP.md).
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 36 legacy KOBIA tax-export privacy evidence (no new secret)
+
+The 1099-NEC/MISC CSV exports now require current owner/admin/accountant
+role, active tenant/entity, a SERIALIZABLE read-and-legacy-audit transaction,
+and no-store responses. Existing **02,03,04,15,17,18** require a
+protected staging test of role revocation, foreign-tenant entities,
+WORM/immutable external archive delivery and independent privacy review;
+normal CI cannot demonstrate these. The legacy database AuditLog is NOT
+WORM evidence, and this work does not cover other historical ledger exports.
+See [Round 36 audit](CHESS_CORP_2_ROUND36_LEGACY_TAX_EXPORT_AUDIT.md).
+There are **no newly required credentials, feature flags, contracts or
+owner-supply groups**; the numbered 01–18 checklist stays OPEN.
 
 ## Round 35 implementation-to-owner acceptance delta (no new secret)
 
