@@ -39,7 +39,7 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
   listChessEmployeeAlerts(selected.id).catch(()=>null),
   getChessManagerQueue(selected.id).catch(()=>null),
   listChessRecurrences(selected.id).catch(()=>null),
-  getMyCalendarPreference().catch(()=>({enabled:false,appointmentsEnabled:false,acknowledgedAt:null})),
+  getMyCalendarPreference().catch(()=>null),
   listChessAppointments(selected.id).catch(()=>null),
   listChessAssignableStaff(selected.id).catch(()=>null),
   getChessWorkerHealth().catch(()=>null),
@@ -76,9 +76,13 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
   </section>
   <section className="space-y-3">
    <h2 className="text-xl font-semibold">Calendar sharing</h2>
-   <CalendarConsent initialEnabled={calendarPreference.enabled}
+   {calendarPreference?<><CalendarConsent initialEnabled={calendarPreference.enabled}
     initialAppointmentsEnabled={calendarPreference.appointmentsEnabled}/>
-   <DelegatedCalendarConnection/>
+    <DelegatedCalendarConnection/></>:
+    <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+     Calendar sharing settings could not be verified. No Off or On state can be assumed.
+     Try reloading this workspace before changing sharing preferences.
+    </p>}
   </section>
   <section className="space-y-3">
    <h2 className="text-xl font-semibold">My notifications</h2>
