@@ -1,6 +1,6 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 37 | Engineering evidence through Round 36 CI baseline (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 38 | Engineering evidence through Round 37 CI baseline (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
@@ -22,6 +22,26 @@ their responsible owner/contracting professional supplies and approves
 the required inputs. Source changes are recorded in
 [the authoritative Round 35 M1–M8 milestone matrix](CHESS_CORP_2_ROADMAP.md).
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 38 cross-database financial outcome acceptance (no new vendor credential)
+
+The new isolated-CI finance fault suite uses two **disposable PostgreSQL
+database names** on one GitHub test service. The `CHESS_FAULT_LEGACY_DATABASE_URL`
+variable is provided **only by CI** for fictional records. It is NOT a new
+production credential or owner obligation. See
+[Round 38 fault matrix](CHESS_CORP_2_ROUND38_FINANCIAL_FAULT_AUDIT.md).
+
+Existing owner-supply groups **07,14,16,17,18** remain OPEN: arrange two
+independently operated protected staging database services, approved
+3-distinct-person operator/reviewer identities, real consent-withdrawal
+and audit-outage races, observed network loss **before and after** legacy
+COMMIT, provider retry/idempotency evidence, independent UNKNOWN resolution,
+reconciled bank and GL receipts, disaster-recovery PITR rehearsal and signed
+finance/security authorization. In particular, a clean `UNPOSTED`
+reconciliation after a tenant `UNKNOWN` state must not trigger an
+automatic ledger retry. A green simulated test is no substitute for a
+witnessed settlement and recovery drill. All four CHESS bank-posting
+activation flags remain false and no live bank or payroll service is enabled.
 
 ## Round 37 historical KOBIA sensitive-read hardening — owner evidence
 
