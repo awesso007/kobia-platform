@@ -5,9 +5,9 @@
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
-import type { PrismaClient, FormV2, FormStep, FormField } from "@/lib/db/generated/tenant";
+import type { Prisma, PrismaClient, FormV2, FormStep, FormField } from "@/lib/db/generated/tenant";
 
-type Db = PrismaClient;
+type Db = PrismaClient | Prisma.TransactionClient;
 
 export type FormSummary = {
   id: string;
