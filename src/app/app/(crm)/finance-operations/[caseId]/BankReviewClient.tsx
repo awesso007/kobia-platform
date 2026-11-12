@@ -7,21 +7,29 @@ type Transaction={
  id:string;postedDate:string;description:string;amountCents:string;
  bankAccountId:string;
 };
+type PostingPreview={
+ reviewId:string;transactionDigest:string;bankTransactionId:string;
+ lines:{accountId:string;debitCents:string;creditCents:string}[];
+ totalDebitCents:string;totalCreditCents:string;postedToLedger:false;
+};
 type Review={
  id:string;status:string;legacyBankTransactionId:string;
  suggestedAccountId:string|null;approvedAccountId:string|null;
  confidenceBasisPoints:number|null;updatedAt:string;
 };
 export default function BankReviewClient({
- businessId,clientProfileId,serviceCaseId,service,transactions,accounts,reviews,
+ businessId,clientProfileId,serviceCaseId,service,transactions,accounts,reviews,postingEnabled,
 }:{businessId:string;clientProfileId:string;serviceCaseId:string;
  service:"ACCOUNTING"|"BOOKKEEPING";transactions:Transaction[];
- accounts:Account[];reviews:Review[]}){
+ accounts:Account[];reviews:Review[];postingEnabled:boolean}){
  const router=useRouter();
  const [choices,setChoices]=useState<Record<string,string>>({});
  const [busy,setBusy]=useState<string|null>(null);
  const [error,setError]=useState("");
  const [notice,setNotice]=useState("");
+ const [prepared,setPrepared]=useState<PostingPreview|null>(null);
+ const [typedConfirmation,setTypedConfirmation]=useState("");
+ const [attested,setAttested]=useState(false);
  const prior=new Map(reviews.map(r=>[r.legacyBankTransactionId,r]));
  async function send(url:string,method:"POST"|"PATCH",body:unknown){
   const response=await fetch(url,{
@@ -63,6 +71,7 @@ export default function BankReviewClient({
   finally{setBusy(null);}
  }
  async function preview(review:Review){
+  setPrepared(null);setTypedConfirmation("");setAttested(false);
   setBusy(review.id);setError("");setNotice("");
   try{
    const query=new URLSearchParams({businessId,clientProfileId,
@@ -73,12 +82,11 @@ export default function BankReviewClient({
    if(!response.ok)throw new Error(response.status===403?
     "A third independent authorized owner/admin with current client consent is required.":
     "The bank transaction or approved review is no longer eligible for a preview.");
-   const result=await response.json() as {
-    lines:{accountId:string;debitCents:string;creditCents:string}[];
-    totalDebitCents:string;totalCreditCents:string;postedToLedger:false;
-   };
-   if(result.postedToLedger!==false || result.lines.length!==2)
+   const result=await response.json() as Omit<PostingPreview,"reviewId">;
+   if(result.postedToLedger!==false || result.lines.length!==2||
+    !/^[a-f0-9]{64}$/.test(result.transactionDigest))
     throw new Error("Unexpected posting preview response.");
+   setPrepared({...result,reviewId:review.id});
    setNotice("READ-ONLY balanced journal proposal: "+
     result.lines.map(l=>"account "+l.accountId+" debit "+l.debitCents+
      " / credit "+l.creditCents+" cents").join("; ")+
@@ -87,10 +95,40 @@ export default function BankReviewClient({
   }catch(e){setError(e instanceof Error?e.message:"Preview unavailable.");}
   finally{setBusy(null);}
  }
+
+ async function post(review:Review){
+  const plan=prepared;
+  if(!postingEnabled||!plan||plan.reviewId!==review.id||!attested||
+   typedConfirmation!=="POST LEDGER ENTRY"||busy!==null)return;
+  setBusy(review.id);setError("");setNotice("");
+  try{
+   const response=await fetch("/api/chess/bank-posting",{
+    method:"POST",credentials:"same-origin",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({businessId,clientProfileId,serviceCaseId,service,
+     reviewId:review.id,expectedTransactionDigest:plan.transactionDigest}),
+   });
+   if(!response.ok)throw new Error(response.status===403?
+    "Posting rejected. Verify current approvals, assignment, consent, period and ledger mapping.":
+    "Posting outcome is not confirmed. Do not resubmit blindly; inspect the bank source and ledger journal first.");
+   const posted=await response.json() as {
+    postedToLedger:boolean;journalEntryId:string;replay:boolean;bankSettled:boolean;
+   };
+   if(posted.postedToLedger!==true||typeof posted.journalEntryId!=="string")
+    throw new Error("Posting receipt is incomplete; verify the ledger before retrying.");
+   setPrepared(null);setTypedConfirmation("");setAttested(false);
+   setNotice("Ledger posting "+(posted.replay?"already recorded":"recorded")+
+    ". Journal "+posted.journalEntryId+
+    ". Bank settlement and statement reconciliation are NOT confirmed.");
+   router.refresh();
+  }catch(e){setError(e instanceof Error?e.message:"Outcome unknown. Check the ledger before retrying.");}
+  finally{setBusy(null);}
+ }
  return <section className="space-y-4">
   <h2 className="text-xl font-semibold">Bank transaction categorization</h2>
   <p className="text-sm text-slate-600">Existing unmatched ledger transactions only.
-   Suggestions and approvals do not post an accounting entry.</p>
+   Suggestions and approvals do not post an accounting entry.
+   Financial execution is separately approved and disabled by default.</p>
   {error&&<p role="alert" className="rounded-lg border border-red-200 p-3 text-sm text-red-800">{error}</p>}
   {notice&&<p role="status" className="rounded-lg border border-emerald-200 p-3 text-sm text-emerald-800">{notice}</p>}
   {transactions.length===0?<p className="text-sm text-slate-600">No unmatched transactions available.</p>:
@@ -124,6 +162,51 @@ export default function BankReviewClient({
        className="rounded-md border border-blue-600 px-3 py-2 text-sm font-semibold text-blue-800 disabled:opacity-40">
        Preview balanced entry (no posting)
       </button>}
+      {postingEnabled&&review?.status==="APPROVED"&&prepared?.reviewId===review.id&&
+       <section aria-label="Independent ledger posting confirmation"
+        className="mt-3 space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4">
+        <h4 className="text-sm font-semibold text-amber-950">
+         Financial posting: third independent operator
+        </h4>
+        <p className="text-xs leading-5 text-amber-900">
+         Review both journal lines. The bank source fingerprint is bound to
+         this preview. Approval does not prove deposit settlement,
+         final reconciliation, or valid tax treatment. This action changes
+         the legacy general ledger and cannot be casually undone.
+        </p>
+        <table className="w-full text-left text-xs">
+         <thead><tr><th className="py-1">GL account</th>
+          <th className="py-1 text-right">Debit (cents)</th>
+          <th className="py-1 text-right">Credit (cents)</th></tr></thead>
+         <tbody>{prepared.lines.map((line,index)=><tr key={line.accountId+"-"+index}>
+          <td className="py-1">{accounts.find(a=>a.id===line.accountId)?.name??line.accountId}</td>
+          <td className="py-1 text-right">{line.debitCents}</td>
+          <td className="py-1 text-right">{line.creditCents}</td>
+         </tr>)}</tbody>
+         <tfoot><tr className="border-t font-semibold">
+          <td>Total</td><td className="text-right">{prepared.totalDebitCents}</td>
+          <td className="text-right">{prepared.totalCreditCents}</td>
+         </tr></tfoot>
+        </table>
+        <label className="flex items-start gap-2 text-xs text-amber-950">
+         <input type="checkbox" checked={attested}
+          onChange={e=>setAttested(e.target.checked)}/>
+         I am the third independent authorized operator. I checked the
+         review, account mapping, current client consent and accounting period.
+        </label>
+        <label className="block text-xs font-semibold text-amber-950">
+         Type POST LEDGER ENTRY to confirm
+         <input value={typedConfirmation}
+          onChange={e=>setTypedConfirmation(e.target.value)}
+          className="mt-1 block w-full max-w-sm rounded border border-amber-300 p-2"/>
+        </label>
+        <button type="button" disabled={busy!==null||!attested||
+         typedConfirmation!=="POST LEDGER ENTRY"}
+         onClick={()=>void post(review)}
+         className="rounded-md bg-amber-900 px-3 py-2 text-sm font-semibold text-white disabled:opacity-40">
+         Post approved journal to ledger
+        </button>
+       </section>}
       {review?.status==="PENDING"&&<>
        <button disabled={busy!==null} onClick={()=>decide(review,"APPROVED")}
         className="rounded-md border border-emerald-700 px-3 py-2 text-sm font-semibold text-emerald-800 disabled:opacity-40">

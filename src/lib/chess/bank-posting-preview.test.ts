@@ -20,6 +20,7 @@ describe("CHESS M5 independent bank posting preview",()=>{
     {accountId:"income",debitCents:"0",creditCents:"12055"},
    ],
    totalDebitCents:"12055",totalCreditCents:"12055",postedToLedger:false,
+   transactionDigest:digest,
   });
   const out=createBankPostingPreview(review,{...src,amountCents:-12055n},actor);
   expect(out.lines).toEqual([

@@ -7,6 +7,7 @@ import {isUsableConsent} from "@/lib/chess/onboarding";
 import {listChessBankReviews,listChessBankReviewCandidates} from "@/lib/chess/bank-review";
 import {listChessTaxWorkpapers} from "@/lib/chess/tax-workpapers";
 import BankReviewClient from "./BankReviewClient";
+import {chessBankPostingEnabled} from "@/lib/chess/bank-posting-gate";
 import {listChessServiceDocuments} from "@/lib/chess/documents";
 import ServiceDocumentPanel from "../../client-documents/ServiceDocumentPanel";
 import {documentLifecycleEnabled} from "@/lib/chess/document-lifecycle";
@@ -67,6 +68,13 @@ export default async function ChessFinanceCasePage({
     content=<BankReviewClient businessId={businessId}
      clientProfileId={record.clientProfileId} serviceCaseId={record.id}
      service={record.service} accounts={candidates.accounts}
+     postingEnabled={!!canMap&&process.env.CHESS_DEMO_MODE!=="true"&&
+      chessBankPostingEnabled({
+       CHESS_BANK_POSTING_ENABLED:process.env.CHESS_BANK_POSTING_ENABLED,
+       CHESS_BANK_POSTING_POLICY_APPROVED:process.env.CHESS_BANK_POSTING_POLICY_APPROVED,
+       CHESS_BANK_POSTING_BANK_SANDBOX_APPROVED:process.env.CHESS_BANK_POSTING_BANK_SANDBOX_APPROVED,
+       CHESS_BANK_POSTING_OPERATOR_APPROVED:process.env.CHESS_BANK_POSTING_OPERATOR_APPROVED,
+      })}
      transactions={candidates.transactions.map(t=>({
       ...t,postedDate:t.postedDate.toISOString(),
      }))}

@@ -25,6 +25,7 @@ export type BankPostingPreview = {
  totalDebitCents: string;
  totalCreditCents: string;
  postedToLedger: false;
+ transactionDigest:string;
 };
 export class BankPostingPreviewError extends Error {
  constructor(){
@@ -70,5 +71,6 @@ export function createBankPostingPreview(
   offsetGlAccountId:review.approvedAccountId,
   lines:[bank,offset],
   totalDebitCents:amount,totalCreditCents:amount,postedToLedger:false,
+  transactionDigest:source.fingerprint,
  };
 }
