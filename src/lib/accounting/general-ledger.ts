@@ -12,6 +12,7 @@
  */
 import type { AccountType, EntrySource, EntryStatus } from "@prisma/client";
 import { db } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 import { normalBalanceSign } from "./ledger";
 
 export interface GLLine {
@@ -49,10 +50,12 @@ export async function buildGeneralLedger(args: {
   accountId: string;
   startDate: Date;
   endDate: Date;
+  client?: Prisma.TransactionClient;
 }): Promise<GLAccount | null> {
   const { tenantId, entityId, accountId, startDate, endDate } = args;
+  const client = args.client ?? db;
 
-  const account = await db.account.findFirst({
+  const account = await client.account.findFirst({
     where: { id: accountId, tenantId, entityId },
     select: { id: true, code: true, name: true, type: true },
   });
@@ -61,7 +64,7 @@ export async function buildGeneralLedger(args: {
   const sign = normalBalanceSign(account.type);
 
   // Opening balance: sum of all lines before startDate (POSTED only)
-  const priorAgg = await db.journalLine.aggregate({
+  const priorAgg = await client.journalLine.aggregate({
     where: {
       tenantId,
       accountId,
@@ -79,7 +82,7 @@ export async function buildGeneralLedger(args: {
     sign === 1 ? priorDebit - priorCredit : priorCredit - priorDebit;
 
   // Range lines (POSTED only)
-  const rangeLines = await db.journalLine.findMany({
+  const rangeLines = await client.journalLine.findMany({
     where: {
       tenantId,
       accountId,
