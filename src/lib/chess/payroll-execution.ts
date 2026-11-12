@@ -15,6 +15,13 @@ const request=z.object({
  approvalId:z.string().min(1).max(128),
 }).strict();
 
+/** The requester, administrator reviewer and actual payroll operator must
+ * be three separate active human identities. No review is an execution grant. */
+export function payrollHasIndependentActors(requester:string,reviewer:string|null,operator:string):boolean{
+ return !!requester&&!!reviewer&&!!operator&&
+  new Set([requester,reviewer,operator]).size===3;
+}
+
 /** Only a different authorized reviewer may approve a specific, posted run.
  * Provider-side employee, bank and tax readiness checks are mandatory. */
 export async function executeChessPayroll(input:unknown) {
@@ -71,7 +78,8 @@ export async function executeChessPayroll(input:unknown) {
   payloadDigest:digest,status:"APPROVED",NOT:{requestedBy:actor.clerkUserId},
   reviewedBy:{not:null},
  }});
- if(!approval || approval.reviewedBy===approval.requestedBy)
+ if(!approval || !payrollHasIndependentActors(
+  approval.requestedBy,approval.reviewedBy,actor.clerkUserId))
   throw new PermissionError("record:update");
  const [requester,reviewer]=await Promise.all([
   db.membership.findUnique({where:{clerkUserId:approval.requestedBy},

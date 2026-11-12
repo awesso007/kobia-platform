@@ -73,6 +73,7 @@ export default function ApprovalClient({businessId,approvals}:{
     {approvals.map(a=><li key={a.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
      <div>
       <h3 className="text-sm font-semibold text-slate-900">{a.actionType.replaceAll("_"," ")}</h3>
+      <p className="mt-1 text-xs text-slate-500">Action reference: <code className="break-all select-all">{a.id}</code></p>
       <p className="text-xs text-slate-600">
        {a.status} · Requested {a.createdAt.slice(0,10)}
        {a.reviewedAt?` · Reviewed ${a.reviewedAt.slice(0,10)}`:""}
