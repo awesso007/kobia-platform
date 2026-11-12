@@ -3,6 +3,7 @@ import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
 import {assertBusinessAccess} from "./business-units";
 import {isAllowedWorkTransition} from "./work-item-transitions";
+import {auditedChessSensitiveRead} from "./sensitive-read-audit";
 
 const input=z.object({
  businessId:z.string().min(1).max(128),
@@ -60,15 +61,49 @@ export async function createChessWorkItem(data:unknown) {
   return item;
  });
 }
+export function canReadChessWorkBusiness(input:{
+ membershipStatus:string|null;role:string|null;unitStatus:string|null;
+ currentAssignment:boolean;
+}):boolean{
+ return input.membershipStatus==="ACTIVE"&&input.unitStatus==="ACTIVE"&&
+  (input.role==="OWNER"||input.role==="ADMIN"||
+   (input.role==="MEMBER"&&input.currentAssignment));
+}
+
+/** No work-item titles or employee assignment metadata leave the tenant
+ * transaction unless the current role, unit and assignment were rechecked
+ * and the access event was durably written in that same transaction. */
 export async function listChessWorkItems(businessId:string) {
- await assertBusinessAccess(businessId);
  const actor=await getCurrentMembership();
- if (!actor) throw new PermissionError("record:read");
+ if(!actor)throw new PermissionError("record:read");
  const {db}=getTenantDb();
- return db.chessWorkItem.findMany({
-  where:{businessId,...(!["OWNER","ADMIN"].includes(actor.role)&&{assignedClerkUserId:actor.clerkUserId})},
-  select:{id:true,title:true,status:true,dueAt:true,assignedClerkUserId:true,updatedAt:true},
-  take:100,orderBy:{createdAt:"desc"},
+ return auditedChessSensitiveRead(db,{
+  businessId,actorClerkUserId:actor.clerkUserId,
+  action:"EMPLOYEE_WORK_ITEMS_READ",resourceType:"ChessWorkItem",
+  resourceId:"business:"+businessId,
+ },async tx=>{
+  const [current,unit,assignment]=await Promise.all([
+   tx.membership.findUnique({where:{clerkUserId:actor.clerkUserId},
+    select:{status:true,role:true}}),
+   tx.chessBusinessUnit.findUnique({where:{id:businessId},
+    select:{status:true}}),
+   tx.chessEmployeeAssignment.findUnique({where:{
+    businessId_clerkUserId:{businessId,clerkUserId:actor.clerkUserId},
+   },select:{revokedAt:true}}),
+  ]);
+  if(!canReadChessWorkBusiness({
+   membershipStatus:current?.status??null,role:current?.role??null,
+   unitStatus:unit?.status??null,
+   currentAssignment:!!assignment&&!assignment.revokedAt,
+  }))return null;
+  return tx.chessWorkItem.findMany({
+   where:{businessId,...(!["OWNER","ADMIN"].includes(current!.role)&&{
+    assignedClerkUserId:actor.clerkUserId,
+   })},
+   select:{id:true,title:true,status:true,dueAt:true,
+    assignedClerkUserId:true,updatedAt:true},
+   take:100,orderBy:{createdAt:"desc"},
+  });
  });
 }
 
