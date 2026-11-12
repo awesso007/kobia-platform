@@ -1,19 +1,18 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 42 | Engineering evidence through verified Round 41 CI (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 43 | Engineering evidence through verified Round 42 CI (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
 **Latest independently observed completed normal CI baseline (not
-external acceptance):** Round 41 final source commit
-`b6054ee3915f735f3b40140cf2a1e6bfac00b88d` passed **3/3**
-GitHub Actions jobs in [run 43291060523](https://github.com/awesso007/kobia-platform/actions/runs/43291060523):
+external acceptance):** Round 42 final documentation commit
+`35d3d88dd64c50a73024feedd3cde6fa39dcd935` passed **3/3**
+GitHub Actions jobs in [run 43292695459](https://github.com/awesso007/kobia-platform/actions/runs/43292695459):
 `build`, `chess-db-integration`, and `chess-legacy-ledger-integration`.
-The earlier Round 38 financial-fault and Round 40 demo-fixture checkpoints are
-recorded in the [authoritative Round 42 M1–M8 matrix](CHESS_CORP_2_ROADMAP.md).
-The final Round 42 documentation commit requires its own **exact-head-SHA**
-green CI verification; CI does **not** count as licensed, legal, vendor,
-staging, or production acceptance.
+Earlier Round 38–41 baselines are in the
+[authoritative Round 43 M1–M8 matrix](CHESS_CORP_2_ROADMAP.md).
+Round 43 requires its own exact-final-SHA green normal CI verification.
+No CI run supplies independent legal, provider, staging or production approval.
 No normal CI run can establish a real signed-in Clerk/Neon browser/axe
 acceptance, private S3 redaction/deletion, vendor settlement, WORM/PITR,
 or independent legal/security approval. All feature activation and
@@ -21,6 +20,51 @@ external credentials remain under this one checklist; source-only
 placeholder values are NOT owner approval.
 
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 43 historical sensitive reads — owner/staging acceptance, no new secrets
+
+Round 43 source introduces a default-on fail-closed audit-before-release
+wrapper for **41 authenticated historical GET route files** plus
+authenticated protected tRPC successful queries and read-only search POST.
+The source route inventory is **162 files**, but method-specific sensitive
+read protection is not certified across all of them. The source audit
+wrapper rechecks live membership before returning bytes; the underlying
+legacy query is still outside the event's SERIALIZABLE transaction. A
+normal green build does not verify actual cross-tenant access boundaries,
+legal sharing policies, vendor immutable audit archives or all-method
+read completeness.
+
+- **Existing 01,02,03,17,18:** Provide protected separate
+  non-production tenant schema/database and two genuine Clerk TEST
+  identities with active/revoked memberships in different tenant/business
+  scopes. Witness successful/denied GET, protected tRPC queries, private
+  search POST, owner-to-MEMBER/VIEWER and SUSPENDED transitions, and
+  cross-tenant token misuse. Run adversarial tests during an intentional
+  audit insert outage: **no private response body may be returned**.
+  Public marketing/branding endpoints should remain limited to public data.
+- **Existing 04,05,15,16,17,18:** Provide approved data-sharing/purpose
+  policy, immutable external/WORM event receipts, vault-separated runtime
+  and migrator roles, monitoring for rising 403/503 audit-denial rates,
+  and witnessed role/consent revocation plus independent privacy/security
+  evidence. Legacy `AuditLog` and tenant security-event tables are
+  **not** external WORM receipts.
+- **Existing 15,17,18:** Explicitly audit all non-GET sensitive response
+  shapes and 9 public capability + 26 machine callback routes.
+  Check file-share and e-sign tokens, tenant binding, rate limits,
+  time-bound permissions, webhook signatures and replay guards.
+  Review the direct query path per route for row-grant/consent scope
+  before certifying all-path coverage; the new GET response wrapper
+  alone is not sufficient.
+
+**No new vendor API credential, contract, approval or 19th checklist
+group is created in this round.** Protected test accounts and
+independent immutable audit credentials were already requested in
+the existing owner-supply register. All 18 groups remain OPEN, and
+production release remains 8/8 blocked with 0/8 signed.
+[Round 43 route-level report](CHESS_CORP_2_ROUND43_HISTORICAL_SENSITIVE_READ_AUDIT.md)
+documents the precise scope, limitations and remaining source-only
+implementation work. Never enable real client records or claim
+all-route security completion from normal CI.
 
 ## Round 42 verification-to-owner handoff (no new credentials or approvals created)
 
