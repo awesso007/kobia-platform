@@ -9,6 +9,8 @@ import { getTenantDb, NoTenantError } from "@/lib/db/get-tenant-db";
 import { requirePermission, PermissionError } from "@/lib/rbac/require-permission";
 import { reorderSteps } from "@/lib/forms2/mutations";
 
+import { formExists, scopedFormStepsMatch } from "@/lib/security/historical-resource-scope";
+
 export const dynamic = "force-dynamic";
 
 function fail(err: unknown) {
@@ -28,6 +30,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     await requirePermission("form:manage");
     const orderedIds = Array.isArray(body.orderedIds) ? body.orderedIds.map(String) : [];
     const { db } = getTenantDb();
+    if (!await formExists(db, params.id))
+      return NextResponse.json({ ok: false, error: "Form not found." }, { status: 404 });
+    if (!await scopedFormStepsMatch(db, params.id, orderedIds))
+      return NextResponse.json({ ok: false, error: "Foreign or duplicate step." }, { status: 404 });
     await reorderSteps(db, params.id, orderedIds);
     return NextResponse.json({ ok: true });
   } catch (err) {

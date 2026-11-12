@@ -9,6 +9,8 @@ import { getTenantDb, NoTenantError } from "@/lib/db/get-tenant-db";
 import { requirePermission, PermissionError } from "@/lib/rbac/require-permission";
 import { createStep } from "@/lib/forms2/mutations";
 
+import { formExists } from "@/lib/security/historical-resource-scope";
+
 export const dynamic = "force-dynamic";
 
 function fail(err: unknown) {
@@ -27,6 +29,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   try {
     await requirePermission("form:manage");
     const { db } = getTenantDb();
+    if (!await formExists(db, params.id))
+      return NextResponse.json({ ok: false, error: "Form not found." }, { status: 404 });
     const id = await createStep(db, params.id, {
       title: body.title as string | undefined,
       description: body.description as string | null | undefined,

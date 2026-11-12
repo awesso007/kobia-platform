@@ -12,6 +12,8 @@ import type { FormFieldType } from "@/lib/db/generated/tenant";
 import { FIELD_TYPES } from "@/lib/forms2/form-utils";
 import { updateField, deleteField } from "@/lib/forms2/mutations";
 
+import { formFieldBelongsToForm, formStepBelongsToForm } from "@/lib/security/historical-resource-scope";
+
 export const dynamic = "force-dynamic";
 
 function fail(err: unknown) {
@@ -33,6 +35,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ ok: false, error: "Invalid field type." }, { status: 400 });
     }
     const { db } = getTenantDb();
+    if (!await formFieldBelongsToForm(db, params.id, params.fieldId))
+      return NextResponse.json({ ok: false, error: "Field not found." }, { status: 404 });
+    if (body.stepId && !await formStepBelongsToForm(db, params.id, String(body.stepId)))
+      return NextResponse.json({ ok: false, error: "Step not found on form." }, { status: 404 });
     await updateField(db, params.fieldId, {
       stepId: body.stepId === undefined ? undefined : ((body.stepId as string) || null),
       type: body.type as FormFieldType | undefined,
@@ -61,6 +67,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   try {
     await requirePermission("form:manage");
     const { db } = getTenantDb();
+    if (!await formFieldBelongsToForm(db, params.id, params.fieldId))
+      return NextResponse.json({ ok: false, error: "Field not found." }, { status: 404 });
     await deleteField(db, params.fieldId);
     return NextResponse.json({ ok: true });
   } catch (err) {

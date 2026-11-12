@@ -9,6 +9,8 @@ import { getTenantDb, NoTenantError } from "@/lib/db/get-tenant-db";
 import { requirePermission, PermissionError } from "@/lib/rbac/require-permission";
 import { cancelRun } from "@/lib/workflows/runner";
 
+import { workflowRunBelongsToWorkflow } from "@/lib/security/historical-resource-scope";
+
 export const dynamic = "force-dynamic";
 
 function fail(err: unknown) {
@@ -21,6 +23,8 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   try {
     await requirePermission("automation:manage");
     const { db } = getTenantDb();
+    if (!await workflowRunBelongsToWorkflow(db, params.id, params.runId))
+      return NextResponse.json({ ok: false, error: "Workflow run not found." }, { status: 404 });
     await cancelRun(db, params.runId);
     return NextResponse.json({ ok: true });
   } catch (err) {

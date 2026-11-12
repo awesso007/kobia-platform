@@ -10,6 +10,8 @@ import { getTenantDb, NoTenantError } from "@/lib/db/get-tenant-db";
 import { requirePermission, PermissionError } from "@/lib/rbac/require-permission";
 import { updateStep, deleteStep } from "@/lib/forms2/mutations";
 
+import { formStepBelongsToForm } from "@/lib/security/historical-resource-scope";
+
 export const dynamic = "force-dynamic";
 
 function fail(err: unknown) {
@@ -28,6 +30,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   try {
     await requirePermission("form:manage");
     const { db } = getTenantDb();
+    if (!await formStepBelongsToForm(db, params.id, params.stepId))
+      return NextResponse.json({ ok: false, error: "Step not found." }, { status: 404 });
     await updateStep(db, params.stepId, {
       title: body.title as string | undefined,
       description: body.description as string | null | undefined,
@@ -42,6 +46,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   try {
     await requirePermission("form:manage");
     const { db } = getTenantDb();
+    if (!await formStepBelongsToForm(db, params.id, params.stepId))
+      return NextResponse.json({ ok: false, error: "Step not found." }, { status: 404 });
     await deleteStep(db, params.stepId);
     return NextResponse.json({ ok: true });
   } catch (err) {
