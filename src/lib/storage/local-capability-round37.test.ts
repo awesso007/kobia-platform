@@ -1,4 +1,4 @@
-import {afterEach,describe,it,expect,vi} from "vitest";
+import {afterEach,describe,it,expect} from "vitest";
 import {signedLocalDownloadUrl,verifyLocalDownloadCapability} from "./local-capability";
 const KEY="test-only-32-byte-randomized-local-signing-key-0123456789";
 afterEach(()=>{delete process.env.KOBIA_LOCAL_DOWNLOAD_SIGNING_KEY;});
