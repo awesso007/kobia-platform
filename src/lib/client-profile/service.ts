@@ -184,43 +184,58 @@ export async function getClientProvisioning(profileId:string){
  const actor=await currentActor();
  if(actor.role!=="OWNER"&&actor.role!=="ADMIN")
   throw new PermissionError("member:manage");
- const profile=await getClientProfile(idInput.parse(profileId));
+ const validatedId=idInput.parse(profileId);
  const {db}=getTenantDb();
- const [businesses,members,links,consents]=await Promise.all([
-  db.chessBusinessUnit.findMany({where:{status:"ACTIVE"},
-   select:{id:true,name:true,slug:true},orderBy:{name:"asc"},take:100}),
-  db.membership.findMany({where:{status:"ACTIVE",role:{not:"VIEWER"}},
-   select:{clerkUserId:true,displayName:true,role:true},take:100}),
-  db.clientServiceLink.findMany({where:{profileId:profile.id},
-   select:{id:true,businessId:true,service:true,
-    grants:{select:{id:true,clerkUserId:true,canRead:true,canWrite:true,revokedAt:true}}},
-   orderBy:{createdAt:"desc"},take:100}),
-  db.chessClientConsent.findMany({where:{clientProfileId:profile.id},
-   select:{id:true,businessId:true,purpose:true,policyVersion:true,status:true,
-    createdAt:true,expiresAt:true,consentedAt:true,withdrawnAt:true},
-   orderBy:{createdAt:"desc"},take:100}),
- ]);
- const active=new Set(businesses.map(x=>x.id));
- // Only list service-case metadata for this specific admin's explicit
- // current service grants; workspace administration is not record access.
- const accessible=links.filter(l=>active.has(l.businessId)&&
-  l.grants.some(g=>g.clerkUserId===actor.clerkUserId&&
-   g.canRead&&!g.revokedAt));
- const [cases,assignments]=await Promise.all([
-  accessible.length?db.chessServiceCase.findMany({
-   where:{clientProfileId:profile.id,OR:accessible.map(l=>({
-    businessId:l.businessId,service:l.service,
-   }))},
-   select:{id:true,businessId:true,service:true,status:true,
-    ownerClerkUserId:true,createdAt:true},
-   orderBy:{createdAt:"desc"},take:100,
-  }):Promise.resolve([]),
-  db.chessEmployeeAssignment.findMany({where:{
-   businessId:{in:Array.from(active)},revokedAt:null,
-  },select:{businessId:true,clerkUserId:true},take:1000}),
- ]);
- return {profile,businesses,members,viewerId:actor.clerkUserId,
-  links:links.filter(l=>active.has(l.businessId)),
-  consents:consents.filter(c=>active.has(c.businessId)),
-  cases,assignments};
+ return auditedChessSensitiveRead(db,{
+  actorClerkUserId:actor.clerkUserId,action:"CLIENT_PROVISIONING_READ",
+  resourceType:"ClientProfile",resourceId:validatedId,
+ },async tx=>{
+  const [current,profile]=await Promise.all([
+   tx.membership.findUnique({where:{clerkUserId:actor.clerkUserId},
+    select:{status:true,role:true}}),
+   tx.clientProfile.findUnique({where:{id:validatedId},
+    select:{id:true,displayName:true,contactId:true,
+     ownerClerkUserId:true,createdAt:true,updatedAt:true}}),
+  ]);
+  if(current?.status!=="ACTIVE"||
+   !["OWNER","ADMIN"].includes(current.role)||!profile)return null;
+  const [businesses,members,links,consents]=await Promise.all([
+   tx.chessBusinessUnit.findMany({where:{status:"ACTIVE"},
+    select:{id:true,name:true,slug:true},orderBy:{name:"asc"},take:100}),
+   tx.membership.findMany({where:{status:"ACTIVE",role:{not:"VIEWER"}},
+    select:{clerkUserId:true,displayName:true,role:true},take:100}),
+   tx.clientServiceLink.findMany({where:{profileId:profile.id},
+    select:{id:true,businessId:true,service:true,
+     grants:{select:{id:true,clerkUserId:true,canRead:true,canWrite:true,revokedAt:true}}},
+    orderBy:{createdAt:"desc"},take:100}),
+   tx.chessClientConsent.findMany({where:{clientProfileId:profile.id},
+    select:{id:true,businessId:true,purpose:true,policyVersion:true,status:true,
+     createdAt:true,expiresAt:true,consentedAt:true,withdrawnAt:true},
+    orderBy:{createdAt:"desc"},take:100}),
+  ]);
+  const active=new Set(businesses.map(x=>x.id));
+  const accessible=links.filter(l=>active.has(l.businessId)&&
+   l.grants.some(g=>g.clerkUserId===actor.clerkUserId&&
+    g.canRead&&!g.revokedAt));
+  // No source-specific service-case record is disclosed without a live,
+  // separate case-specific employee grant. Workspace admin alone is NOT
+  // a substitute for service-record authorization.
+  const [cases,assignments]=await Promise.all([
+   accessible.length?tx.chessServiceCase.findMany({
+    where:{clientProfileId:profile.id,OR:accessible.map(l=>({
+     businessId:l.businessId,service:l.service,
+    }))},
+    select:{id:true,businessId:true,service:true,status:true,
+     ownerClerkUserId:true,createdAt:true},
+    orderBy:{createdAt:"desc"},take:100,
+   }):Promise.resolve([]),
+   tx.chessEmployeeAssignment.findMany({where:{
+    businessId:{in:Array.from(active)},revokedAt:null,
+   },select:{businessId:true,clerkUserId:true},take:1000}),
+  ]);
+  return {profile,businesses,members,viewerId:actor.clerkUserId,
+   links:links.filter(l=>active.has(l.businessId)),
+   consents:consents.filter(c=>active.has(c.businessId)),
+   cases,assignments};
+ });
 }
