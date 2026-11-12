@@ -7,8 +7,9 @@ type Dispatch={id:string;legacyPayRunId:string;status:string;
  submittedAt:string|null;providerCheckedAt:string|null};
 /** Existing approved payroll runs only. A human verifies the provider and
  * independent PAYROLL_EXECUTE approval before this disabled-by-default action. */
-export default function PayrollDispatchClient({businessId,clientProfileId,dispatches,executionEnabled}:{
- businessId:string;clientProfileId:string;dispatches:Dispatch[];executionEnabled:boolean;
+export default function PayrollDispatchClient({businessId,clientProfileId,serviceCaseId,dispatches,executionEnabled}:{
+ businessId:string;clientProfileId:string;serviceCaseId:string;
+ dispatches:Dispatch[];executionEnabled:boolean;
 }){
  const router=useRouter();
  const [payRunId,setPayRunId]=useState("");
@@ -27,7 +28,7 @@ export default function PayrollDispatchClient({businessId,clientProfileId,dispat
    const response=await fetch("/api/chess/payroll-execute",{
     method:"POST",credentials:"same-origin",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({businessId,clientProfileId,
+    body:JSON.stringify({businessId,clientProfileId,serviceCaseId,
      legacyPayRunId:payRunId.trim(),approvalId:approvalId.trim()}),
    });
    if(!response.ok)throw new Error(response.status===403?

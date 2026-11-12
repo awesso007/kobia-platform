@@ -8,6 +8,8 @@ import {listChessBankReviews,listChessBankReviewCandidates} from "@/lib/chess/ba
 import {listChessTaxWorkpapers} from "@/lib/chess/tax-workpapers";
 import BankReviewClient from "./BankReviewClient";
 import PayrollDispatchClient from "./PayrollDispatchClient";
+import PayrollApprovalPanel from "./PayrollApprovalPanel";
+import {payrollApprovalRequestEnabled} from "@/lib/chess/payroll-approval-request";
 import {payrollProviderConfigured} from "@/lib/chess/payroll-provider";
 import {payrollExecutionUiEnabled} from "@/lib/chess/payroll-ui-gate";
 import {chessBankPostingEnabled} from "@/lib/chess/bank-posting-gate";
@@ -111,8 +113,16 @@ export default async function ChessFinanceCasePage({
    },select:{id:true,legacyPayRunId:true,status:true,
     submittedAt:true,providerCheckedAt:true},
     orderBy:{createdAt:"desc"},take:100});
-   content=<PayrollDispatchClient
+   content=<div className="space-y-6">
+    <PayrollApprovalPanel businessId={businessId}
+     clientProfileId={record.clientProfileId} serviceCaseId={record.id}
+     canReview={!!canMap} requestsEnabled={payrollApprovalRequestEnabled({
+      CHESS_PAYROLL_APPROVAL_REQUESTS_ENABLED:process.env.CHESS_PAYROLL_APPROVAL_REQUESTS_ENABLED,
+      CHESS_DEMO_MODE:process.env.CHESS_DEMO_MODE,
+     })}/>
+    <PayrollDispatchClient
     businessId={businessId} clientProfileId={record.clientProfileId}
+    serviceCaseId={record.id}
     executionEnabled={payrollExecutionUiEnabled({
      admin:!!canMap,certified:process.env.CHESS_PAYROLL_PROVIDER_CERTIFIED==="true",
      providerConfigured:payrollProviderConfigured(),
@@ -121,7 +131,8 @@ export default async function ChessFinanceCasePage({
     dispatches={dispatches.map(item=>({
      ...item,submittedAt:item.submittedAt?.toISOString()??null,
      providerCheckedAt:item.providerCheckedAt?.toISOString()??null,
-    }))}/>;
+    }))}/>
+   </div>;
 
   }
   return <main className="mx-auto max-w-6xl space-y-7 px-6 py-10">

@@ -27,7 +27,7 @@ describe("Round 21 protected employee UI render states",()=>{
  });
  it("keeps payroll execution out of disabled human workspaces",()=>{
   const props={businessId:"business",clientProfileId:"fictional-client",
-   dispatches:[{id:"dispatch",legacyPayRunId:"fictional-run",status:"UNKNOWN",
+   serviceCaseId:"payroll-case",dispatches:[{id:"dispatch",legacyPayRunId:"fictional-run",status:"UNKNOWN",
     submittedAt:null,providerCheckedAt:null}]};
   const disabled=renderToStaticMarkup(<PayrollDispatchClient {...props} executionEnabled={false}/>);
   expect(disabled).toContain("External payroll submission disabled");
@@ -38,7 +38,7 @@ describe("Round 21 protected employee UI render states",()=>{
  it("when activated, requires deliberate acknowledgement before showing a usable submit control",()=>{
   const markup=renderToStaticMarkup(<PayrollDispatchClient
    businessId="business" clientProfileId="fictional-client"
-   dispatches={[]} executionEnabled={true}/>);
+   serviceCaseId="payroll-case" dispatches={[]} executionEnabled={true}/>);
   expect(markup).toContain("Type SUBMIT PAYROLL");
   expect(markup).toContain("Submit approved run to provider");
   expect(markup).toContain("disabled");
