@@ -5,9 +5,9 @@
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
-import type { PrismaClient, EmailFolder } from "@/lib/db/generated/tenant";
+import type { Prisma, PrismaClient, EmailFolder } from "@/lib/db/generated/tenant";
 
-type Db = PrismaClient;
+type Db = PrismaClient | Prisma.TransactionClient;
 
 const PAGE_SIZE = 30;
 const MESSAGE_ORDER = [{ receivedAt: "desc" as const }, { sentAt: "desc" as const }, { createdAt: "desc" as const }];
