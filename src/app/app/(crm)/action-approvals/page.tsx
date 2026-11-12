@@ -41,7 +41,7 @@ export default async function ChessActionApprovalPage({
      {b.name}
    </Link>)}
   </nav>
-  <ApprovalClient businessId={selected.id} approvals={rows.map(r=>({
+  <ApprovalClient key={selected.id} businessId={selected.id} approvals={rows.map(r=>({
    id:r.id,actionType:r.actionType,requestedBy:r.requestedBy,status:r.status,
    canReview:r.canReview,createdAt:r.createdAt.toISOString(),
    reviewedAt:r.reviewedAt?.toISOString()??null,
