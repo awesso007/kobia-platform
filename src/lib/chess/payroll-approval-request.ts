@@ -1,6 +1,7 @@
 import {z} from "zod";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
 import {resolveChessPostedPayrollRun} from "./payroll-source";
+import {isUsableConsent} from "./onboarding";
 
 /** Request a REVIEW only. No payroll transmission, wage/employee details or
  * client-supplied amounts/digests are processed here. Explicitly disabled
@@ -36,14 +37,12 @@ export async function requestChessPayrollApproval(input:unknown){
  const actor=await getCurrentMembership();
  if(!actor||actor.status!=="ACTIVE")throw new PermissionError("record:create");
  const {db,run,digest}=await resolveChessPostedPayrollRun(data);
- // No second authorization request after any provider attempt; UNKNOWN
- // is never a reason to transmit or approve the same run again.
- const dispatched=await db.chessPayrollDispatch.findFirst({where:{
-  businessId:data.businessId,legacyPayRunId:run.id,
- },select:{id:true}});
- if(dispatched)throw new PermissionError("record:create");
+ // The source resolution is cross-database. Re-read all tenant-local
+ // authorizations inside the same SERIALIZABLE transaction that stores the
+ // requested approval. This narrows (but cannot eliminate) the inter-DB
+ // consent and entity-mapping race; live external release still blocked.
  return db.$transaction(async tx=>{
-  const [membership,unit,assignment,existing]=await Promise.all([
+  const [membership,unit,assignment,existing,caseRow,link,consents,mapping,dispatch]=await Promise.all([
    tx.membership.findUnique({where:{clerkUserId:actor.clerkUserId},
     select:{role:true,status:true}}),
    tx.chessBusinessUnit.findUnique({where:{id:data.businessId},
@@ -56,8 +55,34 @@ export async function requestChessPayrollApproval(input:unknown){
     businessId:data.businessId,actionType:"PAYROLL_EXECUTE",
     payloadDigest:digest,
    },select:{id:true,status:true,requestedBy:true}}),
+   tx.chessServiceCase.findFirst({where:{
+    id:data.serviceCaseId,businessId:data.businessId,
+    clientProfileId:data.clientProfileId,service:"PAYROLL",status:"ACTIVE",
+   },select:{id:true}}),
+   tx.clientServiceLink.findUnique({where:{profileId_businessId_service:{
+    profileId:data.clientProfileId,businessId:data.businessId,
+    service:"PAYROLL",
+   }},select:{grants:{where:{
+    clerkUserId:actor.clerkUserId,canRead:true,revokedAt:null,
+   },select:{id:true}}}}),
+   tx.chessClientConsent.findMany({where:{
+    businessId:data.businessId,clientProfileId:data.clientProfileId,
+    purpose:"service:PAYROLL",
+   },select:{status:true,expiresAt:true,consentedAt:true,
+    acceptedByClerkUserId:true,verifiedEmailDigest:true,
+    acceptanceEvidenceDigest:true}}),
+   tx.chessFinancialLink.findFirst({where:{
+    businessId:data.businessId,clientProfileId:data.clientProfileId,
+    serviceCaseId:data.serviceCaseId,service:"PAYROLL",
+    legacyEntityId:run.entityId,
+   },select:{id:true}}),
+   tx.chessPayrollDispatch.findFirst({where:{
+    businessId:data.businessId,legacyPayRunId:run.id,
+   },select:{id:true}}),
   ]);
-  if(unit?.status!=="ACTIVE"||!membership||
+  if(unit?.status!=="ACTIVE"||!membership||!caseRow||
+   !link?.grants.length||!consents.some(x=>isUsableConsent(x))||
+   !mapping||dispatch||
    !payrollApprovalRequesterAllowed(membership.role,membership.status,
     assignment?.role??null,!!assignment?.revokedAt))
    throw new PermissionError("record:create");
