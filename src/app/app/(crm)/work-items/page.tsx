@@ -126,7 +126,7 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
   {recurrences&&<section className="space-y-3">
    <h2 className="text-xl font-semibold">Recurring schedules</h2>
    <p className="text-sm text-slate-600">Scheduled times are stored in UTC. New tasks are created by the configured operations worker.</p>
-   <RecurrencesClient key={selected.id} businessId={selected.id} initialRecurrences={recurrences.map(item=>({
+   <RecurrencesClient key={selected.id} businessId={selected.id} staff={staff??[]} initialRecurrences={recurrences.map(item=>({
     ...item,nextRunAt:item.nextRunAt.toISOString(),
     lastRunAt:item.lastRunAt?.toISOString()??null,
     lastInspectedAt:item.lastInspectedAt?.toISOString()??null,
