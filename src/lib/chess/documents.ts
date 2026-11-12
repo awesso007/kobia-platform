@@ -239,6 +239,9 @@ export async function streamChessRedactionReview(
   throw new PermissionError("record:read");
  const head=await s3.headObject(preview.storageKey,preview.storageVersionId);
  if(!matchesPinnedDocument(preview,head))throw new PermissionError("record:read");
+ if(await s3.inventoryPinnedStorageVersions(
+   preview.storageKey,preview.storageVersionId)!=="ONLY_PINNED")
+  throw new PermissionError("record:read");
  // Consume and verify the exact CLEAN-scanned bytes BEFORE committing a
  // reviewer-read audit. A storage 404/timeout or checksum mismatch must never
  // create false evidence that a reviewer had retrievable content.
