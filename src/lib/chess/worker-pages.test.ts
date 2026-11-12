@@ -20,6 +20,25 @@ describe("tenant-local scheduler cursor paging",()=>{
   );
   expect(r).toEqual({examined:200,inserted:200,backlog:true});
  });
+ it("does not report an imaginary backlog at exactly the configured cap",async()=>{
+  const exact=rows.slice(0,200);
+  const r=await scanChessWorkerPages(
+   async(after,take)=>{
+    const start=after===null?0:exact.findIndex(row=>row.id===after)+1;
+    return exact.slice(start,start+take);
+   },
+   async batch=>batch.length,{pageSize:100,maxPages:2},
+  );
+  expect(r).toEqual({examined:200,inserted:200,backlog:false});
+ });
+ it("denies overlapping non-cursor records across pages",async()=>{
+  let calls=0;
+  await expect(scanChessWorkerPages(async()=>{
+   calls++;
+   return calls===1?[{id:"a"},{id:"b"}]:[{id:"a"},{id:"c"}];
+  },async batch=>batch.length,{pageSize:2,maxPages:2}))
+   .rejects.toThrow("cursor");
+ });
  it("fails closed on a nonadvancing cursor or excessive pages",async()=>{
   await expect(scanChessWorkerPages(async()=>[{id:"a"},{id:"a"}],
    async rows=>rows.length)).rejects.toThrow("cursor");
