@@ -9,6 +9,7 @@ import {assertBusinessManager} from "./business-manager";
 import {isUsableConsent} from "./onboarding";
 import {createBankPostingPreview,BankPostingPreviewError} from "./bank-posting-preview";
 import {commitLegacyBankClassification} from "./bank-ledger-commit";
+import {reconcileLegacyChessPosting} from "./bank-ledger-reconcile";
 import {chessBankPostingEnabled,postingSourceRef,bankGlAccountMatchesType} from "./bank-posting-gate";
 import {chessDemoModeActive} from "./demo-mode";
 import {auditedChessSensitiveRead} from "./sensitive-read-audit";
@@ -491,4 +492,73 @@ export async function executeChessApprovedBankPosting(input:unknown){
  }});
  return {postedToLedger:true,replay:false,journalEntryId:created,
   bankTransactionId:txn.id,bankSettled:false};
+}
+
+
+/** Independently guarded, read-only source-to-legacy ledger reconciliation.
+ * This is not bank settlement, not a financial posting retry, and does not
+ * release UNKNOWN external provider outcomes. Every successful or denied
+ * scoped result commits a privacy-minimal tenant audit before returning. */
+export async function reconcileChessApprovedBankPosting(input:unknown){
+ const data=postingPreviewContext.parse(input);
+ const state=await context({
+  businessId:data.businessId,clientProfileId:data.clientProfileId,
+  serviceCaseId:data.serviceCaseId,service:data.service,
+ });
+ if(!["OWNER","ADMIN"].includes(state.actor.role))
+  throw new PermissionError("record:read");
+ return auditedChessSensitiveRead(state.db,{
+  businessId:data.businessId,actorClerkUserId:state.actor.clerkUserId,
+  action:"BANK_POSTING_RECONCILIATION_READ",
+  resourceType:"ChessBankReview",resourceId:data.reviewId,
+ },async tx=>{
+  const [member,unit,caseRow,link,consents,mapping,review]=await Promise.all([
+   tx.membership.findUnique({where:{clerkUserId:state.actor.clerkUserId},
+    select:{status:true,role:true}}),
+   tx.chessBusinessUnit.findUnique({where:{id:data.businessId},
+    select:{status:true}}),
+   tx.chessServiceCase.findFirst({where:{
+    id:data.serviceCaseId,businessId:data.businessId,
+    clientProfileId:data.clientProfileId,service:data.service,
+    status:"ACTIVE",
+   },select:{id:true}}),
+   tx.clientServiceLink.findUnique({where:{profileId_businessId_service:{
+    profileId:data.clientProfileId,businessId:data.businessId,
+    service:data.service,
+   }},select:{grants:{where:{
+    clerkUserId:state.actor.clerkUserId,canRead:true,revokedAt:null,
+   },select:{id:true}}}}),
+   tx.chessClientConsent.findMany({where:{
+    businessId:data.businessId,clientProfileId:data.clientProfileId,
+    purpose:"service:"+data.service,
+   },select:{status:true,expiresAt:true,consentedAt:true,
+    acceptedByClerkUserId:true,verifiedEmailDigest:true,
+    acceptanceEvidenceDigest:true,withdrawnAt:true}}),
+   tx.chessFinancialLink.findUnique({where:{
+    serviceCaseId:data.serviceCaseId,
+   },select:{businessId:true,clientProfileId:true,service:true,
+    legacyTenantId:true,legacyEntityId:true}}),
+   tx.chessBankReview.findFirst({where:{
+    id:data.reviewId,businessId:data.businessId,
+    clientProfileId:data.clientProfileId,serviceCaseId:data.serviceCaseId,
+    legacyTenantId:state.legacyTenantId,
+    legacyEntityId:state.legacyEntityId,status:"APPROVED",
+   },select:{id:true,legacyBankTransactionId:true}}),
+  ]);
+  if(member?.status!=="ACTIVE"||
+   !["OWNER","ADMIN"].includes(member.role)||
+   unit?.status!=="ACTIVE"||!caseRow||!link?.grants.length||
+   !consents.some(c=>isUsableConsent(c))||
+   mapping?.businessId!==data.businessId||
+   mapping.clientProfileId!==data.clientProfileId||
+   mapping.service!==data.service||
+   mapping.legacyTenantId!==state.legacyTenantId||
+   mapping.legacyEntityId!==state.legacyEntityId||
+   !review)return null;
+  return reconcileLegacyChessPosting(ledger,{
+   tenantId:state.legacyTenantId,entityId:state.legacyEntityId,
+   bankTransactionId:review.legacyBankTransactionId,
+   sourceRefId:postingSourceRef(review.id),
+  });
+ });
 }

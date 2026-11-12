@@ -29,6 +29,7 @@ export default function BankReviewClient({
  const [error,setError]=useState("");
  const [notice,setNotice]=useState("");
  const [prepared,setPrepared]=useState<PostingPreview|null>(null);
+ const [reconciliation,setReconciliation]=useState<Record<string,{status:string;journalEntryId:string|null}>>({});
  const [typedConfirmation,setTypedConfirmation]=useState("");
  const [attested,setAttested]=useState(false);
  const prior=new Map(reviews.map(r=>[r.legacyBankTransactionId,r]));
@@ -97,6 +98,39 @@ export default function BankReviewClient({
   finally{setBusy(null);}
  }
 
+ async function reconcile(review:Review){
+  setBusy(review.id);setError("");setNotice("");
+  try{
+   const qs=new URLSearchParams({businessId,clientProfileId,serviceCaseId,
+    service,reviewId:review.id});
+   const response=await fetch("/api/chess/bank-reconciliation?"+qs.toString(),{
+    method:"GET",credentials:"same-origin",cache:"no-store",
+   });
+   if(!response.ok)throw new Error(response.status===403?
+    "Access denied. The client service, consent or posted review may no longer be authorized.":
+    "Source-to-ledger reconciliation could not be confirmed.");
+   const result=await response.json() as {outcome?:{
+    status:string;journalEntryId:string|null;bankSettled:boolean;
+    requiresIndependentReview:boolean;
+   }};
+   if(!result.outcome||!["UNPOSTED","MATCHED_POSTED","DIVERGED","UNKNOWN"]
+    .includes(result.outcome.status)||result.outcome.bankSettled!==false)
+    throw new Error("Invalid ledger evidence response.");
+   const outcome=result.outcome;
+   setReconciliation(old=>({...old,[review.id]:{
+    status:outcome.status,journalEntryId:outcome.journalEntryId,
+   }}));
+   setNotice(outcome.status==="MATCHED_POSTED"?
+    "Posted journal "+outcome.journalEntryId+
+    " matched the bank categorization record and two balanced lines."+
+    " This does not establish cash settlement or statement reconciliation.":
+    outcome.status==="UNPOSTED"?
+    "No matching CHESS journal was posted for this review. This read-only check did not retry or post.":
+    "A ledger evidence discrepancy/unknown outcome requires an independent"+
+    " accountant to review the source record. Do not retry automatically.");
+  }catch(e){setError(e instanceof Error?e.message:"Reconciliation unavailable.");}
+  finally{setBusy(null);}
+ }
  async function post(review:Review){
   const plan=prepared;
   if(!postingEnabled||!plan||plan.reviewId!==review.id||!attested||
@@ -132,6 +166,26 @@ export default function BankReviewClient({
    Financial execution is separately approved and disabled by default.</p>
   {error&&<p role="alert" className="rounded-lg border border-red-200 p-3 text-sm text-red-800">{error}</p>}
   {notice&&<p role="status" className="rounded-lg border border-emerald-200 p-3 text-sm text-emerald-800">{notice}</p>}
+  {reviews.some(review=>review.status==="APPROVED")&&
+   <section className="space-y-3 rounded-xl border bg-white p-4" aria-label="Approved bank review reconciliation">
+    <h3 className="font-semibold">Verify previous ledger posting (read-only)</h3>
+    <p className="text-xs text-slate-600">This verifies the original bank transaction, posted journal reference
+     and balanced general-ledger lines. It cannot confirm bank settlement,
+     undo a posting or authorize a retry.</p>
+    <ul className="space-y-3">
+     {reviews.filter(review=>review.status==="APPROVED").map(review=>
+      <li key={review.id} className="flex flex-wrap items-center gap-3 text-sm">
+       <span className="break-all text-slate-700">Review {review.id}</span>
+       <button type="button" disabled={busy!==null} onClick={()=>void reconcile(review)}
+        className="rounded border border-emerald-800 px-3 py-2 font-semibold text-emerald-900 disabled:opacity-40">
+        Check legacy journal
+       </button>
+       {reconciliation[review.id]&&<span role="status" className="font-semibold">
+        {reconciliation[review.id]?.status.replaceAll("_"," ")}
+       </span>}
+      </li>)}
+    </ul>
+   </section>}
   {transactions.length===0?<p className="text-sm text-slate-600">No unmatched transactions available.</p>:
    <ul className="space-y-3">{transactions.map(txn=>{
     const review=prior.get(txn.id);
