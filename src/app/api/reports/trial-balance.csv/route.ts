@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import {auditedLegacyEntityExport,parseLegacyReportDate} from "@/lib/accounting/legacy-tax-export";
 import { formatCents } from "@/lib/accounting/ledger";
 import {
   buildTrialBalance,
@@ -46,22 +47,30 @@ export async function GET(req: Request) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
-  const asOfDate = asOfStr
-    ? new Date(asOfStr + "T23:59:59")
-    : new Date();
-  const asOfDateStr = asOfDate.toISOString().slice(0, 10);
+  const day=parseLegacyReportDate(asOfStr,new Date(Date.UTC(
+    new Date().getUTCFullYear(),new Date().getUTCMonth(),new Date().getUTCDate())));
+  if(!day)return new NextResponse("Invalid report date",{status:400});
+  const asOfDate=new Date(day.getTime()+24*60*60*1000-1);
+  const asOfDateStr=day.toISOString().slice(0,10);
 
-  const tb = await buildTrialBalance({
-    tenantId: auth.tenant.id,
-    entityId: entity.id,
-    asOfDate,
-  });
+  let report;
+  try{
+    report=await auditedLegacyEntityExport(auth,entityId,"TRIAL_BALANCE",
+      async(tx,authorizedEntity)=>buildTrialBalance({
+        tenantId:auth.tenant.id,entityId:authorizedEntity.id,
+        asOfDate,client:tx,
+      }));
+  }catch{
+    return new NextResponse("Export unavailable",{status:503});
+  }
+  if(!report)return new NextResponse("Forbidden",{status:403});
+  const {entity:authorizedEntity,data:tb}=report;
 
   const lines: string[] = [];
 
   // Header metadata
-  lines.push(`Trial Balance — ${csvEscape(entity.name)} — as of ${asOfDateStr}`);
-  lines.push(`Currency,${entity.baseCurrency ?? "USD"}`);
+  lines.push(`Trial Balance — ${csvEscape(authorizedEntity.name)} — as of ${asOfDateStr}`);
+  lines.push(`Currency,${authorizedEntity.baseCurrency}`);
   lines.push("");
 
   if (gross) {
@@ -107,14 +116,15 @@ export async function GET(req: Request) {
   );
 
   const csv = lines.join("\n");
-  const filename = `trial-balance-${entity.name.replace(/[^a-zA-Z0-9]+/g, "-")}-${asOfDateStr}${gross ? "-gross" : ""}.csv`;
+  const filename = `trial-balance-${authorizedEntity.name.replace(/[^a-zA-Z0-9]+/g, "-")}-${asOfDateStr}${gross ? "-gross" : ""}.csv`;
 
   return new NextResponse(csv, {
     status: 200,
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="${filename}"`,
-      "Cache-Control": "no-store",
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }
