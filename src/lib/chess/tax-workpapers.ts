@@ -7,6 +7,7 @@ import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permissio
 import {getClientServiceLink} from "@/lib/client-profile/service";
 import {assertBusinessManager} from "./business-manager";
 import {isUsableConsent} from "./onboarding";
+import {auditedChessManagerRead} from "./sensitive-read-audit";
 
 const createSchema=z.object({
  businessId:z.string().min(1).max(128),
@@ -156,12 +157,43 @@ export async function reviewChessTaxWorkpaper(input:unknown){
    filedWithTaxAuthority:false};
  });
 }
-export async function listChessTaxWorkpapers(businessId:string,clientProfileId:string,serviceCaseId:string){
+export async function listChessTaxWorkpapers(
+ businessId:string,clientProfileId:string,serviceCaseId:string,
+){
  const state=await usableTaxCase(businessId,clientProfileId,serviceCaseId);
- return state.db.chessTaxWorkpaper.findMany({where:{
-  businessId,clientProfileId,serviceCaseId,legacyTenantId:state.tenantId,
- },orderBy:{createdAt:"desc"},take:100,select:{
-  id:true,taxYear:true,startAt:true,endAt:true,sourceEntryCount:true,
-  status:true,createdAt:true,updatedAt:true,
- }});
+ return auditedChessManagerRead(state.db,{
+  businessId,actorClerkUserId:state.actor.clerkUserId,
+  action:"TAX_WORKPAPER_DIRECTORY_READ",resourceType:"ChessTaxWorkpaper",
+  resourceId:serviceCaseId,
+ },async tx=>{
+  // Verify the same service grant, consent and legal entity mapping at
+  // the point where private year/period/source-count metadata is read.
+  const [caseRow,link,consents,mapping]=await Promise.all([
+   tx.chessServiceCase.findFirst({where:{id:serviceCaseId,businessId,
+    clientProfileId,service:"TAX",status:"ACTIVE"},select:{id:true}}),
+   tx.clientServiceLink.findUnique({where:{profileId_businessId_service:{
+    profileId:clientProfileId,businessId,service:"TAX",
+   }},select:{grants:{where:{clerkUserId:state.actor.clerkUserId,
+    canRead:true,revokedAt:null},select:{id:true}}}}),
+   tx.chessClientConsent.findMany({where:{businessId,clientProfileId,
+    purpose:"service:TAX"},select:{status:true,expiresAt:true,
+    consentedAt:true,acceptedByClerkUserId:true,verifiedEmailDigest:true,
+    acceptanceEvidenceDigest:true,withdrawnAt:true}}),
+   tx.chessFinancialLink.findUnique({where:{serviceCaseId},
+    select:{businessId:true,clientProfileId:true,service:true,
+     legacyTenantId:true,legacyEntityId:true}}),
+  ]);
+  if(!caseRow||!link?.grants.length||
+   !consents.some(c=>isUsableConsent(c))||
+   mapping?.businessId!==businessId||
+   mapping.clientProfileId!==clientProfileId||
+   mapping.service!=="TAX"||mapping.legacyTenantId!==state.tenantId||
+   mapping.legacyEntityId!==state.entityId)return null;
+  return tx.chessTaxWorkpaper.findMany({where:{
+   businessId,clientProfileId,serviceCaseId,legacyTenantId:state.tenantId,
+  },orderBy:{createdAt:"desc"},take:100,select:{
+   id:true,taxYear:true,startAt:true,endAt:true,sourceEntryCount:true,
+   status:true,createdAt:true,updatedAt:true,
+  }});
+ });
 }
