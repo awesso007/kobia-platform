@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {listBusinessUnits} from "@/lib/chess/business-units";
+import {selectChessWorkspace} from "@/lib/chess/workspace-selection";
 import {getChessOperationsReport} from "@/lib/chess/operations-reporting";
 import {getChessPortfolioOperationsReport} from "@/lib/chess/operations-portfolio";
 import {formatChessUsdCents} from "@/lib/chess/report-format";
@@ -29,8 +30,18 @@ export default async function ChessReportsPage({searchParams}:{
 }){
  try{
   const units=await listBusinessUnits();
-  const selected=units.find(u=>u.id===searchParams.businessId)??units[0];
-  if(!selected)return <main role="status">No active business units available.</main>;
+  const workspace=selectChessWorkspace(units,searchParams.businessId);
+  if(workspace.status!=="READY")return <main role="status"
+   className="mx-auto max-w-5xl space-y-3 p-8">
+   <h1 className="text-2xl font-semibold">Monthly reports unavailable</h1>
+   <p className="text-sm text-slate-700">{workspace.status==="UNAVAILABLE"?
+    "The requested business is not available to your current role; no substitute was selected.":
+    "No active business unit is available to your account."}</p>
+   <Link href="/app/chess-desk" className="text-sm font-semibold text-emerald-800 underline">
+    Return to service desk
+   </Link>
+  </main>;
+  const selected=workspace.selected;
   const month=typeof searchParams.month==="string"&&
    /^20[2-9][0-9]-(0[1-9]|1[0-2])$/.test(searchParams.month)?
    searchParams.month:new Date().toISOString().slice(0,7);
@@ -73,7 +84,7 @@ export default async function ChessReportsPage({searchParams}:{
      View report
     </button>
    </form>
-   <OperationalCloseClient businessId={selected.id} month={month}
+   <OperationalCloseClient key={selected.id+":"+month} businessId={selected.id} month={month}
     snapshots={snapshots.map(s=>({
      ...s,createdAt:s.createdAt.toISOString(),
      reviewedAt:s.reviewedAt?.toISOString()??null,
