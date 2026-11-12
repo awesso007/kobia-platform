@@ -2,6 +2,9 @@ import {z} from "zod";
 import type {RegulatedService,RegulatedWorkflowKind} from "./regulated-policy";
 
 const remote=z.object({
+ tenantSlug:z.string().min(1).max(128),
+ businessId:z.string().min(1).max(128),
+ serviceCaseId:z.string().min(1).max(128),
  workflowId:z.string().min(1).max(128),
  service:z.enum(["MORTGAGE","INSURANCE","REAL_ESTATE","INVESTMENTS"]),
  partnerId:z.string().regex(/^[A-Za-z0-9_-]{4,128}$/),
@@ -63,9 +66,12 @@ async function post(url:string,payload:unknown,service:RegulatedService,requestK
 export async function submitRegulatedHandoff(input:RegulatedSubmission){
  if(!regulatedHandoffConfigured(input.service))throw new Error("Regulated handoff disabled.");
  const result=await post(process.env.CHESS_REGULATED_HANDOFF_API_URL!,input,input.service,input.idempotencyKey);
- if(result.workflowId!==input.workflowId||
+ if(result.tenantSlug!==input.tenantSlug||
+  result.businessId!==input.businessId||
+  result.serviceCaseId!==input.serviceCaseId||
+  result.workflowId!==input.workflowId||
   result.service!==input.service||result.partnerId!==input.partnerId||
-  (result.status==="accepted"&&!result.id))
+  (["accepted","pending"].includes(result.status)&&!result.id))
   throw new Error("Gateway acknowledgment did not match workflow.");
  return result;
 }
@@ -78,10 +84,13 @@ export async function lookupRegulatedHandoff(input:{
  const result=await post(process.env.CHESS_REGULATED_STATUS_API_URL!,{
   ...input,partnerId,
  },input.service);
- if(result.workflowId!==input.workflowId||
+ if(result.tenantSlug!==input.tenantSlug||
+  result.businessId!==input.businessId||
+  result.serviceCaseId!==input.serviceCaseId||
+  result.workflowId!==input.workflowId||
   result.service!==input.service||result.partnerId!==partnerId||
-  (input.providerRequestId && result.id && result.id!==input.providerRequestId) ||
-  (result.status==="accepted"&&!result.id&&!input.providerRequestId))
+  (input.providerRequestId && result.id!==input.providerRequestId) ||
+  (["accepted","pending"].includes(result.status)&&!result.id))
   throw new Error("Gateway status does not match the original case.");
  return result;
 }
