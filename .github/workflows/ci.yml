@@ -53,9 +53,11 @@ jobs:
           node --check e2e/clerk.setup.mjs
           node --check e2e/chess-demo.spec.mjs
           node --check e2e/chess-demo-employee-client.spec.mjs
+          node --check e2e/chess-demo-round46.spec.mjs
           node --check e2e/demo-harness.mjs
           node --check scripts/chess-demo-e2e-prepare.mjs
           node --test scripts/chess-demo-e2e-policy-check.mjs scripts/chess-demo-browser-acceptance-policy-check.mjs
+          node --test scripts/chess-demo-round46-policy-check.mjs
 
       - name: Lint
         run: npm run lint
