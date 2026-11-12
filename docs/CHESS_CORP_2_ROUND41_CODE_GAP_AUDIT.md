@@ -12,6 +12,28 @@ additional code-only failure safeguards for independent financial and
 document outcomes. This report **does not** claim all historical security
 routes, staged providers or legal delivery are complete.
 
+## M1 / M4 — employee work-item access and revocation race
+
+The employee work-item list previously selected task titles after a
+separate business access check and outside the audit transaction.
+Round 41 now checks live membership, active business, assignment and role
+inside a single SERIALIZABLE transaction that commits a privacy-minimal
+`EMPLOYEE_WORK_ITEMS_READ` allow/deny audit **before** returning any
+sensitive task titles. A revoked MEMBER assignment cannot borrow a
+previously authorized request to read another business's tasks.
+
+Work-item creation now repeats current role, active business, target
+assignee and linked client record verification in the same SERIALIZABLE
+transaction as task/alert/calendar-outbox creation and audit. Task state
+changes similarly recheck the current membership/assignment and optimistic
+revision within one SERIALIZABLE transaction. The existing demo task
+transition flow and HTTP 409 stale-write behavior are preserved.
+
+New pure role-matrix and source-regression tests cover SUSPENDED and VIEWER
+accounts, revoked assignments, missing business units, OWNER/ADMIN scope,
+and the audit+mutation coupling. **This is a bounded work-item guard sweep,
+not evidence that all historical KOBIA API read routes are audited.**
+
 ## M3 — ambiguous private document deletion
 
 - The document delete worker is **default OFF** and refuses the fictional
