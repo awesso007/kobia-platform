@@ -1,6 +1,6 @@
 import {describe,it,expect} from "vitest";
 import type {PrismaClient} from "@/lib/db/generated/tenant";
-import {auditedChessManagerRead,auditedChessSensitiveRead,sensitiveReadEvent} from "./sensitive-read-audit";
+import {auditedChessEmployeeRead,auditedChessManagerRead,auditedChessSensitiveRead,sensitiveReadEvent} from "./sensitive-read-audit";
 
 const ctx={businessId:"business-id",actorClerkUserId:"staff-id",
  action:"REGULATED_WORKFLOW_READ" as const,
@@ -88,6 +88,57 @@ describe("manager-scoped privacy audits on sensitive directories",()=>{
     .rejects.toThrow();
    expect(state.reads()).toBe(0);
    expect(state.captured).toEqual([{data:{...managerCtx,decision:"DENY"}}]);
+  }
+ });
+});
+
+describe("transactional employee-only private data audits",()=>{
+ function fake(role:"OWNER"|"ADMIN"|"MEMBER"|"VIEWER",
+  assigned:boolean,revoked=false,active=true){
+  let returned=0;
+  const events:unknown[]=[];
+  const tx={
+   membership:{findUnique:async()=>({role,status:active?"ACTIVE":"SUSPENDED"})},
+   chessBusinessUnit:{findUnique:async()=>({status:"ACTIVE"})},
+   chessEmployeeAssignment:{findUnique:async()=>assigned?{
+    revokedAt:revoked?new Date():null,
+   }:null},
+   chessSecurityEvent:{create:async(data:unknown)=>{events.push(data);}},
+  };
+  const db={
+   $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => {
+    return callback(tx);
+   },
+  } as unknown as PrismaClient;
+  const read=async()=>{returned++;return [{id:"restricted-employee-event"}];};
+  return {db,events,read,returned:()=>returned};
+ }
+ const input={businessId:"business",actorClerkUserId:"actor",
+  action:"EMPLOYEE_ALERTS_READ" as const,
+  resourceType:"ChessEmployeeAlert" as const,resourceId:"recipient:actor"};
+ it("allows only current owner, admin or actively assigned staff",async()=>{
+  for(const [role,assigned] of [
+   ["OWNER",false],["ADMIN",false],["MEMBER",true],
+  ] as const){
+   const state=fake(role,assigned);
+   await expect(auditedChessEmployeeRead(state.db,input,state.read))
+    .resolves.toEqual([{id:"restricted-employee-event"}]);
+   expect(state.returned()).toBe(1);
+   expect(state.events).toEqual([{data:{...input,decision:"ALLOW"}}]);
+  }
+ });
+ it("logs DENY and performs no SELECT for suspended or revoked employees",async()=>{
+  for(const [role,assigned,revoked,active] of [
+   ["MEMBER",false,false,true],
+   ["MEMBER",true,true,true],
+   ["VIEWER",true,false,true],
+   ["ADMIN",true,false,false],
+  ] as const){
+   const state=fake(role,assigned,revoked,active);
+   await expect(auditedChessEmployeeRead(state.db,input,state.read))
+    .rejects.toThrow();
+   expect(state.returned()).toBe(0);
+   expect(state.events).toEqual([{data:{...input,decision:"DENY"}}]);
   }
  });
 });
