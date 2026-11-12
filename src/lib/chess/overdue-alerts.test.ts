@@ -15,4 +15,11 @@ describe("deduplicated overdue notifications",()=>{
   expect(overdueAlertKey("work1",first,"BLOCKED","manager")).not.toBe(
    overdueAlertKey("work1",first,"BLOCKED","other-manager"));
  });
+ it("keeps unassigned, overdue and blocked escalation keys independent",()=>{
+  const date=new Date("2026-11-11T08:00:00Z");
+  const unassigned=overdueAlertKey("work1",date,"UNASSIGNED","manager");
+  expect(unassigned).not.toBe(overdueAlertKey("work1",date,"BLOCKED","manager"));
+  expect(unassigned).not.toBe(overdueAlertKey("work1",date,"OVERDUE","manager"));
+  expect(unassigned).toBe(overdueAlertKey("work1",new Date("2026-11-11T22:00:00Z"),"UNASSIGNED","manager"));
+ });
 });
