@@ -8,7 +8,7 @@ business-operations layer within an isolated KOBIA tenant, not an assertion
 that a single legal entity holds all operating licenses.
 
 
-## CURRENT / AUTHORITATIVE — Round 35 milestone matrix (Rounds 31–35 engineering)
+## CURRENT / AUTHORITATIVE — Round 36 milestone matrix (Rounds 31–36 engineering)
 
 **This table is the current M1–M8 development and release-gate matrix.**
 The detailed Round 24 matrix below is historical and must not be mistaken for
@@ -17,14 +17,14 @@ source** from **incomplete engineering or real-world acceptance**.
 
 | Milestone | Current implemented source / usability scope (Rounds 29–35 included) | Outstanding code, staging and independent evidence | Owner-supply groups | Production gate |
 | --- | --- | --- | --- | --- |
-| **M1 — Shared profiles, authorization and sensitive reads** | Tenant-scoped client profiles, service grants and revocation; transaction-coupled ALLOW/DENY access audit for selected directories; Round 32 verified-client consent index/disclosure reads with same-transaction identity checks; Round 33 owner/manager/staff link separation; Round 35 business/regulated directory and client profile/link/grant writes now recheck live authorization in audited serializable transactions | **All-path** sensitive-read audit, old/legacy routes, external immutable audit receipts, authenticated two-tenant and multi-business role/grant revocation races, legal data-sharing approval | **01,02,03,15,17,18** | **PARTIAL CODE — BLOCKED** |
+| **M1 — Shared profiles, authorization and sensitive reads** | Tenant-scoped client profiles, service grants and revocation; transaction-coupled ALLOW/DENY access audit for selected directories; Round 32 verified-client consent index/disclosure reads with same-transaction identity checks; Round 33 owner/manager/staff link separation; Round 35 business/regulated directory and client profile/link/grant writes now recheck live authorization in audited serializable transactions; Round 36 legacy 1099-NEC/MISC tax exports enforce live accountant-or-higher access and transaction-coupled legacy AuditLog | **All-path** sensitive-read audit, old/legacy routes, external immutable audit receipts, authenticated two-tenant and multi-business role/grant revocation races, legal data-sharing approval | **01,02,03,15,17,18** | **PARTIAL CODE — BLOCKED** |
 | **M2 — Business units and employee assignments** | Business unit provisioning and atomic assignment/service-grant revocation; Round 33 current MANAGER assignment selects only authorized finance units, revoked deep links no longer fall back to a different business, and business-local admin forms reset on unit change; Round 35 business/staff provisioning and assignment directories recheck live roles and append immutable events atomically | Real legal-company/firm and licensed-staff records, staged proof of active vs revoked roles, cross-business employee separation and least-privilege review | **01,02,03,10,17,18** | **PARTIAL CODE — BLOCKED** |
 | **M3 — Client consent, onboarding and documents** | Policy/purpose versioned consent, default-OFF verified Clerk client preview, withdrawn/expired-state guards, audit-coupled verified-own-consent reads (Round 32), reduced directory exposure, private version/scan/hold document controls in source | Counsel-approved disclosure/e-signature and legal hold/erasure policy, genuine client acceptance/withdrawal sessions, contact reassignment and foreign Clerk-account checks in protected staging, private S3/KMS/WORM/scanner evidence and tested recovery | **01,02,04,05,16,17,18** | **PARTIAL CODE — BLOCKED** |
 | **M4 — Tasks, recurrences and calendar** | Employee queue, alerts, manager reassignment, appointment conflict checks and calendar consent; Round 29 fairness worker persists inspection time, Round 31 screen displays it; Round 33 named staff selector, actionable empty/permission states, no false OFF when calendar preference lookup fails, business-keyed UI | Real deployed recurring worker/pager and backlog checks, Google/Microsoft delegated OAuth sandbox and cancel confirmations, signed-in revocation/consent and accessible mobile/keyboard/screen-reader tests; optional cross-tenant calendar conflict service deferred | **01,02,03,06,15,17,18** | **PARTIAL CODE — BLOCKED** |
 | **M5 — Accounting, bookkeeping, payroll and tax** | Case/GL mapping, reviewed bank suggestions, default-OFF three-actor journal execution, durable RESERVED/EXECUTING/UNKNOWN states, consent-row locking, read-only legacy GL reconciliation; Round 31 **manager-only read-only attempt monitor** and Round 33 finance manager business deep links and honest no-grant empty state | Source/legacy **cross-database UNKNOWN and consent race** fault injection; independent journal reconciliation and authorized resolution, certified bank/payroll/tax vendors, actual wage/tax receipts, legal/finance approvals; **no live posting/funding/e-file** | **01,07,08,09,14,16,17,18** | **PARTIAL CODE — LIVE FINANCIAL EXECUTION OFF** |
 | **M6 — Mortgage, insurance, real estate and investments** | Official-source verification adapters, service-specific consent and opaque licensed-partner coordination with UNKNOWN resolution; Round 33 revoked-business links fail closed; Round 35 regulated case directory exposes only currently granted, client-consented case ID/service via one audited transaction instead of unlogged overfetch | Current professional/firm sponsorship evidence, certified partner APIs and legal sector disclosures, independent licensed review, real execution-systems validation; **no origination/binding/closing/trading** | **03,04,10,11,17,18** | **PARTIAL COORDINATION CODE — REGULATED EXECUTION OFF** |
 | **M7 — AI triage, invoicing and reporting** | Budgeted metadata-only AI review and human approval, consent-bound invoice drafts/vendor observations, fairness-capped **draft-only** recurring billing and immutable operational snapshots; Round 33 business-scoped billing, approval and bank-feed forms reset; revoked billing link cannot silently select another company; Round 35 AI suggestions/budget/worker reads and approval inbox are role-rechecked and audit-coupled, actor IDs removed from browser review payloads, and report/AI screens fail closed on revoked unit links | Certified AI/invoice/merchant contracts and DPAs; actual settlement, chargeback/refund and tax policies; accountant-controlled ledger close, statutory consolidation and financial-statement review; **no real money or GAAP/IFRS close** | **12,13,14,15,17,18** | **PARTIAL CODE — COLLECTION/STATUTORY REPORTING OFF** |
-| **M8 — Security, CI, E2E and recovery** | Versioned migrations, tenant audit and monitoring; Round 32 OWNER/ADMIN worker/calendar/archive health reads now use a serializable access audit; Round 33 role-based menus and error states; Round 35 audited business/staff/AI/approval/regulated source reads, atomic M1/M2 writes, and added negative regressions; the Round 34 baseline passed **3/3** normal CI jobs | Historical/all-route audit coverage; **actual** protected Clerk/Neon signed-in browser and accessibility run; separate two-tenant staging, vendor tests, independent pen/load review, WORM/PITR and witnessed recovery, vault/pager approval and authorized rollout | **01,02,04,05,15,16,17,18** | **PARTIAL CODE — NO STAGING/PRODUCTION RELEASE AUTHORIZATION** |
+| **M8 — Security, CI, E2E and recovery** | Versioned migrations, tenant audit and monitoring; Round 32 OWNER/ADMIN worker/calendar/archive health reads now use a serializable access audit; Round 33 role-based menus and error states; Round 35 audited business/staff/AI/approval/regulated source reads, atomic M1/M2 writes, and added negative regressions; Round 36 legacy tax export restrictions and audit failure regressions; the Round 35 baseline passed **3/3** normal CI jobs | Historical/all-route audit coverage; **actual** protected Clerk/Neon signed-in browser and accessibility run; separate two-tenant staging, vendor tests, independent pen/load review, WORM/PITR and witnessed recovery, vault/pager approval and authorized rollout | **01,02,04,05,15,16,17,18** | **PARTIAL CODE — NO STAGING/PRODUCTION RELEASE AUTHORIZATION** |
 
 **Verified source checkpoints (normal GitHub Actions, not production or
 actual authenticated browser acceptance):**
@@ -38,8 +38,11 @@ actual authenticated browser acceptance):**
 **Round 34 documentation head passed all three normal CI jobs at**
 `6d241a2a0efdad2cd3e0494d7f859cf1f79169c0`
 ([run 43179174988](https://github.com/awesso007/kobia-platform/actions/runs/43179174988)).
-**Round 35 source and documentation commits require an independent exact
-latest-SHA CI check.** The test matrix is source/CI evidence only:
+**Round 35 baseline passed all three jobs at**
+`d0b0677b25d862959c4a490340bf3cd904d63200`
+([run 43184184877](https://github.com/awesso007/kobia-platform/actions/runs/43184184877)).
+**Round 36 needs its own exact-final-commit CI check before being
+classified as verified; none of the normal CI is real vendor acceptance.** The test matrix is source/CI evidence only:
 `build` (lint, typecheck, unit tests, Next build, security smoke),
 `chess-db-integration` (disposable tenant PostgreSQL), and
 `chess-legacy-ledger-integration` (disposable legacy PostgreSQL). The
@@ -55,6 +58,25 @@ documents. The single canonical [owner-supply checklist](CHESS_CORP_2_OWNER_SUPP
 remains open for externally controlled credentials, legal terms,
 independent reviews and staging evidence. CHESS remains a KOBIA tenant;
 keep draft PR #24 unmerged and production `main` unchanged.
+
+---
+
+## CURRENT ROUND 36 — legacy 1099 taxpayer export access control
+
+The historical KOBIA `/api/reports/1099-nec.csv` and
+`/api/reports/1099-misc.csv` endpoints previously accepted any active
+legacy tenant member, including CLIENT and VIEWER, for CSV downloads
+containing vendor tax identifiers and contact details. Both now recheck
+the live tenant, entity and membership within a SERIALIZABLE legacy
+PostgreSQL transaction; only current OWNER, ADMIN or ACCOUNTANT roles may
+read those vendor details. A privacy-minimal legacy AuditLog ALLOW/DENY
+entry must commit before CSV release. Invalid years fail validation;
+responses are no-store and nosniff. New negative tests cover stale roles,
+suspended membership, foreign/deleted entity, audit failure and tax-year
+validation. The legacy AuditLog is **not** WORM proof, and the other
+legacy ledger CSV routes and historical APIs still require a full read
+inventory. See [Round 36 code audit](CHESS_CORP_2_ROUND36_LEGACY_TAX_EXPORT_AUDIT.md).
+**8/8 milestones remain release blocked, 0/8 independently signed.**
 
 ---
 
