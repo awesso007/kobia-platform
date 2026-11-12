@@ -72,7 +72,7 @@ export async function listChessRecurrences(businessId:string){
  },async tx=>tx.chessWorkRecurrence.findMany({
   where:{businessId},orderBy:{nextRunAt:"asc"},take:100,
   select:{id:true,title:true,frequency:true,interval:true,active:true,
-   nextRunAt:true,lastRunAt:true,assignedClerkUserId:true,updatedAt:true},
+   nextRunAt:true,lastRunAt:true,lastInspectedAt:true,assignedClerkUserId:true,updatedAt:true},
  }));
 }
 
