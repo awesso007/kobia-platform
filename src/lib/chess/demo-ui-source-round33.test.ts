@@ -45,7 +45,7 @@ describe("Round 33 demo route and UI failure-state regressions",()=>{
    ["action-approvals/page.tsx","ApprovalClient"],
    ["business-units/page.tsx","BusinessUnitAdmin"],
    ["finance-operations/page.tsx","FinanceBankFeedClient"],
-  ];
+  ] as const;
   for(const [file,component] of files){
    const src=read(file);
    expect(src,file).toMatch(new RegExp("<"+component+" key=\\{selected"));
