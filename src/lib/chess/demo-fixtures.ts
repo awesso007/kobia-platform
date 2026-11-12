@@ -23,16 +23,20 @@ const staff = [
   { clerkUserId: "user_fictional_chess_staff_one", email: "staff-one@example.invalid", displayName: "Taylor Sample", role: "MEMBER" as const },
   { clerkUserId: "user_fictional_chess_staff_two", email: "staff-two@example.invalid", displayName: "Avery Fictional", role: "MEMBER" as const },
 ];
-const clients = [
-  { firstName: "Morgan", lastName: "Fictional", email: "morgan@example.invalid" },
-  { firstName: "Riley", lastName: "Sample", email: "riley@example.invalid" },
-  { firstName: "Jamie", lastName: "Example", email: "jamie@example.invalid" },
-  { firstName: "Casey", lastName: "Imaginary", email: "casey@example.invalid" },
-  { firstName: "Parker", lastName: "Mock", email: "parker@example.invalid" },
-];
+function demoClients() {
+  const configuredClientEmail = process.env.CHESS_DEMO_CLIENT_EMAIL?.trim().toLowerCase();
+  return [
+    { firstName: "Morgan", lastName: "Fictional", email: configuredClientEmail || "morgan@example.invalid" },
+    { firstName: "Riley", lastName: "Sample", email: "riley@example.invalid" },
+    { firstName: "Jamie", lastName: "Example", email: "jamie@example.invalid" },
+    { firstName: "Casey", lastName: "Imaginary", email: "casey@example.invalid" },
+    { firstName: "Parker", lastName: "Mock", email: "parker@example.invalid" },
+  ];
+}
 
 
 export async function seedChessDemoRecords(db: PrismaClient): Promise<void> {
+  const clients = demoClients();
   for (const employee of staff) {
     await db.membership.upsert({
       where: { clerkUserId: employee.clerkUserId },
@@ -80,10 +84,33 @@ export async function seedChessDemoRecords(db: PrismaClient): Promise<void> {
   });
   for (let i = 0; i < clients.length; i++) {
     const client = clients[i]!;
-    let contact = await db.contact.findFirst({ where: { email: client.email } });
-    if (!contact) contact = await db.contact.create({
-      data: { ...client, companyId: company.id },
+    let contact = await db.contact.findFirst({
+      where: { firstName: client.firstName, lastName: client.lastName },
     });
+    if (contact && i === 0 && process.env.CHESS_DEMO_CLIENT_EMAIL?.trim()) {
+      const configuredEmail = process.env.CHESS_DEMO_CLIENT_EMAIL.trim().toLowerCase();
+      const collision = await db.contact.findFirst({
+        where: { email: { equals: configuredEmail, mode: "insensitive" }, NOT: { id: contact.id } },
+        select: { id: true },
+      });
+      if (collision) {
+        throw new Error("The configured demo client email is already attached to another fictional contact.");
+      }
+      if (contact.email?.toLowerCase() !== configuredEmail) {
+        contact = await db.contact.update({
+          where: { id: contact.id },
+          data: { email: configuredEmail },
+        });
+      }
+    }
+    if (!contact) {
+      contact = await db.contact.findFirst({ where: { email: client.email } });
+    }
+    if (!contact) {
+      contact = await db.contact.create({
+        data: { ...client, companyId: company.id },
+      });
+    }
     const displayName = client.firstName + " " + client.lastName + " (FICTIONAL)";
     let profile = await db.clientProfile.findFirst({ where: { contactId: contact.id } });
     if (!profile) profile = await db.clientProfile.create({
@@ -150,6 +177,7 @@ export async function verifyChessDemoRecords(db: PrismaClient): Promise<{
   clients: number;
   pendingDisclosures: number;
 }> {
+  const clients = demoClients();
   const businessUnits = await db.chessBusinessUnit.findMany({
     where: { slug: { in: units.map(u=>u.slug) }, status: "ACTIVE" }, select: { id: true },
   });

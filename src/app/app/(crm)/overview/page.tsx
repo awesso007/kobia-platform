@@ -3,7 +3,10 @@ import { auth } from "@clerk/nextjs/server";
 import { getTenantDb, NoTenantError } from "@/lib/db/get-tenant-db";
 import { CrmError } from "../CrmError";
 import { CHESS_DEMO_SLUG,chessDemoModeActive } from "@/lib/chess/demo-mode";
-import { ensureChessDemoOwnerMembership } from "@/lib/chess/demo-owner";
+import {
+  ensureChessDemoEmployeeMembership,
+  ensureChessDemoOwnerMembership,
+} from "@/lib/chess/demo-owner";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +59,7 @@ export default async function OperationsOverviewPage() {
 
   try {
     await ensureChessDemoOwnerMembership();
+    await ensureChessDemoEmployeeMembership();
     // getTenantDb resolves only the selected tenant schema from middleware.
     const { db,tenantId } = getTenantDb();
     const member = await db.membership.findUnique({
