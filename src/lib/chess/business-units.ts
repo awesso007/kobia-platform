@@ -36,19 +36,33 @@ export async function createBusinessUnit(input: unknown) {
   });
 }
 
-/** Members see only business units they are currently assigned to. */
+/** Tenant staff see only units assigned to their CURRENT active role.
+ * Even an apparently harmless business-directory link could disclose another
+ * business relationship when a role or assignment is revoked. */
 export async function listBusinessUnits() {
   const user = await actor();
   const { db } = getTenantDb();
-  return db.chessBusinessUnit.findMany({
-    where: {
-      status: "ACTIVE",
-      ...(!isBusinessAdmin(user.role) && {
-        assignments: { some: { clerkUserId: user.clerkUserId, revokedAt: null } },
-      }),
-    },
-    select: { id: true, slug: true, name: true, status: true },
-    orderBy: { name: "asc" }, take: 100,
+  return auditedChessSensitiveRead(db,{
+    actorClerkUserId:user.clerkUserId,
+    action:"BUSINESS_UNIT_DIRECTORY_READ",resourceType:"ChessBusinessUnit",
+    resourceId:"ACTIVE_UNITS",
+  },async tx=>{
+    const current=await tx.membership.findUnique({
+      where:{clerkUserId:user.clerkUserId},select:{status:true,role:true},
+    });
+    if(current?.status!=="ACTIVE"||current.role==="VIEWER")return null;
+    const units=await tx.chessBusinessUnit.findMany({
+      where:{
+        status:"ACTIVE",
+        ...(!isBusinessAdmin(current.role)&&{
+          assignments:{some:{clerkUserId:user.clerkUserId,revokedAt:null}},
+        }),
+      },
+      select:{id:true,slug:true,name:true,status:true},
+      orderBy:{name:"asc"},take:101,
+    });
+    if(units.length>100)throw new Error("Business directory exceeds safe paging cap.");
+    return units;
   });
 }
 
