@@ -8,6 +8,7 @@
  */
 import type { AccountType } from "@prisma/client";
 import { db } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 import { normalBalanceSign } from "./ledger";
 
 export interface TrialBalanceRow {
@@ -50,16 +51,19 @@ export async function buildTrialBalance(args: {
   entityId: string;
   asOfDate: Date;
   includeZero?: boolean;
+  client?: Prisma.TransactionClient;
 }): Promise<TrialBalance> {
   const { tenantId, entityId, asOfDate, includeZero = false } = args;
+  const client = args.client ?? db;
 
   // Pull all journal lines whose parent entry is on/before asOfDate.
   // Group totals by accountId.
-  const lines = await db.journalLine.findMany({
+  const lines = await client.journalLine.findMany({
     where: {
       tenantId,
       journalEntry: {
         entityId,
+        status: "POSTED",
         entryDate: { lte: asOfDate },
       },
     },
@@ -70,7 +74,7 @@ export async function buildTrialBalance(args: {
     },
   });
 
-  const accounts = await db.account.findMany({
+  const accounts = await client.account.findMany({
     where: { tenantId, entityId },
     orderBy: [{ code: "asc" }],
     select: { id: true, code: true, name: true, type: true },
