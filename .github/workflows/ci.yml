@@ -57,6 +57,11 @@ jobs:
           node --check scripts/chess-round48-historical-method-gate.mjs
           node scripts/chess-round48-historical-method-gate.mjs
 
+      - name: Gate authenticated historical mutation routes and parent-child scopes
+        run: |
+          node --check scripts/chess-round49-authenticated-mutation-gate.mjs
+          node scripts/chess-round49-authenticated-mutation-gate.mjs
+
       - name: Validate signed-in browser and accessibility test harness
         run: |
           node --check playwright.config.mjs
