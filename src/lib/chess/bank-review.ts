@@ -608,3 +608,151 @@ export async function reconcileChessApprovedBankPosting(input:unknown){
   });
  });
 }
+
+/** Separate release flags for tenant receipt reconciliation. A verified
+ * legacy journal is the ONLY acceptable successful resolution. Never retry
+ * a missing/unposted GL or reissue an ambiguous bank classification. */
+export function bankOutcomeResolutionEnabled(env:{
+ CHESS_BANK_OUTCOME_RESOLUTION_ENABLED?:string;
+ CHESS_BANK_OUTCOME_POLICY_APPROVED?:string;
+}):boolean{
+ return env.CHESS_BANK_OUTCOME_RESOLUTION_ENABLED==="true"&&
+  env.CHESS_BANK_OUTCOME_POLICY_APPROVED==="true";
+}
+export function independentBankOutcomeResolver(input:{
+ creator:string;reviewer:string|null;executor:string;resolver:string;
+ status:string;executionStartedAt:Date|null;
+},now=new Date()):boolean{
+ if(!input.reviewer||
+  new Set([input.creator,input.reviewer,input.executor,input.resolver]).size!==4)
+  return false;
+ return input.status==="UNKNOWN"||
+  (input.status==="EXECUTING"&&!!input.executionStartedAt&&
+    now.getTime()-input.executionStartedAt.getTime()>=30*60*1000);
+}
+
+/** Explicit fourth-person, source-bound resolution of a lost legacy GL
+ * acknowledgement. No call to commitLegacyBankClassification exists here.
+ * UNPOSTED, DIVERGED and UNKNOWN ledger observations NEVER cause retries,
+ * failed closure, consent release, or fabricated settlement.
+ */
+export async function resolveChessApprovedBankPostingOutcome(raw:unknown){
+ const data=postingPreviewContext.parse(raw);
+ if(!bankOutcomeResolutionEnabled({
+   CHESS_BANK_OUTCOME_RESOLUTION_ENABLED:process.env.CHESS_BANK_OUTCOME_RESOLUTION_ENABLED,
+   CHESS_BANK_OUTCOME_POLICY_APPROVED:process.env.CHESS_BANK_OUTCOME_POLICY_APPROVED,
+  })||process.env.CHESS_DEMO_MODE==="true"||chessDemoModeActive())
+  throw new PermissionError("record:update");
+ const state=await context({
+  businessId:data.businessId,clientProfileId:data.clientProfileId,
+  serviceCaseId:data.serviceCaseId,service:data.service,
+ });
+ if(!["OWNER","ADMIN"].includes(state.actor.role))
+  throw new PermissionError("record:update");
+ const review=await state.db.chessBankReview.findFirst({where:{
+  id:data.reviewId,businessId:data.businessId,
+  clientProfileId:data.clientProfileId,serviceCaseId:data.serviceCaseId,
+  legacyTenantId:state.legacyTenantId,legacyEntityId:state.legacyEntityId,
+  status:"APPROVED",
+ },select:{id:true,createdByClerkUserId:true,reviewedByClerkUserId:true,
+  legacyBankTransactionId:true,transactionDigest:true}});
+ if(!review)throw new PermissionError("record:update");
+ const attempt=await state.db.chessFinancialAttempt.findUnique({where:{
+  sourceRefId:postingSourceRef(review.id),
+ },select:{id:true,businessId:true,consentId:true,reviewId:true,
+  status:true,createdByClerkUserId:true,sourceDigest:true,
+  legacyTenantId:true,legacyEntityId:true,legacyBankTransactionId:true,
+  executionStartedAt:true}});
+ if(!attempt||attempt.businessId!==data.businessId||
+  attempt.consentId!==state.consentId||attempt.reviewId!==review.id||
+  attempt.sourceDigest!==review.transactionDigest||
+  attempt.legacyTenantId!==state.legacyTenantId||
+  attempt.legacyEntityId!==state.legacyEntityId||
+  attempt.legacyBankTransactionId!==review.legacyBankTransactionId||
+  !independentBankOutcomeResolver({
+   creator:review.createdByClerkUserId,reviewer:review.reviewedByClerkUserId,
+   executor:attempt.createdByClerkUserId,resolver:state.actor.clerkUserId,
+   status:attempt.status,executionStartedAt:attempt.executionStartedAt,
+  }))throw new PermissionError("record:update");
+
+ const observed=await reconcileLegacyChessPosting(ledger,{
+  tenantId:state.legacyTenantId,entityId:state.legacyEntityId,
+  bankTransactionId:review.legacyBankTransactionId,
+  sourceRefId:postingSourceRef(review.id),
+ });
+ if(observed.status!=="MATCHED_POSTED"||!observed.journalEntryId)
+  return {status:"UNRESOLVED" as const,ledgerObservation:observed.status,
+   bankSettled:false,automaticallyRetried:false};
+
+ return state.db.$transaction(async tx=>{
+  const [member,unit,serviceCase,link,consents,mapping,currentReview,current]=await Promise.all([
+   tx.membership.findUnique({where:{clerkUserId:state.actor.clerkUserId},
+    select:{status:true,role:true}}),
+   tx.chessBusinessUnit.findUnique({where:{id:data.businessId},select:{status:true}}),
+   tx.chessServiceCase.findFirst({where:{
+    id:data.serviceCaseId,businessId:data.businessId,
+    clientProfileId:data.clientProfileId,service:data.service,status:"ACTIVE",
+   },select:{id:true}}),
+   tx.clientServiceLink.findUnique({where:{profileId_businessId_service:{
+    profileId:data.clientProfileId,businessId:data.businessId,service:data.service,
+   }},select:{grants:{where:{
+    clerkUserId:state.actor.clerkUserId,canRead:true,revokedAt:null,
+   },select:{id:true}}}}),
+   tx.chessClientConsent.findMany({where:{
+    id:attempt.consentId,businessId:data.businessId,
+    clientProfileId:data.clientProfileId,purpose:"service:"+data.service,
+   },select:{status:true,consentedAt:true,expiresAt:true,withdrawnAt:true,
+    acceptedByClerkUserId:true,verifiedEmailDigest:true,
+    acceptanceEvidenceDigest:true}}),
+   tx.chessFinancialLink.findUnique({where:{serviceCaseId:data.serviceCaseId},
+    select:{businessId:true,clientProfileId:true,service:true,
+     legacyTenantId:true,legacyEntityId:true}}),
+   tx.chessBankReview.findUnique({where:{id:review.id},select:{
+    status:true,createdByClerkUserId:true,reviewedByClerkUserId:true,
+    legacyBankTransactionId:true,transactionDigest:true}}),
+   tx.chessFinancialAttempt.findUnique({where:{id:attempt.id},select:{
+    status:true,createdByClerkUserId:true,executionStartedAt:true,
+    consentId:true,sourceDigest:true,journalEntryId:true,
+   }}),
+  ]);
+  if(member?.status!=="ACTIVE"||
+    !["OWNER","ADMIN"].includes(member.role)||
+    unit?.status!=="ACTIVE"||!serviceCase||!link?.grants.length||
+    !consents.some(c=>isUsableConsent(c))||
+    mapping?.businessId!==data.businessId||
+    mapping.clientProfileId!==data.clientProfileId||
+    mapping.service!==data.service||
+    mapping.legacyTenantId!==state.legacyTenantId||
+    mapping.legacyEntityId!==state.legacyEntityId||
+    currentReview?.status!=="APPROVED"||
+    currentReview.transactionDigest!==review.transactionDigest||
+    currentReview.legacyBankTransactionId!==review.legacyBankTransactionId||
+    current?.consentId!==attempt.consentId||
+    current.sourceDigest!==attempt.sourceDigest||
+    !!current.journalEntryId||
+    !independentBankOutcomeResolver({
+     creator:currentReview.createdByClerkUserId,
+     reviewer:currentReview.reviewedByClerkUserId,
+     executor:current.createdByClerkUserId,
+     resolver:state.actor.clerkUserId,status:current.status,
+     executionStartedAt:current.executionStartedAt,
+    }))throw new PermissionError("record:update");
+  const now=new Date();
+  const changed=await tx.chessFinancialAttempt.updateMany({where:{
+   id:attempt.id,businessId:data.businessId,
+   status:current.status,
+   journalEntryId:null,
+  },data:{status:"COMMITTED",journalEntryId:observed.journalEntryId,
+   resolvedAt:now,lastErrorCode:null}});
+  if(changed.count!==1)throw new PermissionError("record:update");
+  await tx.chessSecurityEvent.create({data:{
+   businessId:data.businessId,actorClerkUserId:state.actor.clerkUserId,
+   action:"BANK_POSTING_INDEPENDENT_RECEIPT_RECONCILED",
+   resourceType:"ChessFinancialAttempt",resourceId:attempt.id,decision:"ALLOW",
+  }});
+  return {status:"COMMITTED" as const,
+   ledgerObservation:"MATCHED_POSTED" as const,
+   journalEntryId:observed.journalEntryId,
+   bankSettled:false,automaticallyRetried:false};
+ },{isolationLevel:"Serializable"});
+}
