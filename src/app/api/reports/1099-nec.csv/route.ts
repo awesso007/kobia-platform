@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getAuthContext } from "@/lib/auth";
-import { db } from "@/lib/db";
+import {auditedLegacyTaxExport,parseLegacyTaxYear} from "@/lib/accounting/legacy-tax-export";
 
 const THRESHOLD_CENTS = 60000n; // $600
 
@@ -26,42 +26,44 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const tenantSlug = url.searchParams.get("tenant");
   const entityId = url.searchParams.get("entityId");
-  const year = Number(url.searchParams.get("year") ?? new Date().getUTCFullYear());
+  const year = parseLegacyTaxYear(url.searchParams.get("year"));
 
-  if (!tenantSlug || !entityId)
-    return new NextResponse("Missing params", { status: 400 });
+  if (!tenantSlug || !entityId || year === null)
+    return new NextResponse("Invalid export parameters", { status: 400 });
 
   const auth = await getAuthContext(tenantSlug);
   if (!auth) return new NextResponse("Unauthorized", { status: 401 });
 
-  // Confirm entity belongs to tenant
-  const entity = await db.entity.findFirst({
-    where: { id: entityId, tenantId: auth.tenant.id },
-    select: { id: true, name: true },
-  });
-  if (!entity) return new NextResponse("Entity not found", { status: 404 });
-
   const yearStart = new Date(Date.UTC(year, 0, 1));
   const yearEnd = new Date(Date.UTC(year + 1, 0, 1));
 
-  const vendors = await db.vendor.findMany({
-    where: {
-      tenantId: auth.tenant.id,
-      entityId: entity.id,
-      is1099Vendor: true,
-    },
-    include: {
-      bills: {
-        select: {
-          payments: {
-            where: { paymentDate: { gte: yearStart, lt: yearEnd } },
-            select: { amountCents: true },
+  let exportResult;
+  try {
+    exportResult = await auditedLegacyTaxExport(auth, entityId, "1099_NEC",
+      async (tx, entity) => tx.vendor.findMany({
+        where: {
+          tenantId: auth.tenant.id,
+          entityId: entity.id,
+          is1099Vendor: true,
+        },
+        include: {
+          bills: {
+            select: {
+              payments: {
+                where: { paymentDate: { gte: yearStart, lt: yearEnd } },
+                select: { amountCents: true },
+              },
+            },
           },
         },
-      },
-    },
-    orderBy: { name: "asc" },
-  });
+        orderBy: { name: "asc" },
+      }));
+  } catch {
+    // An audit failure must not return a CSV containing vendor taxpayer data.
+    return new NextResponse("Export unavailable", { status: 503 });
+  }
+  if (!exportResult) return new NextResponse("Forbidden", { status: 403 });
+  const { entity, data: vendors } = exportResult;
 
   const rows = vendors
     .map((v) => {
@@ -102,6 +104,8 @@ export async function GET(req: NextRequest) {
     status: 200,
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
       "Content-Disposition": `attachment; filename="1099-NEC-${year}-${entity.name.replace(/[^a-z0-9]/gi, "_")}.csv"`,
     },
   });
