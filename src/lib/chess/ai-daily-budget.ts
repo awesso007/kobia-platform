@@ -2,6 +2,7 @@ import type {PrismaClient} from "@/lib/db/generated/tenant";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {assertBusinessManager} from "./business-manager";
 import {PermissionError} from "@/lib/rbac/require-permission";
+import {auditedChessSensitiveRead} from "./sensitive-read-audit";
 
 export function chessAiDailyLimit(raw?:string):number{
  const value=raw===undefined||raw.trim()===""?25:Number(raw);
@@ -36,18 +37,61 @@ export async function claimChessAiDailyCall(
   throw new Error("Daily AI provider budget exhausted.");
  return {day,callCount:rows[0]!.callCount,limit};
 }
+/** Exact AI usage is tenant-business operational metadata. Role, business and
+ * SELECT are checked in the same serializable tenant audit transaction. */
 export async function getChessAiDailyUsage(businessId:string){
  const actor=await assertBusinessManager(businessId);
  if(actor.status!=="ACTIVE"||!["OWNER","ADMIN"].includes(actor.role))
   throw new PermissionError("record:read");
  const {db}=getTenantDb();
  const today=chessAiUtcDay();
- const current=await db.chessAiUsageDaily.findUnique({where:{
-  businessId_day:{businessId,day:today},
- },select:{callCount:true}});
- return {utcDay:today.toISOString().slice(0,10),
-  reservedCalls:current?.callCount??0,
-  maxCalls:chessAiDailyLimit(process.env.CHESS_AI_DAILY_CALL_LIMIT),
-  maxProviderCostMicrosPerCall:5000,
-  costExplanation:"Worst-case reserved provider request budget; not actual billed charges."};
+ return auditedChessSensitiveRead(db,{
+  businessId,actorClerkUserId:actor.clerkUserId,
+  action:"AI_BUDGET_READ",resourceType:"ChessAiUsageDaily",
+  resourceId:"business:"+businessId,
+ },async tx=>{
+  const [member,unit]=await Promise.all([
+   tx.membership.findUnique({where:{clerkUserId:actor.clerkUserId},
+    select:{status:true,role:true}}),
+   tx.chessBusinessUnit.findUnique({where:{id:businessId},
+    select:{status:true}}),
+  ]);
+  if(member?.status!=="ACTIVE"||!["OWNER","ADMIN"].includes(member.role)||
+   unit?.status!=="ACTIVE")return null;
+  const current=await tx.chessAiUsageDaily.findUnique({where:{
+   businessId_day:{businessId,day:today},
+  },select:{callCount:true}});
+  return {utcDay:today.toISOString().slice(0,10),
+   reservedCalls:current?.callCount??0,
+   maxCalls:chessAiDailyLimit(process.env.CHESS_AI_DAILY_CALL_LIMIT),
+   maxProviderCostMicrosPerCall:5000,
+   costExplanation:"Worst-case reserved provider request budget; not actual billed charges."};
+ });
+}
+
+/** Read-only AI worker inspection, never a scheduler trigger. The status may
+ * be displayed only to current OWNER/ADMIN after audited authorization. */
+export async function getChessAiWorkerSnapshot(businessId:string){
+ const actor=await assertBusinessManager(businessId);
+ if(!["OWNER","ADMIN"].includes(actor.role))
+  throw new PermissionError("record:read");
+ const {db}=getTenantDb();
+ return auditedChessSensitiveRead(db,{
+  businessId,actorClerkUserId:actor.clerkUserId,
+  action:"AI_WORKER_READ",resourceType:"ChessWorkerRun",
+  resourceId:"business:"+businessId,
+ },async tx=>{
+  const [member,unit]=await Promise.all([
+   tx.membership.findUnique({where:{clerkUserId:actor.clerkUserId},
+    select:{status:true,role:true}}),
+   tx.chessBusinessUnit.findUnique({where:{id:businessId},
+    select:{status:true}}),
+  ]);
+  if(member?.status!=="ACTIVE"||!["OWNER","ADMIN"].includes(member.role)||
+   unit?.status!=="ACTIVE")return null;
+  return tx.chessWorkerRun.findFirst({where:{kind:"AI_TRIAGE"},
+   orderBy:{occurredAt:"desc"},select:{
+    status:true,examined:true,processed:true,blocked:true,occurredAt:true,
+   }});
+ });
 }
