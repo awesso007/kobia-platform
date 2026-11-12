@@ -8,7 +8,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
-import { validatePortalSession, PORTAL_COOKIE } from "@/lib/helpdesk/portal";
+import { validatePortalSession, PORTAL_COOKIE, LEGACY_HELPDESK_EMAIL_ONLY_DISABLED } from "@/lib/helpdesk/portal";
 import { createTicket, type Priority } from "@/lib/helpdesk/tickets";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +25,11 @@ function tenantFrom(req: NextRequest): string | null {
 }
 
 export async function GET(req: NextRequest) {
+  if(LEGACY_HELPDESK_EMAIL_ONLY_DISABLED){
+    return NextResponse.json({ok:false,error:"Verified helpdesk identity not configured."},{
+      status:503,headers:{"Cache-Control":"private, no-store"},
+    });
+  }
   const tenant = tenantFrom(req);
   if (!tenant) return NextResponse.json({ ok: false, error: "Unknown workspace." }, { status: 400 });
   try {
@@ -43,6 +48,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if(LEGACY_HELPDESK_EMAIL_ONLY_DISABLED){
+    return NextResponse.json({ok:false,error:"Verified helpdesk identity not configured."},{
+      status:503,headers:{"Cache-Control":"private, no-store"},
+    });
+  }
   const tenant = tenantFrom(req);
   if (!tenant) return NextResponse.json({ ok: false, error: "Unknown workspace." }, { status: 400 });
   let body: Record<string, unknown>;
