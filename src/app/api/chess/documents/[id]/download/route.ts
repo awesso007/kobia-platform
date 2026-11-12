@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   safeChessAttachmentDisposition,
   streamChessDocumentDownload,
+  streamChessRedactionReview,
 } from "@/lib/chess/documents";
 import { PermissionError } from "@/lib/rbac/require-permission";
 
@@ -45,12 +46,19 @@ export async function GET(
     // This route repeats current membership, service grant, consent, retention,
     // suppression and pinned-object checks for every byte request. No S3 URL
     // or bearer download token is issued to the browser.
-    const file = await streamChessDocumentDownload(
-      params.id,
-      parsed.data.businessId,
-      parsed.data.clientProfileId,
-      parsed.data.service,
-    );
+    const review=url.searchParams.get("review");
+    if(review!==null&&review!=="redacted")
+      return NextResponse.json({error:"invalid_request"},{
+       status:400,headers:{"Cache-Control":"no-store"}});
+    const file = review==="redacted"?
+      await streamChessRedactionReview(
+       params.id,parsed.data.businessId,parsed.data.clientProfileId,
+       parsed.data.service,
+      ):
+      await streamChessDocumentDownload(
+       params.id,parsed.data.businessId,parsed.data.clientProfileId,
+       parsed.data.service,
+      );
     const headers = new Headers({
       "Content-Type": file.mimeType,
       "Content-Disposition": safeChessAttachmentDisposition(file.fileName),
