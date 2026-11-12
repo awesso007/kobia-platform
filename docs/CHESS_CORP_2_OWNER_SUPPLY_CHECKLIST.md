@@ -1,17 +1,16 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 40 | Engineering evidence through Round 38 CI baseline (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 41 | Engineering evidence through Round 40 CI baseline (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
 **Latest independently observed completed normal CI baseline (not
-external acceptance):** Round 38 source commit
-`f7ea573b45800b508de42fb073c2688a47807193` passed **3/3**
-GitHub Actions jobs in [run 43280276731](https://github.com/awesso007/kobia-platform/actions/runs/43280276731),
-including its disposable cross-database financial fault suite. Earlier
-verified rounds and their exact SHAs are preserved in the
-[authoritative Round 40 M1–M8 matrix](CHESS_CORP_2_ROADMAP.md).
-Rounds 39–40 require their own exact-final-commit CI verification.
+external acceptance):** Round 40 source commit
+`8749b59f43fef931cda34ed340fb2b33ba9706e1` passed **3/3**
+GitHub Actions jobs in [run 43286579398](https://github.com/awesso007/kobia-platform/actions/runs/43286579398).
+Round 38 finance fault CI baseline and other exact checkpoints are in the
+[authoritative Round 41 M1–M8 matrix](CHESS_CORP_2_ROADMAP.md).
+Round 41 requires its own exact-final-commit CI verification.
 No normal CI run can establish a real signed-in Clerk/Neon browser/axe
 acceptance, private S3 redaction/deletion, vendor settlement, WORM/PITR,
 or independent legal/security approval. All feature activation and
@@ -19,6 +18,39 @@ external credentials remain under this one checklist; source-only
 placeholder values are NOT owner approval.
 
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 41 exception resolution and storage version inventory — owner-supply updates
+
+**M3, existing 04/05/15/16/17/18:** The guarded default-OFF S3
+disposal worker and third-person UNKNOWN reconciliation now require
+`s3:ListBucketVersions` for the **single approved private tenant bucket**
+(and the previously recorded `HeadObject`/`DeleteObjectVersion` rights).
+The approved operator must test duplicate presigned PUT versions,
+untruncated listings, exact version 404 and **zero remaining byte-bearing
+versions** before any deletion receipt is trusted. A missing list permission
+or provider error must block, never certify deletion. Separately supply
+independent Object Lock/legal hold enforcement, immutable/WORM audit proof,
+backup+replica retention/erasure, and witnessed recovery: deleting a
+single S3 version is **not** proof all personal data was erased. Ensure
+**three distinct active owner/admin identities** (requester, approver,
+resolver) and signed legal policy before any physical S3 deletion.
+`CHESS_DOCUMENT_PURGE_EXECUTION_ENABLED=false` and
+`CHESS_DOCUMENT_PURGE_STORAGE_APPROVED=false` remain OFF. The vault-only
+`CHESS_DOCUMENT_PURGE_WORKER_TOKEN` stays within existing group **05**.
+
+**M5, existing 07/14/16/17/18:** New distinct default-OFF
+`CHESS_BANK_OUTCOME_RESOLUTION_ENABLED=false` and
+`CHESS_BANK_OUTCOME_POLICY_APPROVED=false` flags govern a receipt-only,
+**four-person** reconciliation (suggester, approver, executor and
+independent resolver). Independently approve operator roles, same-business
+service grants, actual protected separate bank+GL reconciliation evidence,
+and an accountant-approved procedure for `UNPOSTED`, `DIVERGED`
+and ambiguous `EXECUTING` outcomes. A matched GL entry never certifies
+bank settlement, and an unresolved attempt must not be automatically
+retried or marked failed merely because an observation says UNPOSTED.
+No new vendor credentials are demanded by the source-only tests; real
+sandbox sources and legally responsible reviewers are still required
+before P1/P2. See [Round 41 gap audit](CHESS_CORP_2_ROUND41_CODE_GAP_AUDIT.md).
 
 ## Round 40 employee/client fictional demo E2E — protected acceptance
 
