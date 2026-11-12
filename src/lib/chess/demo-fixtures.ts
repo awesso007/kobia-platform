@@ -195,7 +195,8 @@ export async function verifyChessDemoRecords(db: PrismaClient): Promise<{
   const [assignments,grants,consents,credentials,cases,invoices,items] =
     await Promise.all([
       db.chessEmployeeAssignment.count({where:{
-        businessId:{in:ids},revokedAt:null,
+        businessId:{in:ids},clerkUserId:{in:staff.map(employee=>employee.clerkUserId)},
+        revokedAt:null,
       }}),
       db.clientServiceGrant.count({where:{linkId:{in:links.map(l=>l.id)}}}),
       db.chessClientConsent.findMany({where:{
