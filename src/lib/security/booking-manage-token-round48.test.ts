@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { secureBookingManageTokenMatches } from "./booking-manage-token";
 
 describe("Round 48 public booking management token", () => {
-  const token = "111122223333444455556666777788889999";
+  const token = "a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c";
   it("accepts exact issued opaque 18-byte hex tokens", () => {
     expect(secureBookingManageTokenMatches(token, token)).toBe(true);
   });
