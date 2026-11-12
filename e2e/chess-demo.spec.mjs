@@ -61,7 +61,7 @@ test("demo owner sees eight separate CHESS businesses and five fictional clients
   await expect(page.getByRole("heading", {
     name: "CHESS Corporation fictional sandbox",
   })).toBeVisible();
-  await expect(page.getByRole("main").getByRole("article")).toHaveCount(8);
+  await expect(page.getByRole("article")).toHaveCount(8);
   await expect(page.getByText("Morgan Fictional (FICTIONAL)")).toBeVisible();
   await expect(page.getByText("Riley Sample (FICTIONAL)")).toBeVisible();
   await expect(page.getByText(/No valid service grants or accepted consents are seeded/))
@@ -300,6 +300,6 @@ test("owner's eight-business demo passes automated serious/critical WCAG checks"
   await signIn(page, ownerEmail);
   await page.goto("/app/overview");
   await page.goto("/app/demo");
-  await expect(page.getByRole("main").getByRole("article")).toHaveCount(8);
+  await expect(page.getByRole("article")).toHaveCount(8);
   await assertNoSeriousAxeViolations(page, "Owner demo tour");
 });
