@@ -47,6 +47,11 @@ jobs:
           node --check scripts/chess-round43-historical-get-audit-gate.mjs
           node scripts/chess-round43-historical-get-audit-gate.mjs
 
+      - name: Gate all scheduled legacy machine cron endpoints
+        run: |
+          node --check scripts/chess-round47-cron-auth-gate.mjs
+          node scripts/chess-round47-cron-auth-gate.mjs
+
       - name: Validate signed-in browser and accessibility test harness
         run: |
           node --check playwright.config.mjs

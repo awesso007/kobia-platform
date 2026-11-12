@@ -8,12 +8,16 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { NextResponse } from "next/server";
+import { requireKobiaCronAuth } from "@/lib/security/cron-authorization";
 import { getTenantPrisma } from "@/lib/db/tenant-prisma";
 import { checkLowStock } from "@/lib/inventory/stock";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
+  // Authentication must precede tenant enumeration and all side effects.
+  const denied = requireKobiaCronAuth(req);
+  if (denied) return denied;
   try {
     const { PrismaClient } = await import("@/lib/db/generated/platform");
     const platform = new PrismaClient();
