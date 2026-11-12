@@ -46,7 +46,7 @@ export async function withdrawClientConsent(consentId: string,businessId: string
  const {db}=getTenantDb();
  const now=new Date();
  return db.$transaction(async tx=>{
-  await guardAndCancelReservedFinancialAttempts(tx,consentId,now);
+  await guardAndCancelReservedFinancialAttempts(tx,consentId,now,undefined,businessId);
   const changed=await tx.chessClientConsent.updateMany({
    where:{id:consentId,businessId,status:"GRANTED"},
    data:{status:"WITHDRAWN",withdrawnAt:now},
