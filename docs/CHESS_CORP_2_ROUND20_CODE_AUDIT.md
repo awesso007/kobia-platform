@@ -83,3 +83,25 @@ protected HTTPS staging, signed release owner and cutover remain open.
   non-USD entity/bank account. Unsupported LOAN/OTHER account types are
   rejected. Actual legacy financial execution integration still needs
   real PostgreSQL and independent accounting acceptance.
+
+
+## Additional Round 20 source-level ledger integration coverage
+
+A third, isolated GitHub Actions CI job,
+chess-legacy-ledger-integration, provisions an **ephemeral** PostgreSQL 16
+database using prisma/schema.prisma (db push into disposable CI only).
+It tests the extracted legacy bank/GL posting transaction, including:
+
+- two-sided balanced journal and cached bank/revenue balances;
+- atomic bank state UNMATCHED to CATEGORIZED plus journal ID;
+- concurrent attempts for one source transaction: one winner only;
+- same-source replay refusal and exactly one source journal;
+- CLOSED accounting period failure rolls back the bank claim, journal
+  entry and account balance changes.
+
+The independently deployed CHESS database, official bank provider,
+three live Clerk test subjects, real consent revocation races, month-end
+reconciliations, long-running queue recovery, real bank statement
+settlement and financial audit approval **are still NOT verified**.
+Only the core legacy DB transaction can be described as CI-tested.
+No finance flags may be enabled from this CI proof alone.

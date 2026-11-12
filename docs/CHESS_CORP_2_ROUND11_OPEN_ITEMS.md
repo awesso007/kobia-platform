@@ -427,3 +427,15 @@ See docs/CHESS_CORP_2_ROUND20_CODE_AUDIT.md. All M1-M8 release holds remain.
   certification, all-path sensitive-read audit, real bank legacy DB
   concurrency/compensation tests, bank provider approval, signed
   supervisory policy, provider settlement and staging release.
+
+
+## Round 20 continued - isolated legacy PostgreSQL accounting test
+
+- **M5-06 [CODE TESTED AT TRANSACTION LAYER; CODE/EXTERNAL RELEASE OPEN]**
+  A new separate disposable legacy PostgreSQL CI job verifies an atomic
+  double-entry bank classification, cached account balances, duplicate
+  rejection, competing write attempts and closed-period rollback. It
+  does **not** certify the cross-DB CHESS-to-ledger consent/approval
+  handshake, signed live identities, bank provenance, provider statement
+  or real ledger reconciliation. The manual API remains OFF by default
+  until those independently supervised gates are cleared.
