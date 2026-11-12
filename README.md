@@ -63,6 +63,23 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS employee service desk — Round 27
+
+Within the isolated CHESS tenant, sign in using an active staff
+membership, open /app/overview, then select **CHESS service desk**
+to navigate to /app/chess-desk. Only OWNER/ADMIN roles see the
+supervisor finance, regulated, billing, reporting and security links;
+every destination rechecks server permissions independently.
+
+Business Units displays revoked client-service-grant counts after
+staff offboarding. Service Billing shows the most recent draft
+worker inspection, not invoice delivery. Approved financial case
+reviews offer **read-only** bank/journal reconciliation.
+See [Round 27 UI inventory](docs/CHESS_CORP_2_ROUND27_EMPLOYEE_UI.md)
+for all M1–M8 screens, machine-only exclusions and acceptance gates.
+Real Clerk/Codespaces acceptance and external approvals are still
+required before any production release.
+
 ## CHESS Corporation fictional demo — Round 25 Codespaces setup
 
 **Sandbox-only:** CHESS is an isolated fictional tenant of the independent

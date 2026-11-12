@@ -8,6 +8,25 @@ business-operations layer within an isolated KOBIA tenant, not an assertion
 that a single legal entity holds all operating licenses.
 
 
+## CURRENT ROUND 27 — staff and supervisor screen coverage
+
+Added /app/chess-desk as a role-limited employee entry point, linked
+from KOBIA's overview. Revised the business-unit offboarding UI to
+show atomic client-grant revocation counts, the recurring-billing UI
+to show exact worker inspection timestamps, and private document UI
+to explain verified consent/scan requirements. Added static UI
+regressions for historical read-only bank journal reconciliation.
+See [Round 27 employee UI audit](CHESS_CORP_2_ROUND27_EMPLOYEE_UI.md)
+for the full M1–M8 route inventory and deliberately machine-only APIs.
+
+**No release change:** all eight milestones remain subject to their
+existing external/independent acceptance gates; separate Round 26
+code-only engineering blockers remain. Never enable a financial or
+regulated execution flow from a navigational link. PR #24 stays draft
+and production is unchanged.
+
+---
+
 ## CURRENT ROUND 26 — engineering verification scope (November 11, 2026)
 
 **Latest development change inventory:** M1 role-scoped profile/provisioning

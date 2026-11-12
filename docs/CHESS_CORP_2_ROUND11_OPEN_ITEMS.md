@@ -576,3 +576,30 @@ credential list is created by this round. All M1–M8 release gates remain.
 
 Existing owner-supplied items continue to be managed ONLY in
 docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md.
+
+
+## Round 27 — employee screen reconciliation
+
+- **M1–M8 [UI EXPANDED, RELEASE GATES OPEN]:** A new role-scoped
+  employee service desk at /app/chess-desk makes existing authorized
+  workflows discoverable. No machine-only execution or external
+  callbacks appear as ordinary employee buttons.
+- **M2 [UI UPDATED]:** Active business assignment revocation shows
+  the actual number of client service grants revoked for that
+  employee/business; warning explains grants are not restored on
+  re-assignment. Backend atomic revocation remains authoritative.
+- **M3 [UI UPDATED]:** Service documents describe purpose-bound
+  consent, live staff grants, malware scan, pinned versions, and
+  prior presigned URL limits. Actual S3 and legally sufficient
+  consent acceptance remains external.
+- **M5 [UI TEST]:** Historic bank-to-GL reconciliation remains
+  available as a READ-ONLY employee action on an approved review,
+  even after bank source becomes categorized. No auto retry/settlement.
+- **M7 [UI UPDATED]:** Recurring draft plans display UTC last-inspected
+  status or never checked; this is not a proof of delivery or payment.
+- **M8 [RELEASE BLOCKED]:** Authenticated two-tenant browser, accessibility,
+  independent staging, WORM, DR and security acceptance remain.
+  Detailed mapping: docs/CHESS_CORP_2_ROUND27_EMPLOYEE_UI.md.
+
+No additional provider credential was requested by this UI round.
+Canonical owner inputs remain in CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md.
