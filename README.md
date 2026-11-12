@@ -65,6 +65,13 @@ partner workflows or consent portals from a CI pass alone.
 
 ## CHESS CORP 2 Round 41 — safe recovery of ambiguous outcomes
 
+Round 41 also closes a bounded employee work-item gap: task lists now
+commit an audited allow/deny decision with current role, business and
+assignment checks in one SERIALIZABLE read transaction; task creation
+and transitions repeat live authorization and assignment checks in their
+audited write transactions. This is NOT a complete audit of older KOBIA
+API routes.
+
 Round 41 adds **independent, default-OFF** resolution of ambiguous
 document deletion and bank journal posting. The S3 disposal path verifies
 the exact pinned object version and enumerates all content versions before
