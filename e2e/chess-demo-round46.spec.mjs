@@ -157,7 +157,7 @@ test("Round 46 verified fictional client cannot accept consent or see another cl
   const unit=await business(owner,"accounting");
   const client=await clientContext.newPage();
   await login(client,"client");
-  await client.goto("/chess-demo/client?profileId=forged-other-client&tenant=forged-tenant");
+  await client.goto("/chess-demo/client?profileId=forged-other-client");
   const main=client.getByRole("main");
   await expect(main.getByText("Morgan Fictional (FICTIONAL)")).toBeVisible();
   await expect(main.getByText("PENDING",{exact:true})).toHaveCount(1);
