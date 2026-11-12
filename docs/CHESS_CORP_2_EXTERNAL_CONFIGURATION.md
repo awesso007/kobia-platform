@@ -1021,3 +1021,27 @@ without posting twice. This is **not sufficient for release** until the
 cross-database consent revocation risk and exception reconciliation strategy
 have independently signed acceptance. Human review, period-close integrity,
 account mapping and a real staging exercise remain required.
+
+
+## Round 21 - employee desks requiring external approvals
+
+The following placeholders are used by the new user-facing panels; leave
+them omitted or false until reviewed. No provider keys are stored in code.
+
+Bank posting: CHESS_BANK_POSTING_ENABLED,
+CHESS_BANK_POSTING_POLICY_APPROVED,
+CHESS_BANK_POSTING_BANK_SANDBOX_APPROVED,
+CHESS_BANK_POSTING_OPERATOR_APPROVED.
+
+Payroll: CHESS_PAYROLL_PROVIDER_CERTIFIED,
+CHESS_PAYROLL_EXECUTION_ENABLED, CHESS_PAYROLL_API_URL,
+CHESS_PAYROLL_ALLOWED_HOST, CHESS_PAYROLL_API_KEY,
+independent PAYROLL_EXECUTE review evidence.
+
+Independent monitoring: CHESS_INCIDENT_MONITOR_ENABLED,
+CHESS_INCIDENT_MONITOR_OPS_APPROVED, CHESS_INCIDENT_MONITOR_TOKEN,
+CHESS_SCHEDULER_ENABLED, CHESS_ACTIVE_TENANT_SLUGS,
+CHESS_WORKFLOW_WORKER_TOKEN, independent pager and WORM vendor.
+
+These flags are NOT release evidence; a signed test-tenant browser role
+and accessibility matrix is required before live staff use.

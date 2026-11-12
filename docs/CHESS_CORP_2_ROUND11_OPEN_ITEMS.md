@@ -439,3 +439,30 @@ See docs/CHESS_CORP_2_ROUND20_CODE_AUDIT.md. All M1-M8 release holds remain.
   handshake, signed live identities, bank provenance, provider statement
   or real ledger reconciliation. The manual API remains OFF by default
   until those independently supervised gates are cleared.
+
+
+## Round 21 - employee UI and missing external acceptance
+
+- **M5-06 / M8-09 [CODE UI ADDED, RELEASE OPEN]** Bank-approved posting
+  screen is now available to an independent operator through an explicit
+  two-step confirmation, only when all four financial release flags are true.
+  The actual legacy GL and external bank provider remain subject to separate
+  source identity, cash settlement, consent race and finance approvals.
+- **M5-03 [CODE UI ADDED, EXTERNAL OPEN]** PAYROLL case now shows dispatch
+  history and a certified-vendor-only manual submission form; execution
+  additionally rejects an operator who is either the requester or reviewer.
+  A matching approved PAYROLL_EXECUTE digest is still required. Provider,
+  wage, bank, tax filing and settlement certification remain incomplete.
+- **M8-08 / M8-09 [CODE UI ADDED, EXTERNAL OPEN]** New /app/security-operations
+  provides current owner/admin read-only archive, worker and incident
+  exceptions, with fresh membership checked inside an append-only audited
+  tenant transaction. It does not activate external paging or provide
+  remote WORM retention evidence.
+- **UI acceptance [BOTH]** Signed-in staging, real browser tests,
+  accessibility, mobile layout, cross-business role tests and independent
+  final user/operations acceptance still need external credentials/review.
+  Machine-only worker/monitor/provider callbacks deliberately have no
+  human execution UI.
+
+See docs/CHESS_CORP_2_ROUND21_UI_COVERAGE.md for the backend-to-UI matrix,
+missing approved inputs, and a role/accessibility test checklist.

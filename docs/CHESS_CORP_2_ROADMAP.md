@@ -1093,3 +1093,18 @@ and bank-review detail reads. M5 posting also refuses inactive or
 incorrectly classified bank GL accounts. Source-level CI does not
 remove outstanding multi-entity accounting, bank-settlement,
 compliance or production authorization blockers.
+
+
+## Round 21 - employee UI completeness review
+
+Covered missing human-readable workflows: manual bank-review-to-GL
+posting confirmation (disabled until separately approved), payroll
+status and independently approved submission (certified-only),
+owner-only archive/worker/incident oversight, and navigation discovery.
+Preserved machine-only boundaries around webhooks, scanner callbacks,
+audit archive delivery, scheduled workers and staging attestations.
+CI green does not independently validate a real browser, payments,
+regulated activities or a production security incident drill.
+
+See docs/CHESS_CORP_2_ROUND21_UI_COVERAGE.md for the exact screen
+inventory, access checks, activation placeholders and still-open gates.
