@@ -6,7 +6,7 @@ function source(path:string):string{
  return readFileSync(join(process.cwd(),"src/app/api",path,"route.ts"),"utf8");
 }
 describe("Round 37 source inventory for high-risk historical endpoints",()=>{
- const audited=[
+ const audited: Array<readonly [string,string]>=[
   ["reports/1099-nec.csv","auditedLegacyTaxExport"],
   ["reports/1099-misc.csv","auditedLegacyTaxExport"],
   ["reports/general-ledger.csv","auditedLegacyEntityExport"],
