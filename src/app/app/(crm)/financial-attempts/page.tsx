@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type {Metadata} from "next";
 import {listBusinessUnits} from "@/lib/chess/business-units";
+import {assertBusinessManager} from "@/lib/chess/business-manager";
 import {getChessFinancialAttemptHealth} from "@/lib/chess/financial-attempt-health";
 import FinancialAttemptMonitor from "./FinancialAttemptMonitor";
 
@@ -18,10 +19,14 @@ export default async function ChessFinancialAttemptsPage({searchParams}:{
  searchParams:{businessId?:string};
 }){
  try{
-  const units=await listBusinessUnits();
+  const assignedUnits=await listBusinessUnits();
+  const units=(await Promise.all(assignedUnits.map(async unit=>{
+   try{await assertBusinessManager(unit.id);return unit;}
+   catch{return null;}
+  }))).filter((unit):unit is (typeof assignedUnits)[number]=>unit!==null);
   const selected=units.find(unit=>unit.id===searchParams.businessId)??units[0];
-  if(!selected)return <main role="status" className="p-8">
-   No active business assignment is available.
+  if(!selected)return <main role="alert" className="p-8">
+   No active business-manager assignment is available for this monitor.
   </main>;
   const health=await getChessFinancialAttemptHealth(selected.id);
   return <main className="mx-auto max-w-6xl space-y-7 px-6 py-10">
