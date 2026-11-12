@@ -6,6 +6,7 @@ import {getClientServiceLink} from "@/lib/client-profile/service";
 import * as s3 from "@/lib/storage/s3";
 import {matchesPinnedDocument} from "./storage-integrity";
 import {authorizeChessDocumentService} from "./document-service-authorization";
+import {documentLifecycleEnabled} from "./document-lifecycle";
 import {auditedChessSensitiveRead} from "./sensitive-read-audit";
 
 export function documentDownloadAllowed(
@@ -219,6 +220,7 @@ export async function streamChessRedactionReview(
  documentId:string,businessId:string,clientProfileId:string,
  service:z.infer<typeof request>["service"],
 ){
+ if(!documentLifecycleEnabled())throw new PermissionError("record:read");
  const actor=await getCurrentMembership();
  if(!actor||actor.status!=="ACTIVE"||!["OWNER","ADMIN"].includes(actor.role))
   throw new PermissionError("record:read");
