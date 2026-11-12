@@ -1,6 +1,7 @@
 import {formatChessUsdCents} from "@/lib/chess/report-format";
 import Link from "next/link";
 import {listBusinessUnits} from "@/lib/chess/business-units";
+import {selectChessWorkspace} from "@/lib/chess/workspace-selection";
 import {getChessOperationsReport} from "@/lib/chess/operations-reporting";
 import {listChessInvoices,listChessBillableCases} from "@/lib/chess/billing";
 import {listChessWorkItemTriage} from "@/lib/chess/ai-triage";
@@ -17,10 +18,18 @@ export default async function OperationsIntelligencePage({
  </main>;
  try{
   const units=await listBusinessUnits();
-  const selected=units.find(x=>x.id===searchParams.businessId)??units[0];
-  if(!selected)return <main className="mx-auto max-w-5xl p-8">
-   No active business unit is assigned to this workspace.
+  const workspace=selectChessWorkspace(units,searchParams.businessId);
+  if(workspace.status!=="READY")return <main role="status"
+   className="mx-auto max-w-5xl space-y-3 p-8">
+   <h1 className="text-2xl font-semibold">Operations intelligence unavailable</h1>
+   <p className="text-sm text-slate-700">{workspace.status==="UNAVAILABLE"?
+    "The requested business is not available to your account; another business was not selected.":
+    "No active business unit is assigned to this workspace."}</p>
+   <Link href="/app/chess-desk" className="text-sm font-semibold text-emerald-800 underline">
+    Return to service desk
+   </Link>
   </main>;
+  const selected=workspace.selected;
   const month=/^20[2-9][0-9]-(0[1-9]|1[0-2])$/.test(searchParams.month??"")?
    searchParams.month!:new Date().toISOString().slice(0,7);
   const [report,invoices,cases,suggestions,tasks]=await Promise.all([
@@ -46,9 +55,9 @@ export default async function OperationsIntelligencePage({
     </p>
    </header>
    <nav aria-label="Milestone 7 workspaces" className="flex flex-wrap gap-3 text-sm">
-    <Link href="/app/ai-operations" className="rounded-lg border px-4 py-2 font-semibold text-emerald-800">AI review queue</Link>
-    <Link href="/app/service-billing" className="rounded-lg border px-4 py-2 font-semibold text-emerald-800">Invoice approval desk</Link>
-    <Link href="/app/operations-reports" className="rounded-lg border px-4 py-2 font-semibold text-emerald-800">Monthly reports</Link>
+    <Link href={`/app/ai-operations?businessId=${encodeURIComponent(selected.id)}`} className="rounded-lg border px-4 py-2 font-semibold text-emerald-800">AI review queue</Link>
+    <Link href={`/app/service-billing?businessId=${encodeURIComponent(selected.id)}`} className="rounded-lg border px-4 py-2 font-semibold text-emerald-800">Invoice approval desk</Link>
+    <Link href={`/app/operations-reports?businessId=${encodeURIComponent(selected.id)}&month=${month}`} className="rounded-lg border px-4 py-2 font-semibold text-emerald-800">Monthly reports</Link>
    </nav>
    <nav className="flex flex-wrap gap-2" aria-label="Choose business">
     {units.map(u=><Link key={u.id}
@@ -95,7 +104,7 @@ export default async function OperationsIntelligencePage({
      received the invoice, paid it or that revenue has been earned.
     </p>
    </section>
-   <OperationsClient
+   <OperationsClient key={selected.id}
     businessId={selected.id}
     aiReady={aiTriageConfigured()}
     billingReady={billingProviderConfigured()}
