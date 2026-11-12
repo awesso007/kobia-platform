@@ -385,22 +385,52 @@ export async function listChessInvoices(businessId:string){
 }
 
 
+/** List only billable cases with current case membership, writable
+ * individual service grants and BOTH purpose-bound consent records.
+ * No client profile IDs leave the audited tenant transaction on denial. */
 export async function listChessBillableCases(businessId:string){
  const actor=await assertBusinessManager(businessId);
  if(!["OWNER","ADMIN"].includes(actor.role))throw new PermissionError("record:read");
  const {db}=getTenantDb();
- const rows=await db.chessServiceCase.findMany({where:{
-  businessId,status:"ACTIVE",
-  service:{in:["ACCOUNTING","BOOKKEEPING","PAYROLL","TAX"]},
- },select:{id:true,clientProfileId:true,service:true},
-  orderBy:{createdAt:"desc"},take:100});
- const authorized:typeof rows=[];
- for(const row of rows){
-  try{
-   await scopedInvoiceCase(businessId,row.clientProfileId,row.id,
-    row.service as BillableService);
-   authorized.push(row);
-  }catch{/* No client lacking current written billing consent is displayed. */}
- }
- return authorized;
+ return auditedChessManagerRead(db,{
+  businessId,actorClerkUserId:actor.clerkUserId,
+  action:"BILLABLE_CASE_DIRECTORY_READ",resourceType:"ChessServiceCase",
+  resourceId:"business:"+businessId,
+ },async tx=>{
+  const member=await tx.membership.findUnique({where:{
+   clerkUserId:actor.clerkUserId,
+  },select:{status:true,role:true}});
+  if(member?.status!=="ACTIVE"||!["OWNER","ADMIN"].includes(member.role))return null;
+  const allowedServices=Object.keys(productCodes) as BillableService[];
+  const rows=await tx.chessServiceCase.findMany({where:{
+   businessId,status:"ACTIVE",service:{in:allowedServices},
+  },select:{id:true,clientProfileId:true,service:true},
+   orderBy:{createdAt:"desc"},take:100});
+  if(!rows.length)return [];
+  const profileIds=[...new Set(rows.map(row=>row.clientProfileId))];
+  const [links,consents]=await Promise.all([
+   tx.clientServiceLink.findMany({where:{businessId,
+    profileId:{in:profileIds},service:{in:allowedServices},
+   },select:{profileId:true,service:true,grants:{where:{
+    clerkUserId:actor.clerkUserId,canRead:true,canWrite:true,revokedAt:null,
+   },select:{id:true}}},take:500}),
+   tx.chessClientConsent.findMany({where:{businessId,
+    clientProfileId:{in:profileIds},purpose:{in:allowedServices.flatMap(s=>[
+     `service:${s}`,`billing:${s}`])},
+   },select:{clientProfileId:true,purpose:true,status:true,expiresAt:true,
+    consentedAt:true,acceptedByClerkUserId:true,
+    verifiedEmailDigest:true,acceptanceEvidenceDigest:true,
+    withdrawnAt:true},take:5001}),
+  ]);
+  if(links.length===500||consents.length===5001)return null;
+  return rows.filter(row=>{
+   const grant=links.some(link=>link.profileId===row.clientProfileId&&
+    link.service===row.service&&link.grants.length>0);
+   const current=(purpose:string)=>consents.some(consent=>
+    consent.clientProfileId===row.clientProfileId&&
+    consent.purpose===purpose&&isUsableConsent(consent));
+   return grant&&current(`service:${row.service}`)&&
+    current(`billing:${row.service}`);
+  });
+ });
 }
