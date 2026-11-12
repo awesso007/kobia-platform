@@ -1,12 +1,7 @@
 import {z} from "zod";
-import {db as legacyDb} from "@/lib/db";
-import {getTenantDb} from "@/lib/db/get-tenant-db";
-import {getTenantBySlug} from "@/lib/tenant";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
-import {assertBusinessAccess} from "./business-units";
-import {payrollFingerprint,submitPayrollToProvider} from "./payroll-provider";
-import {getClientServiceLink} from "@/lib/client-profile/service";
-import {isUsableConsent} from "./onboarding";
+import {submitPayrollToProvider} from "./payroll-provider";
+import {resolveChessPostedPayrollRun} from "./payroll-source";
 
 const request=z.object({
  businessId:z.string().min(1).max(128),
@@ -26,53 +21,15 @@ export function payrollHasIndependentActors(requester:string,reviewer:string|nul
  * Provider-side employee, bank and tax readiness checks are mandatory. */
 export async function executeChessPayroll(input:unknown) {
  const data=request.parse(input);
- await assertBusinessAccess(data.businessId);
  const actor=await getCurrentMembership();
  if(!actor || !["OWNER","ADMIN"].includes(actor.role))throw new PermissionError("record:update");
  if(process.env.CHESS_PAYROLL_PROVIDER_CERTIFIED!=="true"){
   throw new Error("Payroll provider compliance gate disabled.");
  }
- const grant=await getClientServiceLink(data.clientProfileId,data.businessId,"PAYROLL");
- if(!grant)throw new PermissionError("record:update");
- const {db,tenantId}=getTenantDb();
- const [serviceCases,consents]=await Promise.all([
-  db.chessServiceCase.findMany({where:{
-   businessId:data.businessId,clientProfileId:data.clientProfileId,
-   service:"PAYROLL",status:"ACTIVE",
-  },select:{id:true}}),
-  db.chessClientConsent.findMany({where:{
-   businessId:data.businessId,clientProfileId:data.clientProfileId,
-   purpose:"service:PAYROLL",
-  },select:{status:true,expiresAt:true,consentedAt:true,
-   acceptedByClerkUserId:true,verifiedEmailDigest:true,
-   acceptanceEvidenceDigest:true}}),
- ]);
- if(!consents.some(x=>isUsableConsent(x)))throw new PermissionError("record:update");
- const legacyTenant=await getTenantBySlug(tenantId);
- if(!legacyTenant)throw new PermissionError("record:update");
- const mapping=await db.chessFinancialLink.findFirst({
-  where:{businessId:data.businessId,clientProfileId:data.clientProfileId,
-   service:"PAYROLL",legacyTenantId:legacyTenant.id},
+ const {db,legacyTenant,run,payload,digest}=await resolveChessPostedPayrollRun({
+  businessId:data.businessId,clientProfileId:data.clientProfileId,
+  legacyPayRunId:data.legacyPayRunId,
  });
- if(!mapping||!serviceCases.some(x=>x.id===mapping.serviceCaseId))
-  throw new PermissionError("record:update");
- const run=await legacyDb.payRun.findFirst({
-  where:{id:data.legacyPayRunId,entityId:mapping.legacyEntityId,
-   tenantId:legacyTenant.id,status:"POSTED"},
-  select:{id:true,tenantId:true,entityId:true,payDate:true,totalGrossCents:true,
-   totalNetCents:true,totalTaxesCents:true},
- });
- if(!run || run.totalGrossCents<=0n || run.totalNetCents<0n || run.totalTaxesCents<0n ||
-  run.totalNetCents+run.totalTaxesCents>run.totalGrossCents){
-  throw new PermissionError("record:update");
- }
- const payload={
-  tenantId:run.tenantId,entityId:run.entityId,payRunId:run.id,
-  grossCents:run.totalGrossCents.toString(),
-  netCents:run.totalNetCents.toString(),
-  taxCents:run.totalTaxesCents.toString(),payDate:run.payDate.toISOString(),
- };
- const digest=payrollFingerprint(payload);
  const approval=await db.chessActionApproval.findFirst({where:{
   id:data.approvalId,businessId:data.businessId,actionType:"PAYROLL_EXECUTE",
   payloadDigest:digest,status:"APPROVED",NOT:{requestedBy:actor.clerkUserId},
