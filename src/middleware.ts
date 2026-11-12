@@ -33,6 +33,10 @@ const isPublicRoute = createRouteMatcher([
   // Scheduled machine endpoints must reach their own exact CRON_SECRET guard;
   // Clerk browser authentication is not a machine authorization mechanism.
   "/api/cron(.*)",
+  // Authenticated by an independent relay secret, not a Clerk browser cookie.
+  "/api/email/inbound",
+  // Disabled payment stub must return 503 directly to anonymous callers.
+  "/api/f2/:slug/payment-intent",
   "/api/webhooks(.*)",
   // Public web-to-lead forms (Sprint 5): the hosted form page and its submit
   // endpoint are intentionally unauthenticated. Tenant is resolved from a
