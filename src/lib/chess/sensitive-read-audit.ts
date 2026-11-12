@@ -3,8 +3,8 @@ import {PermissionError} from "@/lib/rbac/require-permission";
 
 type SensitiveReadContext={
  businessId?:string;actorClerkUserId:string;
- action:"REGULATED_WORKFLOW_READ"|"BANK_REVIEW_DETAILS_READ"|"OPERATIONS_PORTFOLIO_READ"|"SECURITY_OPERATIONS_READ"|"DOCUMENT_LIST_READ"|"DOCUMENT_DOWNLOAD_READ"|"OPERATIONS_REPORT_READ"|"BANK_CANDIDATES_READ"|"PAYROLL_DISPATCH_READ"|"BANK_POSTING_RECONCILIATION_READ"|"CLIENT_PROFILE_DIRECTORY_READ"|"CLIENT_PROFILE_DETAIL_READ"|"CLIENT_PROVISIONING_READ";
- resourceType:"ChessServiceCase"|"ChessOperationsPortfolio"|"ChessSecurityEvent"|"ChessClientDocument"|"ChessOperationsReport"|"ChessPayrollDispatch"|"ChessBankReview"|"ClientProfile";resourceId:string;
+ action:"REGULATED_WORKFLOW_READ"|"BANK_REVIEW_DETAILS_READ"|"OPERATIONS_PORTFOLIO_READ"|"SECURITY_OPERATIONS_READ"|"DOCUMENT_LIST_READ"|"DOCUMENT_DOWNLOAD_READ"|"OPERATIONS_REPORT_READ"|"BANK_CANDIDATES_READ"|"PAYROLL_DISPATCH_READ"|"BANK_POSTING_RECONCILIATION_READ"|"CLIENT_PROFILE_DIRECTORY_READ"|"CLIENT_PROFILE_DETAIL_READ"|"CLIENT_PROVISIONING_READ"|"APPOINTMENT_DIRECTORY_READ"|"MANAGER_WORK_QUEUE_READ"|"TAX_WORKPAPER_DIRECTORY_READ"|"BILLING_INVOICE_DIRECTORY_READ";
+ resourceType:"ChessServiceCase"|"ChessOperationsPortfolio"|"ChessSecurityEvent"|"ChessClientDocument"|"ChessOperationsReport"|"ChessPayrollDispatch"|"ChessBankReview"|"ClientProfile"|"ChessAppointment"|"ChessWorkItem"|"ChessTaxWorkpaper"|"ChessBillingInvoice";resourceId:string;
 };
 /** Privacy-minimal record-access outcome. No names, properties, amounts,
  * document keys or raw service payloads are persisted in the audit. */
@@ -33,4 +33,31 @@ export async function auditedChessSensitiveRead<T>(
  },{isolationLevel:"Serializable"});
  if(value===null)throw new PermissionError("record:read");
  return value;
+}
+
+/** Manager-scoped sensitive read with fresh authorization in the SAME
+ * serializable transaction as the SELECT and immutable audit outcome.
+ * Changing a role or business assignment before the read cannot expose
+ * private appointment, queue, tax or invoice details. No PII is logged. */
+export async function auditedChessManagerRead<T>(
+ db:PrismaClient,ctx:SensitiveReadContext&{businessId:string},
+ read:(tx:Prisma.TransactionClient)=>Promise<T|null>,
+):Promise<T>{
+ return auditedChessSensitiveRead(db,ctx,async tx=>{
+  const [member,unit,assignment]=await Promise.all([
+   tx.membership.findUnique({where:{clerkUserId:ctx.actorClerkUserId},
+    select:{status:true,role:true}}),
+   tx.chessBusinessUnit.findUnique({where:{id:ctx.businessId},
+    select:{status:true}}),
+   tx.chessEmployeeAssignment.findUnique({
+    where:{businessId_clerkUserId:{businessId:ctx.businessId,
+     clerkUserId:ctx.actorClerkUserId}},
+    select:{role:true,revokedAt:true},
+   }),
+  ]);
+  const allowed=member?.status==="ACTIVE"&&unit?.status==="ACTIVE"&&
+   (["OWNER","ADMIN"].includes(member.role)||
+    (member.role==="MEMBER"&&assignment?.role==="MANAGER"&&!assignment.revokedAt));
+  return allowed?read(tx):null;
+ });
 }
