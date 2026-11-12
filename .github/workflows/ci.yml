@@ -146,6 +146,21 @@ jobs:
       - name: Run tenant isolation and CHESS authorization tests (public CI schema)
         run: npx vitest run src/lib/chess/schema.integration.test.ts src/lib/chess/recurring-fairness.integration.test.ts
 
+      # Round 38 uses two distinct disposable PostgreSQL DATABASES in one
+      # job. Production credentials and CHESS live-posting flags are absent.
+      - name: Create independent legacy database for cross-DB financial fault tests
+        run: |
+          node -e 'const {Client}=require("pg"); (async()=>{const c=new Client({connectionString:process.env.DIRECT_URL}); await c.connect(); try{await c.query("CREATE DATABASE chess_finance_fault_ci")}finally{await c.end()}})().catch(e=>{console.error(e);process.exit(1)})'
+      - name: Apply legacy ledger schema to the separate fault-only database
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_finance_fault_ci?schema=public"
+        run: npx prisma db push --schema=prisma/schema.prisma --skip-generate --accept-data-loss
+      - name: Distributed financial timeout rollback retry and consent tests
+        env:
+          RUN_CHESS_DISTRIBUTED_DB_INTEGRATION: "1"
+          CHESS_FAULT_LEGACY_DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_finance_fault_ci?schema=public"
+        run: npx vitest run src/lib/chess/distributed-financial-outcome-round38.integration.test.ts
+
       # Explicitly exercise the multi-schema migration order used by demo:setup.
       # This is an isolated CI-only PostgreSQL database, NOT a Neon account.
       - name: Create a separate temporary demo database
