@@ -32,7 +32,7 @@ describe("Round 50 atomic historical GET audit",()=>{
  it("checks membership and SELECT in the SAME transaction then commits audit before release",async()=>{
   let wasScoped=false;
   const original=vi.fn(async()=>{
-   wasScoped=scopedHistoricalTenantClient("tenant-one","tenant_tenant_one")===tx;
+   wasScoped=Object.is(scopedHistoricalTenantClient("tenant-one","tenant_tenant_one"),tx);
    return readResponse();
   });
   const response=await withAuditedHistoricalGet("inventory/stock",original)();

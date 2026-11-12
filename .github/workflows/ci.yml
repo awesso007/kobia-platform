@@ -52,6 +52,11 @@ jobs:
           node --check scripts/chess-round50-transaction-read-gate.mjs
           node scripts/chess-round50-transaction-read-gate.mjs
 
+      - name: Validate atomic legacy tRPC transaction boundary source
+        run: |
+          node --check scripts/chess-round50-transaction-read-gate.mjs
+          node scripts/chess-round50-transaction-read-gate.mjs
+
       - name: Gate all scheduled legacy machine cron endpoints
         run: |
           node --check scripts/chess-round47-cron-auth-gate.mjs
