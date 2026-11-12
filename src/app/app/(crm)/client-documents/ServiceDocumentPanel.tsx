@@ -157,9 +157,10 @@ export default function ServiceDocumentPanel({businessId,clientProfileId,service
    if(!res.ok)throw new Error("Document unavailable: grant, current client consent, malware scan, stored version and access audit are rechecked.");
    const result=await res.json();
    if(typeof result?.url!=="string")throw new Error("No private download URL returned.");
-   const u=new URL(result.url);
-   if(u.protocol!=="https:"&&
-    !(window.location.hostname==="localhost"&&u.protocol==="http:"))
+   const u=new URL(result.url,window.location.origin);
+   if(u.origin!==window.location.origin||
+      !u.pathname.startsWith("/api/chess/documents/")||
+      !u.pathname.endsWith("/download"))
     throw new Error("The private download destination is not approved.");
    const link=document.createElement("a");
    link.href=u.toString();link.target="_blank";link.rel="noopener noreferrer";
