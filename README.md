@@ -63,6 +63,29 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS CORP 2 Round 44 — durable distributed financial fault tests
+
+The `chess-db-integration` workflow executes **14** dual-database
+PostgreSQL failure scenarios: the original Round 38 six plus **eight
+new Round 44 cases** for lost reservation ACKs, concurrent GL attempts,
+wrong idempotency fingerprints, partial bank-claim rollback, deactivated
+accounts, reconciliation timeouts, concurrent receipts and source-reference
+replays. Assertions check exactly one journal, atomic ledger/bank rollback,
+pinned receipt identity, no automatic UNKNOWN retry and no premature consent
+withdrawal.
+
+The fixture uses `chess_ci` and a separate temporary
+`chess_finance_fault_ci` database on **one** GitHub CI PostgreSQL service.
+`RUN_CHESS_DISTRIBUTED_DB_INTEGRATION` and
+`CHESS_FAULT_LEGACY_DATABASE_URL` are CI-only; live posting and independent
+financial outcome resolution stay **OFF**. These tests do not access
+a real bank, prove independent physical-cluster failure, or settle money.
+Protected sandbox credentials and legal/finance approval remain on the
+existing [owner checklist](docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md).
+See the [Round 44 14-case fault matrix](docs/CHESS_CORP_2_ROUND44_FINANCIAL_FAULT_MATRIX.md)
+and [M1–M8 roadmap](docs/CHESS_CORP_2_ROADMAP.md).
+PR #24 remains draft and `main` unchanged; no rollout.
+
 ## CHESS CORP 2 Round 43 — bounded historical API sensitive-read audit
 
 The historical 162-file KOBIA API inventory now has a separate source CI
