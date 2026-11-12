@@ -37,7 +37,14 @@ integration("legacy ledger atomic CHESS classification in isolated PostgreSQL",(
    sourceRefId:"chess-bank-review:fictional-"+slug,
    actorId:"independent-clerk-ci",
   };
-  const jeId=await commitLegacyBankClassification(db,draft);
+  const competing=await Promise.allSettled([
+   commitLegacyBankClassification(db,draft),
+   commitLegacyBankClassification(db,draft),
+  ]);
+  const won=competing.filter((r):r is PromiseFulfilledResult<string>=>r.status==="fulfilled");
+  expect(won).toHaveLength(1);
+  expect(competing.filter(r=>r.status==="rejected")).toHaveLength(1);
+  const jeId=won[0]!.value;
   const [posted,after,cash,income]=await Promise.all([
    db.journalEntry.findUnique({where:{id:jeId},include:{lines:true}}),
    db.bankTransaction.findUnique({where:{id:txn.id}}),
