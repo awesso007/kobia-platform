@@ -4,6 +4,7 @@ import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permissio
 import {assertBusinessManager} from "./business-manager";
 import {assertBusinessAccess} from "./business-units";
 import {maySyncAppointmentCalendar} from "./calendar-preferences";
+import {auditedChessManagerRead} from "./sensitive-read-audit";
 
 export const appointmentInput=z.object({
  businessId:z.string().min(1).max(128),
@@ -89,13 +90,17 @@ export async function createChessAppointment(input:unknown){
 }
 
 export async function listChessAppointments(businessId:string){
- await assertBusinessManager(businessId);
+ const actor=await assertBusinessManager(businessId);
  const {db}=getTenantDb();
- return db.chessAppointment.findMany({
+ return auditedChessManagerRead(db,{
+  businessId,actorClerkUserId:actor.clerkUserId,
+  action:"APPOINTMENT_DIRECTORY_READ",resourceType:"ChessAppointment",
+  resourceId:"business:"+businessId,
+ },async tx=>tx.chessAppointment.findMany({
   where:{businessId},orderBy:{startAt:"asc"},take:100,
   select:{id:true,subject:true,status:true,assignedClerkUserId:true,
    startAt:true,endAt:true,updatedAt:true},
- });
+ }));
 }
 
 const cancelInput=z.object({
