@@ -10,6 +10,7 @@ const staff:DeskItem[]=[
 const manager:DeskItem[]=[
  {title:"Business units and employee access",description:"Assignment, removal and audited revocation of client grants.",href:"/app/business-units",tag:"M2"},
  {title:"Finance case workbench",description:"Bank categorization, ledger reconciliation, tax workpapers and payroll status.",href:"/app/finance-operations",tag:"M5"},
+ {title:"Bank posting exceptions",description:"Audited, read-only reservation/UNKNOWN/COMMITTED status without ledger retries.",href:"/app/financial-attempts",tag:"M5 / M8"},
  {title:"Regulated coordination",description:"License checks, consent and licensed partner handoffs.",href:"/app/regulated-services",tag:"M6"},
  {title:"Service billing",description:"Invoice decisions, merchant observations and draft scheduler inspection.",href:"/app/service-billing",tag:"M7"},
  {title:"Supervised AI review",description:"Human-approved task suggestions.",href:"/app/ai-operations",tag:"M7"},
