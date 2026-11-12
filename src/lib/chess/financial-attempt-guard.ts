@@ -12,6 +12,7 @@ export async function guardAndCancelReservedFinancialAttempts(
   consentId: string,
   now = new Date(),
   actorClerkUserId?: string,
+  expectedBusinessId?: string,
 ) {
   await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "ChessClientConsent" WHERE "id" = ${consentId} FOR UPDATE`;
 
@@ -25,6 +26,8 @@ export async function guardAndCancelReservedFinancialAttempts(
     },
   });
   if (!consent || consent.status !== "GRANTED" ||
+      (!actorClerkUserId && !expectedBusinessId) ||
+      (expectedBusinessId && consent.businessId !== expectedBusinessId) ||
       (actorClerkUserId && consent.acceptedByClerkUserId !== actorClerkUserId)) {
     throw new PermissionError("record:update");
   }
