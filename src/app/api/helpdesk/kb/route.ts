@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Knowledge base API (Sprint 15, authenticated). GET lists all articles (any
  * status); POST creates one via upsertArticle (manages slug + publishedAt and
@@ -18,7 +19,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET() {
+async function historicalAuditedGet() {
   try {
     await requirePermission("record:read");
     const { db } = getTenantDb();
@@ -57,3 +58,5 @@ export async function POST(req: NextRequest) {
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("helpdesk/kb",historicalAuditedGet);

@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 import {assertMutationOrigin} from "@/lib/chess/request-security";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
@@ -18,7 +19,7 @@ function failure(error: unknown) {
   return NextResponse.json({ error: "Unable to process client service" }, { status: 500 });
 }
 
-export async function GET(request: NextRequest, { params }: Context) {
+async function historicalAuditedGet(request: NextRequest, { params }: Context) {
   try {
     const profile = await getClientProfile(params.profileId);
     const requestedService = service.parse(request.nextUrl.searchParams.get("service"));
@@ -39,3 +40,5 @@ export async function POST(request: NextRequest, { params }: Context) {
     return failure(error);
   }
 }
+
+export const GET=withAuditedHistoricalGet("client-profiles/[profileId]/services",historicalAuditedGet);

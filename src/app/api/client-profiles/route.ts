@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 import {assertMutationOrigin} from "@/lib/chess/request-security";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
@@ -14,7 +15,7 @@ function failure(error: unknown) {
   return NextResponse.json({ error: "Unable to process client profiles" }, { status: 500 });
 }
 
-export async function GET() {
+async function historicalAuditedGet() {
   try {
     return NextResponse.json({ profiles: await listClientProfiles() });
   } catch (error) {
@@ -31,3 +32,5 @@ export async function POST(request: NextRequest) {
     return failure(error);
   }
 }
+
+export const GET=withAuditedHistoricalGet("client-profiles",historicalAuditedGet);

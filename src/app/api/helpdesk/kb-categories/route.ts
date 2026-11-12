@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * KB categories API (Sprint 15, authenticated). GET lists categories; POST
  * creates one with a unique slug.
@@ -16,7 +17,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET() {
+async function historicalAuditedGet() {
   try {
     await requirePermission("record:read");
     const { db } = getTenantDb();
@@ -54,3 +55,5 @@ export async function POST(req: NextRequest) {
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("helpdesk/kb-categories",historicalAuditedGet);
