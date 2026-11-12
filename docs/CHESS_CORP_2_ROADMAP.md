@@ -8,6 +8,53 @@ business-operations layer within an isolated KOBIA tenant, not an assertion
 that a single legal entity holds all operating licenses.
 
 
+## CURRENT / AUTHORITATIVE — Round 34 milestone matrix (source verified through Round 33)
+
+**This table is the current M1–M8 development and release-gate matrix.**
+The detailed Round 24 matrix below is historical and must not be mistaken for
+the latest code inventory. Each row separates **implemented and CI-verified
+source** from **incomplete engineering or real-world acceptance**.
+
+| Milestone | Current verified code / usability scope (Rounds 29–33 included) | Outstanding code, staging and independent evidence | Owner-supply groups | Production gate |
+| --- | --- | --- | --- | --- |
+| **M1 — Shared profiles, authorization and sensitive reads** | Tenant-scoped client profiles, service grants and revocation; transaction-coupled ALLOW/DENY access audit for selected directories; Round 32 verified-client consent index/disclosure reads with same-transaction identity checks; Round 33 owner/manager/staff link separation and fail-closed explicit business navigation | **All-path** sensitive-read audit, old/legacy routes, external immutable audit receipts, authenticated two-tenant and multi-business role/grant revocation races, legal data-sharing approval | **01,02,03,15,17,18** | **PARTIAL CODE — BLOCKED** |
+| **M2 — Business units and employee assignments** | Business unit provisioning and atomic assignment/service-grant revocation; Round 33 current MANAGER assignment selects only authorized finance units, revoked deep links no longer fall back to a different business, and business-local admin forms reset on unit change | Real legal-company/firm and licensed-staff records, staged proof of active vs revoked roles, cross-business employee separation and least-privilege review | **01,02,03,10,17,18** | **PARTIAL CODE — BLOCKED** |
+| **M3 — Client consent, onboarding and documents** | Policy/purpose versioned consent, default-OFF verified Clerk client preview, withdrawn/expired-state guards, audit-coupled verified-own-consent reads (Round 32), reduced directory exposure, private version/scan/hold document controls in source | Counsel-approved disclosure/e-signature and legal hold/erasure policy, genuine client acceptance/withdrawal sessions, contact reassignment and foreign Clerk-account checks in protected staging, private S3/KMS/WORM/scanner evidence and tested recovery | **01,02,04,05,16,17,18** | **PARTIAL CODE — BLOCKED** |
+| **M4 — Tasks, recurrences and calendar** | Employee queue, alerts, manager reassignment, appointment conflict checks and calendar consent; Round 29 fairness worker persists inspection time, Round 31 screen displays it; Round 33 named staff selector, actionable empty/permission states, no false OFF when calendar preference lookup fails, business-keyed UI | Real deployed recurring worker/pager and backlog checks, Google/Microsoft delegated OAuth sandbox and cancel confirmations, signed-in revocation/consent and accessible mobile/keyboard/screen-reader tests; optional cross-tenant calendar conflict service deferred | **01,02,03,06,15,17,18** | **PARTIAL CODE — BLOCKED** |
+| **M5 — Accounting, bookkeeping, payroll and tax** | Case/GL mapping, reviewed bank suggestions, default-OFF three-actor journal execution, durable RESERVED/EXECUTING/UNKNOWN states, consent-row locking, read-only legacy GL reconciliation; Round 31 **manager-only read-only attempt monitor** and Round 33 finance manager business deep links and honest no-grant empty state | Source/legacy **cross-database UNKNOWN and consent race** fault injection; independent journal reconciliation and authorized resolution, certified bank/payroll/tax vendors, actual wage/tax receipts, legal/finance approvals; **no live posting/funding/e-file** | **01,07,08,09,14,16,17,18** | **PARTIAL CODE — LIVE FINANCIAL EXECUTION OFF** |
+| **M6 — Mortgage, insurance, real estate and investments** | Official-source verification adapters, service-specific consent and opaque licensed-partner coordination with UNKNOWN resolution; Round 33 regulated-workspace explicit revoked-business links fail closed | Current professional/firm sponsorship evidence, certified partner APIs and legal sector disclosures, independent licensed review, real execution-systems validation; **no origination/binding/closing/trading** | **03,04,10,11,17,18** | **PARTIAL COORDINATION CODE — REGULATED EXECUTION OFF** |
+| **M7 — AI triage, invoicing and reporting** | Budgeted metadata-only AI review and human approval, consent-bound invoice drafts/vendor observations, fairness-capped **draft-only** recurring billing and immutable operational snapshots; Round 33 business-scoped billing, approval and bank-feed forms reset; revoked billing link cannot silently select another company | Certified AI/invoice/merchant contracts and DPAs; actual settlement, chargeback/refund and tax policies; accountant-controlled ledger close, statutory consolidation and financial-statement review; **no real money or GAAP/IFRS close** | **12,13,14,15,17,18** | **PARTIAL CODE — COLLECTION/STATUTORY REPORTING OFF** |
+| **M8 — Security, CI, E2E and recovery** | Versioned migrations, tenant audit and monitoring; Round 32 OWNER/ADMIN worker/calendar/archive health reads now use a serializable access audit; Round 33 role-based menus, explicit selection and empty/error-state regression coverage; source CI passed **3/3 jobs** on verified Round 33 head | Historical/all-route audit coverage; **actual** protected Clerk/Neon signed-in browser and accessibility run; separate two-tenant staging, vendor tests, independent pen/load review, WORM/PITR and witnessed recovery, vault/pager approval and authorized rollout | **01,02,04,05,15,16,17,18** | **PARTIAL CODE — NO STAGING/PRODUCTION RELEASE AUTHORIZATION** |
+
+**Verified source checkpoints (normal GitHub Actions, not production or
+actual authenticated browser acceptance):**
+
+| Engineering round | Verified exact source commit | Completed normal CI (3/3 green) |
+| --- | --- | --- |
+| Round 31 | `96902a15561f0d0d9e8612c7a8d29a64bdb95974` | [43171848342](https://github.com/awesso007/kobia-platform/actions/runs/43171848342) |
+| Round 32 | `ac9123aa09b5301d11f6f418c84e9361080c172d` | [43174744357](https://github.com/awesso007/kobia-platform/actions/runs/43174744357) |
+| Round 33 | `1775d4bd54bf4f57c7567a385658e32a3b9ca607` | [43177693237](https://github.com/awesso007/kobia-platform/actions/runs/43177693237) |
+
+**Round 34 is documentation reconciliation; independently recheck CI on its
+final commit.** The test matrix is source/CI evidence only:
+`build` (lint, typecheck, unit tests, Next build, security smoke),
+`chess-db-integration` (disposable tenant PostgreSQL), and
+`chess-legacy-ledger-integration` (disposable legacy PostgreSQL). The
+manual protected `chess-demo-browser-e2e.yml` with actual Clerk accounts
+**has not been proven to run**, and passing syntax tests are not equivalent.
+The 58-route manifest is an inventory, **not** an audited-authorization
+certificate. Round 32 TODO search reported incomplete results, so neither
+all TODOs nor all code-only roadmap items are certified finished.
+
+**Release accounting: 8/8 production milestones BLOCKED,
+0/8 independently signed.** No new credential is needed to edit these
+documents. The single canonical [owner-supply checklist](CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md)
+remains open for externally controlled credentials, legal terms,
+independent reviews and staging evidence. CHESS remains a KOBIA tenant;
+keep draft PR #24 unmerged and production `main` unchanged.
+
+---
+
 ## CURRENT ROUND 33 — fictional demo usability and manager/staff navigation
 
 Reviewed /app/overview, /app/chess-desk, work items, finance, action approvals,
@@ -174,7 +221,9 @@ authorized release.
 
 ---
 
-## CURRENT / AUTHORITATIVE — Round 24 milestone status, November 11, 2026
+## HISTORICAL BASELINE — Round 24 milestone status, November 11, 2026
+
+**Historical Round 23 baseline only — superseded by the authoritative Round 34 matrix above.**
 
 **Source of truth for M1–M8 through Round 23 code:** draft
 [PR #24](https://github.com/awesso007/kobia-platform/pull/24),
