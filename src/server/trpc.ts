@@ -6,6 +6,7 @@ import superjson from "superjson";
 import { ZodError } from "zod";
 import { getAuthContext, type AuthContext } from "@/lib/auth";
 import {db} from "@/lib/db";
+import {withLegacyTrpcReadScope} from "./trpc-read-scope";
 
 export type CreateContextOptions = {
   tenantSlug: string;
@@ -42,32 +43,54 @@ const enforceAuth = t.middleware(({ ctx, next }) => {
   return next({ ctx: { ...ctx, auth: ctx.auth as AuthContext } });
 });
 
-/** Audits every successful protected tRPC query before its result leaves the
- * procedure. Public tenant.bySlug branding is intentionally outside this
- * private-read boundary. This is an after-query fail-closed release gate:
- * it does not make an arbitrary legacy SELECT share the audit transaction. */
+/** Protected tRPC read transactions are separate from legacy tenant-schema
+ * Prisma: the legacy accounting database holds its own membership and AuditLog.
+ * A successful protected query cannot release data until its transaction
+ * commits both SELECT and privacy-minimal event. */
 const auditProtectedQuery = t.middleware(async ({ctx,path,type,next})=>{
- const result=await next();
- if(type!=="query"||!result.ok)return result;
+ if(type!=="query")return next();
  if(!ctx.auth)throw new TRPCError({code:"UNAUTHORIZED"});
  try{
-  await db.$transaction(async tx=>{
-   const membership=await tx.membership.findUnique({where:{
-    userId_tenantId:{userId:ctx.auth!.user.id,tenantId:ctx.auth!.tenant.id},
-   },select:{isActive:true}});
-   if(!membership?.isActive)
-    throw new TRPCError({code:"FORBIDDEN"});
+  const result=await db.$transaction(async tx=>{
+   const [liveUser,liveTenant,liveMembership]=await Promise.all([
+    tx.user.findUnique({where:{id:ctx.auth!.user.id}}),
+    tx.tenant.findUnique({where:{id:ctx.auth!.tenant.id}}),
+    tx.membership.findUnique({where:{
+     userId_tenantId:{userId:ctx.auth!.user.id,tenantId:ctx.auth!.tenant.id},
+    }}),
+   ]);
+   const allowed=!!liveUser && liveUser.clerkUserId===ctx.auth!.user.clerkUserId &&
+     !!liveTenant && liveTenant.isActive &&
+     !!liveMembership && liveMembership.isActive;
+   if(!allowed){
+    await tx.auditLog.create({data:{
+     tenantId:ctx.auth!.tenant.id,userId:ctx.auth!.user.id,
+     action:"HISTORICAL_TRPC_PROTECTED_QUERY_DENIED",
+     entityType:"TRPC_PROCEDURE",entityId:path,
+    }});
+    return {allowed:false as const};
+   }
+   const auth={
+    user:liveUser!,tenant:liveTenant!,membership:liveMembership!,
+    role:liveMembership!.role,
+   };
+   const execution=await withLegacyTrpcReadScope({
+    tenantId:liveTenant!.id,userId:liveUser!.id,tx,
+   },async()=>next({ctx:{...ctx,auth}}));
    await tx.auditLog.create({data:{
-    tenantId:ctx.auth!.tenant.id,userId:ctx.auth!.user.id,
-    action:"HISTORICAL_TRPC_PROTECTED_QUERY_READ",
+    tenantId:liveTenant!.id,userId:liveUser!.id,
+    action:execution.ok?"HISTORICAL_TRPC_PROTECTED_QUERY_READ_ATOMIC":
+      "HISTORICAL_TRPC_PROTECTED_QUERY_DENIED",
     entityType:"TRPC_PROCEDURE",entityId:path,
    }});
-  },{isolationLevel:"Serializable"});
+   return {allowed:true as const,execution};
+  },{isolationLevel:"Serializable",maxWait:5000,timeout:30000});
+  if(!result.allowed)throw new TRPCError({code:"FORBIDDEN"});
+  return result.execution;
  }catch{
   throw new TRPCError({code:"INTERNAL_SERVER_ERROR",
-   message:"Protected query audit unavailable"});
+   message:"Protected query transaction unavailable"});
  }
- return result;
 });
 
 export const protectedProcedure = t.procedure.use(enforceAuth).use(auditProtectedQuery);

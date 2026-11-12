@@ -4,7 +4,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "@/server/trpc";
-import { db } from "@/lib/db";
+import { db } from "@/server/trpc-db";
 import {
   parseBankCsv,
   importCsvRows,

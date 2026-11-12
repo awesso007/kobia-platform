@@ -5,7 +5,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "@/server/trpc";
-import { db } from "@/lib/db";
+import { db } from "@/server/trpc-db";
 import { postJournalEntry, reverseJournalEntry, formatCents, normalBalanceSign } from "@/lib/accounting/ledger";
 
 const BIGINT_FROM_STRING = z.string().regex(/^\d+$/).transform((s) => BigInt(s));

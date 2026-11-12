@@ -9,7 +9,7 @@
  * - BankRule = description-substring auto-categorization shortcut.
  */
 import { createHash } from "crypto";
-import { db } from "@/lib/db";
+import { db } from "@/server/trpc-db";
 import { postJournalEntry } from "@/lib/accounting/ledger";
 import type { Prisma } from "@prisma/client";
 

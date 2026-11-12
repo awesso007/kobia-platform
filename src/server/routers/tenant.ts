@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router, protectedProcedure, publicProcedure } from "@/server/trpc";
-import { db } from "@/lib/db";
+import { db } from "@/server/trpc-db";
 
 export const tenantRouter = router({
   /** Get the current tenant from context. */

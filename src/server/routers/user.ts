@@ -1,5 +1,5 @@
 import { router, protectedProcedure } from "@/server/trpc";
-import { db } from "@/lib/db";
+import { db } from "@/server/trpc-db";
 
 export const userRouter = router({
   /** Get the current user. */
