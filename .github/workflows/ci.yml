@@ -52,6 +52,11 @@ jobs:
           node --check scripts/chess-round47-cron-auth-gate.mjs
           node scripts/chess-round47-cron-auth-gate.mjs
 
+      - name: Gate classified historical API mutation and public callback boundaries
+        run: |
+          node --check scripts/chess-round48-historical-method-gate.mjs
+          node scripts/chess-round48-historical-method-gate.mjs
+
       - name: Validate signed-in browser and accessibility test harness
         run: |
           node --check playwright.config.mjs
