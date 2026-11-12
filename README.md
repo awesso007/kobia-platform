@@ -63,6 +63,32 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS CORP 2 Round 43 — bounded historical API sensitive-read audit
+
+The historical 162-file KOBIA API inventory now has a separate source CI
+gate for **41 authenticated GET route response** audit wrappers and the
+protected legacy tRPC query dispatcher (42 guarded read surfaces total),
+plus the read-only search POST. A successful private GET is withheld
+until a fresh live tenant-membership check and privacy-minimal
+SERIALIZABLE audit commit succeed; audit failure returns generic 503,
+not sensitive bytes. Protected tRPC queries recheck legacy membership
+and pin a legacy `AuditLog` before returning. The old tRPC implicit
+`demo` tenant fallback is removed.
+
+**Important limitation:** This is audit-before-release, not proof that
+an arbitrary legacy SELECT ran in the same transaction. Remaining
+**69 non-GET historical route files**, 9 public capability endpoints
+and 26 machine callback paths need method-specific review and acceptance.
+The inventory is **not** an all-sensitive-read certificate; legacy
+`AuditLog` is also **not** a WORM archive. All remaining code-only
+route audit work and real authenticated staging/security evidence remain
+outstanding, so do not enable production release.
+
+See [Round 43 exact scope and gaps](docs/CHESS_CORP_2_ROUND43_HISTORICAL_SENSITIVE_READ_AUDIT.md),
+[authoritative milestone matrix](docs/CHESS_CORP_2_ROADMAP.md), and
+[the consolidated owner checklist](docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md).
+Draft PR #24 remains unmerged, no deployment or provider flag is enabled.
+
 ## CHESS CORP 2 Round 41 — safe recovery of ambiguous outcomes
 
 Round 41 also closes a bounded employee work-item gap: task lists now
