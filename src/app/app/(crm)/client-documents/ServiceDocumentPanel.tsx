@@ -68,7 +68,7 @@ export default function ServiceDocumentPanel({businessId,clientProfileId,service
      fileName:selected.name,mimeType:selected.type,size:selected.size}),
    });
    if(!res.ok)throw new Error(res.status===403?
-    "You do not have a current write grant for this service.":
+    "A current employee write grant and verified, unexpired client service consent are both required.":
     "Unable to start the private document upload. Check the storage configuration.");
    const body=await res.json();
    if(typeof body?.uploadUrl!=="string"||typeof body?.documentId!=="string")
@@ -105,7 +105,7 @@ export default function ServiceDocumentPanel({businessId,clientProfileId,service
    const res=await fetch(`/api/chess/documents?${q.toString()}`,{
     credentials:"same-origin",cache:"no-store",
    });
-   if(!res.ok)throw new Error("Document unavailable: current access, scan and stored version are checked again.");
+   if(!res.ok)throw new Error("Document unavailable: grant, current client consent, malware scan, stored version and access audit are rechecked.");
    const result=await res.json();
    if(typeof result?.url!=="string")throw new Error("No private download URL returned.");
    const u=new URL(result.url);
@@ -122,7 +122,9 @@ export default function ServiceDocumentPanel({businessId,clientProfileId,service
   <h2 className="text-xl font-semibold text-slate-950">Private service documents</h2>
   <p className="text-sm text-slate-600">
    Only documents for this authorized business, client and service are shown.
-   New uploads stay quarantined until independently scanned. Links are short-lived.
+   A live employee service grant and purpose-specific client consent are checked
+   again for every listing and download. New uploads remain quarantined until
+   independently scanned. Approved download links expire after 60 seconds.
   </p>
   {canUpload&&<form className="flex flex-wrap items-end gap-3" onSubmit={upload}>
    <label className="min-w-[240px] flex-1 text-sm font-semibold">
@@ -180,7 +182,8 @@ export default function ServiceDocumentPanel({businessId,clientProfileId,service
   {error&&<p role="alert" className="text-sm text-red-800">{error}</p>}
   <p className="text-xs text-slate-500">
    Private object storage, bucket CORS, versioning and a configured scanner
-   are required. This interface cannot bypass scan or grant requirements.
+   are required. Consent withdrawal prevents new signed downloads but cannot
+   retroactively invalidate an existing 60-second signed storage URL.
   </p>
  </section>;
 }
