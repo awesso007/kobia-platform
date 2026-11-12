@@ -41,6 +41,12 @@ CHESS_CLIENT_PORTAL_IDENTITY_APPROVED=false
 CHESS_SCAN_CALLBACK_ENABLED=false
 CHESS_DOCUMENT_LIFECYCLE_ENABLED=false
 CHESS_DOCUMENT_RETENTION_POLICY_APPROVED=false
+# Round 39: independent document retention/hold review, exact S3 version deletion.
+# No purge can run without all four flags, a distinct 32+ byte worker secret,
+# approved immutable receipts, and a separate object-storage deletion policy.
+CHESS_DOCUMENT_PURGE_EXECUTION_ENABLED=false
+CHESS_DOCUMENT_PURGE_STORAGE_APPROVED=false
+# CHESS_DOCUMENT_PURGE_WORKER_TOKEN=  # vault-only; 32+ characters, distinct from scanner token
 
 # M4: private schedulers and per-staff delegated calendar provider
 CHESS_SCHEDULER_ENABLED=false
