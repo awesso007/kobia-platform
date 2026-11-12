@@ -56,8 +56,11 @@ describe("manager-scoped privacy audits on sensitive directories",()=>{
    chessEmployeeAssignment:{findUnique:async()=>assigned?{role:assigned,revokedAt:revoked?new Date():null}:null},
    chessSecurityEvent:{create:async(event:unknown)=>{captured.push(event);}},
   };
-  const db=({$transaction:async(callback:(tx:typeof tx)=>Promise<unknown>)=>callback(tx)}
-   as unknown as PrismaClient);
+  const db={
+   $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => {
+    return callback(tx);
+   },
+  } as unknown as PrismaClient;
   const read=async()=>{reads++;return [{id:"private-row"}];};
   return {db,captured,read,reads:()=>reads};
  }
