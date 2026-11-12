@@ -2,7 +2,7 @@
 import {useState} from "react";
 type Recurrence={
  id:string;title:string;frequency:"DAILY"|"WEEKLY"|"MONTHLY";interval:number;
- active:boolean;nextRunAt:string;lastRunAt:string|null;
+ active:boolean;nextRunAt:string;lastRunAt:string|null;lastInspectedAt:string|null;
  assignedClerkUserId:string|null;updatedAt:string;
 };
 export default function RecurrencesClient({
@@ -52,6 +52,12 @@ export default function RecurrencesClient({
   finally{setBusy(false);}
  }
  return <div className="space-y-4">
+  <p className="text-xs leading-5 text-slate-600">
+   The worker's last inspection time means a due template was examined,
+   not that a task was created or an external calendar updated.
+   Blocked schedules may remain due until staff access is corrected.
+   This screen cannot run the scheduler.
+  </p>
   {error&&<p role="alert" className="rounded-lg border border-red-200 p-3 text-sm text-red-700">{error}</p>}
   <form onSubmit={create} className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
    <label className="text-sm">Task title
@@ -89,6 +95,11 @@ export default function RecurrencesClient({
     {item.frequency.toLowerCase()} · Every {item.interval} ·
     Next {new Date(item.nextRunAt).toLocaleString()} ·
     {item.active?" Active":" Paused"}
+    <span className="block text-xs text-slate-600">
+     {item.lastInspectedAt?
+      `Worker last inspected ${item.lastInspectedAt.slice(0,16).replace("T"," ")} UTC`:
+      "Never inspected by scheduled worker"}
+    </span>
    </div>
    <button type="button" disabled={busy} onClick={()=>toggle(item)}
     className="rounded-lg border border-slate-300 px-3 py-2 font-medium disabled:opacity-40">
