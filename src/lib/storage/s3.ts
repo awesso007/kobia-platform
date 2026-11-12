@@ -120,6 +120,29 @@ export async function headObject(storageKey: string, versionId?: string): Promis
   }
 }
 
+/** Strict metadata HEAD for CHESS document acceptance. A missing object (exact
+ * 404) is retriable; access denied, throttling or timeout are not evidence that
+ * the upload is invalid. Do not turn ambiguous storage errors into a REJECTED
+ * lifecycle record. Legacy callers may continue using headObject's nullable
+ * best-effort semantics.
+ */
+export async function headObjectStrict(
+ storageKey:string,versionId?:string,
+):Promise<HeadResult|null>{
+ try{
+  const response=await client().send(new HeadObjectCommand({
+   Bucket:bucketName()!,Key:storageKey,VersionId:versionId,
+  }));
+  return {size:Number(response.ContentLength??0),
+   mimeType:response.ContentType??null,versionId:response.VersionId??null,
+   etag:response.ETag??null};
+ }catch(error){
+  const code=(error as {$metadata?:{httpStatusCode?:number}})?.$metadata?.httpStatusCode;
+  if(code===404)return null;
+  throw error;
+ }
+}
+
 /**
  * Presigned GET URL. contentDisposition controls inline vs attachment, and is
  * also used by SMS sends (Twilio needs a > 1h lifetime to fetch media).
