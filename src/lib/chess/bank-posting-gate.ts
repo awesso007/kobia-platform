@@ -20,3 +20,14 @@ export function postingSourceRef(reviewId:string):string{
   throw new Error("Refusing malformed immutable bank-review identifier.");
  return "chess-bank-review:"+reviewId;
 }
+
+
+/** Forbid inactive/misclassified bank GLs and unsupported account types.
+ * A credit card account is a liability, cash accounts are assets.
+ * Loan/other products need their own independently reviewed mapping. */
+export function bankGlAccountMatchesType(bankType:string,glType:string):boolean{
+ if(["CHECKING","SAVINGS","MONEY_MARKET"].includes(bankType))
+  return glType==="ASSET";
+ if(bankType==="CREDIT_CARD")return glType==="LIABILITY";
+ return false;
+}

@@ -9,7 +9,7 @@ import {assertBusinessManager} from "./business-manager";
 import {isUsableConsent} from "./onboarding";
 import {createBankPostingPreview,BankPostingPreviewError} from "./bank-posting-preview";
 import {postJournalEntry} from "@/lib/accounting/ledger";
-import {chessBankPostingEnabled,postingSourceRef} from "./bank-posting-gate";
+import {chessBankPostingEnabled,postingSourceRef,bankGlAccountMatchesType} from "./bank-posting-gate";
 import {chessDemoModeActive} from "./demo-mode";
 import {auditedChessSensitiveRead} from "./sensitive-read-audit";
 
@@ -391,11 +391,11 @@ export async function executeChessApprovedBankPosting(input:unknown){
  if(txn.status!=="UNMATCHED")throw new PermissionError("record:update");
  await assertOffsetAccount(state.legacyTenantId,state.legacyEntityId,
   review.approvedAccountId,txn.bankAccount.glAccountId);
- const [bank,entity,offset]=await Promise.all([
+ const [bank,entity,offset,bankGl]=await Promise.all([
   ledger.bankAccount.findFirst({where:{
    id:txn.bankAccountId,tenantId:state.legacyTenantId,entityId:state.legacyEntityId,
    isActive:true,currency:"USD",
-  },select:{glAccountId:true}}),
+  },select:{glAccountId:true,accountType:true}}),
   ledger.entity.findFirst({where:{
    id:state.legacyEntityId,tenantId:state.legacyTenantId,
    isActive:true,baseCurrency:"USD",
@@ -404,8 +404,13 @@ export async function executeChessApprovedBankPosting(input:unknown){
    id:review.approvedAccountId,tenantId:state.legacyTenantId,
    entityId:state.legacyEntityId,isActive:true,isSystem:false,
   },select:{id:true}}),
+  ledger.account.findFirst({where:{
+   id:txn.bankAccount.glAccountId,tenantId:state.legacyTenantId,
+   entityId:state.legacyEntityId,isActive:true,
+  },select:{id:true,type:true}}),
  ]);
- if(!bank||bank.glAccountId!==txn.bankAccount.glAccountId||!entity||!offset)
+ if(!bank||bank.glAccountId!==txn.bankAccount.glAccountId||!entity||!offset||
+  !bankGl||!bankGlAccountMatchesType(bank.accountType,bankGl.type))
   throw new PermissionError("record:update");
  const preview=createBankPostingPreview(review,{
   id:txn.id,bankAccountGlId:bank.glAccountId,amountCents:txn.amountCents,
