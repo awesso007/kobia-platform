@@ -165,4 +165,76 @@ integration("CHESS fictional demo seed on isolated PostgreSQL",()=>{
   await assertIsolatedChessDemoDatabase(platform);
  });
 
+ it("Round 46 guards the exact fictional graph for all eight businesses and five clients without service grants",async()=>{
+  const units=await db.chessBusinessUnit.findMany({where:{
+   slug:{in:["accounting","bookkeeping","payroll","tax","mortgage",
+    "insurance","homes","investments"]},
+  },select:{id:true,slug:true,status:true}});
+  expect(units).toHaveLength(8);
+  expect(units.every(x=>x.status==="ACTIVE")).toBe(true);
+  const unitIds=new Set(units.map(u=>u.id));
+  const profiles=await db.clientProfile.findMany({
+   where:{displayName:{endsWith:"(FICTIONAL)"}},
+   select:{id:true,displayName:true},
+  });
+  expect(profiles).toHaveLength(5);
+  const [links,consents,grants,documents,serviceCases]=await Promise.all([
+   db.clientServiceLink.findMany({where:{
+    profileId:{in:profiles.map(p=>p.id)},
+   },select:{id:true,profileId:true,businessId:true,service:true}}),
+   db.chessClientConsent.findMany({where:{
+    clientProfileId:{in:profiles.map(p=>p.id)},
+    policyVersion:"fictional-demo-v1",
+   },select:{clientProfileId:true,purpose:true,status:true,
+    acceptedByClerkUserId:true,consentedAt:true,
+    verifiedEmailDigest:true,acceptanceEvidenceDigest:true}}),
+   db.clientServiceGrant.count({where:{
+    link:{profileId:{in:profiles.map(p=>p.id)}},
+   }}),
+   db.chessClientDocument.count({where:{
+    clientProfileId:{in:profiles.map(p=>p.id)},
+   }}),
+   db.chessServiceCase.count({where:{
+    clientProfileId:{in:profiles.map(p=>p.id)},
+   }}),
+  ]);
+  expect(links).toHaveLength(10);
+  expect(consents).toHaveLength(5);
+  expect(grants).toBe(0);
+  expect(documents).toBe(0);
+  expect(serviceCases).toBe(0);
+  for(const profile of profiles){
+   const related=links.filter(x=>x.profileId===profile.id);
+   expect(related).toHaveLength(2);
+   expect(new Set(related.map(x=>x.businessId)).size).toBe(2);
+   expect(related.every(x=>unitIds.has(x.businessId))).toBe(true);
+   const personal=consents.filter(x=>x.clientProfileId===profile.id);
+   expect(personal).toHaveLength(1);
+   expect(personal[0]).toMatchObject({status:"PENDING",
+    acceptedByClerkUserId:null,consentedAt:null,verifiedEmailDigest:null,
+    acceptanceEvidenceDigest:null});
+  }
+ },15000);
+
+ it("Round 46 refuses an unauthorized demo consent accept and preserves the seeded disclosure",async()=>{
+  const morgan=await db.clientProfile.findFirstOrThrow({where:{
+   displayName:"Morgan Fictional (FICTIONAL)",
+  },select:{id:true}});
+  const consent=await db.chessClientConsent.findFirstOrThrow({where:{
+   clientProfileId:morgan.id,policyVersion:"fictional-demo-v1",
+  },select:{id:true,status:true,consentedAt:true,
+   acceptedByClerkUserId:true,verifiedEmailDigest:true}});
+  expect(consent.status).toBe("PENDING");
+  await expect(db.chessClientConsent.update({where:{id:consent.id},
+   data:{status:"GRANTED"},
+  })).rejects.toThrow();
+  const unchanged=await db.chessClientConsent.findUniqueOrThrow({where:{id:consent.id},
+   select:{status:true,consentedAt:true,
+    acceptedByClerkUserId:true,verifiedEmailDigest:true}});
+  expect(unchanged).toMatchObject({status:"PENDING",consentedAt:null,
+   acceptedByClerkUserId:null,verifiedEmailDigest:null});
+  expect((await verifyChessDemoInstallation(platform,db)).fixture)
+   .toMatchObject({businessUnits:8,clients:5,pendingDisclosures:5});
+ },15000);
+
 });
