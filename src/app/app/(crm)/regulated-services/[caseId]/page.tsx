@@ -62,6 +62,9 @@ export default async function ChessRegulatedCasePage({
      retentionUntil:d.retentionUntil?.toISOString()??null,
      legalHoldAt:d.legalHoldAt?.toISOString()??null,
      suppressedAt:d.suppressedAt?.toISOString()??null,
+     supersededAt:d.supersededAt?.toISOString()??null,
+     purgedAt:d.purgedAt?.toISOString()??null,
+     redactionApprovedAt:d.redactionApprovedAt?.toISOString()??null,
     }))}/>
    <Link className="text-sm font-semibold text-emerald-800"
     href={`/app/regulated-services?businessId=${encodeURIComponent(businessId)}`}>
