@@ -1,6 +1,6 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 38 | Engineering evidence through Round 37 CI baseline (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 40 | Engineering evidence through Round 38 CI baseline (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
@@ -22,6 +22,42 @@ their responsible owner/contracting professional supplies and approves
 the required inputs. Source changes are recorded in
 [the authoritative Round 35 M1–M8 milestone matrix](CHESS_CORP_2_ROADMAP.md).
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 40 employee/client fictional demo E2E — protected acceptance
+
+The existing `chess-demo-e2e` GitHub Environment (owner-supply **17**) must
+provide a **dedicated, non-production Neon `chess_demo` database**, a single
+Clerk **TEST** instance, and **three distinct, real verified test identities**
+configured in `CHESS_DEMO_OWNER_EMAIL`, `CHESS_DEMO_EMPLOYEE_EMAIL` and
+`CHESS_DEMO_CLIENT_EMAIL`. No unverified email impersonation, production
+secrets or real client records are permitted. The code-only Round 40 additions
+check employee business deep-link denial, stale task conflict (HTTP 409),
+SUPPORT versus manager rights, client work/document API denial, and
+simultaneous owner/employee/client session isolation. The protected Playwright
+workflow is manual and approval-gated; **source syntax/CI checks are not
+equivalent to running that authenticated browser workflow**. Capture
+Playwright screenshots, accessibility violations, session role/consent
+revocation and cleanup evidence for **17/18** before release.
+
+## Round 39 document versioning, redaction and physical disposal — remaining owner supply
+
+The branch now has source for immutable replacement versions, independently
+reviewed scanned redacted derivatives, permanent suppression/legal hold,
+two-person disposal request/approval, and a default-OFF worker that deletes
+only a specific versioned S3 object and verifies absence. **This is
+not permission to delete actual client records.** Under the existing
+**04/05/15/16/17/18** groups, supply approved counsel/records retention
+policy per service/jurisdiction, subject-access and legal-hold procedures,
+licensed-practice review, independently supervised redaction QA and
+object-storage deletion/recovery tests, immutable external audit receipts,
+PITR restoration evidence and a witnessed final human go/no-go. Add the
+vault-only, distinct, 32+ byte `CHESS_DOCUMENT_PURGE_WORKER_TOKEN` under
+**05** and leave `CHESS_DOCUMENT_PURGE_EXECUTION_ENABLED=false` and
+`CHESS_DOCUMENT_PURGE_STORAGE_APPROVED=false` until that evidence
+is signed off; lifecycle and retention policy flags remain OFF too.
+An UNKNOWN storage deletion requires explicit independent reconciliation,
+never automatic retry. Test-only fixtures must never be treated as
+legal retention approval.
 
 ## Round 38 cross-database financial outcome acceptance (no new vendor credential)
 
