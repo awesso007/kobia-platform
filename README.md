@@ -63,6 +63,35 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS CORP 2 Round 45 — immutable document lifecycle, audited redaction review and safe disposal
+
+M3 now adds a PostgreSQL trigger migration preventing replacements and
+redacted derivatives from dropping inherited **retention dates, legal
+holds or download suppression**; later changes to an original propagate
+through the revision chain. Real disposable-PostgreSQL regression tests
+verify these inheritance and anti-shorten rules.
+
+Private uploads now distinguish missing S3 HEAD from timeout/403;
+confirmation requires exactly one pinned content version and a current
+employee write grant/verified client consent in an atomic audited
+transition. Malware callbacks are single-use, reject extra S3 versions
+and audit invalid metadata. A clean-scanned REDACTED version remains
+quarantined until a different owner/admin securely inspects the exact
+pinned bytes through a SHA-256 checked proxy, records a post-scan
+review event and explicitly attests before publication; the original
+remains retained as evidence. The employee screen provides an
+independent UNKNOWN deletion **read-only reconciliation** action
+without rerunning DeleteObject and fixes same-origin download links.
+
+**Physical deletion, hold release, externally witnessed byte erasure,
+Object Lock/WORM and production scanner/provider acceptance remain
+BLOCKED.** This code cannot prove all replicas and backups were erased;
+all private S3, scan, lifecycle and purge feature gates remain OFF.
+See the [Round 45 lifecycle audit](docs/CHESS_CORP_2_ROUND45_DOCUMENT_LIFECYCLE_AUDIT.md),
+[authoritative M1–M8 matrix](docs/CHESS_CORP_2_ROADMAP.md) and
+[canonical owner checklist](docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md).
+No merge, production write or deployment was performed.
+
 ## CHESS CORP 2 Round 44 — durable distributed financial fault tests
 
 The `chess-db-integration` workflow executes **14** dual-database
