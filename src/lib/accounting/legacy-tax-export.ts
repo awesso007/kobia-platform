@@ -12,7 +12,7 @@ import type {Prisma} from "@prisma/client";
 import type {AuthContext} from "@/lib/auth";
 import {db} from "@/lib/db";
 
-export type LegacyTaxExportEntity={id:string;name:string};
+export type LegacyTaxExportEntity={id:string;name:string;baseCurrency:string};
 export type LegacyTaxForm="1099_NEC"|"1099_MISC";
 export type LegacyEntityReport=LegacyTaxForm|"GENERAL_LEDGER"|"TRIAL_BALANCE";
 
@@ -31,7 +31,7 @@ export async function auditedLegacyEntityExport<T>(
    }},select:{isActive:true,role:true}}),
    tx.entity.findFirst({where:{
     id:entityId,tenantId:auth.tenant.id,isActive:true,
-   },select:{id:true,name:true}}),
+   },select:{id:true,name:true,baseCurrency:true}}),
   ]);
   const allowed=tenant?.isActive===true&&membership?.isActive===true&&
    (membership.role==="OWNER"||membership.role==="ADMIN"||
