@@ -4,6 +4,7 @@ import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {PermissionError} from "@/lib/rbac/require-permission";
 import {z} from "zod";
 import {guardAndCancelReservedFinancialAttempts} from "./financial-attempt-guard";
+import {currentClientConsentMutationAllowed} from "./client-consent-portal-policy";
 
 const request=z.object({
  consentId:z.string().min(1).max(128),
@@ -28,6 +29,7 @@ export function normalizeEmail(email:string):string {return email.trim().toLower
  * Not a legally binding e-signature solution; separate provider required.
  */
 export async function acceptClientConsent(input:unknown) {
+ if(!currentClientConsentMutationAllowed("ACCEPT"))throw new PermissionError("record:update");
  const data=request.parse(input);
  const clerkUserId=auth().userId;
  const user=await currentUser();
@@ -74,6 +76,7 @@ export async function acceptClientConsent(input:unknown) {
 
 /** Client can withdraw with a verified session bound to their recorded grant. */
 export async function withdrawOwnClientConsent(consentId:string) {
+ if(!currentClientConsentMutationAllowed("WITHDRAW"))throw new PermissionError("record:update");
  const clerkUserId=auth().userId;
  if(!clerkUserId)throw new PermissionError("record:update");
  const {db}=getTenantDb();
