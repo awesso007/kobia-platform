@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type {Metadata} from "next";
-import {listBusinessUnits} from "@/lib/chess/business-units";
-import {assertBusinessManager} from "@/lib/chess/business-manager";
+import {listChessManagedBusinessUnits} from "@/lib/chess/business-manager";
+import {selectChessWorkspace} from "@/lib/chess/workspace-selection";
 import {getChessFinancialAttemptHealth} from "@/lib/chess/financial-attempt-health";
 import FinancialAttemptMonitor from "./FinancialAttemptMonitor";
 
@@ -19,15 +19,20 @@ export default async function ChessFinancialAttemptsPage({searchParams}:{
  searchParams:{businessId?:string};
 }){
  try{
-  const assignedUnits=await listBusinessUnits();
-  const units=(await Promise.all(assignedUnits.map(async unit=>{
-   try{await assertBusinessManager(unit.id);return unit;}
-   catch{return null;}
-  }))).filter((unit):unit is (typeof assignedUnits)[number]=>unit!==null);
-  const selected=units.find(unit=>unit.id===searchParams.businessId)??units[0];
-  if(!selected)return <main role="alert" className="p-8">
-   No active business-manager assignment is available for this monitor.
+  const units=await listChessManagedBusinessUnits();
+  const workspace=selectChessWorkspace(units,searchParams.businessId);
+  if(workspace.status!=="READY")return <main role="status" className="mx-auto max-w-4xl space-y-3 p-8">
+   <h1 className="text-2xl font-semibold">Posting monitor unavailable</h1>
+   <p className="text-sm text-slate-700">
+    {workspace.status==="UNAVAILABLE"?
+     "The requested business is not in your current manager assignments.":
+     "No active business-manager assignment is available for this monitor."}
+   </p>
+   <Link href="/app/chess-desk" className="text-sm font-semibold text-emerald-800 underline">
+    Return to service desk
+   </Link>
   </main>;
+  const selected=workspace.selected;
   const health=await getChessFinancialAttemptHealth(selected.id);
   return <main className="mx-auto max-w-6xl space-y-7 px-6 py-10">
    <header className="space-y-3">
