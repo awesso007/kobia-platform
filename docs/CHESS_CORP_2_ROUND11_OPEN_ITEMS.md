@@ -377,3 +377,34 @@ manufacture evidence for legacy clients.
   The user still must validate a real Codespaces browser and authenticated
   Clerk test login. No separate financial or regulated execution gate lifted.
 - **M1-M8** retain their release and external evidence statuses above.
+
+
+## Round 20 - code-first roadmap review and residual external gates
+
+- **M1-02 / M8-09 [CODE PARTIAL, EXTERNAL/BOTH OPEN]** Two additional
+  sensitive read paths (bank review detail and regulated workflow detail)
+  now revalidate actor membership, service grants, active case and consent
+  in a serializable tenant-local transaction with append-only ALLOW/DENY
+  decision. PostgreSQL and unit regression cases enforce audit integrity.
+  All other sensitive paths, authenticated two-tenant E2E and remote WORM
+  delivery still need independent evidence and follow-up code.
+- **M4-04 [CODE PARTIAL, EXTERNAL/BOTH OPEN]** Work and appointment
+  notifications use cursor paging, a 5,000-row per-stream safety cap and
+  explicit DEGRADE backlog health. Scheduler deployment, load acceptance,
+  monitoring alerts and overflow resolution remain pending.
+- **M4-05 [CODE PARTIAL, EXTERNAL/BOTH OPEN]** Manager in-app notices
+  cover blocked-without-date and overdue unassigned/revoked-assignee work.
+  External SMS/email, consent/retention and employee communication policy
+  still require external approval and further implementation.
+- **M5-06 [CODE PARTIAL, RELEASE DISABLED]** A conditional manual legacy
+  ledger/bank classification adapter exists, with four separate OFF-by-default
+  policy flags, three current human roles, immutable bank source fingerprint,
+  separate current-client-grant checks, attempt audit, transactional double
+  entry + bank-state update and replay verification. It has no webhook,
+  automatic posting or asserted settlement. A legacy PostgreSQL posting/
+  rollback/concurrency integration suite, independently approved ledger
+  mappings, external bank sandbox, cross-DB revocation reconciliation,
+  and actual account reconciliation are STILL CODE + EXTERNAL blockers.
+  Do not set enable/approval flags to true based on regular CI alone.
+
+See docs/CHESS_CORP_2_ROUND20_CODE_AUDIT.md. All M1-M8 release holds remain.

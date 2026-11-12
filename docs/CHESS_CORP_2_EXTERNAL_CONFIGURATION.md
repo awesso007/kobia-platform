@@ -992,3 +992,32 @@ release, cross-tenant penetration tests, browser accessibility
 and load/chaos testing, regulated provider and consent contracts,
 approved incident runbook, independent security/privacy/legal
 sign-off and production go/no-go.
+
+
+## Round 20 - M5-06 conditional posting activation (NOT approved)
+
+All four switches default to OFF and must be injected independently through
+a protected secret/feature system after finance, compliance and operations
+have separately certified the provider + legacy PostgreSQL integration.
+
+| Configuration | Disabled default | Required proof |
+| --- | --- | --- |
+| CHESS_BANK_POSTING_ENABLED | false / omitted | Named human release owner, signed deployment ticket |
+| CHESS_BANK_POSTING_POLICY_APPROVED | false / omitted | Approved three-person separation of duties, ledger and retention policy |
+| CHESS_BANK_POSTING_BANK_SANDBOX_APPROVED | false / omitted | Approved independent banking provider, signed sandbox consent, webhook and reconciliation evidence |
+| CHESS_BANK_POSTING_OPERATOR_APPROVED | false / omitted | Two-tenant Clerk role E2E, journal/replay/concurrency/DR trial and business approval |
+
+Do not enable these switches in the fictional demo (the code also rejects
+CHESS_DEMO_MODE=true). The manual POST route is
+/api/chess/bank-posting and requires same-origin JSON authentication, an
+approved bank review, exact source digest and three independent current
+staff authorizations.
+
+The legacy JE is transactional with the source bank transaction, but the
+CHESS consent/evidence schema is separate and cannot be atomically committed
+with the legacy ledger. A durable ATTEMPT audit is written before posting,
+and a verified sourceRef lets a caller recover from UNKNOWN responses
+without posting twice. This is **not sufficient for release** until the
+cross-database consent revocation risk and exception reconciliation strategy
+have independently signed acceptance. Human review, period-close integrity,
+account mapping and a real staging exercise remain required.

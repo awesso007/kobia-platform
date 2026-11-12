@@ -1067,3 +1067,19 @@ signed on-call, staff privacy or regulatory approval.
 All unresolved `M8-01`–`M8-12` remain in the open register.
 
 Reference: `docs/CHESS_CORP_2_M8_ROUND17_ACCEPTANCE.md`.
+
+
+## Round 20 - code-only reconciliation (draft PR, release still blocked)
+
+Source-level enhancements: M4 overdue/appointment paged alert workers,
+daily manager escalations for unassigned and undated blocked work,
+M1/M8-09 serializable sensitive read auditing for regulated workflows and
+bank review details, and an OFF-by-default M5 three-person bank review to
+legacy double-entry ledger bridge. Actual posting is deliberately prohibited
+until four separately approved flags are set; even then provider and
+cross-database revocation/settlement testing are independently mandatory.
+
+The original milestone summaries above are historical. For the exact
+remaining external and engineering items, use
+docs/CHESS_CORP_2_ROUND20_CODE_AUDIT.md and the append-only outstanding
+items register. **No milestone's production-release gate is closed.**
