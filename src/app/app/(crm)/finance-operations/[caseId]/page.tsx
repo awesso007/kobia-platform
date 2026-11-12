@@ -7,6 +7,9 @@ import {isUsableConsent} from "@/lib/chess/onboarding";
 import {listChessBankReviews,listChessBankReviewCandidates} from "@/lib/chess/bank-review";
 import {listChessTaxWorkpapers} from "@/lib/chess/tax-workpapers";
 import BankReviewClient from "./BankReviewClient";
+import PayrollDispatchClient from "./PayrollDispatchClient";
+import {payrollProviderConfigured} from "@/lib/chess/payroll-provider";
+import {payrollExecutionUiEnabled} from "@/lib/chess/payroll-ui-gate";
 import {chessBankPostingEnabled} from "@/lib/chess/bank-posting-gate";
 import {listChessServiceDocuments} from "@/lib/chess/documents";
 import ServiceDocumentPanel from "../../client-documents/ServiceDocumentPanel";
@@ -108,20 +111,18 @@ export default async function ChessFinanceCasePage({
    },select:{id:true,legacyPayRunId:true,status:true,
     submittedAt:true,providerCheckedAt:true},
     orderBy:{createdAt:"desc"},take:100});
-   content=<section className="space-y-3">
-    <h2 className="text-xl font-semibold">Payroll provider status</h2>
-    <p className="text-sm text-slate-600">
-     Read-only vendor assertions. This page never initiates a payroll run,
-     wage transfer, ACH debit or tax deposit.
-    </p>
-    {dispatches.length===0?<p>No provider submissions are recorded.</p>:
-     <ul className="space-y-2">{dispatches.map(item=><li key={item.id}
-      className="rounded-lg border border-slate-200 p-3 text-sm">
-      <strong>{item.status.replaceAll("_"," ")}</strong> ·
-      Run {item.legacyPayRunId}
-      {item.providerCheckedAt?` · Checked ${item.providerCheckedAt.toLocaleString()}`:""}
-     </li>)}</ul>}
-   </section>;
+   content=<PayrollDispatchClient
+    businessId={businessId} clientProfileId={record.clientProfileId}
+    executionEnabled={payrollExecutionUiEnabled({
+     admin:!!canMap,certified:process.env.CHESS_PAYROLL_PROVIDER_CERTIFIED==="true",
+     providerConfigured:payrollProviderConfigured(),
+     demoMode:process.env.CHESS_DEMO_MODE==="true",
+    })}
+    dispatches={dispatches.map(item=>({
+     ...item,submittedAt:item.submittedAt?.toISOString()??null,
+     providerCheckedAt:item.providerCheckedAt?.toISOString()??null,
+    }))}/>;
+
   }
   return <main className="mx-auto max-w-6xl space-y-7 px-6 py-10">
    <header>
