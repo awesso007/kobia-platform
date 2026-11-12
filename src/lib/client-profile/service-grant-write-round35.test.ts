@@ -1,7 +1,7 @@
 import {beforeEach,describe,expect,it,vi} from "vitest";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getCurrentMembership} from "@/lib/rbac/require-permission";
-import {createClientServiceLink,setClientServiceGrant,revokeClientServiceGrant} from "./service";
+import {createClientProfile,createClientServiceLink,setClientServiceGrant,revokeClientServiceGrant} from "./service";
 
 vi.mock("@/lib/db/get-tenant-db",()=>({getTenantDb:vi.fn()}));
 vi.mock("@/lib/rbac/require-permission",()=>({
@@ -22,7 +22,14 @@ function setup(liveRole="OWNER",unitStatus="ACTIVE"){
    status:"ACTIVE",role:liveRole,
   }:{status:"ACTIVE",role:"MEMBER"})},
   chessBusinessUnit:{findUnique:vi.fn(async()=>({status:unitStatus}))},
-  clientProfile:{findUnique:vi.fn(async()=>({
+  contact:{findUnique:vi.fn(async()=>({id:"contact-1"}))},
+  clientProfile:{
+   create:vi.fn(async()=>({
+    id:"profile-created",ownerClerkUserId:"owner-1",
+    displayName:"Fictional Client",contactId:"contact-1",
+    createdAt:new Date(),updatedAt:new Date(),
+   })),
+   findUnique:vi.fn(async()=>({
    id:"profile-1",ownerClerkUserId:"owner-1",
    displayName:"Fictional Client",contactId:null,
    createdAt:new Date(),updatedAt:new Date(),
@@ -55,6 +62,31 @@ function setup(liveRole="OWNER",unitStatus="ACTIVE"){
  } as never);
  return {tx,db,events};
 }
+describe("Round 35 M1 profile creation authorization",()=>{
+ it("rechecks active tenant role and contact before writing a profile with audit",async()=>{
+  const {tx,db,events}=setup();
+  const profile=await createClientProfile({
+   displayName:"Fictional Client",contactId:"contact-1",
+  });
+  expect(profile.id).toBe("profile-created");
+  expect(tx.contact.findUnique).toHaveBeenCalledWith({
+   where:{id:"contact-1"},select:{id:true},
+  });
+  expect(events).toEqual([{data:expect.objectContaining({
+   action:"CLIENT_PROFILE_CREATED",resourceId:"profile-created",decision:"ALLOW",
+  })}]);
+  expect(db.$transaction).toHaveBeenCalledWith(expect.any(Function),{
+   isolationLevel:"Serializable",
+  });
+ });
+ it("rejects revoked tenant access before creating a profile",async()=>{
+  const {tx}=setup("VIEWER");
+  await expect(createClientProfile({displayName:"Fictional Client"}))
+   .rejects.toThrow();
+  expect(tx.clientProfile.create).not.toHaveBeenCalled();
+ });
+});
+
 describe("Round 35 M1 service link/grant write authorization",()=>{
  it("pins new service links to a current owner and a committed audit event",async()=>{
   const {db,tx,events}=setup();
