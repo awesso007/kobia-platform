@@ -47,14 +47,21 @@ integration("Round 38 distributed outcome faults on two separate Postgres databa
     const businessId = "round38-business-" + suffix;
     const actor = "round38-operator-" + suffix;
     const clientActor = "round38-client-" + suffix;
-    const consent = await tenantDb.chessClientConsent.create({ data: {
+    // The DB trigger requires a PENDING record first, then a valid grant.
+    const pendingConsent = await tenantDb.chessClientConsent.create({ data: {
       businessId, clientProfileId: "round38-client-profile-" + suffix,
       purpose: "service:BOOKKEEPING", policyVersion: "fictional-ci-v1",
       policyText: "Fictional isolated CI consent; no real bank activity.",
-      status: "GRANTED", consentedAt: new Date(Date.now() - 10000),
-      acceptedByClerkUserId: clientActor, verifiedEmailDigest: "a".repeat(64),
-      acceptanceEvidenceDigest: "b".repeat(64),
     } });
+    const consent = await tenantDb.chessClientConsent.update({
+      where: { id: pendingConsent.id },
+      data: {
+        status: "GRANTED", consentedAt: new Date(Date.now() - 10000),
+        acceptedByClerkUserId: clientActor,
+        verifiedEmailDigest: "a".repeat(64),
+        acceptanceEvidenceDigest: "b".repeat(64),
+      },
+    });
     const company = await ledgerDb.tenant.create({
       data: { slug: "round38-" + suffix, name: "FICTIONAL isolated tenant" },
     });
