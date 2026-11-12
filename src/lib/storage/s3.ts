@@ -19,6 +19,7 @@ import {
   GetObjectCommand,
   HeadObjectCommand,
   DeleteObjectCommand,
+  ListObjectVersionsCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -180,4 +181,36 @@ export async function isPinnedObjectVersionAbsent(storageKey:string,versionId:st
   if(status===404)return true;
   throw error;
  }
+}
+
+/** S3 exposes multiple byte-bearing object versions at the same key. A
+ * verified single version MUST NOT be called deleted while any other stored
+ * version remains. Missing ListBucketVersions, pagination or provider errors
+ * fail closed instead of asserting erasure. Delete markers contain no bytes.
+ */
+export function pinnedStorageVersionInventory(
+ versions:readonly {Key?:string;VersionId?:string}[]|undefined,
+ storageKey:string,versionId:string,truncated?:boolean,
+):"ONLY_PINNED"|"NO_CONTENT_VERSIONS"|"AMBIGUOUS"{
+ if(!storageKey.startsWith("tenants/")||!versionId||
+    versionId==="null"||truncated)return "AMBIGUOUS";
+ const actual=(versions??[]).filter(x=>x.Key===storageKey);
+ // A malformed/inconsistent prefix inventory is not deletion evidence.
+ if((versions??[]).some(x=>x.Key===undefined))return "AMBIGUOUS";
+ if(!actual.length)return "NO_CONTENT_VERSIONS";
+ if(actual.length===1&&actual[0]?.VersionId===versionId)
+  return "ONLY_PINNED";
+ return "AMBIGUOUS";
+}
+
+export async function inventoryPinnedStorageVersions(
+ storageKey:string,versionId:string,
+):Promise<"ONLY_PINNED"|"NO_CONTENT_VERSIONS"|"AMBIGUOUS">{
+ if(!storageKey.startsWith("tenants/")||!versionId||versionId==="null")
+  throw new Error("Refusing an unpinned object inventory.");
+ const response=await client().send(new ListObjectVersionsCommand({
+  Bucket:bucketName()!,Prefix:storageKey,MaxKeys:1000,
+ }));
+ return pinnedStorageVersionInventory(response.Versions,storageKey,versionId,
+  response.IsTruncated);
 }
