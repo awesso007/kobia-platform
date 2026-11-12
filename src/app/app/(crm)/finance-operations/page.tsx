@@ -1,5 +1,6 @@
 import Link from "next/link";
-import {listBusinessUnits} from "@/lib/chess/business-units";
+import {listChessManagedBusinessUnits} from "@/lib/chess/business-manager";
+import {selectChessWorkspace} from "@/lib/chess/workspace-selection";
 import {getChessFinanceDashboard,listChessAuthorizedFinanceCases} from "@/lib/chess/finance-dashboard";
 import {listChessBankFeedConnections} from "@/lib/chess/bank-feed";
 import {bankFeedImportConfigured} from "@/lib/chess/bank-feed-provider";
@@ -9,16 +10,26 @@ export const dynamic="force-dynamic";
 export default async function ChessFinanceOperationsPage({
  searchParams,
 }:{searchParams:{businessId?:string}}){
- let units:Awaited<ReturnType<typeof listBusinessUnits>>=[];
- try{units=await listBusinessUnits();}catch{
+ let units:Awaited<ReturnType<typeof listChessManagedBusinessUnits>>=[];
+ try{units=await listChessManagedBusinessUnits();}catch{
   return <main className="mx-auto max-w-5xl p-8" role="alert">
    Access to finance operations is unavailable.
   </main>;
  }
- const selected=units.find(u=>u.id===searchParams.businessId)??units[0];
- if(!selected)return <main className="mx-auto max-w-5xl p-8">
-  No active business unit is available to your account.
+ const workspace=selectChessWorkspace(units,searchParams.businessId);
+ if(workspace.status!=="READY")return <main role="status"
+  className="mx-auto max-w-5xl space-y-4 p-8">
+  <h1 className="text-2xl font-semibold">Finance workspace unavailable</h1>
+  <p className="text-sm text-slate-700">
+   {workspace.status==="UNAVAILABLE"?
+    "The requested business is not available to your current manager assignment. Select a business you manage.":
+    "No active business-manager assignment is available. Ask an administrator to review your unit role."}
+  </p>
+  <Link href="/app/chess-desk" className="text-sm font-semibold text-emerald-800 underline">
+   Return to service desk
+  </Link>
  </main>;
+ const selected=workspace.selected;
  let report:Awaited<ReturnType<typeof getChessFinanceDashboard>>|null=null;
  let cases:Awaited<ReturnType<typeof listChessAuthorizedFinanceCases>>=[];
  try{[report,cases]=await Promise.all([getChessFinanceDashboard(selected.id),listChessAuthorizedFinanceCases(selected.id)]);}catch{
@@ -62,6 +73,7 @@ export default async function ChessFinanceOperationsPage({
   <nav aria-label="Select business unit" className="flex flex-wrap gap-2">
    {units.map(u=><Link key={u.id}
     href={`/app/finance-operations?businessId=${encodeURIComponent(u.id)}`}
+    aria-current={u.id===selected.id?"page":undefined}
     className={`rounded-lg border px-3 py-2 text-sm font-medium
      ${u.id===selected.id?"bg-emerald-800 text-white":"border-slate-200 text-slate-700"}`}>
     {u.name}
@@ -81,9 +93,14 @@ export default async function ChessFinanceOperationsPage({
   </section>
   <section className="space-y-3">
    <h2 className="text-xl font-semibold">My authorized finance cases</h2>
-   {cases.length===0?<p className="text-sm text-slate-600">
-    No active financial service cases are assigned and explicitly granted to this account.
-   </p>:<ul className="grid gap-3 sm:grid-cols-2">
+   {cases.length===0?<div role="status" className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-5">
+    <p className="font-medium text-slate-900">No authorized finance cases yet</p>
+    <p className="text-sm text-slate-700">An administrator must create an active service case,
+     grant access to your account, and obtain current client consent before it appears here.</p>
+    <Link href="/app/work-items" className="text-sm font-semibold text-emerald-800 underline">
+     Continue with your assigned work
+    </Link>
+   </div>:<ul className="grid gap-3 sm:grid-cols-2">
     {cases.map(item=><li key={item.id} className="rounded-xl border border-slate-200 p-4">
      <strong className="text-sm">{item.service.replaceAll("_"," ")}</strong>
      <p className="mt-1 text-xs text-slate-500">Case reference {item.id}</p>
