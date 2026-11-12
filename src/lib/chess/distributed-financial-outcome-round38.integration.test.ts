@@ -230,16 +230,30 @@ integration("Round 38 distributed outcome faults on two separate Postgres databa
 
   it("duplicate requests and a consent race never create a second reservation or journal", async () => {
     const f=await fixture("race");
-    const [a,b]=await Promise.all([
+    // SERIALIZABLE can reject one racing transaction with P2034. The
+    // caller may retry reservation, but may not retry the ledger mutation.
+    const races=await Promise.allSettled([
       reserveChessBankPostingAttempt(tenantDb,f.reservation),
       reserveChessBankPostingAttempt(tenantDb,f.reservation),
     ]);
-    expect(a.id).toBe(b.id);
-    const started=await Promise.all([
+    for(const result of races){
+      if(result.status==="rejected"){
+        expect((result.reason as {code?:string}).code).toBe("P2034");
+      }
+    }
+    const a=await reserveChessBankPostingAttempt(tenantDb,f.reservation);
+    expect(races.filter(x=>x.status==="fulfilled").length).toBeGreaterThan(0);
+    for(const result of races){
+      if(result.status==="fulfilled")expect(result.value.id).toBe(a.id);
+    }
+    const started=await Promise.allSettled([
       startChessBankPostingAttempt(tenantDb,a.id,f.actor),
-      startChessBankPostingAttempt(tenantDb,b.id,f.actor),
+      startChessBankPostingAttempt(tenantDb,a.id,f.actor),
     ]);
-    expect(started.sort()).toEqual([false,true]);
+    expect(started.filter(x=>x.status==="fulfilled"&&x.value===true)).toHaveLength(1);
+    for(const x of started){
+      if(x.status==="rejected")expect((x.reason as {code?:string}).code).toBe("P2034");
+    }
     await expect(withdraw(f)).rejects.toThrow();
     const journalId=await commitLegacyBankClassification(ledgerDb,f.posting);
     await markChessBankPostingAttemptCommitted(tenantDb,a.id,f.actor,journalId);
