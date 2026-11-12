@@ -16,7 +16,10 @@ export default function WorkItemsClient({businessId,initialTasks}:{businessId:st
     body:JSON.stringify({businessId,id:task.id,status,expectedUpdatedAt:task.updatedAt}),
    });
    if(!response.ok)throw new Error(response.status===409?
-    "This item changed. Refresh before updating it.":"Unable to update this item.");
+    "This item changed since you opened it. Reload the work queue before trying again.":
+    response.status===403?
+    "You no longer have permission to update this work item. Reload your assigned workspace.":
+    "This update could not be saved. Reload and verify the latest status before trying again.");
    const result=await response.json() as {workItem:{status:WorkStatus;updatedAt:string}};
    setTasks(current=>current.map(item=>item.id===task.id?
     {...item,status:result.workItem.status,updatedAt:result.workItem.updatedAt}:item));
@@ -26,7 +29,9 @@ export default function WorkItemsClient({businessId,initialTasks}:{businessId:st
  return <div className="space-y-4">
   {error&&<p role="alert" className="rounded-lg border border-red-200 p-3 text-sm text-red-800">{error}</p>}
   {tasks.length===0?<p className="rounded-lg border border-slate-200 p-6 text-slate-600">
-   No work items are assigned to you in this workspace.
+   No work items are currently assigned to you in this business.
+   Check your notifications or ask your business manager to assign a task.
+   This does not indicate that other teams have no work.
   </p>:<ul className="space-y-3">{tasks.map(task=><li key={task.id}
    className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4">
    <div>
