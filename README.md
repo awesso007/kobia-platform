@@ -188,6 +188,58 @@ and [the earlier demo design](docs/CHESS_CORP_2_ROUND18_DEMO.md).
 
 ---
 
+### Automated signed-in browser and accessibility acceptance (Round 28)
+
+The browser suite is deliberately separate from normal CI because it needs a
+real **Clerk development/test instance** and the isolated Neon
+\`chess_demo\` database. Create three distinct verified primary-email Clerk
+test users: owner, employee and client. The Playwright sign-in-token helper
+does not complete MFA or additional session tasks, so the employee and client
+test users must not require either.
+
+Set these optional values in untracked \`.env.local\` **before**
+\`npm run demo:setup\`:
+
+- \`CHESS_DEMO_EMPLOYEE_EMAIL\`: the verified employee test user's primary email.
+  The first successful employee visit to \`/app/overview\` may create only a
+  new MEMBER membership and one SUPPORT assignment in the fictional
+  Bookkeeping unit. Existing roles, suspended memberships and revoked
+  assignments are never promoted or restored.
+- \`CHESS_DEMO_CLIENT_EMAIL\`: the verified client test user's primary email.
+  The first fictional client profile is mapped to this email during demo
+  seeding. \`/chess-demo/client\` is a read-only view of that client's own
+  PENDING fictional disclosure. It has no accept/withdraw controls and does
+  not activate the separately gated client consent portal.
+
+Install the pinned browser-only tools on demand (they are not KOBIA runtime
+dependencies), install Chromium, then run the suite:
+
+\`\`\`bash
+npm install --no-save --package-lock=false --ignore-scripts \\
+  @playwright/test@1.65.0 @clerk/testing@1.14.11 @axe-core/playwright@4.14.0
+npx playwright install chromium
+npm run test:e2e
+\`\`\`
+
+The suite uses Clerk's Playwright testing token and server-side sign-in helper.
+It checks employee overview/service-desk/work-item access, client-only profile
+and pending-disclosure visibility, cross-role denial, and axe-core WCAG 2.1 A/AA
+automated scans for serious/critical violations. Automated scans do not replace
+manual keyboard, screen-reader, responsive, independent accessibility or
+security acceptance.
+
+For GitHub Actions, configure the protected \`chess-demo-e2e\` environment with
+the three secrets \`DATABASE_URL\` (non-pooled Neon \`chess_demo\`),
+\`CLERK_PUBLISHABLE_KEY\` (\`pk_test_\`) and \`CLERK_SECRET_KEY\` (\`sk_test_\`),
+plus the three email variables \`CHESS_DEMO_OWNER_EMAIL\`,
+\`CHESS_DEMO_EMPLOYEE_EMAIL\` and \`CHESS_DEMO_CLIENT_EMAIL\`. Manually run
+\`.github/workflows/chess-demo-browser-e2e.yml\` from
+\`feature/operations-overview\` and confirm the isolated-demo checkbox. The
+workflow revalidates the database and keys, runs the one-command demo setup,
+verifies the fixtures, starts a local development server and runs the browser
+suite. It never merges or deploys. Keep all financial, consent, calendar,
+licensed-provider, AI and outbound-service switches OFF.
+
 ## Getting Started
 
 ### Option A — Legacy KOBIA development on main (NOT the CHESS demo)
