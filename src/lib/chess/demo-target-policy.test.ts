@@ -17,6 +17,8 @@ describe("CHESS Codespaces pre-migration database isolation",()=>{
   expect(()=>assertChessDemoInventorySafe({...clean,
    tenantSchemas:["tenant_chess_demo","tenant_fig"]})).toThrow();
   expect(()=>assertChessDemoInventorySafe({...clean,
+   tenantSchemas:["unrelated_customer_data"]})).toThrow();
+  expect(()=>assertChessDemoInventorySafe({...clean,
    registrations:[{slug:"fig",schemaName:"tenant_fig",
     plan:"FREE",status:"ACTIVE"}]})).toThrow();
  });
