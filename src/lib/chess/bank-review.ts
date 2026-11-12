@@ -317,7 +317,12 @@ const postingSchema=postingPreviewContext.extend({
  * External bank statement settlement/reconciliation remains separate. */
 export async function executeChessApprovedBankPosting(input:unknown){
  const data=postingSchema.parse(input);
- if(!chessBankPostingEnabled(process.env)||chessDemoModeActive())
+ if(!chessBankPostingEnabled({
+  CHESS_BANK_POSTING_ENABLED:process.env.CHESS_BANK_POSTING_ENABLED,
+  CHESS_BANK_POSTING_POLICY_APPROVED:process.env.CHESS_BANK_POSTING_POLICY_APPROVED,
+  CHESS_BANK_POSTING_BANK_SANDBOX_APPROVED:process.env.CHESS_BANK_POSTING_BANK_SANDBOX_APPROVED,
+  CHESS_BANK_POSTING_OPERATOR_APPROVED:process.env.CHESS_BANK_POSTING_OPERATOR_APPROVED,
+ })||chessDemoModeActive())
   throw new PermissionError("record:update");
  const state=await context({
   businessId:data.businessId,clientProfileId:data.clientProfileId,
