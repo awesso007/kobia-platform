@@ -19,7 +19,7 @@ function setup(opts:{
    role:opts.role??"ACCOUNTANT",isActive:opts.memberActive??true,
   }))},
   entity:{findFirst:vi.fn(async()=>opts.entityExists===false?
-   null:{id:"entity-a",name:"Fictional entity"})},
+   null:{id:"entity-a",name:"Fictional entity",baseCurrency:"USD"})},
   auditLog:{create:vi.fn(async (_event:unknown)=>({id:"audit-a"}))},
  };
  const db={$transaction:vi.fn(async(
@@ -44,7 +44,7 @@ describe("Round 36: legacy 1099 tax export access",()=>{
    });
    expect(tx.entity.findFirst).toHaveBeenCalledWith({
     where:{id:"entity-a",tenantId:"tenant-a",isActive:true},
-    select:{id:true,name:true},
+    select:{id:true,name:true,baseCurrency:true},
    });
    expect(db.$transaction).toHaveBeenCalledWith(expect.any(Function),{
     isolationLevel:"Serializable",
