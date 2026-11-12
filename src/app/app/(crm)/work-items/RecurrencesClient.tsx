@@ -53,7 +53,7 @@ export default function RecurrencesClient({
  }
  return <div className="space-y-4">
   <p className="text-xs leading-5 text-slate-600">
-   The worker's last inspection time means a due template was examined,
+   The worker inspection time means a due template was examined,
    not that a task was created or an external calendar updated.
    Blocked schedules may remain due until staff access is corrected.
    This screen cannot run the scheduler.
