@@ -8,7 +8,7 @@ type Row={id:string;fileName:string;mimeType:string;status:DocumentStatus;
  retentionUntil:string|null;legalHoldAt:string|null;suppressedAt:string|null;
  revisionNumber?:number;revisionKind?:"ORIGINAL"|"REPLACEMENT"|"REDACTED";
  replacesDocumentId?:string|null;supersededAt?:string|null;purgedAt?:string|null;
- redactionApprovedAt?:string|null;disposal?:{status:string}|null};
+ redactionApprovedAt?:string|null;disposal?:{id:string;status:string}|null};
 type Service="ACCOUNTING"|"BOOKKEEPING"|"PAYROLL"|"TAX"|
  "MORTGAGE"|"INSURANCE"|"REAL_ESTATE"|"INVESTMENTS";
 const maxBytes=20*1024*1024;
@@ -71,6 +71,27 @@ export default function ServiceDocumentPanel({businessId,clientProfileId,service
   finally{setLifecycleBusy("");}
  }
 
+ async function reconcileUnknownDisposal(disposalId:string){
+  if(!canManageLifecycle||lifecycleBusy)return;
+  if(!window.confirm("Verify ambiguous deletion by read-only S3 evidence? This never issues a new delete. A third independent owner/admin, expired retention, no legal hold and verified absence of ALL stored object content versions are mandatory."))return;
+  setError("");setMessage("");setLifecycleBusy(disposalId);
+  try{
+   const response=await fetch("/api/chess/document-lifecycle",{
+    method:"PATCH",credentials:"same-origin",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({businessId,disposalId}),
+   });
+   if(!response.ok)throw new Error(response.status===403?
+    "A third independent owner/admin and an approved live storage policy are required.":
+    "Could not independently verify the ambiguous disposal.");
+   const value=await response.json();
+   setMessage(value?.status==="PURGED"?
+    "The pinned S3 version was independently confirmed absent and the tombstone audited. This does not certify backup or replica erasure.":
+    "The disposal remains UNKNOWN: the exact version is still present or the version inventory is incomplete. No deletion was retried.");
+   router.refresh();
+  }catch(e){setError(e instanceof Error?e.message:"Disposal verification unavailable.");}
+  finally{setLifecycleBusy("");}
+ }
  async function upload(e:React.FormEvent<HTMLFormElement>){
   e.preventDefault();
   if(!selected||!canUpload||busy)return;
@@ -244,6 +265,12 @@ export default function ServiceDocumentPanel({businessId,clientProfileId,service
         onClick={()=>void lifecycle(d.id,"REQUEST_DELETE")}
         className="rounded-md border border-red-700 px-2 py-1 text-xs font-semibold">
         Request disposal</button>}
+      {d.disposal?.status==="UNKNOWN"&&<button type="button"
+       disabled={!!lifecycleBusy}
+       onClick={()=>void reconcileUnknownDisposal(d.disposal!.id)}
+       className="rounded-md border border-amber-800 px-2 py-1 text-xs font-semibold text-amber-950 disabled:opacity-40">
+       {lifecycleBusy===d.disposal.id?"Verifying...":"Independently verify UNKNOWN disposal"}
+      </button>}
       {d.disposal?.status==="REQUESTED"&&<>
        <button type="button" disabled={!!lifecycleBusy}
         onClick={()=>void lifecycle(d.id,"APPROVE_DELETE")}
