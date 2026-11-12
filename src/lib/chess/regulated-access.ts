@@ -44,7 +44,7 @@ export async function regulatedCaseAccess(businessId:string,serviceCaseId:string
   businessId,clientProfileId:record.clientProfileId,purpose:{in:purposes},
  },select:{purpose:true,status:true,expiresAt:true,consentedAt:true,
   acceptedByClerkUserId:true,verifiedEmailDigest:true,
-  acceptanceEvidenceDigest:true}});
+  acceptanceEvidenceDigest:true,withdrawnAt:true}});
  if(!purposes.every(p=>consents.some(c=>c.purpose===p&&isUsableConsent(c))))
   throw new PermissionError("record:read");
  return {actor,db,record,service:record.service as RegulatedService};

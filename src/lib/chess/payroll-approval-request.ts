@@ -70,7 +70,7 @@ export async function requestChessPayrollApproval(input:unknown){
     purpose:"service:PAYROLL",
    },select:{status:true,expiresAt:true,consentedAt:true,
     acceptedByClerkUserId:true,verifiedEmailDigest:true,
-    acceptanceEvidenceDigest:true}}),
+    acceptanceEvidenceDigest:true,withdrawnAt:true}}),
    tx.chessFinancialLink.findFirst({where:{
     businessId:data.businessId,clientProfileId:data.clientProfileId,
     serviceCaseId:data.serviceCaseId,service:"PAYROLL",

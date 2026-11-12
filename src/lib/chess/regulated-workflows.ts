@@ -98,7 +98,7 @@ export async function listChessRegulatedWorkflows(value:unknown){
     purpose:"service:"+access.record.service,
    },select:{status:true,expiresAt:true,consentedAt:true,
     acceptedByClerkUserId:true,verifiedEmailDigest:true,
-    acceptanceEvidenceDigest:true}}),
+    acceptanceEvidenceDigest:true,withdrawnAt:true}}),
   ]);
   if(!caseRow||member?.status!=="ACTIVE"||!link?.grants.length||
    !consents.some(c=>isUsableConsent(c)))return null;

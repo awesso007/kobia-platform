@@ -204,7 +204,7 @@ export async function runChessRecurringInvoiceDrafts(now=new Date()){
       purpose:{in:[`service:${current.service}`,`billing:${current.service}`]},
      },select:{purpose:true,status:true,expiresAt:true,consentedAt:true,
       acceptedByClerkUserId:true,verifiedEmailDigest:true,
-      acceptanceEvidenceDigest:true}}),
+      acceptanceEvidenceDigest:true,withdrawnAt:true}}),
      tx.chessEmployeeAssignment.findMany({where:{
       businessId:current.businessId,revokedAt:null,
       clerkUserId:{in:[current.createdByClerkUserId,

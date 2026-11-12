@@ -50,7 +50,7 @@ export async function financialOperationalSummary(businessId:string,clientProfil
   db.chessClientConsent.findMany({where:{businessId,clientProfileId,
    purpose:`service:${service}`},select:{status:true,expiresAt:true,
    consentedAt:true,acceptedByClerkUserId:true,verifiedEmailDigest:true,
-   acceptanceEvidenceDigest:true}}),
+   acceptanceEvidenceDigest:true,withdrawnAt:true}}),
  ]);
  if(!consents.some(c=>isUsableConsent(c)))throw new PermissionError("record:read");
  const legacyTenant=await getTenantBySlug(tenantId);

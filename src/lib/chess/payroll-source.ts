@@ -45,7 +45,7 @@ export async function resolveChessPostedPayrollRun(input:unknown){
    purpose:"service:PAYROLL",
   },select:{status:true,expiresAt:true,consentedAt:true,
    acceptedByClerkUserId:true,verifiedEmailDigest:true,
-   acceptanceEvidenceDigest:true}}),
+   acceptanceEvidenceDigest:true,withdrawnAt:true}}),
  ]);
  if(!serviceCases.length||!consents.some(c=>isUsableConsent(c)))
   throw new PermissionError("record:read");

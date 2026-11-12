@@ -75,9 +75,9 @@ export async function withdrawClientConsent(consentId: string,businessId: string
  });
 }
 
-export function isUsableConsent(consent: {status:string; expiresAt:Date|null; consentedAt?:Date|null; acceptedByClerkUserId?:string|null; verifiedEmailDigest?:string|null; acceptanceEvidenceDigest?:string|null},now=new Date()) {
+export function isUsableConsent(consent: {status:string; expiresAt:Date|null; consentedAt?:Date|null; acceptedByClerkUserId?:string|null; verifiedEmailDigest?:string|null; acceptanceEvidenceDigest?:string|null; withdrawnAt?:Date|null},now=new Date()) {
  const digest=/^[a-f0-9]{64}$/;
- return consent.status==="GRANTED" && !!consent.consentedAt &&
+ return consent.status==="GRANTED" && !consent.withdrawnAt && !!consent.consentedAt &&
   consent.consentedAt<=now && !!consent.acceptedByClerkUserId &&
   digest.test(consent.verifiedEmailDigest??"") &&
   digest.test(consent.acceptanceEvidenceDigest??"") &&

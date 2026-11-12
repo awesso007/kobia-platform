@@ -83,7 +83,7 @@ export async function scopedInvoiceCase(
    `billing:${service}`]},
  },select:{purpose:true,status:true,expiresAt:true,consentedAt:true,
   acceptedByClerkUserId:true,verifiedEmailDigest:true,
-  acceptanceEvidenceDigest:true}});
+  acceptanceEvidenceDigest:true,withdrawnAt:true}});
  if(![`service:${service}`,`billing:${service}`].every(p=>
   consents.some(c=>c.purpose===p&&isUsableConsent(c))))
   throw new PermissionError("record:update");
