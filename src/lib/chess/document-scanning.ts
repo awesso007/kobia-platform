@@ -49,6 +49,12 @@ export async function recordDocumentScan(input:unknown) {
  const head=await s3.headObjectStrict(doc.storageKey,doc.storageVersionId);
  const matching=matchesPinnedDocument(doc,head);
  if(!matching)throw new Error("Pinned document does not match scanned metadata.");
+ // A valid signed PUT can be replayed while the upload grant remains alive.
+ // Refuse CLEAN even for the original pinned version if another content
+ // version now exists at this same key; retain quarantine for human repair.
+ if(await s3.inventoryPinnedStorageVersions(
+   doc.storageKey,doc.storageVersionId)!=="ONLY_PINNED")
+  throw new Error("Document object version inventory ambiguous during scan.");
  // A signed callback alone is insufficient: compare against bytes retrieved
  // from the exact immutable object version rather than trusting its digest.
  const stream=await s3.getObjectBody(doc.storageKey,doc.storageVersionId);
