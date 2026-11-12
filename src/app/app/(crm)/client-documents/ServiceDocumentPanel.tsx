@@ -242,7 +242,7 @@ export default function ServiceDocumentPanel({businessId,clientProfileId,service
   <p className="text-xs text-slate-500">
    Private object storage, bucket CORS, versioning and a configured scanner
    are required. Redacted derivatives are separate uploaded files, not visual overlays.
-   Downloaded copies cannot be recalled. Disposal requires expired retention,
+   Previously issued downloads cannot be retroactively invalidated. Disposal requires expired retention,
    no legal hold, independent approval, and separately enabled verified S3 removal.
    Default-off lifecycle controls never certify legal policy compliance.
   </p>
