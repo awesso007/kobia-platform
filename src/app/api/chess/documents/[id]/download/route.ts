@@ -61,7 +61,7 @@ export async function GET(
       "Cross-Origin-Resource-Policy": "same-origin",
       "Content-Security-Policy": "default-src 'none'; sandbox",
     });
-    if (Number.isSafeInteger(file.actualBytes) && file.actualBytes > 0) {
+    if (file.actualBytes !== null && Number.isSafeInteger(file.actualBytes) && file.actualBytes > 0) {
       headers.set("Content-Length", String(file.actualBytes));
     }
     return new NextResponse(file.stream, { status: 200, headers });
