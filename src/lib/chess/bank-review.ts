@@ -75,7 +75,8 @@ async function context(raw:unknown){
    acceptedByClerkUserId:true,verifiedEmailDigest:true,acceptanceEvidenceDigest:true}}),
   getTenantBySlug(tenantId),
  ]);
- if(!serviceCase || !consents.some(x=>isUsableConsent(x)) || !tenant)
+ const usableConsent=consents.find(x=>isUsableConsent(x));
+ if(!serviceCase || !usableConsent || !tenant)
   throw new PermissionError("record:read");
  const mapping=await db.chessFinancialLink.findUnique({where:{
   serviceCaseId:data.serviceCaseId,
@@ -89,7 +90,8 @@ async function context(raw:unknown){
   tenantId:tenant.id,id:mapping.legacyEntityId,isActive:true,
  },select:{id:true}});
  if(!entity)throw new PermissionError("record:read");
- return {data,actor,db,legacyTenantId:tenant.id,legacyEntityId:entity.id};
+ return {data,actor,db,consentId:usableConsent.id,
+  legacyTenantId:tenant.id,legacyEntityId:entity.id};
 }
 async function loadTxn(tenantId:string,entityId:string,transactionId:string){
  const transaction=await ledger.bankTransaction.findFirst({
