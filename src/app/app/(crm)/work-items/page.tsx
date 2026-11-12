@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {listBusinessUnits} from "@/lib/chess/business-units";
+import {selectChessWorkspace} from "@/lib/chess/workspace-selection";
 import {listChessWorkItems} from "@/lib/chess/workflow";
 import {getChessManagerQueue,listChessEmployeeAlerts} from "@/lib/chess/employee-operations";
 import WorkItemsClient from "./WorkItemsClient";
@@ -19,12 +20,23 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
  try{businesses=await listBusinessUnits();}catch{
   return <main className="mx-auto max-w-4xl p-8" role="alert">This workspace is unavailable or access was denied.</main>;
  }
- const requested=searchParams.businessId;
- const selected=businesses.find(b=>b.id===requested)??businesses[0];
- if(!selected)return <main className="mx-auto max-w-4xl p-8">No active business assignment is available.</main>;
+ const workspace=selectChessWorkspace(businesses,searchParams.businessId);
+ if(workspace.status!=="READY")return <main role="status"
+  className="mx-auto max-w-4xl space-y-3 p-8">
+  <h1 className="text-2xl font-semibold">Work items unavailable</h1>
+  <p className="text-sm text-slate-700">
+   {workspace.status==="UNAVAILABLE"?
+    "The requested business is no longer assigned to you. Select one of your active workspaces.":
+    "No active business assignment is available. Ask an administrator to assign your workspace."}
+  </p>
+  <Link href="/app/chess-desk" className="text-sm font-semibold text-emerald-800 underline">
+   Return to service desk
+  </Link>
+ </main>;
+ const selected=workspace.selected;
  const [tasks,alerts,manager,recurrences,calendarPreference,appointments,staff,workerHealth]=await Promise.all([
-  listChessWorkItems(selected.id).catch(()=>[]),
-  listChessEmployeeAlerts(selected.id).catch(()=>[]),
+  listChessWorkItems(selected.id).catch(()=>null),
+  listChessEmployeeAlerts(selected.id).catch(()=>null),
   getChessManagerQueue(selected.id).catch(()=>null),
   listChessRecurrences(selected.id).catch(()=>null),
   getMyCalendarPreference().catch(()=>({enabled:false,appointmentsEnabled:false,acknowledgedAt:null})),
@@ -32,7 +44,7 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
   listChessAssignableStaff(selected.id).catch(()=>null),
   getChessWorkerHealth().catch(()=>null),
  ]);
- const serialize=tasks.map(t=>({...t,
+ const serialize=tasks?.map(t=>({...t,
   dueAt:t.dueAt?.toISOString()??null,updatedAt:t.updatedAt.toISOString(),
  }));
  return <main className="mx-auto max-w-6xl space-y-8 px-6 py-10">
@@ -43,6 +55,7 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
   </header>
   <nav aria-label="Business workspaces" className="flex flex-wrap gap-2">
    {businesses.map(b=><Link key={b.id} href={`/app/work-items?businessId=${encodeURIComponent(b.id)}`}
+    aria-current={selected.id===b.id?"page":undefined}
     className={`rounded-lg px-3 py-2 text-sm ${selected.id===b.id?"bg-emerald-800 text-white":"border border-slate-200"}`}>
     {b.name}
    </Link>)}
@@ -53,7 +66,13 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
     <a href={`/api/chess/calendar.ics?businessId=${encodeURIComponent(selected.id)}`}
      className="text-sm font-semibold text-emerald-700 hover:underline">Export my calendar (.ics)</a>
    </div>
-   <WorkItemsClient businessId={selected.id} initialTasks={serialize}/>
+   {serialize?<WorkItemsClient key={selected.id} businessId={selected.id} initialTasks={serialize}/>:
+    <div role="alert" className="space-y-2 rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-900">
+     <p className="font-semibold">Work items could not be loaded</p>
+     <p>Your permissions may have changed or the work queue is unavailable. No task data was shown.</p>
+     <Link href={`/app/work-items?businessId=${encodeURIComponent(selected.id)}`}
+      className="font-semibold underline">Try loading this workspace again</Link>
+    </div>}
   </section>
   <section className="space-y-3">
    <h2 className="text-xl font-semibold">Calendar sharing</h2>
@@ -63,15 +82,17 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
   </section>
   <section className="space-y-3">
    <h2 className="text-xl font-semibold">My notifications</h2>
-   <EmployeeAlerts businessId={selected.id} initialAlerts={alerts.map(a=>({
+   {alerts?<EmployeeAlerts key={selected.id} businessId={selected.id} initialAlerts={alerts.map(a=>({
     id:a.id,message:a.message,
     readAt:a.readAt?.toISOString()??null,
     createdAt:a.createdAt.toISOString(),
-   }))}/>
+   }))}/>:<p role="alert" className="rounded-lg border border-red-200 p-4 text-sm text-red-800">
+    Notifications could not be loaded. Your access may have changed. Try reloading this workspace.
+   </p>}
   </section>
   {manager&&staff&&<section className="space-y-3">
    <h2 className="text-xl font-semibold">Manager oversight</h2>
-   <ManagerQueueClient businessId={selected.id} staff={staff} initialQueue={{
+   <ManagerQueueClient key={selected.id} businessId={selected.id} staff={staff} initialQueue={{
     blocked:manager.blocked.map(item=>({...item,
      dueAt:item.dueAt?.toISOString()??null,updatedAt:item.updatedAt.toISOString(),
     })),
@@ -92,7 +113,7 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
     </a>
    </div>
    <p className="text-sm text-slate-600">Time slots are protected against overlapping staff bookings.</p>
-   <AppointmentsClient businessId={selected.id} staff={staff}
+   <AppointmentsClient key={selected.id} businessId={selected.id} staff={staff}
     initialAppointments={appointments.map(item=>({
      ...item,startAt:item.startAt.toISOString(),endAt:item.endAt.toISOString(),
      updatedAt:item.updatedAt.toISOString(),
@@ -101,7 +122,7 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
   {recurrences&&<section className="space-y-3">
    <h2 className="text-xl font-semibold">Recurring schedules</h2>
    <p className="text-sm text-slate-600">Scheduled times are stored in UTC. New tasks are created by the configured operations worker.</p>
-   <RecurrencesClient businessId={selected.id} initialRecurrences={recurrences.map(item=>({
+   <RecurrencesClient key={selected.id} businessId={selected.id} initialRecurrences={recurrences.map(item=>({
     ...item,nextRunAt:item.nextRunAt.toISOString(),
     lastRunAt:item.lastRunAt?.toISOString()??null,
     lastInspectedAt:item.lastInspectedAt?.toISOString()??null,
