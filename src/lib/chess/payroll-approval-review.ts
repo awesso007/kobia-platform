@@ -117,7 +117,7 @@ export async function reviewChessPayrollSourceApproval(input:unknown){
    },select:{id:true}}),
   ]);
   if(!approval||!membership||business?.status!=="ACTIVE"||
-   !caseRow||!link?.grants.length||!consents.some(isUsableConsent)||dispatch||
+   !caseRow||!link?.grants.length||!consents.some(consent=>isUsableConsent(consent))||dispatch||
    !canReviewBoundPayrollApproval({
     actorId:actor.clerkUserId,actorRole:membership.role,
     actorStatus:membership.status,requestedBy:approval.requestedBy,
