@@ -964,4 +964,38 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
   }
  });
 
+ it("orders never-inspected recurring plans before previously blocked ones in PostgreSQL",async()=>{
+  const suffix=Date.now().toString(36);
+  const mk=async(code:string)=>db.chessBillingSubscriptionPlan.create({data:{
+   businessId:"fictional-recurring-"+suffix,
+   clientProfileId:"fictional-client",
+   serviceCaseId:"fictional-case-"+code+"-"+suffix,
+   service:"BOOKKEEPING",descriptionCode:"BOOKKEEPING_MONTHLY",
+   amountCents:2500n,status:"PENDING",
+   nextDraftAt:new Date("2027-01-01T00:00:00Z"),
+   createdByClerkUserId:"fictional-creator",
+  }});
+  const first=await mk("first"),second=await mk("second");
+  try{
+   for(const plan of [first,second]){
+    await db.chessBillingSubscriptionPlan.update({
+     where:{id:plan.id},
+     data:{status:"ACTIVE",approvedByClerkUserId:"fictional-independent-reviewer",
+      approvedAt:new Date()},
+    });
+   }
+   await db.chessBillingSubscriptionPlan.update({
+    where:{id:first.id},data:{lastInspectedAt:new Date("2027-02-01T00:00:00Z")},
+   });
+   const rows=await db.chessBillingSubscriptionPlan.findMany({where:{
+    id:{in:[first.id,second.id]},status:"ACTIVE",
+   },orderBy:[{lastInspectedAt:{sort:"asc",nulls:"first"}},
+    {nextDraftAt:"asc"},{id:"asc"}],select:{id:true}});
+   expect(rows.map(x=>x.id)).toEqual([second.id,first.id]);
+  }finally{
+   // Legally designed M7 plan rows are non-deletable: the disposable CI
+   // database retains these fictional records until PostgreSQL is destroyed.
+  }
+ });
+
 });
