@@ -12,7 +12,7 @@ describe("Round 27 document consent and scan UI",()=>{
     status:"QUARANTINED",actualBytes:130,createdAt:"2026-11-11T00:00:00Z",
     verifiedAt:null,retentionUntil:null,legalHoldAt:null,suppressedAt:null}]}/>);
   expect(html).toContain("purpose-specific client consent");
-  expect(html).toContain("expire after 60 seconds");
+  expect(html).toContain("private authenticated route without bearer storage URLs");
   expect(html).not.toContain("Download verified version");
   expect(html).not.toContain("Upload for malware review");
  });
