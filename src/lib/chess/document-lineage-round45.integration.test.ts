@@ -33,8 +33,14 @@ integration("Round 45 document revision legal retention holds and suppression in
    legalHoldByClerkUserId:"fictional-counsel",
    suppressedAt:suppressed,suppressedByClerkUserId:"fictional-admin",
   }});
-  const child=await db.chessClientDocument.create({data:
+  const created=await db.chessClientDocument.create({data:
    fixture("REDACTED",id,root.id,2,"PENDING")});
+  // The AFTER INSERT trigger atomically writes inherited metadata. A
+  // PostgreSQL INSERT ... RETURNING snapshot precedes its AFTER trigger,
+  // so load the committed row instead of trusting the insert response.
+  const child=await db.chessClientDocument.findUniqueOrThrow({
+   where:{id:created.id},
+  });
   expect(child.retentionUntil?.getTime()).toBe(expires.getTime());
   expect(child.legalHoldAt).toBeTruthy();
   expect(child.legalHoldByClerkUserId).toBe("fictional-counsel");
