@@ -46,7 +46,9 @@ describe("Round 36: legacy 1099 tax export access",()=>{
     where:{id:"entity-a",tenantId:"tenant-a",isActive:true},
     select:{id:true,name:true},
    });
-   expect(db.$transaction).toHaveBeenCalledWith(expect.any(Function));
+   expect(db.$transaction).toHaveBeenCalledWith(expect.any(Function),{
+    isolationLevel:"Serializable",
+   });
    expect(tx.auditLog.create).toHaveBeenCalledWith({data:{
     tenantId:"tenant-a",userId:"user-a",
     action:"sensitive.export.1099_nec",
