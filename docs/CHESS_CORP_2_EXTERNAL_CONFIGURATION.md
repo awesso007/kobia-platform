@@ -1,5 +1,16 @@
 # CHESS CORP 2 - exact external configuration and go-live requirements
 
+> **ROUND 24 STATUS:** This is a *technical/historical reference for exact
+> gateway shapes and staging workflows*, **not another owner-to-do list**.
+> The one authoritative, consolidated list of every credential, contract,
+> key, approval and test environment to supply is
+> [CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md](CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md).
+> See [CHESS_CORP_2_ROADMAP.md](CHESS_CORP_2_ROADMAP.md) for the verified
+> M1–M8 status table. Superseded or conflicting old flags below do NOT
+> override newer contracts (especially per-service regulated partner keys,
+> source-bound payroll approval and mandatory tenant/business/case receipts).
+> Keep every external execution/approval flag OFF without human signoff.
+>
 This configuration file contains only variable names and instructions, never
 real secrets. Code is on feature/operations-overview; nothing is deployed.
 

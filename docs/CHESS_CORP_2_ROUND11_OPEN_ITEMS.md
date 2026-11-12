@@ -1,5 +1,15 @@
 # CHESS CORP 2 - Round 11 verified outstanding roadmap register
 
+> **CURRENT ROADMAP STATUS: Round 24.** For the up-to-date eight-milestone
+> matrix and exact coding versus external release state, see
+> [CHESS_CORP_2_ROADMAP.md](CHESS_CORP_2_ROADMAP.md).
+> This file is the source **open-item ID register** with historical
+> chronological updates; some early "CODE" descriptions have later code
+> partial fixes. For the *single active owner-supplied* credential and
+> approval list, use
+> [CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md](CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md).
+> No green CI or later note automatically closes a release blocker.
+>
 **Scope:** Milestones 1-8, reconciled against
 `docs/CHESS_CORP_2_ROADMAP.md` through Round 10 and the recorded
 development implementations. The original milestone summaries at the

@@ -48,6 +48,21 @@ Each KOBIA tenant gets:
 
 ---
 
+## CHESS Corporation milestone status and external inputs (Round 24)
+
+The CHESS-specific services are **development code on draft PR #24**, not
+a production-ready KOBIA release. For all eight milestones, the current
+verified implementation-versus-release matrix is in
+[the CHESS CORP 2 roadmap](docs/CHESS_CORP_2_ROADMAP.md).
+For **one** owner action list, including environment variable names,
+protected vendor credentials, legal approvals and the priority/order to
+supply them, use the
+[consolidated owner-supply checklist](docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md).
+Technical flags-only examples (no secrets) are in
+[CHESS external environment placeholders](docs/CHESS_CORP_2_ENV_PLACEHOLDERS.example).
+Never enable real bank posting, payroll execution, payments, regulated
+partner workflows or consent portals from a CI pass alone.
+
 ## CHESS Corporation fictional demo (Round 19, feature branch only)
 
 **Never merge this feature branch or point it at the production database.**
