@@ -51,6 +51,8 @@ async function handle(req: NextRequest, remove: boolean) {
 
 export async function POST(req: NextRequest) {
   try {
+    // Authenticate before parsing any caller input or invoking delegated code.
+    await requirePermission("record:create");
     return await handle(req, false);
   } catch (err) {
     return fail(err);
@@ -59,6 +61,8 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    // Authenticate before parsing any caller input or invoking delegated code.
+    await requirePermission("record:create");
     return await handle(req, true);
   } catch (err) {
     return fail(err);
