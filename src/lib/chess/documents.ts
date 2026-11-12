@@ -147,7 +147,7 @@ export async function getChessDocumentDownload(
  await authorizedChessDocumentDownload(
   documentId,businessId,clientProfileId,service,"DOCUMENT_DOWNLOAD_ROUTE_ISSUED");
  return {url:chessDocumentDownloadPath(documentId,businessId,clientProfileId,service),
-  expiresInSeconds:0};
+  downloadMode:"authenticated-proxy",expiresInSeconds:null};
 }
 
 /** Reauthorize every download request and stream the exact pinned S3 version.
