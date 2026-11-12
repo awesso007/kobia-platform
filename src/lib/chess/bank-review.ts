@@ -8,6 +8,9 @@ import {getClientServiceLink} from "@/lib/client-profile/service";
 import {assertBusinessManager} from "./business-manager";
 import {isUsableConsent} from "./onboarding";
 import {createBankPostingPreview,BankPostingPreviewError} from "./bank-posting-preview";
+import {postJournalEntry} from "@/lib/accounting/ledger";
+import {chessBankPostingEnabled,postingSourceRef} from "./bank-posting-gate";
+import {chessDemoModeActive} from "./demo-mode";
 
 const accountService=z.enum(["ACCOUNTING","BOOKKEEPING"]);
 const contextSchema=z.object({
@@ -85,7 +88,8 @@ async function loadTxn(tenantId:string,entityId:string,transactionId:string){
   where:{id:transactionId,tenantId,
    bankAccount:{tenantId,entityId,isActive:true}},
   select:{id:true,bankAccountId:true,dedupHash:true,postedDate:true,
-   amountCents:true,status:true,bankAccount:{select:{glAccountId:true}}},
+   amountCents:true,status:true,categorizedJournalEntryId:true,
+   bankAccount:{select:{glAccountId:true}}},
  });
  if(!transaction)throw new PermissionError("record:read");
  return transaction;
@@ -266,4 +270,125 @@ export async function previewChessApprovedBankPosting(input:unknown){
   if(error instanceof BankPostingPreviewError)throw new PermissionError("record:read");
   throw error;
  }
+}
+
+
+const postingSchema=postingPreviewContext.extend({
+ expectedTransactionDigest:z.string().regex(/^[a-f0-9]{64}$/),
+}).strict();
+
+/** Manual, three-identity bank-review posting. This is disabled by default
+ * until separate financial policy, bank sandbox and operator approvals.
+ *
+ * Cross-schema CHESS consent and legacy GL cannot share a transaction.
+ * Every attempt is audited BEFORE the legacy mutation. A crash after a
+ * successful legacy COMMIT may leave the CHESS outcome UNKNOWN; subsequent
+ * attempts inspect the existing bank-row/JEs rather than duplicate posting.
+ * External bank statement settlement/reconciliation remains separate. */
+export async function executeChessApprovedBankPosting(input:unknown){
+ const data=postingSchema.parse(input);
+ if(!chessBankPostingEnabled(process.env)||chessDemoModeActive())
+  throw new PermissionError("record:update");
+ const state=await context({
+  businessId:data.businessId,clientProfileId:data.clientProfileId,
+  serviceCaseId:data.serviceCaseId,service:data.service,
+ });
+ if(!["OWNER","ADMIN"].includes(state.actor.role))throw new PermissionError("record:update");
+ const review=await state.db.chessBankReview.findFirst({where:{
+  id:data.reviewId,businessId:data.businessId,
+  clientProfileId:data.clientProfileId,serviceCaseId:data.serviceCaseId,
+  legacyTenantId:state.legacyTenantId,legacyEntityId:state.legacyEntityId,
+  status:"APPROVED",
+ },select:{id:true,status:true,createdByClerkUserId:true,reviewedByClerkUserId:true,
+  approvedAccountId:true,transactionDigest:true,legacyBankTransactionId:true}});
+ if(!review||!review.approvedAccountId||
+  review.transactionDigest!==data.expectedTransactionDigest)
+  throw new PermissionError("record:update");
+ const txn=await loadTxn(state.legacyTenantId,state.legacyEntityId,
+  review.legacyBankTransactionId);
+ const snapshotDigest=bankTransactionFingerprint({...txn,status:"UNMATCHED"},
+  state.legacyTenantId,state.legacyEntityId);
+ if(snapshotDigest!==data.expectedTransactionDigest)
+  throw new PermissionError("record:update");
+ const sourceRefId=postingSourceRef(review.id);
+ // Only the identical recorded CHESS posting may be replayed. The ledger
+ // transaction is the authority, not an unverified CHESS response flag.
+ if(txn.status==="CATEGORIZED"&&txn.categorizedJournalEntryId){
+  const posted=await ledger.journalEntry.findFirst({where:{
+   id:txn.categorizedJournalEntryId,tenantId:state.legacyTenantId,
+   entityId:state.legacyEntityId,source:"BANK_FEED",
+   sourceRefId,status:"POSTED",
+  },select:{id:true}});
+  if(!posted)throw new PermissionError("record:update");
+  return {postedToLedger:true,replay:true,journalEntryId:posted.id,
+   bankTransactionId:txn.id,bankSettled:false};
+ }
+ if(txn.status!=="UNMATCHED")throw new PermissionError("record:update");
+ await assertOffsetAccount(state.legacyTenantId,state.legacyEntityId,
+  review.approvedAccountId,txn.bankAccount.glAccountId);
+ const [bank,entity,offset]=await Promise.all([
+  ledger.bankAccount.findFirst({where:{
+   id:txn.bankAccountId,tenantId:state.legacyTenantId,entityId:state.legacyEntityId,
+   isActive:true,currency:"USD",
+  },select:{glAccountId:true}}),
+  ledger.entity.findFirst({where:{
+   id:state.legacyEntityId,tenantId:state.legacyTenantId,
+   isActive:true,baseCurrency:"USD",
+  },select:{id:true}}),
+  ledger.account.findFirst({where:{
+   id:review.approvedAccountId,tenantId:state.legacyTenantId,
+   entityId:state.legacyEntityId,isActive:true,isSystem:false,
+  },select:{id:true}}),
+ ]);
+ if(!bank||bank.glAccountId!==txn.bankAccount.glAccountId||!entity||!offset)
+  throw new PermissionError("record:update");
+ const preview=createBankPostingPreview(review,{
+  id:txn.id,bankAccountGlId:bank.glAccountId,amountCents:txn.amountCents,
+  status:txn.status,fingerprint:bankTransactionFingerprint(
+   txn,state.legacyTenantId,state.legacyEntityId),
+ },state.actor);
+
+ // Audit intent before any GL write. If the audit store is unavailable,
+ // financial execution is forbidden. No PII or bank description is logged.
+ await state.db.chessSecurityEvent.create({data:{
+  businessId:data.businessId,actorClerkUserId:state.actor.clerkUserId,
+  action:"BANK_POSTING_ATTEMPT",resourceType:"ChessBankReview",
+  resourceId:review.id,decision:"REVIEW",
+ }});
+
+ const created=await ledger.$transaction(async tx=>{
+  // First lock the bank row with a conditional UPDATE. A concurrent posting
+  // will fail this predicate; no account balance or JE changes will persist.
+  const claim=await tx.bankTransaction.updateMany({where:{
+   id:txn.id,tenantId:state.legacyTenantId,
+   bankAccountId:txn.bankAccountId,status:"UNMATCHED",
+   dedupHash:txn.dedupHash,amountCents:txn.amountCents,
+   postedDate:txn.postedDate,
+  },data:{status:"CATEGORIZED"}});
+  if(claim.count!==1)throw new PermissionError("record:update");
+  const journal=await postJournalEntry({
+   tenantId:state.legacyTenantId,entityId:state.legacyEntityId,
+   entryDate:txn.postedDate,description:"CHESS approved bank classification",
+   source:"BANK_FEED",sourceRefId,
+   lines:preview.lines.map(line=>({
+    accountId:line.accountId,debitCents:BigInt(line.debitCents),
+    creditCents:BigInt(line.creditCents),
+   })),
+  },{client:tx});
+  await tx.bankTransaction.update({where:{id:txn.id},data:{
+   categorizedJournalEntryId:journal.id,
+   categorizedAt:new Date(),categorizedByUserId:state.actor.clerkUserId,
+  }});
+  return journal.id;
+ },{isolationLevel:"Serializable"});
+
+ // If the audit receipt fails, the API must not claim the external outcome
+ // succeeded. A retry resolves the verified source journal without posting.
+ await state.db.chessSecurityEvent.create({data:{
+  businessId:data.businessId,actorClerkUserId:state.actor.clerkUserId,
+  action:"BANK_POSTED_TO_LEDGER",resourceType:"ChessBankReview",
+  resourceId:review.id,decision:"ALLOW",
+ }});
+ return {postedToLedger:true,replay:false,journalEntryId:created,
+  bankTransactionId:txn.id,bankSettled:false};
 }
