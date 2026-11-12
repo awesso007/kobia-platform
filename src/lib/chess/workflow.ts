@@ -122,32 +122,47 @@ const statusInput=z.object({
  * The audit event commits atomically with the state transition. */
 export async function transitionChessWorkItem(data:unknown){
  const parsed=statusInput.parse(data);
- await assertBusinessAccess(parsed.businessId);
  const actor=await getCurrentMembership();
- if(!actor || actor.status!=="ACTIVE")throw new PermissionError("record:update");
+ if(!actor||actor.status!=="ACTIVE")throw new PermissionError("record:update");
  const {db}=getTenantDb();
- const existing=await db.chessWorkItem.findFirst({
-  where:{id:parsed.id,businessId:parsed.businessId},
-  select:{id:true,status:true,updatedAt:true,assignedClerkUserId:true},
- });
- if(!existing)throw new PermissionError("record:update");
- if(!["OWNER","ADMIN"].includes(actor.role) && existing.assignedClerkUserId!==actor.clerkUserId)
-  throw new PermissionError("record:update");
  const version=new Date(parsed.expectedUpdatedAt);
- if(existing.updatedAt.getTime()!==version.getTime())throw new WorkItemConflictError();
- if(!isAllowedWorkTransition(existing.status,parsed.status))
-  throw new PermissionError("record:update");
- const now=new Date();
  return db.$transaction(async tx=>{
+  // A revoked role or cross-business assignment must not change a task
+  // because an older browser tab still holds an expectedUpdatedAt value.
+  const [current,unit,assignment,existing]=await Promise.all([
+   tx.membership.findUnique({where:{clerkUserId:actor.clerkUserId},
+    select:{status:true,role:true}}),
+   tx.chessBusinessUnit.findUnique({where:{id:parsed.businessId},
+    select:{status:true}}),
+   tx.chessEmployeeAssignment.findUnique({where:{
+    businessId_clerkUserId:{businessId:parsed.businessId,
+     clerkUserId:actor.clerkUserId},
+   },select:{revokedAt:true}}),
+   tx.chessWorkItem.findFirst({where:{
+    id:parsed.id,businessId:parsed.businessId,
+   },select:{id:true,status:true,updatedAt:true,assignedClerkUserId:true}}),
+  ]);
+  if(!canReadChessWorkBusiness({
+   membershipStatus:current?.status??null,role:current?.role??null,
+   unitStatus:unit?.status??null,
+   currentAssignment:!!assignment&&!assignment.revokedAt,
+  })||!existing||
+    (!["OWNER","ADMIN"].includes(current!.role)&&
+      existing.assignedClerkUserId!==actor.clerkUserId))
+   throw new PermissionError("record:update");
+  if(existing.updatedAt.getTime()!==version.getTime())
+   throw new WorkItemConflictError();
+  if(!isAllowedWorkTransition(existing.status,parsed.status))
+   throw new PermissionError("record:update");
+  const now=new Date();
   const changed=await tx.chessWorkItem.updateMany({
-   where:{id:existing.id,businessId:parsed.businessId,status:existing.status,updatedAt:version},
+   where:{id:existing.id,businessId:parsed.businessId,
+    status:existing.status,updatedAt:version},
    data:{status:parsed.status,updatedAt:now,
     completedAt:parsed.status==="COMPLETED"?now:null},
   });
   if(changed.count!==1)throw new WorkItemConflictError();
   if(parsed.status==="CANCELLED"){
-   // Pending calendar pushes were never sent. Already-synced events require
-   // an explicit remote cancellation workflow before any further changes.
    await tx.chessCalendarOutbox.updateMany({
     where:{workItemId:existing.id,status:{in:["PENDING","WAITING_CONSENT"]}},
     data:{status:"CANCELLED"},
@@ -163,5 +178,5 @@ export async function transitionChessWorkItem(data:unknown){
    resourceId:existing.id,decision:"ALLOW",
   }});
   return {id:existing.id,status:parsed.status,updatedAt:now};
- });
+ },{isolationLevel:"Serializable"});
 }
