@@ -22,6 +22,7 @@ export async function setActiveModule(tenantSlug: string, moduleKey: ModuleKey) 
     path: "/",
     httpOnly: false,
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
     maxAge: 60 * 60 * 24 * 365,
   });
 }

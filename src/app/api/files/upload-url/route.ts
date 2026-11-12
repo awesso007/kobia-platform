@@ -3,6 +3,7 @@ import { getTenantDb, NoTenantError } from "@/lib/db/get-tenant-db";
 import { requirePermission, getCurrentMembership, PermissionError } from "@/lib/rbac/require-permission";
 import { prepareUpload } from "@/lib/storage";
 import type { FileEntity } from "@/lib/files/files";
+import { MAX_LOCAL_UPLOAD_BYTES } from "@/lib/security/historical-mutation-boundaries";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,10 @@ export async function POST(req: NextRequest) {
     body = (await req.json()) as Body;
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid request body." }, { status: 400 });
+  }
+  if (!Number.isSafeInteger(body.size) || (body.size ?? 0) <= 0 ||
+      (body.size ?? 0) > MAX_LOCAL_UPLOAD_BYTES) {
+    return NextResponse.json({ ok: false, error: "Invalid file size." }, { status: 413 });
   }
   if (!body.fileName || !body.mimeType) {
     return NextResponse.json({ ok: false, error: "fileName and mimeType are required." }, { status: 400 });
