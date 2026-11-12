@@ -8,6 +8,30 @@ business-operations layer within an isolated KOBIA tenant, not an assertion
 that a single legal entity holds all operating licenses.
 
 
+## CURRENT ROUND 29 — source-only engineering and strict release separation
+
+Round 29 adds a persistent M5 bank-attempt reservation/UNKNOWN journal,
+serializes consent withdrawal with financial attempts, and binds admin
+cancellation to the same business. M4 recurring-work fairness, exact backlog
+lookahead and PostgreSQL regression now cover indefinitely blocked templates.
+Privacy-minimal, transaction-coupled manager/employee audit coverage extends
+to appointment and calendar directories, work queues, staff rosters, employee
+alerts, tax workpapers, invoice listings and recurring templates. The isolated
+fictional client preview, gated Clerk browser harness and consent-checked
+document stream remain non-production acceptance work.
+
+See [Round 29 engineering and acceptance register](CHESS_CORP_2_ROUND29_ENGINEERING_AUDIT.md)
+for exact newly changed paths, code-only limitations and independent evidence.
+**No release gate changed:** 8/8 milestones remain production-blocked and
+0/8 independent release approvals are on file. Real vendor sandboxes, complete
+sensitive-read inventory, security/accessibility signoff, staging/DR and
+professional/licensed execution are not certified by ordinary CI. The
+[canonical owner-supply checklist](CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md)
+remains the only external-input register (18 groups). PR #24 is still draft;
+never merge or deploy `main` as part of this engineering round.
+
+---
+
 ## CURRENT ROUND 27 — staff and supervisor screen coverage
 
 Added /app/chess-desk as a role-limited employee entry point, linked
