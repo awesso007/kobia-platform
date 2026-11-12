@@ -63,6 +63,17 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS / KOBIA legacy taxpayer export hardening — Round 36
+
+The development branch now restricts legacy KOBIA 1099-NEC and 1099-MISC
+CSV downloads containing taxpayer IDs to current OWNER/ADMIN/ACCOUNTANT
+memberships in an active tenant and entity, with a transaction-coupled
+legacy read audit. This does **not** enable tax filing, provide immutable
+WORM evidence or certify historic routes. See
+[Round 36 security audit](docs/CHESS_CORP_2_ROUND36_LEGACY_TAX_EXPORT_AUDIT.md)
+and the [current M1–M8 matrix](docs/CHESS_CORP_2_ROADMAP.md).
+Production main remains unchanged; draft PR #24 is not approved for merge.
+
 ## CHESS employee service desk — Round 27
 
 Within the isolated CHESS tenant, sign in using an active staff
