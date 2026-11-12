@@ -18,7 +18,7 @@ import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
 import {auditedHistoricalTenantRead} from "./historical-sensitive-read";
 
-const ALLOWED_PATH=/^[a-z0-9/\[\]._-]{1,190}$/;
+const ALLOWED_PATH=/^[A-Za-z0-9/\[\]._-]{1,190}$/;
 const INTERNAL_ROLES=["OWNER","ADMIN","MEMBER","VIEWER"] as const;
 
 export function historicalResponseRelease(input:{
