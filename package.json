@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,md}\"",
-    "test": "vitest run",
+    "test": "node scripts/check-round37-route-inventory.mjs && vitest run",
     "test:watch": "vitest",
     "db:generate": "prisma generate",
     "db:generate:all": "prisma generate && prisma generate --schema=prisma/platform/schema.prisma && prisma generate --schema=prisma/tenant/schema.prisma",
