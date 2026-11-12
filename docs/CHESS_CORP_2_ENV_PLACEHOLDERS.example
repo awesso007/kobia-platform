@@ -30,6 +30,10 @@ CHESS_CLIENT_PORTAL_IDENTITY_APPROVED=false
 # KOBIA_S3_ACCESS_KEY_ID=
 # KOBIA_S3_SECRET_ACCESS_KEY=
 # KOBIA_S3_ENDPOINT=               # optional approved S3-compatible service
+# KOBIA_LOCAL_DOWNLOAD_SIGNING_KEY= # 32+ random bytes; isolated dev/stage only
+# LOCAL requires this server-only signing secret or download fails closed.
+# Legacy helpdesk email-only portal is hard-disabled until one-time verified
+# identity challenge code/provider review. No flag can reenable that old flow.
 # CHESS_CLAMAV_HOST=              # private scanner endpoint
 # CHESS_CLAMAV_PORT=3310
 # CHESS_SCAN_WORKER_TOKEN=
