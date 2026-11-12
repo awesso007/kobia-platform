@@ -27,15 +27,26 @@ export async function recordDocumentScan(input:unknown) {
  const data=resultSchema.parse(input);
  const {db}=getTenantDb();
  const doc=await db.chessClientDocument.findFirst({where:{
-  id:data.documentId,businessId:data.businessId,status:"QUARANTINED",
+  id:data.documentId,businessId:data.businessId,status:"QUARANTINED",verifiedAt:null,
  }});
  if(!doc)return {updated:false};
  if(!doc.storageVersionId || !doc.storageETag || !doc.actualBytes ||
    doc.actualBytes<1 || doc.actualBytes>20*1024*1024) {
-  await db.chessClientDocument.updateMany({where:{id:doc.id,status:"QUARANTINED"},data:{status:"REJECTED"}});
-  return {updated:true,status:"REJECTED" as const};
+  return db.$transaction(async tx=>{
+   const changed=await tx.chessClientDocument.updateMany({
+    where:{id:doc.id,businessId:doc.businessId,status:"QUARANTINED",
+     verifiedAt:null},
+    data:{status:"REJECTED"},
+   });
+   if(changed.count)await tx.chessSecurityEvent.create({data:{
+    businessId:doc.businessId,actorClerkUserId:null,
+    action:"DOCUMENT_SCAN_METADATA_REJECTED",
+    resourceType:"ChessClientDocument",resourceId:doc.id,decision:"DENY",
+   }});
+   return {updated:changed.count===1,status:"REJECTED" as const};
+  },{isolationLevel:"Serializable"});
  }
- const head=await s3.headObject(doc.storageKey,doc.storageVersionId);
+ const head=await s3.headObjectStrict(doc.storageKey,doc.storageVersionId);
  const matching=matchesPinnedDocument(doc,head);
  if(!matching)throw new Error("Pinned document does not match scanned metadata.");
  // A signed callback alone is insufficient: compare against bytes retrieved
@@ -44,7 +55,7 @@ export async function recordDocumentScan(input:unknown) {
  const bytes=Buffer.from(await stream.transformToByteArray());
  const checksum=createHash("sha256").update(bytes).digest("hex");
  const valid=bytes.length===doc.actualBytes && checksum===data.checksumSha256;
- const headAgain=await s3.headObject(doc.storageKey,doc.storageVersionId);
+ const headAgain=await s3.headObjectStrict(doc.storageKey,doc.storageVersionId);
  if(!headAgain || headAgain.versionId!==doc.storageVersionId ||
    headAgain.etag!==doc.storageETag)throw new Error("Pinned document changed.");
  const clean=valid&&data.result==="CLEAN";
@@ -55,7 +66,7 @@ export async function recordDocumentScan(input:unknown) {
  return db.$transaction(async tx=>{
   const current=await tx.chessClientDocument.findFirst({where:{
    id:doc.id,businessId:doc.businessId,status:"QUARANTINED",
-   storageVersionId:doc.storageVersionId,storageETag:doc.storageETag,
+   verifiedAt:null,storageVersionId:doc.storageVersionId,storageETag:doc.storageETag,
   },select:{id:true,replacesDocumentId:true,revisionKind:true,
    businessId:true,clientProfileId:true,service:true}});
   if(!current)return {updated:false,status:next};
@@ -68,7 +79,8 @@ export async function recordDocumentScan(input:unknown) {
    if(parent.count!==1)throw new Error("Predecessor changed before publication");
   }
   const updated=await tx.chessClientDocument.updateMany({where:{
-   id:doc.id,status:"QUARANTINED",storageVersionId:doc.storageVersionId,
+   id:doc.id,status:"QUARANTINED",verifiedAt:null,
+   storageVersionId:doc.storageVersionId,
    storageETag:doc.storageETag,
   },data:{status:next,checksumSha256:checksum,verifiedAt:new Date()}});
   if(updated.count!==1)throw new Error("Scan result is stale");
