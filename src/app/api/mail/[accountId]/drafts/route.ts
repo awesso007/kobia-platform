@@ -7,14 +7,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { listDrafts } from "@/lib/mail/queries";
 import { saveDraft } from "@/lib/mail/mutations";
-import { resolveMail, failMail } from "@/lib/mail/api";
+import { resolveMail, failMail, auditedOwnedMailRead } from "@/lib/mail/api";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(_req: Request, { params }: { params: { accountId: string } }) {
   try {
-    const { db, account } = await resolveMail(params.accountId, "record:read");
-    const drafts = await listDrafts(db, account.id);
+    const drafts = await auditedOwnedMailRead(params.accountId, "HISTORICAL_EMAIL_DRAFT_DIRECTORY_READ",
+      (tx, accountId) => listDrafts(tx, accountId));
     return NextResponse.json({ ok: true, drafts });
   } catch (err) {
     return failMail(err);
