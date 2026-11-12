@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Chat unread API (Sprint 16, authenticated). GET returns per-channel unread
  * counts for the caller, plus the total, for sidebar + nav badges.
@@ -17,7 +18,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET() {
+async function historicalAuditedGet() {
   try {
     await requirePermission("record:read");
     const member = await getCurrentMembership();
@@ -30,3 +31,5 @@ export async function GET() {
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("chat/unread",historicalAuditedGet);

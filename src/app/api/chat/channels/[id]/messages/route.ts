@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Chat channel messages API (Sprint 16, authenticated). GET returns a cursor-
  * paginated page of messages (optionally a thread via ?parentId); POST sends a
@@ -20,7 +21,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+async function historicalAuditedGet(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await requirePermission("record:read");
     const { db } = getTenantDb();
@@ -64,3 +65,5 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("chat/channels/[id]/messages",historicalAuditedGet);

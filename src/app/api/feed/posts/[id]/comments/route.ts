@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Feed comments API (Sprint 21, authenticated). GET lists a post's comments
  * (with reactions) oldest-first; POST adds a comment (one-level threading),
@@ -19,7 +20,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+async function historicalAuditedGet(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await requirePermission("record:read");
     const { db } = getTenantDb();
@@ -59,3 +60,5 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("feed/posts/[id]/comments",historicalAuditedGet);

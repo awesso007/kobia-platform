@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Single feed post API (Sprint 21, authenticated). GET returns the post with
  * reactions, threaded comments, and poll tallies; PATCH edits title/body (author
@@ -23,7 +24,7 @@ function isAdmin(role?: string) {
   return role === "ADMIN" || role === "OWNER";
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+async function historicalAuditedGet(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await requirePermission("record:read");
     const { db } = getTenantDb();
@@ -77,3 +78,5 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("feed/posts/[id]",historicalAuditedGet);
