@@ -4,7 +4,7 @@ import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permissio
 import {assertBusinessManager} from "./business-manager";
 import {assertBusinessAccess} from "./business-units";
 import {maySyncAppointmentCalendar} from "./calendar-preferences";
-import {auditedChessManagerRead} from "./sensitive-read-audit";
+import {auditedChessEmployeeRead,auditedChessManagerRead} from "./sensitive-read-audit";
 
 export const appointmentInput=z.object({
  businessId:z.string().min(1).max(128),
@@ -150,23 +150,27 @@ export async function cancelChessAppointment(input:unknown){
 }
 
 export async function listChessAssignableStaff(businessId:string){
- await assertBusinessManager(businessId);
+ const actor=await assertBusinessManager(businessId);
  const {db}=getTenantDb();
- const assignments=await db.chessEmployeeAssignment.findMany({
-  where:{businessId,revokedAt:null},
-  select:{clerkUserId:true,role:true},
-  take:200,
+ return auditedChessManagerRead(db,{
+  businessId,actorClerkUserId:actor.clerkUserId,
+  action:"EMPLOYEE_ROSTER_READ",resourceType:"ChessEmployeeAssignment",
+  resourceId:"business:"+businessId,
+ },async tx=>{
+  const assignments=await tx.chessEmployeeAssignment.findMany({
+   where:{businessId,revokedAt:null},
+   select:{clerkUserId:true,role:true},take:200,
+  });
+  const members=await tx.membership.findMany({where:{
+   status:"ACTIVE",role:{not:"VIEWER"},
+   clerkUserId:{in:assignments.map(a=>a.clerkUserId)},
+  },select:{clerkUserId:true,displayName:true}});
+  const names=new Map(members.map(m=>[m.clerkUserId,m.displayName]));
+  return assignments.filter(a=>names.has(a.clerkUserId)).map(a=>({
+   clerkUserId:a.clerkUserId,
+   displayName:names.get(a.clerkUserId)||"Assigned staff member",role:a.role,
+  }));
  });
- const members=await db.membership.findMany({where:{
-  status:"ACTIVE",role:{not:"VIEWER"},
-  clerkUserId:{in:assignments.map(x=>x.clerkUserId)},
- },select:{clerkUserId:true,displayName:true}});
- const names=new Map(members.map(m=>[m.clerkUserId,m.displayName]));
- return assignments.filter(a=>names.has(a.clerkUserId)).map(a=>({
-  clerkUserId:a.clerkUserId,
-  displayName:names.get(a.clerkUserId)||"Assigned staff member",
-  role:a.role,
- }));
 }
 
 
@@ -177,11 +181,15 @@ export async function listMyChessAppointmentTimes(businessId:string){
  const actor=await getCurrentMembership();
  if(!actor||actor.status!=="ACTIVE")throw new PermissionError("record:read");
  const {db}=getTenantDb();
- return db.chessAppointment.findMany({
+ return auditedChessEmployeeRead(db,{
+  businessId,actorClerkUserId:actor.clerkUserId,
+  action:"APPOINTMENT_CALENDAR_READ",resourceType:"ChessAppointment",
+  resourceId:"personal:"+actor.clerkUserId,
+ },async tx=>tx.chessAppointment.findMany({
   where:{businessId,assignedClerkUserId:actor.clerkUserId,status:"SCHEDULED"},
   select:{id:true,startAt:true,endAt:true,status:true},
   orderBy:{startAt:"asc"},take:100,
- });
+ }));
 }
 
 
