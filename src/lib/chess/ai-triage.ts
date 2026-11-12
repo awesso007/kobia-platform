@@ -4,6 +4,7 @@ import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permissio
 import {assertBusinessManager} from "./business-manager";
 import {requestChessAiTriage,workItemSourceDigest,dueBucket} from "./ai-triage-provider";
 import {claimChessAiDailyCall} from "./ai-daily-budget";
+import {auditedChessManagerRead} from "./sensitive-read-audit";
 
 const ids=z.object({businessId:z.string().min(1).max(128),
  workItemId:z.string().min(1).max(128)}).strict();
@@ -169,19 +170,29 @@ export async function applyChessWorkItemAdvice(input:unknown){
 export async function listChessWorkItemTriage(businessId:string){
  const actor=await assertBusinessManager(businessId);
  const {db}=getTenantDb();
- const rows=await db.chessAiSuggestion.findMany({where:{businessId},
-  orderBy:{createdAt:"desc"},take:100,select:{
-   id:true,workItemId:true,priority:true,recommendation:true,rationaleCode:true,
-   modelVersion:true,status:true,createdAt:true,updatedAt:true,
-   appliedAt:true,followupWorkItemId:true,
-   requestedByClerkUserId:true,reviewedByClerkUserId:true,
-  }});
- return rows.map(({requestedByClerkUserId,reviewedByClerkUserId,...row})=>({
-  ...row,
-  mayReview:row.status==="PENDING"&&
-   independentAiReview(requestedByClerkUserId,actor.clerkUserId,actor.role),
-  mayApply:row.status==="ACCEPTED"&&
-   ["OWNER","ADMIN"].includes(actor.role)&&
-   !!reviewedByClerkUserId&&!row.appliedAt,
- }));
+ return auditedChessManagerRead(db,{
+  businessId,actorClerkUserId:actor.clerkUserId,
+  action:"AI_TRIAGE_DIRECTORY_READ",resourceType:"ChessAiSuggestion",
+  resourceId:"business:"+businessId,
+ },async tx=>{
+  const current=await tx.membership.findUnique({
+   where:{clerkUserId:actor.clerkUserId},select:{role:true,status:true},
+  });
+  if(!current||current.status!=="ACTIVE")return null;
+  const rows=await tx.chessAiSuggestion.findMany({where:{businessId},
+   orderBy:{createdAt:"desc"},take:100,select:{
+    id:true,workItemId:true,priority:true,recommendation:true,rationaleCode:true,
+    modelVersion:true,status:true,createdAt:true,updatedAt:true,
+    appliedAt:true,followupWorkItemId:true,
+    requestedByClerkUserId:true,reviewedByClerkUserId:true,
+   }});
+  return rows.map(({requestedByClerkUserId,reviewedByClerkUserId,...row})=>({
+   ...row,
+   mayReview:row.status==="PENDING"&&
+    independentAiReview(requestedByClerkUserId,actor.clerkUserId,current.role),
+   mayApply:row.status==="ACCEPTED"&&
+    ["OWNER","ADMIN"].includes(current.role)&&
+    !!reviewedByClerkUserId&&!row.appliedAt,
+  }));
+ });
 }
