@@ -13,6 +13,7 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import type { PrismaClient } from "@/lib/db/generated/tenant";
+import { issueLegacyTrackingCapability } from "@/lib/security/legacy-tracking-capability";
 import { sendEmail } from "@/lib/email/send";
 import { sendAndRecordSms } from "@/lib/telephony/sms";
 import { evaluateSegment, type SegmentEntity } from "./segments";
@@ -236,7 +237,12 @@ export async function computeStats(db: Db, broadcastId: string): Promise<Broadca
  * schema (a recipientId is only unique within a tenant). */
 function withTracking(html: string, recipientId: string, tenantSlug?: string): string {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
-  const t = tenantSlug ? `?t=${encodeURIComponent(tenantSlug)}` : "";
-  const pixel = `<img src="${base}/api/track/open/${recipientId}${t}" width="1" height="1" alt="" style="display:none" />`;
+  // Without an isolated signing key, omit pixel tracking entirely rather than
+  // exposing a mutable recipient ID via an unsigned public URL.
+  const cap = tenantSlug
+    ? issueLegacyTrackingCapability({ p: "OPEN", t: tenantSlug, r: recipientId })
+    : null;
+  if (!cap) return html;
+  const pixel = `<img src="${base}/api/track/open/${encodeURIComponent(recipientId)}?cap=${encodeURIComponent(cap)}" width="1" height="1" alt="" style="display:none" />`;
   return `${html}${pixel}`;
 }

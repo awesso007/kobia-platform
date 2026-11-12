@@ -9,18 +9,15 @@
  */
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
+import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { activeWebhookTenantSchema } from "@/lib/security/legacy-webhook-tenant";
+import { verifyLegacyTrackingCapability } from "@/lib/security/legacy-tracking-capability";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 // 1x1 transparent GIF.
 const PIXEL = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
-
-function sanitizeSlug(slug: string | null | undefined): string | null {
-  if (!slug) return null;
-  return /^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/.test(slug) ? slug : null;
-}
 
 function pixelResponse(): NextResponse {
   return new NextResponse(PIXEL, {
@@ -34,10 +31,15 @@ function pixelResponse(): NextResponse {
 }
 
 export async function GET(req: NextRequest, { params }: { params: { recipientId: string } }) {
-  const tenantSlug = sanitizeSlug(req.nextUrl.searchParams.get("t"));
-  if (tenantSlug) {
+  const capability = verifyLegacyTrackingCapability(
+    req.nextUrl.searchParams.get("cap"), "OPEN", params.recipientId,
+  );
+  // Pixels remain visually harmless, but do not mutate any recipient without
+  // a signed capability bound to its exact tenant and identity.
+  const schema = capability ? await activeWebhookTenantSchema(capability.t) : null;
+  if (schema) {
     try {
-      const db = getTenantPrisma(schemaNameForSlug(tenantSlug));
+      const db = getTenantPrisma(schema);
       const rcpt = await db.broadcastRecipient.findUnique({ where: { id: params.recipientId }, select: { id: true, status: true, openedAt: true } });
       if (rcpt && (rcpt.status === "SENT" || rcpt.status === "DELIVERED")) {
         await db.broadcastRecipient.update({

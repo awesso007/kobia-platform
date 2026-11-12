@@ -9,34 +9,26 @@
  */
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
+import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { activeWebhookTenantSchema } from "@/lib/security/legacy-webhook-tenant";
+import { verifyLegacyTrackingCapability } from "@/lib/security/legacy-tracking-capability";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function sanitizeSlug(slug: string | null | undefined): string | null {
-  if (!slug) return null;
-  return /^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/.test(slug) ? slug : null;
-}
-
-function safeUrl(raw: string | null): string | null {
-  if (!raw) return null;
-  try {
-    const u = new URL(raw);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
-    return u.toString();
-  } catch {
-    return null;
-  }
-}
-
 export async function GET(req: NextRequest, { params }: { params: { recipientId: string } }) {
-  const target = safeUrl(req.nextUrl.searchParams.get("url"));
-  const tenantSlug = sanitizeSlug(req.nextUrl.searchParams.get("t"));
+  const capability = verifyLegacyTrackingCapability(
+    req.nextUrl.searchParams.get("cap"), "CLICK", params.recipientId,
+  );
+  if (!capability || !capability.url)
+    return NextResponse.json({ error: "Tracking link unavailable" }, { status: 404, headers: { "Cache-Control": "no-store" } });
+  const schema = await activeWebhookTenantSchema(capability.t);
+  if (!schema)
+    return NextResponse.json({ error: "Tracking link unavailable" }, { status: 404, headers: { "Cache-Control": "no-store" } });
 
-  if (tenantSlug) {
+  if (schema) {
     try {
-      const db = getTenantPrisma(schemaNameForSlug(tenantSlug));
+      const db = getTenantPrisma(schema);
       const rcpt = await db.broadcastRecipient.findUnique({ where: { id: params.recipientId }, select: { id: true, status: true, clickedAt: true } });
       if (rcpt && rcpt.status !== "BOUNCED" && rcpt.status !== "UNSUBSCRIBED" && rcpt.status !== "FAILED") {
         await db.broadcastRecipient.update({
@@ -49,6 +41,5 @@ export async function GET(req: NextRequest, { params }: { params: { recipientId:
     }
   }
 
-  const dest = target ?? process.env.NEXT_PUBLIC_APP_URL ?? "/";
-  return NextResponse.redirect(dest, { status: 302 });
+  return NextResponse.redirect(capability.url, { status: 302, headers: { "Cache-Control": "no-store" } });
 }
