@@ -10,6 +10,7 @@ const issues=[], counts={}, reviewed=[];
 const exceptional={
 "src/app/api/active-module/route.ts":"ACTIVE_MODULE_MEMBERSHIP",
 "src/app/api/calls/dial/route.ts":"DELEGATED_CALL",
+"src/app/api/feed/follows/route.ts":"DELEGATED_FEED_FOLLOW",
 "src/app/api/client-profiles/route.ts":"CHESS_SERVICE",
 "src/app/api/client-profiles/[profileId]/services/route.ts":"CHESS_SERVICE",
 "src/app/api/client-service-links/[linkId]/grants/route.ts":"CHESS_SERVICE",
@@ -40,6 +41,10 @@ for(const r of inv.routes.filter(r=>r.status==="READ_PATH_REVIEW_REQUIRED")){
    if(auth<0||scoped<0||auth>scoped)issues.push(r.path+" "+verb+" must authorize before tenant DB");
   }else if(kind==="OWNED_MAIL"){
    if(!body.includes("await resolveMail(params.accountId,"))issues.push(r.path+" "+verb+" missing owned-mail resolver");
+  }else if(kind==="DELEGATED_FEED_FOLLOW"){
+   if(!body.includes('await requirePermission("record:create")') ||
+      !body.includes("await handle("))
+    issues.push(r.path+" "+verb+" missing explicit permission before delegated handle");
   }
  }
  reviewed.push({path:r.path,kind,methods:verbs});
@@ -48,6 +53,7 @@ const check={
 "src/app/api/active-module/route.ts":["moduleTenantAuthorized","assertMutationOrigin(req)","auth().userId"],
 "src/app/api/calls/dial/route.ts":["startCall(input)"],
 "src/app/app/(crm)/call-actions.ts":['await requirePermission("telephony:manage")'],
+"src/app/api/feed/follows/route.ts":['async function handle(', 'await requirePermission("record:create")', 'const { db } = getTenantDb()'],
 "src/lib/mail/api.ts":["getOwnedAccount(db, accountId, userId)","await requirePermission(action)"],
 "src/app/api/files/local-upload/[...key]/route.ts":["localUploadIsAuthorized",'await requirePermission("record:create")'],
 "src/app/api/email/inbound/route.ts":["inboundMailCredentialDecision"],
