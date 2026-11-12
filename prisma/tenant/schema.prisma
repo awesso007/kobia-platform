@@ -3685,6 +3685,9 @@ model ChessWorkRecurrence {
   anchorDay Int
   nextRunAt DateTime
   lastRunAt DateTime?
+  // Time of last bounded scheduler inspection, even when assignment is blocked.
+  // This is not a completed run or a generated task.
+  lastInspectedAt DateTime?
   active Boolean @default(true)
   createdByClerkUserId String
   createdAt DateTime @default(now())
@@ -3692,6 +3695,7 @@ model ChessWorkRecurrence {
   generatedTasks ChessWorkItem[]
 
   @@index([active,nextRunAt])
+  @@index([active,lastInspectedAt,nextRunAt])
   @@index([businessId,active])
 }
 
