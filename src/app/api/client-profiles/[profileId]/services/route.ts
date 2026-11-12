@@ -1,4 +1,4 @@
-import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
+import {withAlreadyAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 import {assertMutationOrigin} from "@/lib/chess/request-security";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
@@ -41,4 +41,4 @@ export async function POST(request: NextRequest, { params }: Context) {
   }
 }
 
-export const GET=withAuditedHistoricalGet("client-profiles/[profileId]/services",historicalAuditedGet);
+export const GET=withAlreadyAuditedHistoricalGet("client-profiles/[profileId]/services",historicalAuditedGet);
