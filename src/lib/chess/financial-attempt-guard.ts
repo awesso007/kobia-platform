@@ -13,7 +13,7 @@ export async function guardAndCancelReservedFinancialAttempts(
   now = new Date(),
   actorClerkUserId?: string,
 ) {
-  await tx.$queryRaw<Array<{ id: string }>>\`SELECT "id" FROM "ChessClientConsent" WHERE "id" = \${consentId} FOR UPDATE\`;
+  await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "ChessClientConsent" WHERE "id" = ${consentId} FOR UPDATE`;
 
   const consent = await tx.chessClientConsent.findUnique({
     where: { id: consentId },
