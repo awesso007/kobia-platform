@@ -40,6 +40,28 @@ export async function executeChessPayroll(input:unknown) {
  if(!approval || !payrollHasIndependentActors(
   approval.requestedBy,approval.reviewedBy,actor.clerkUserId))
   throw new PermissionError("record:update");
+ // Generic, source-blind action approvals from previous releases cannot
+ // authorize financial execution. Require BOTH audited, source-bound
+ // request and decision provenance tied to the exact approval, actors,
+ // business and digest already verified above.
+ const [sourceRequest,sourceDecision]=await Promise.all([
+  db.chessSecurityEvent.findFirst({where:{
+   businessId:data.businessId,actorClerkUserId:approval.requestedBy,
+   action:"PAYROLL_SOURCE_APPROVAL_REQUESTED",
+   resourceType:"ChessActionApproval",resourceId:approval.id,
+   decision:"REVIEW",
+  },select:{id:true}}),
+  db.chessSecurityEvent.findFirst({where:{
+   businessId:data.businessId,
+   actorClerkUserId:approval.reviewedBy!,
+   action:"PAYROLL_SOURCE_APPROVAL_DECIDED",
+   resourceType:"ChessActionApproval",resourceId:approval.id,
+   decision:"ALLOW",
+  },select:{id:true}}),
+ ]);
+ if(!sourceRequest||!sourceDecision)
+  throw new PermissionError("record:update");
+
  const [requester,reviewer]=await Promise.all([
   db.membership.findUnique({where:{clerkUserId:approval.requestedBy},
    select:{status:true}}),
