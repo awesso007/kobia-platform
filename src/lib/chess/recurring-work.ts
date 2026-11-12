@@ -4,6 +4,7 @@ import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {PermissionError} from "@/lib/rbac/require-permission";
 import {assertBusinessManager} from "./business-manager";
 import {nextRecurrenceUtc} from "./recurrence-clock";
+import {auditedChessManagerRead} from "./sensitive-read-audit";
 
 export const recurrenceInput=z.object({
  businessId:z.string().min(1).max(128),
@@ -62,14 +63,19 @@ export async function createChessRecurrence(input:unknown){
 }
 
 export async function listChessRecurrences(businessId:string){
- await assertBusinessManager(businessId);
+ const actor=await assertBusinessManager(businessId);
  const {db}=getTenantDb();
- return db.chessWorkRecurrence.findMany({
+ return auditedChessManagerRead(db,{
+  businessId,actorClerkUserId:actor.clerkUserId,
+  action:"RECURRING_WORK_DIRECTORY_READ",resourceType:"ChessWorkRecurrence",
+  resourceId:"business:"+businessId,
+ },async tx=>tx.chessWorkRecurrence.findMany({
   where:{businessId},orderBy:{nextRunAt:"asc"},take:100,
   select:{id:true,title:true,frequency:true,interval:true,active:true,
    nextRunAt:true,lastRunAt:true,assignedClerkUserId:true,updatedAt:true},
- });
+ }));
 }
+
 
 export async function setChessRecurrenceActive(
  businessId:string,id:string,active:boolean,expectedUpdatedAt:string,
