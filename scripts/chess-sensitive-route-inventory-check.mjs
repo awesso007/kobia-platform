@@ -34,6 +34,7 @@ const registered = new Set([
   "chess/client-consent/route.ts",
   "chess/consents/route.ts",
   "chess/document-lifecycle/route.ts",
+  "chess/document-purge/run/route.ts",
   "chess/document-scan/route.ts",
   "chess/documents/[id]/download/route.ts",
   "chess/documents/route.ts",
@@ -74,6 +75,7 @@ const machine = new Set([
   "chess/audit-archive/run/route.ts",
   "chess/calendar-sync/run/route.ts",
   "chess/document-scan/route.ts",
+  "chess/document-purge/run/route.ts",
   "chess/incident-health/route.ts",
   "chess/merchant-events/route.ts",
   "chess/payroll-status/run/route.ts",
@@ -104,7 +106,7 @@ test("classifies every CHESS-specific service API route with no silent omission"
  const stale=[...registered].filter(path=>!actual.includes(path));
  assert.deepEqual(unknown,[],"New sensitive API routes require risk classification.");
  assert.deepEqual(stale,[],"Manifest must track current API files.");
- assert.equal(machine.size,11);
+ assert.equal(machine.size,12);
  assert.equal(client.size,1);
  for(const path of [...machine,...client])assert.ok(registered.has(path));
 });
@@ -121,9 +123,9 @@ test("distinguishes machine, verified-client and employee boundaries",()=>{
   if(/export\s+(?:async\s+)?function\s+GET|export\s+const\s+GET/.test(source))
    counted.reads++;
  }
- assert.equal(counted.machine,11);
+ assert.equal(counted.machine,12);
  assert.equal(counted.client,1);
- assert.equal(counted.employee,registered.size-12);
+ assert.equal(counted.employee,registered.size-13);
  assert.ok(counted.reads>0);
  // These counts classify explicit source files; they do not establish
  // per-client grants, runtime consent, immutable audit or legal compliance.
