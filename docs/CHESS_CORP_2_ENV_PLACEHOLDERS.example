@@ -34,7 +34,9 @@
 # NEXT_PUBLIC_APP_URL=
 # NEXT_PUBLIC_ROOT_DOMAIN=
 # NEXT_PUBLIC_DEFAULT_TENANT=
-# CHESS_PUBLIC_ORIGIN=
+# CHESS_PUBLIC_ORIGIN=             # Exact HTTPS protected-staging origin, no wildcard
+# Round 49: local upload fallback always refuses NODE_ENV=production.
+# Protected browser test identities and isolated tenant scopes remain required.
 
 # M3: verified client identity, signed consent, scoped storage and scanner
 # CHESS_CONSENT_EVIDENCE_KEY=       # 32+ char unique high-entropy vault secret

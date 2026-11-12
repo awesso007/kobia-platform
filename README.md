@@ -63,6 +63,33 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS CORP 2 Round 49 — tenant-scoped historical API mutations
+
+Round 49 works against the historical 111-file authenticated-read
+inventory and its non-GET methods. It tightens explicit tenant
+module selection (live Clerk + active tenant membership), refuses
+LOCAL file writes without same-origin, current uploader ownership,
+exact tenant key and bounded bytes, and enforces nested ancestry
+for form fields/steps, sites/pages/blocks/domains, and workflow
+run cancellation. PRIVATE and DM chat channels now require
+membership before GET, POST, reaction, pin, read-mark, edit or
+delete; only public channels may auto-join on send. DM recipients
+must be ACTIVE. Feed follows now check permission before shared
+handler invocation.
+
+The new method-admission CI source gate enumerates all classified
+historical mutation methods and rejects missing authorization or
+reviewed resource guards. Its unit tests cover negative and
+positive scope decisions. **No actual signed-in browser
+acceptance is claimed**, no external credential or live
+integration was enabled, and other legacy methods still need
+transaction-coupled per-business authorization, CSRF policy,
+audit/consent coupling and independent security acceptance.
+See [Round 49 security report](docs/CHESS_CORP_2_ROUND49_AUTHENTICATED_MUTATIONS.md),
+[milestones](docs/CHESS_CORP_2_ROADMAP.md) and
+[owner acceptance checklist](docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md).
+Draft PR #24 remains unmerged; production unchanged.
+
 ## CHESS CORP 2 Round 48 — historical public and machine API protections
 
 Round 48 makes selected unsafe legacy public and machine endpoints fail

@@ -1,6 +1,6 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 48 | Final exact-SHA Round 48 CI evidence required (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 49 | Final exact-SHA Round 49 CI evidence required (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
@@ -21,6 +21,40 @@ external credentials remain under this one checklist; source-only
 placeholder values are NOT owner approval.
 
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 49 historical authenticated mutations — protected owner acceptance
+
+**Open and not independently attested** under existing groups
+**01, 02, 03, 05, 15, 17 and 18**. No additional secret is
+needed for the static code fixes.
+
+Supply a protected **Clerk TEST + isolated Neon staging** setup
+with TWO actual active tenants, distinct OWNER/ADMIN/MEMBER/VIEWER
+and revoked identities, valid and revoked client-service grants,
+two site/page/block trees, two form/field/step trees, separate
+private/DM channel memberships, legitimate member DM targets,
+and uploader/uploader-revoked sessions. Demonstrate that
+foreign tenant, suspended tenant, guessed private channel ID,
+foreign form/site/workflow child URL, duplicate reorder IDs,
+cross-account local upload, over-limit file and foreign
+message parent each deny without data exposure or side effects;
+then demonstrate allowed routes still function.
+
+Verify same-origin browser POST/PATCH/PUT/DELETE against
+`CHESS_PUBLIC_ORIGIN` in protected staging and review existing
+process-local file/webform CSRF and distributed abuse controls.
+The legacy `/tmp` LOCAL upload path is **development-only**;
+do not enable in production. Validate S3 Object Lock, scanner,
+version, tenant grants, separate licensed service boundaries
+and audit immutability before approving production file handling.
+
+The Round 49 source gate and mocked unit checks are **not**
+a substitute for protected signed-in browser testing,
+same-transaction consent/authorization plus mutation audits,
+or a third-party penetration test. New variable values are not
+introduced; existing `CHESS_PUBLIC_ORIGIN`, Clerk, Neon, S3,
+WORM and reviewer inputs remain in this owner checklist.
+All 8 production milestones remain BLOCKED; none is approved.
 
 ## Round 48 — historical public/machine route owner supply and protected acceptance
 
