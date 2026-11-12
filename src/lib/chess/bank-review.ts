@@ -441,16 +441,12 @@ export async function executeChessApprovedBankPosting(input:unknown){
    const attempt=await state.db.chessFinancialAttempt.findUnique({
     where:{sourceRefId},select:{id:true,status:true,journalEntryId:true},
    });
-   if(attempt){
-    if(attempt.status==="EXECUTING"||attempt.status==="UNKNOWN"){
-     const pinned=await markChessBankPostingAttemptCommitted(
-      state.db,attempt.id,state.actor.clerkUserId,reconciled.journalEntryId);
-     if(!pinned)throw new PermissionError("record:update");
-    }else if(attempt.status!=="COMMITTED"||
-     attempt.journalEntryId!==reconciled.journalEntryId){
-     throw new PermissionError("record:update");
-    }
-   }
+   // A matching GL reference without a CHESS reservation is not proof
+   // this actor is authorized to claim the posting. Unknown/executing
+   // outcomes require separate fourth-person receipt reconciliation.
+   if(!attempt||attempt.status!=="COMMITTED"||
+     attempt.journalEntryId!==reconciled.journalEntryId)
+    throw new PermissionError("record:update");
    return {postedToLedger:true,replay:true,journalEntryId:reconciled.journalEntryId,
     bankTransactionId:txn.id,bankSettled:false};
   }
