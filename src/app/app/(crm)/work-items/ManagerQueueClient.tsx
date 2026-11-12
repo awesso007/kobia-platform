@@ -42,6 +42,10 @@ export default function ManagerQueueClient({businessId,initialQueue,staff}:{
   </p>
   {error&&<p role="alert" className="rounded-lg border border-red-200 p-3 text-sm text-red-800">{error}</p>}
   <h3 className="text-base font-semibold">Assign unassigned work</h3>
+  {staff.length===0?<p role="status" className="rounded-lg border border-amber-200 p-3 text-sm text-amber-900">
+   No eligible active employees are available in this business. Ask a tenant administrator
+   to assign staff before attempting to delegate these work items.
+  </p>:null}
   {queue.unassigned.length===0?<p className="text-sm text-slate-600">No unassigned work items.</p>:
    <ul className="space-y-2">{queue.unassigned.map(item=><li key={item.id}
     className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 p-3 text-sm">
