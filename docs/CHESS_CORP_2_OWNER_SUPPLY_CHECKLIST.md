@@ -1,6 +1,6 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 34 | Source verified through Round 33 (November 11, 2026)**
+**Canonical external-input register | Reconciled Round 35 | Engineering evidence through Round 34 baseline (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
@@ -13,15 +13,50 @@ Prior checkpoints: Round 31
 and Round 32
 [`ac9123aa` / run 43174744357](https://github.com/awesso007/kobia-platform/actions/runs/43174744357).
 All three normal jobs test source and disposable PostgreSQL only.
-**Round 34 documentation commits require their own latest-commit CI check.**
+**Round 34 documentation head `6d241a2a0efdad2cd3e0494d7f859cf1f79169c0` passed 3/3 normal CI jobs in [run 43179174988](https://github.com/awesso007/kobia-platform/actions/runs/43179174988). Round 35 engineering commits need their own exact-final-head check.**
 No protected, real Clerk authenticated browser/axe, private staging,
 vendor settlement, WORM/PITR restore or independent legal/security signoff
 is proven by normal CI. No outside credential was newly required by
-Rounds 31–34; the configuration placeholders below remain disabled until
+Rounds 31–35; the configuration placeholders below remain disabled until
 their responsible owner/contracting professional supplies and approves
 the required inputs. Source changes are recorded in
-[the authoritative Round 34 M1–M8 milestone matrix](CHESS_CORP_2_ROADMAP.md).
+[the authoritative Round 35 M1–M8 milestone matrix](CHESS_CORP_2_ROADMAP.md).
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 35 implementation-to-owner acceptance delta (no new secret)
+
+**Source work already implemented, subject to exact-final-head CI:**
+- **01, 02, 03, 17, 18 (M1/M2):** role/audit-coupled business unit,
+  employee and client creation; staff assignment and service-grant
+  provisioning/revocation. In protected Clerk/Neon staging, run
+  concurrent owner-to-MEMBER and STAFF-to-VIEWER/suspended transitions,
+  revoked unit access, failed audit writes, contact/profile ownership
+  tests, and independent reviewer checks before accepting these paths.
+- **01, 04, 17, 18 (M1/M3):** client service-link grant and creator
+  authorization must remain separate from usable client consent.
+  Demonstrate foreign-owned profiles, withdrawn client consent and
+  revoked employee grants never reveal service records.
+- **10, 11, 17, 18 (M6):** the regulated case index now checks current
+  role/business/client-profile ownership, explicit service grant,
+  purpose-specific consent and audit inside one transaction. Use
+  fictional mortgage, insurance, real-estate and investment cases to
+  verify no unrelated client identifiers or case payloads escape.
+  Real partner/license contracts and certified execution remain blocked.
+- **12, 15, 17, 18 (M7/M8):** AI triage directory, daily quota, worker
+  state and action-approval inbox reads are audit-coupled and role
+  scoped. Independently verify staff/manager/owner role downgrades,
+  private actor-ID redaction, a failed event insert and worker health
+  during a protected staged session.
+- **17, 18 (M7/M8):** navigation and reports must refuse an explicit
+  revoked business without auto-switching and must not carry form
+  state across unit/month switches; verify with keyboard and screen
+  reader on authorized test identities.
+
+**No new `CHESS_*` variable, credential, contract or integration
+was introduced by Round 35.** The 18 numbered groups below remain
+the only external-input register, and all 18 remain unchecked until
+accepted with independent sandbox/privacy/license/recovery evidence.
+Source CI cannot authorize production data sharing or regulated work.
 
 ## Round 34 change-to-evidence reconciliation (no additional checklist items)
 
@@ -80,7 +115,7 @@ signed.** Draft PR #24 stays unmerged and production remains unchanged.
 
 - [ ] **16 · P1/P2 · Backups, test-only restore, migrations and cryptographic roles (M3, M5, M8).** Provide encrypted PostgreSQL PITR and versioned compliance-locked offsite object backups, a source-DB owner authorized to run migrations, and a distinct **non-admin, SELECT-only, sslmode=verify-full** connection to a truly isolated restored clone. Configure protected manual `chess-dr-restore` environment: `CHESS_DR_RESTORE_DATABASE_URL`, `CHESS_DR_RESTORE_ALLOWED_HOST`, `CHESS_DR_TEST_TENANT`, `CHESS_DR_WITNESS_SECURITY_EVENT_ID`, `CHESS_DR_WITNESS_CONSENT_ID`, `CHESS_DR_WITNESS_INVOICE_ID`, `CHESS_DR_BACKUP_BUCKET`, `CHESS_DR_BACKUP_OBJECT_KEY`, `CHESS_DR_BACKUP_OBJECT_VERSION`, `CHESS_DR_BACKUP_REGION`, optional `CHESS_DR_BACKUP_ENDPOINT`, `CHESS_DR_BACKUP_ALLOWED_HOST`, scoped `CHESS_DR_BACKUP_ACCESS_KEY_ID`, `CHESS_DR_BACKUP_SECRET_ACCESS_KEY`, `CHESS_DR_REQUIRE_PG_SSL=true` and `CHESS_DR_MAX_BACKUP_AGE_HOURS`. A qualified operator must provide **actual** start/ready and source/restored timestamps, agreed RTO/RPO targets, `CHESS_DR_EVIDENCE_TICKET` and signed witness notes; `CHESS_DR_VALIDATE` / `CHESS_DR_ISOLATED_RESTORE` are test-only approvals. Run migrations on a backed-up clone, audit any legacy consent and duplicate-payroll rows, measure integrity/rollback and preserve evidence before touching real tenant schemas. Specifically rehearse additive tenant migration `20261112002000_chess_m4_recurrence_worker_fairness` for `ChessWorkRecurrence.lastInspectedAt`, along with the previously recorded M5 financial-attempt reservation migration; record rollback plan and verify existing tenant data survives. For the **separately protected, SELECT-only legacy consent inventory** (not a migration), supply `CHESS_CONSENT_AUDIT_DATABASE_URL` (restricted secret), `CHESS_CONSENT_AUDIT_ALLOWED_HOST`, `CHESS_CONSENT_AUDIT_TENANT`, `CHESS_CONSENT_AUDIT_REVIEW_TICKET`, and enable test-only `CHESS_CONSENT_AUDIT_ENABLED` / `CHESS_CONSENT_AUDIT_ISOLATED` only after an authorized reviewer approves the production-like clone.
 
-- [ ] **17 · P1 · Protected staging, signed-in roles and vendor sandboxes (all milestones).** Provide **two** separately deployed fictional HTTPS tenant origins, explicit business/case IDs, valid and revoked purpose-specific consents, distinct Clerk owner/admin, manager, practitioner, no-grant member and client identities, and their **temporary test session cookies** via protected GitHub environments. For app attestation set `CHESS_RELEASE_SHA`, `CHESS_STAGING_EXPECTED_SHA`, `CHESS_STAGING_BASE_URL`, `CHESS_STAGING_ALLOWED_HOST`, `CHESS_STAGING_ATTESTATION_TOKEN`, plus guarded `CHESS_STAGING_ATTESTATION_ENABLED` / `CHESS_STAGING_VALIDATE`. For real 2-tenant role checks use `CHESS_AUTHZ_E2E_BASE_URL`, `CHESS_AUTHZ_E2E_OTHER_TENANT_URL`, `CHESS_AUTHZ_E2E_ALLOWED_HOSTS`, `CHESS_AUTHZ_E2E_ATTESTATION_TOKEN_A` and `_B` (distinct), `CHESS_AUTHZ_E2E_RELEASE_SHA`, scoped unit/case IDs and manager/no-grant session-cookie secrets. Create protected environments and manually approve/run the existing **calendar, bank-feed, payroll-status, regulated, AI/invoice, audit, E2E, DR and staging** fictional-sandbox workflows. Their `CHESS_*_SANDBOX_VALIDATE` / `*_ISOLATED` flags are test-only; no real staff, client, bank, wage, property, patient or taxpayer records may be used. Capture real test output and clean up synthetic vendor resources. For Round 33 signed-in usability acceptance, explicitly test an unauthorized `?businessId=` link returning an unavailable state (without fallback to an unrelated authorized unit), manager-to-SUPPORT role loss during navigation and form editing, empty-versus-failed work/alert reads, failed calendar-preference read (must not say OFF), and an assignment picker populated only with eligible staff in that business. Include keyboard focus, mobile viewport and screen-reader evidence; this is **not** proven by source render tests. For Round 32 sensitive-read acceptance, include verified client sign-in, email/contact ownership reassignment, a foreign Clerk account with the same historical consent, an expired/withdrawn disclosure, an OWNER-to-MEMBER downgrade during worker-health requests, and audit-insert failure injection. Verify that denied client disclosures and tenant-wide worker metrics are not released, and that the tenant audit ledger records privacy-minimal ALLOW/DENY decisions. Do not use real client or employee records; this remains independently blocked until the protected identities and two-tenant staging sessions exist.
+- [ ] **17 · P1 · Protected staging, signed-in roles and vendor sandboxes (all milestones).** Provide **two** separately deployed fictional HTTPS tenant origins, explicit business/case IDs, valid and revoked purpose-specific consents, distinct Clerk owner/admin, manager, practitioner, no-grant member and client identities, and their **temporary test session cookies** via protected GitHub environments. For app attestation set `CHESS_RELEASE_SHA`, `CHESS_STAGING_EXPECTED_SHA`, `CHESS_STAGING_BASE_URL`, `CHESS_STAGING_ALLOWED_HOST`, `CHESS_STAGING_ATTESTATION_TOKEN`, plus guarded `CHESS_STAGING_ATTESTATION_ENABLED` / `CHESS_STAGING_VALIDATE`. For real 2-tenant role checks use `CHESS_AUTHZ_E2E_BASE_URL`, `CHESS_AUTHZ_E2E_OTHER_TENANT_URL`, `CHESS_AUTHZ_E2E_ALLOWED_HOSTS`, `CHESS_AUTHZ_E2E_ATTESTATION_TOKEN_A` and `_B` (distinct), `CHESS_AUTHZ_E2E_RELEASE_SHA`, scoped unit/case IDs and manager/no-grant session-cookie secrets. Create protected environments and manually approve/run the existing **calendar, bank-feed, payroll-status, regulated, AI/invoice, audit, E2E, DR and staging** fictional-sandbox workflows. Their `CHESS_*_SANDBOX_VALIDATE` / `*_ISOLATED` flags are test-only; no real staff, client, bank, wage, property, patient or taxpayer records may be used. Capture real test output and clean up synthetic vendor resources. For Round 35 acceptance, stage two businesses with disjoint support/manager memberships and two fictional clients, then exercise revoked-OWNER business creation, revoked staff assignment, client-service grant updates, the consent-scoped regulated case directory, AI/approval sensitive reads and audit-write fault injection; prove no private data or unauthorized mutations escape a failed source transaction. Independently verify identity-minimal ALLOW/DENY events and restore fixture roles afterward. For Round 33 signed-in usability acceptance, explicitly test an unauthorized `?businessId=` link returning an unavailable state (without fallback to an unrelated authorized unit), manager-to-SUPPORT role loss during navigation and form editing, empty-versus-failed work/alert reads, failed calendar-preference read (must not say OFF), and an assignment picker populated only with eligible staff in that business. Include keyboard focus, mobile viewport and screen-reader evidence; this is **not** proven by source render tests. For Round 32 sensitive-read acceptance, include verified client sign-in, email/contact ownership reassignment, a foreign Clerk account with the same historical consent, an expired/withdrawn disclosure, an OWNER-to-MEMBER downgrade during worker-health requests, and audit-insert failure injection. Verify that denied client disclosures and tenant-wide worker metrics are not released, and that the tenant audit ledger records privacy-minimal ALLOW/DENY decisions. Do not use real client or employee records; this remains independently blocked until the protected identities and two-tenant staging sessions exist.
 
 - [ ] **18 · P2 · Independent security, privacy, legal and licensed release authorizations (M1–M8).** Supply named third-party **penetration-test** findings and retest, authenticated cross-tenant/browser roles, real keyboard/screen-reader **accessibility** testing (especially Round 33 mixed manager/SUPPORT menus, revoked-unit navigation, actionable empty/error alerts and calendar consent unknown state), load/chaos/missed-scheduler tests, high/critical dependency review, managed secret scanning + GitHub push protection, GDPR/CCPA-style retention and erasure policy where applicable, signed data-processing agreements, professional-practice/sponsorship approvals and proof of supervised separation of duties. Name the actual security, legal/privacy, finance, regulated-services, operations and final release **approvers**. After all gates, approve a scoped staging pilot, versioned migration/backout plan, backup/PITR rehearsal, change freeze, limited cutover and signed production go/no-go. **No merge to main and no production Vercel deployment is authorized by this checklist.**
 
