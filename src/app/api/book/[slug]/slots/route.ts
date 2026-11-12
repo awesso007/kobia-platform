@@ -10,7 +10,8 @@
  */
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
+import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { activePublicTenantSchema } from "@/lib/security/public-tenant";
 import { getBookingSlots } from "@/lib/calendar/availability";
 
 export const runtime = "nodejs";
@@ -34,9 +35,13 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
   const m = parts[1] ?? 1;
   const d = parts[2] ?? 1;
   const dayUtc = new Date(Date.UTC(y, m - 1, d));
+  if (dayUtc.toISOString().slice(0, 10) !== dateStr)
+    return NextResponse.json({ ok: false, slots: [] }, { status: 400 });
 
   try {
-    const db = getTenantPrisma(schemaNameForSlug(tenantSlug));
+    const schema = await activePublicTenantSchema(tenantSlug);
+    if (!schema) return NextResponse.json({ ok: false, slots: [] }, { status: 404 });
+    const db = getTenantPrisma(schema);
     const page = await db.bookingPage.findUnique({
       where: { slug: params.slug },
       select: {

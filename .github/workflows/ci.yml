@@ -57,6 +57,11 @@ jobs:
           node --check scripts/chess-round50-transaction-read-gate.mjs
           node scripts/chess-round50-transaction-read-gate.mjs
 
+      - name: Gate Round 51 public booking tenant and atomic reservation boundaries
+        run: |
+          node --check scripts/chess-round51-booking-gate.mjs
+          node scripts/chess-round51-booking-gate.mjs
+
       - name: Gate all scheduled legacy machine cron endpoints
         run: |
           node --check scripts/chess-round47-cron-auth-gate.mjs
@@ -225,6 +230,12 @@ jobs:
           DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
           DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
         run: npx vitest run src/lib/chess/historical-read-round50.integration.test.ts
+
+      - name: Round 51 concurrent public booking and owner isolation in PostgreSQL
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+        run: npx vitest run src/lib/calendar/public-booking-round51.integration.test.ts
 
       - name: Verify repeatable fictional demo seed against isolated tenant schema
         env:

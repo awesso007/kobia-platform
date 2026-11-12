@@ -63,6 +63,17 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS CORP 2 Round 51 — public booking tenant isolation and atomic reservations
+
+Public booking slots, submit and cancellation now refuse inactive or unknown
+registry tenants. A serializable tenant transaction binds slot recheck,
+calendar ownership, event, attendee and booking so concurrent reservations
+cannot silently double-book or leave a partial calendar event. External
+notifications follow COMMIT. A disposable PostgreSQL contention test and
+source gate run in CI. See [Round 51 report](docs/CHESS_CORP_2_ROUND51_PUBLIC_BOOKING.md).
+This covers three public booking routes, **not** all public/machine callbacks.
+Protected provider, privacy, browser, abuse/load and release gates remain open.
+
 ## CHESS CORP 2 Round 50 — atomic historical GET and tRPC SELECT auditing
 
 Round 50 moves the 39 formerly response-only audited historical

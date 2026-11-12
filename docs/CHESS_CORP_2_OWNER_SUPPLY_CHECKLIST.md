@@ -1,6 +1,6 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 50 | Final exact-SHA Round 50 CI evidence required (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 51 | Final exact-SHA CI evidence required (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
@@ -21,6 +21,18 @@ external credentials remain under this one checklist; source-only
 placeholder values are NOT owner approval.
 
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 51 — public booking protected staging acceptance
+
+No new production secret is required for the code-only booking transaction.
+Existing owner checklist items **02, 04, 06, 17 and 18** remain open: provision
+two fictional ACTIVE/SUSPENDED tenants, test distinct staff calendars,
+parallel same-slot booking, invalid dates, cancellation and email automation
+failure, including revoked tenant status. Independently review distributed
+abuse/rate limits, public consent and retention, timezone/DST and verified
+post-commit notification delivery. A disposable CI PostgreSQL contention
+check is not real hosted or load-tested acceptance. Do not turn on live
+external notifications or permit client data without approval.
 
 ## Round 50 — transaction-coupled sensitive reads: external acceptance
 

@@ -8,11 +8,11 @@ business-operations layer within an isolated KOBIA tenant, not an assertion
 that a single legal entity holds all operating licenses.
 
 
-## CURRENT / AUTHORITATIVE — Round 50 milestone matrix (Rounds 31–50 engineering)
+## CURRENT / AUTHORITATIVE — Round 51 milestone matrix (Rounds 31–51 engineering)
 
 **This table is the current M1–M8 development and release-gate matrix.**
 The detailed Round 24 matrix below is historical and must not be mistaken for
-the latest code inventory. Round 48 secures selected public and machine entrypoints. Round 49 adds
+the latest code inventory. Round 48 secures selected public and machine entrypoints; Round 51 adds ACTIVE tenant and atomic reservation checks to the three public booking routes. Round 49 adds
 specific authenticated mutation protections and full inventory source
 gating. Round 50 replaces the historical authenticated response-release
 audit with a transaction-bound SELECT and audit boundary, including a
@@ -31,6 +31,23 @@ source** from **incomplete engineering or real-world acceptance**.
 | **M6 — Mortgage, insurance, real estate and investments** | Official-source verification adapters, service-specific consent and opaque licensed-partner coordination with UNKNOWN resolution; Round 33 revoked-business links fail closed; Round 35 regulated case directory exposes only currently granted, client-consented case ID/service via one audited transaction instead of unlogged overfetch | Current professional/firm sponsorship evidence, certified partner APIs and legal sector disclosures, independent licensed review, real execution-systems validation; **no origination/binding/closing/trading** | **03,04,10,11,17,18** | **PARTIAL COORDINATION CODE — REGULATED EXECUTION OFF** |
 | **M7 — AI triage, invoicing and reporting** | Budgeted metadata-only AI review and human approval, consent-bound invoice drafts/vendor observations, fairness-capped **draft-only** recurring billing and immutable operational snapshots; Round 33 business-scoped billing, approval and bank-feed forms reset; revoked billing link cannot silently select another company; Round 35 AI suggestions/budget/worker reads and approval inbox are role-rechecked and audit-coupled, actor IDs removed from browser review payloads, and report/AI screens fail closed on revoked unit links | Certified AI/invoice/merchant contracts and DPAs; actual settlement, chargeback/refund and tax policies; accountant-controlled ledger close, statutory consolidation and financial-statement review; **no real money or GAAP/IFRS close** | **12,13,14,15,17,18** | **PARTIAL CODE — COLLECTION/STATUTORY REPORTING OFF** |
 | **M8 — Security, CI, E2E and recovery** | Versioned migrations, tenant audit and monitoring; Round 32 OWNER/ADMIN worker/calendar/archive health reads now use a serializable access audit; Round 33 role-based menus and error states; Round 35 audited business/staff/AI/approval/regulated source reads, atomic M1/M2 writes, and added negative regressions; Round 36 legacy tax export restrictions and Round 37 selected historical read guards, short-lived local file capability, disabled insecure helpdesk login and explicit unreviewed-route inventory; Round 38 final commit passed **3/3** normal CI jobs with the dual-Postgres finance fault suite; Round 40 adds browser test source-policy and isolated demo fixture integrity checks; Round 41 adds isolated unit checks for ambiguous document S3 inventory, separate reviewers and bank replay controls; authenticated browser run remains manual; Round 44 adds eight executable two-database financial fault scenarios; Round 45 adds versioned document lineage migration and mandatory disposable-PostgreSQL inheritance tests, upload/redaction/disposal audit regression tests without a real S3 destructive test; Round 46 registers another six authenticated owner/employee/client browser cases in manual protected workflow and extends normal CI source gates plus disposable demo PostgreSQL test of five client scopes, pending consent and missing grants; Round 47 adds fail-closed, exact-Bearer CRON_SECRET authentication before work in all 17 legacy Vercel cron GET routes, a machine-auth unit regression suite and a CI source-drift gate for scheduled cron endpoints; Round 48 fixes Clerk middleware machine ingress, requires explicit active tenant and signed Twilio callback paths, quarantines two replay-unsafe legacy Stripe webhook handlers, adds public/machine method CI source gates and unsigned HTTP denial probes; Round 49 adds explicit auth before delegated feed-follow mutations, local upload owner/size/tenant checks, nested URL ancestry, private chat isolation and an authenticated historical-method source drift gate | Full all-method historical sensitive-read audit is NOT complete; Round 43 adds source CI drift gate for authenticated GET, protected tRPC reads and search POST, not same-transaction SELECT coverage; **actual** protected Clerk/Neon signed-in browser and accessibility run; separate two-tenant staging, vendor tests, independent pen/load review, WORM/PITR and witnessed recovery, vault/pager approval and authorized rollout | **01,02,04,05,15,16,17,18** | **PARTIAL CODE — NO STAGING/PRODUCTION RELEASE AUTHORIZATION** |
+
+### Round 51 — public booking tenant and concurrency hardening (M1/M8)
+
+Public booking GET slots, POST submit and POST cancel now check ACTIVE
+platform registry status and exact tenant schema before accessing tenant
+data. Slot date validation rejects overflow dates. Booking creation moves
+page/slot SELECT, ownership-bound calendar choice, contact, event, attendee
+and booking INSERT into one SERIALIZABLE tenant transaction; only a committed
+booking can trigger post-commit notifications and automations. A same-slot
+concurrent reservation must not produce two bookings. CI adds pure regression,
+source drift and disposable PostgreSQL contention tests. See
+[Round 51 report](CHESS_CORP_2_ROUND51_PUBLIC_BOOKING.md).
+
+This covers three public booking paths, not all public capabilities or machine
+callbacks. Distributed rate limits, timezone/DST correctness, consent/privacy
+policy, outbox delivery idempotency and real protected multi-tenant staging
+remain incomplete. 8/8 production gates BLOCKED, 0/8 signed off.
 
 ### Round 50 — tenant and legacy-accounting transaction-coupled sensitive-read auditing (M1/M8)
 

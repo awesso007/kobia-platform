@@ -9,7 +9,8 @@
  */
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
+import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { activePublicTenantSchema } from "@/lib/security/public-tenant";
 import { notifyOn } from "@/lib/notifications/notify";
 import { secureBookingManageTokenMatches } from "@/lib/security/booking-manage-token";
 
@@ -47,7 +48,11 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
     return NextResponse.json({ ok: false, error: "Missing booking reference." }, { status: 400, headers: CORS });
   }
 
-  const db = getTenantPrisma(schemaNameForSlug(tenantSlug));
+  let schema: string | null;
+  try { schema = await activePublicTenantSchema(tenantSlug); }
+  catch { return NextResponse.json({ ok: false, error: "Booking unavailable." }, { status: 503, headers: CORS }); }
+  if (!schema) return NextResponse.json({ ok: false, error: "Booking not found." }, { status: 404, headers: CORS });
+  const db = getTenantPrisma(schema);
   const booking = await db.booking.findFirst({
     where: { id: bookingId, bookingPage: { slug: params.slug } },
     include: { bookingPage: { select: { name: true, ownerClerkUserId: true } } },
