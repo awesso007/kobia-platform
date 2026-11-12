@@ -125,5 +125,37 @@ async function main() {
  },allowedDenied);
  await probe("/api/chess/documents?businessId=unit&clientProfileId=client&service=TAX&documentId=doc",{},allowedDenied);
  await probe("/api/client-profiles",{},allowedDenied);
+
+ // Round 48: public and machine callbacks fail CLOSED when no credentials or
+ // signed capability are provided. No database, provider or client data used.
+ await probe("/api/cron/automations",{},new Set([503]));
+ await probe("/api/email/inbound",{
+  method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({to:"kobia+acme@inbound.kobia.ai",from:"attacker@example.invalid"}),
+ },new Set([503]));
+ await probe("/api/f2/example/payment-intent?t=acme",{
+  method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({submissionId:"fake"}),
+ },new Set([503]));
+ for(const path of ["/api/webhooks/stripe","/api/webhooks/stripe-billing"]){
+  await probe(path,{
+   method:"POST",headers:{"Content-Type":"application/json"},body:"{}",
+  },new Set([503]));
+ }
+ await probe("/api/track/click/ckp7bw8zz0000s1ez?t=acme&url=https%3A%2F%2Fattacker.example",{},new Set([404]));
+ await probe("/api/webhooks/twilio/sms",{
+  method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"From=%2B15551234567",
+ },new Set([400]));
+ await probe("/api/webhooks/twilio/sms?tenant=acme",{
+  method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"From=%2B15551234567",
+ },new Set([401]));
+ const pixel=await fetch(base+"/api/track/open/ckp7bw8zz0000s1ez?t=acme",{
+  redirect:"manual",signal:AbortSignal.timeout(10000),
+ });
+ if(pixel.status!==200 || !((pixel.headers.get("content-type")??"").includes("image/gif")) ||
+   !(pixel.headers.get("cache-control")??"").includes("no-store")) {
+  throw new Error("Unsigned tracking pixel must be inert 1x1 image with no-store");
+ }
+ console.log("PASS unsigned tracking pixel is inert");
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
