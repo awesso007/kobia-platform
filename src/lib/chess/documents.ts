@@ -163,6 +163,65 @@ async function authorizedChessDocumentDownload(
  return {document,member};
 }
 
+/** Independent owner/admin review of a CLEAN-scanned quarantined redaction.
+ * This deliberately uses the existing authenticated download proxy and logs
+ * an actor-specific review-read event. It never publishes the derivative or
+ * exposes its S3 key. Approval separately requires this post-scan event.
+ * A request is evidence of an authorized read, not proof that a human
+ * carefully inspected the file: the reviewer must attest to that separately.
+ */
+export async function streamChessRedactionReview(
+ documentId:string,businessId:string,clientProfileId:string,
+ service:z.infer<typeof request>["service"],
+){
+ const actor=await getCurrentMembership();
+ if(!actor||actor.status!=="ACTIVE"||!["OWNER","ADMIN"].includes(actor.role))
+  throw new PermissionError("record:read");
+ const {db}=getTenantDb();
+ const preview=await db.chessClientDocument.findFirst({
+  where:{id:documentId,businessId,clientProfileId,service,
+   status:"QUARANTINED",revisionKind:"REDACTED",
+   verifiedAt:{not:null},checksumSha256:{not:null},purgedAt:null,
+   supersededAt:null,suppressedAt:null},
+  select:{storageKey:true,storageVersionId:true,storageETag:true,
+   actualBytes:true,mimeType:true,maxBytes:true,fileName:true,
+   uploadedByClerkUserId:true,verifiedAt:true,retentionUntil:true},
+ });
+ if(!preview||preview.uploadedByClerkUserId===actor.clerkUserId||
+    !preview.storageVersionId||!preview.storageETag||
+    (preview.retentionUntil&&preview.retentionUntil<=new Date()))
+  throw new PermissionError("record:read");
+ const head=await s3.headObject(preview.storageKey,preview.storageVersionId);
+ if(!matchesPinnedDocument(preview,head))throw new PermissionError("record:read");
+ await auditedChessSensitiveRead(db,{
+  businessId,actorClerkUserId:actor.clerkUserId,
+  action:"DOCUMENT_REDACTION_REVIEW_CONTENT_READ",
+  resourceType:"ChessClientDocument",resourceId:documentId,
+ },async tx=>{
+  const live=await tx.membership.findUnique({where:{
+   clerkUserId:actor.clerkUserId},select:{role:true,status:true}});
+  const grant=await authorizeChessDocumentService(tx,{
+   businessId,clientProfileId,service,
+   actorClerkUserId:actor.clerkUserId,requireWrite:true,
+  });
+  const doc=await tx.chessClientDocument.findFirst({where:{
+   id:documentId,businessId,clientProfileId,service,
+   status:"QUARANTINED",revisionKind:"REDACTED",
+   verifiedAt:preview.verifiedAt,storageVersionId:preview.storageVersionId,
+   storageETag:preview.storageETag,purgedAt:null,supersededAt:null,
+   suppressedAt:null,
+  },select:{uploadedByClerkUserId:true,retentionUntil:true,
+   checksumSha256:true}});
+  return live?.status==="ACTIVE"&&["OWNER","ADMIN"].includes(live.role)&&
+   grant&&doc?.uploadedByClerkUserId!==actor.clerkUserId&&
+   doc?.checksumSha256&&
+   (!doc.retentionUntil||doc.retentionUntil>new Date())?true:null;
+ });
+ const body=await s3.getObjectBody(preview.storageKey,preview.storageVersionId);
+ return {stream:body.transformToWebStream(),fileName:preview.fileName,
+  mimeType:preview.mimeType,actualBytes:preview.actualBytes};
+}
+
 /** The returned URL is an authenticated application route, never a bearer S3 URL. */
 export function chessDocumentDownloadPath(
  documentId:string,businessId:string,clientProfileId:string,
