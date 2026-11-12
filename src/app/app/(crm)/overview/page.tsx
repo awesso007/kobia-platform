@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getTenantDb, NoTenantError } from "@/lib/db/get-tenant-db";
 import { CrmError } from "../CrmError";
 import { CHESS_DEMO_SLUG,chessDemoModeActive } from "@/lib/chess/demo-mode";
+import {listChessManagedBusinessUnits} from "@/lib/chess/business-manager";
 import {
   ensureChessDemoEmployeeMembership,
   ensureChessDemoOwnerMembership,
@@ -75,6 +76,8 @@ export default async function OperationsOverviewPage() {
 
     // Staff can navigate to their permitted work but never receive tenant-wide metrics.
     if (!isManager) {
+      const managedUnits=member.role==="MEMBER"?
+        await listChessManagedBusinessUnits().catch(()=>[]):[];
       return (
         <div className="mx-auto max-w-6xl space-y-6">
           <header>
@@ -85,6 +88,29 @@ export default async function OperationsOverviewPage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {shortcuts.filter((item) => ["Tasks", "Calendar", "Projects", "CHESS work items", "CHESS service desk"].includes(item.title)).map((item) => <ShortcutCard key={item.href} {...item} />)}
           </div>
+          {managedUnits.length>0&&<section aria-label="Business manager tools" className="space-y-3">
+            <h2 className="text-xl font-semibold text-slate-900">Business manager tools</h2>
+            <p className="text-sm text-slate-600">
+              These links open only the businesses you currently manage.
+              Sensitive client finance records still require an individual service grant and current consent.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {managedUnits.map(unit=><div key={unit.id} className="rounded-xl border border-slate-200 p-4">
+                <h3 className="font-semibold text-slate-900">{unit.name}</h3>
+                <nav aria-label={unit.name+" manager tools"} className="mt-3 flex flex-wrap gap-4 text-sm font-semibold text-emerald-800">
+                  <Link className="underline" href={`/app/finance-operations?businessId=${encodeURIComponent(unit.id)}`}>
+                    Finance workbench
+                  </Link>
+                  <Link className="underline" href={`/app/financial-attempts?businessId=${encodeURIComponent(unit.id)}`}>
+                    Posting exception monitor
+                  </Link>
+                  <Link className="underline" href={`/app/work-items?businessId=${encodeURIComponent(unit.id)}`}>
+                    Team work queue
+                  </Link>
+                </nav>
+              </div>)}
+            </div>
+          </section>}
         </div>
       );
     }
