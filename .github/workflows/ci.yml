@@ -39,6 +39,14 @@ jobs:
       - name: Verify demo setup CLI refuses production and live Clerk keys
         run: node --test scripts/chess-demo-cli-check.mjs
 
+      - name: Validate signed-in browser and accessibility test harness
+        run: |
+          node --check playwright.config.mjs
+          node --check e2e/clerk.setup.mjs
+          node --check e2e/chess-demo.spec.mjs
+          node --check scripts/chess-demo-e2e-prepare.mjs
+          node --test scripts/chess-demo-e2e-policy-check.mjs
+
       - name: Lint
         run: npm run lint
 
