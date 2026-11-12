@@ -7,6 +7,7 @@ import {getClientServiceLink} from "@/lib/client-profile/service";
 import {isUsableConsent} from "./onboarding";
 import {billingProviderConfigured,deliverChessInvoice,
  checkChessInvoiceStatus} from "./billing-provider";
+import {auditedChessManagerRead} from "./sensitive-read-audit";
 
 const ref=z.string().min(1).max(128);
 export const productCodes={
@@ -313,28 +314,70 @@ export function invoiceUiActions(invoice:{
     actor.clerkUserId!==invoice.createdByClerkUserId),
  };
 }
+/** Invoice listing rechecks individual case, employee grant and BOTH
+ * service and billing consent under the same serializable tenant snapshot
+ * that records the immutable per-business read decision. */
 export async function listChessInvoices(businessId:string){
  const actor=await assertBusinessManager(businessId);
  if(!["OWNER","ADMIN"].includes(actor.role))
   throw new PermissionError("record:read");
  const {db}=getTenantDb();
- const rows=await db.chessBillingInvoice.findMany({where:{businessId},
-  orderBy:{createdAt:"desc"},take:100,select:{
-   id:true,clientProfileId:true,serviceCaseId:true,service:true,
-   amountCents:true,descriptionCode:true,status:true,createdAt:true,
-   updatedAt:true,providerCheckedAt:true,
-   createdByClerkUserId:true,approvedByClerkUserId:true,
-  }});
- const authorized:typeof rows=[];
- for(const row of rows){
-  if(!(row.service in productCodes))continue;
-  try{
-   await scopedInvoiceCase(businessId,row.clientProfileId,row.serviceCaseId,
-    row.service as BillableService);
-   authorized.push(row);
-  }catch{/* No invoice metadata escapes without a live client billing grant. */}
- }
- return authorized.map(({createdByClerkUserId,approvedByClerkUserId,...row})=>({
+ const rows=await auditedChessManagerRead(db,{
+  businessId,actorClerkUserId:actor.clerkUserId,
+  action:"BILLING_INVOICE_DIRECTORY_READ",resourceType:"ChessBillingInvoice",
+  resourceId:"business:"+businessId,
+ },async tx=>{
+  const member=await tx.membership.findUnique({
+   where:{clerkUserId:actor.clerkUserId},select:{role:true,status:true},
+  });
+  if(member?.status!=="ACTIVE"||!
+   ["OWNER","ADMIN"].includes(member.role))return null;
+  const invoices=await tx.chessBillingInvoice.findMany({where:{businessId},
+   orderBy:{createdAt:"desc"},take:100,select:{
+    id:true,clientProfileId:true,serviceCaseId:true,service:true,
+    amountCents:true,descriptionCode:true,status:true,createdAt:true,
+    updatedAt:true,providerCheckedAt:true,
+    createdByClerkUserId:true,approvedByClerkUserId:true,
+   }});
+  const allowedServices=Object.keys(productCodes) as BillableService[];
+  const candidate=invoices.filter(row=>allowedServices.some(s=>s===row.service));
+  if(!candidate.length)return [];
+  const profileIds=[...new Set(candidate.map(row=>row.clientProfileId))];
+  const caseIds=[...new Set(candidate.map(row=>row.serviceCaseId))];
+  const purposes=allowedServices.flatMap(service=>[`service:${service}`,`billing:${service}`]);
+  const [cases,links,consents]=await Promise.all([
+   tx.chessServiceCase.findMany({where:{
+    businessId,id:{in:caseIds},status:"ACTIVE",
+   },select:{id:true,clientProfileId:true,service:true},take:100}),
+   tx.clientServiceLink.findMany({where:{
+    businessId,profileId:{in:profileIds},service:{in:allowedServices},
+   },select:{profileId:true,service:true,grants:{where:{
+    clerkUserId:actor.clerkUserId,canRead:true,canWrite:true,revokedAt:null,
+   },select:{id:true}}},take:500}),
+   tx.chessClientConsent.findMany({where:{
+    businessId,clientProfileId:{in:profileIds},purpose:{in:purposes},
+   },select:{clientProfileId:true,purpose:true,status:true,
+    expiresAt:true,consentedAt:true,acceptedByClerkUserId:true,
+    verifiedEmailDigest:true,acceptanceEvidenceDigest:true,
+    withdrawnAt:true},take:5001}),
+  ]);
+  // Never accept a truncated consent set as proof of a current permission.
+  if(links.length===500||consents.length===5001)return null;
+  return candidate.filter(row=>{
+   const validCase=cases.some(c=>c.id===row.serviceCaseId&&
+    c.clientProfileId===row.clientProfileId&&c.service===row.service);
+   const grant=links.some(link=>link.profileId===row.clientProfileId&&
+    link.service===row.service&&link.grants.length>0);
+   const serviceConsent=consents.some(consent=>
+    consent.clientProfileId===row.clientProfileId&&
+    consent.purpose===`service:${row.service}`&&isUsableConsent(consent));
+   const billingConsent=consents.some(consent=>
+    consent.clientProfileId===row.clientProfileId&&
+    consent.purpose===`billing:${row.service}`&&isUsableConsent(consent));
+   return validCase&&grant&&serviceConsent&&billingConsent;
+  });
+ });
+ return rows.map(({createdByClerkUserId,approvedByClerkUserId,...row})=>({
   ...row,amountCents:row.amountCents.toString(),
   ...invoiceUiActions({status:row.status,createdByClerkUserId,
    approvedByClerkUserId},actor),
