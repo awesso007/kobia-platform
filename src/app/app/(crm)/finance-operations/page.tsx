@@ -110,7 +110,7 @@ export default async function ChessFinanceOperationsPage({
      </Link>
     </li>)}</ul>}
   </section>
-  {bankConnections&&<FinanceBankFeedClient
+  {bankConnections&&<FinanceBankFeedClient key={selected.id}
    businessId={selected.id} providerConfigured={bankFeedImportConfigured()}
    cases={bankCases}
    connections={bankConnections.map(c=>({
