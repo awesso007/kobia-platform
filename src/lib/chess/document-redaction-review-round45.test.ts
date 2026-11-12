@@ -15,6 +15,7 @@ vi.mock("@/lib/rbac/require-permission",()=>({
 vi.mock("@/lib/db/get-tenant-db",()=>({getTenantDb:vi.fn()}));
 vi.mock("@/lib/storage/s3",()=>({
  headObject:vi.fn(),getObjectBody:vi.fn(),isConfigured:vi.fn(),
+ inventoryPinnedStorageVersions:vi.fn(),
 }));
 vi.mock("./document-service-authorization",()=>({
  authorizeChessDocumentService:vi.fn(),
@@ -29,6 +30,7 @@ const grant=vi.mocked(authorizeChessDocumentService);
 const audit=vi.mocked(auditedChessSensitiveRead);
 const head=vi.mocked(s3.headObject);
 const body=vi.mocked(s3.getObjectBody);
+const inventory=vi.mocked(s3.inventoryPinnedStorageVersions);
 const bytes=Buffer.from("FICTIONAL REVIEWABLE REDACTION");
 const sha=createHash("sha256").update(bytes).digest("hex");
 const date=new Date("2026-11-12T12:00:00Z");
@@ -68,6 +70,7 @@ function setup(reviewed=true){
  actor.mockResolvedValue({clerkUserId:"fictional-reviewer",status:"ACTIVE",
   role:"OWNER",email:null,displayName:null});
  grant.mockResolvedValue({canWrite:true});
+ inventory.mockResolvedValue("ONLY_PINNED");
  head.mockResolvedValue({versionId:"pinned-v1",etag:"etag-1",
   size:bytes.length,mimeType:"application/pdf"});
  body.mockResolvedValue({transformToByteArray:vi.fn(async()=>bytes)} as never);
@@ -90,6 +93,14 @@ describe("Round 45 independent redaction review",()=>{
    status:"ACTIVE",role:"OWNER",email:null,displayName:null});
   await expect(streamChessRedactionReview(...Object.values(params) as
    [string,string,string,"BOOKKEEPING"])).rejects.toThrow();
+  expect(body).not.toHaveBeenCalled();
+  expect(audit).not.toHaveBeenCalled();
+ });
+ it("blocks review of ambiguous S3 version history before an audit is recorded",async()=>{
+  setup();
+  inventory.mockResolvedValueOnce("AMBIGUOUS");
+  await expect(streamChessRedactionReview("doc-1","unit-1","client-1",
+   "BOOKKEEPING")).rejects.toThrow();
   expect(body).not.toHaveBeenCalled();
   expect(audit).not.toHaveBeenCalled();
  });
