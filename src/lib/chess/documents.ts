@@ -4,6 +4,8 @@ import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permissio
 import {getClientServiceLink} from "@/lib/client-profile/service";
 import * as s3 from "@/lib/storage/s3";
 import {matchesPinnedDocument} from "./storage-integrity";
+import {authorizeChessDocumentService} from "./document-service-authorization";
+import {auditedChessSensitiveRead} from "./sensitive-read-audit";
 
 export function documentDownloadAllowed(
  doc:{status:string;suppressedAt:Date|null;retentionUntil:Date|null;
@@ -35,11 +37,11 @@ export async function initiateChessDocumentUpload(input:unknown) {
  const link=await getClientServiceLink(data.clientProfileId,data.businessId,data.service);
  if(!link)throw new PermissionError("record:create");
  const {db:grantDb}=getTenantDb();
- const writeGrant=await grantDb.clientServiceGrant.findFirst({
-  where:{linkId:link.id,clerkUserId:member.clerkUserId,canRead:true,canWrite:true,revokedAt:null},
-  select:{id:true},
- });
- if(!writeGrant)throw new PermissionError("record:create");
+ const permission=await grantDb.$transaction(tx=>authorizeChessDocumentService(tx,{
+  businessId:data.businessId,clientProfileId:data.clientProfileId,
+  service:data.service,actorClerkUserId:member.clerkUserId,requireWrite:true,
+ }),{isolationLevel:"Serializable"});
+ if(!permission)throw new PermissionError("record:create");
  if(!s3.isConfigured())throw new Error("Private object storage is not configured.");
  const {tenantId,db}=getTenantDb();
  const upload=await s3.createPresignedUploadUrl({
@@ -63,10 +65,11 @@ export async function confirmChessDocumentUpload(documentId:string,businessId:st
  const link=await getClientServiceLink(clientProfileId,businessId,service);
  if(!link)throw new PermissionError("record:update");
  const {db}=getTenantDb();
- const writeGrant=await db.clientServiceGrant.findFirst({
-  where:{linkId:link.id,clerkUserId:member.clerkUserId,canRead:true,canWrite:true,revokedAt:null},select:{id:true},
- });
- if(!writeGrant)throw new PermissionError("record:update");
+ const permission=await db.$transaction(tx=>authorizeChessDocumentService(tx,{
+  businessId,clientProfileId,service,actorClerkUserId:member.clerkUserId,
+  requireWrite:true,
+ }),{isolationLevel:"Serializable"});
+ if(!permission)throw new PermissionError("record:update");
  const doc=await db.chessClientDocument.findFirst({
   where:{id:documentId,businessId,clientProfileId,service,status:"PENDING",uploadedByClerkUserId:member.clerkUserId},
  });
@@ -104,14 +107,26 @@ export async function getChessDocumentDownload(
  const pinned=await s3.headObject(document.storageKey,document.storageVersionId);
  if(!matchesPinnedDocument(document,pinned))
   throw new PermissionError("record:read");
- // One final authorization/database lifecycle read just before signing.
- // An existing 60-second presigned URL cannot be retroactively revoked.
- const latest=await db.chessClientDocument.findFirst({where:{
-  id:documentId,businessId,clientProfileId,service,status:"READY",
- },select:{status:true,suppressedAt:true,retentionUntil:true,
-  storageVersionId:true,storageETag:true}});
- if(!documentDownloadAllowed(latest)||latest?.storageVersionId!==document.storageVersionId)
-  throw new PermissionError("record:read");
+ // Audit the final source-version and current grant+purpose consent together.
+ // No presigned URL is returned if the transactional audit fails. Already
+ // issued S3 URLs remain valid for at most their independent 60-second TTL.
+ await auditedChessSensitiveRead(db,{
+  businessId,actorClerkUserId:member.clerkUserId,
+  action:"DOCUMENT_DOWNLOAD_READ",resourceType:"ChessClientDocument",
+  resourceId:documentId,
+ },async tx=>{
+  const authorized=await authorizeChessDocumentService(tx,{
+   businessId,clientProfileId,service,actorClerkUserId:member.clerkUserId,
+  });
+  if(!authorized)return null;
+  const latest=await tx.chessClientDocument.findFirst({where:{
+   id:documentId,businessId,clientProfileId,service,status:"READY",
+  },select:{status:true,suppressedAt:true,retentionUntil:true,
+   storageVersionId:true,storageETag:true}});
+  return documentDownloadAllowed(latest)&&
+   latest?.storageVersionId===document.storageVersionId&&
+   latest.storageETag===document.storageETag?true:null;
+ });
  const url=await s3.createPresignedDownloadUrl(document.storageKey,{
   expiresIn:60,contentDisposition:"attachment",versionId:document.storageVersionId,
  });
@@ -130,18 +145,22 @@ export async function listChessServiceDocuments(
  const link=await getClientServiceLink(clientProfileId,businessId,service);
  if(!link)throw new PermissionError("record:read");
  const {db}=getTenantDb();
- const grant=await db.clientServiceGrant.findFirst({
-  where:{linkId:link.id,clerkUserId:actor.clerkUserId,
-   canRead:true,revokedAt:null},
-  select:{canWrite:true},
+ return auditedChessSensitiveRead(db,{
+  businessId,actorClerkUserId:actor.clerkUserId,
+  action:"DOCUMENT_LIST_READ",resourceType:"ChessClientDocument",
+  resourceId:"service:"+service+":"+clientProfileId,
+ },async tx=>{
+  const authorization=await authorizeChessDocumentService(tx,{
+   businessId,clientProfileId,service,actorClerkUserId:actor.clerkUserId,
+  });
+  if(!authorization)return null;
+  const records=await tx.chessClientDocument.findMany({
+   where:{businessId,clientProfileId,service},
+   select:{id:true,fileName:true,mimeType:true,status:true,
+    actualBytes:true,createdAt:true,verifiedAt:true,
+    retentionUntil:true,legalHoldAt:true,suppressedAt:true},
+   orderBy:{createdAt:"desc"},take:100,
+  });
+  return {canUpload:authorization.canWrite,records};
  });
- if(!grant)throw new PermissionError("record:read");
- const records=await db.chessClientDocument.findMany({
-  where:{businessId,clientProfileId,service},
-  select:{id:true,fileName:true,mimeType:true,status:true,
-   actualBytes:true,createdAt:true,verifiedAt:true,
-   retentionUntil:true,legalHoldAt:true,suppressedAt:true},
-  orderBy:{createdAt:"desc"},take:100,
- });
- return {canUpload:grant.canWrite,records};
 }
