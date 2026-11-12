@@ -34,6 +34,40 @@ export default function BusinessUnitAdmin({selectedBusiness,directory}:{
   }catch(e){setError(e instanceof Error?e.message:"Unable to complete the request.");}
   finally{setBusy(false);}
  }
+ async function revokeEmployee(clerkUserId:string){
+  if(!selectedBusiness||busy)return;
+  const member=members.find(m=>m.clerkUserId===clerkUserId);
+  const label=member?.displayName||"this employee";
+  if(!window.confirm("Remove "+label+" from "+selectedBusiness.name+
+    "? The server will also revoke every active client-service grant held"+
+    " by this employee in this business. Restoring the unit assignment later"+
+    " will NOT restore those client grants."))return;
+  setBusy(true);setError("");setNotice("");
+  try{
+   const response=await fetch("/api/chess/employee-assignments",{
+    method:"DELETE",credentials:"same-origin",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({businessId:selectedBusiness.id,clerkUserId}),
+   });
+   if(!response.ok)throw new Error(response.status===403?
+    "You are no longer authorized to remove this assignment.":
+    "The employee offboarding result could not be confirmed.");
+   const result=await response.json() as {
+    revoked?:boolean;revokedGrants?:number;
+   };
+   if(typeof result.revoked!=="boolean"||
+    !Number.isSafeInteger(result.revokedGrants)||
+    (result.revokedGrants??-1)<0)
+    throw new Error("Unexpected offboarding response. Refresh and verify the assignment.");
+   setNotice(result.revoked?
+    "Business access removed. "+result.revokedGrants+
+     " client-service grant(s) also revoked. Reassignment will not restore them.":
+    "No active assignment remained. Check the current employee and service grants.");
+   router.refresh();
+  }catch(e){setError(e instanceof Error?e.message:
+   "Employee offboarding could not be confirmed.");}
+  finally{setBusy(false);}
+ }
  const members=directory?.members??[];
  const assignments=directory?.assignments??[];
  const assignedIds=new Set(assignments.map(a=>a.clerkUserId));
@@ -96,6 +130,9 @@ export default function BusinessUnitAdmin({selectedBusiness,directory}:{
       Assign or update</button>
     </form>
     <h4 className="mt-5 font-semibold">Active assignments</h4>
+    <p className="mt-1 text-xs text-slate-600">Removing a staff assignment also
+     revokes every active client-service grant in this business. A future
+     reassignment does not restore those grants. Other businesses are unaffected.</p>
     {assignments.length===0?<p className="text-sm text-slate-600">No active staff assignments.</p>:
     <ul className="mt-2 divide-y">
      {assignments.map(a=>{
@@ -104,9 +141,7 @@ export default function BusinessUnitAdmin({selectedBusiness,directory}:{
        <div><strong>{m?.displayName||a.clerkUserId}</strong>
         <p className="text-xs text-slate-600">{a.role} · Assigned {a.assignedAt.slice(0,10)}</p></div>
        <button type="button" disabled={busy}
-        onClick={()=>void request("DELETE","/api/chess/employee-assignments",
-         {businessId:selectedBusiness.id,clerkUserId:a.clerkUserId},
-         "Employee access revoked.")}
+        onClick={()=>void revokeEmployee(a.clerkUserId)}
         className="rounded border border-red-300 px-3 py-2 font-semibold text-red-800 disabled:opacity-40">
         Revoke unit access</button>
       </li>;

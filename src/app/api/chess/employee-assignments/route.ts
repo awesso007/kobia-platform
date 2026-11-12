@@ -17,6 +17,6 @@ export async function DELETE(request: Request) {
  try { assertMutationOrigin(request);
   const input=z.object({businessId:z.string().min(1),clerkUserId:z.string().min(1)}).strict().parse(await request.json());
   const result=await revokeEmployeeAssignment(input.businessId,input.clerkUserId);
-  return NextResponse.json({revoked:result.count>0});
+  return NextResponse.json({revoked:result.count>0,revokedGrants:result.revokedGrants},{headers:{"Cache-Control":"no-store"}});
  } catch(e) {return fail(e);}
 }
