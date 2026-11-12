@@ -9,7 +9,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
-import { openPortalSession, PORTAL_COOKIE } from "@/lib/helpdesk/portal";
+import { openPortalSession, PORTAL_COOKIE, LEGACY_HELPDESK_EMAIL_ONLY_DISABLED } from "@/lib/helpdesk/portal";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +19,11 @@ function sanitizeSlug(slug: string | null | undefined): string | null {
 }
 
 export async function POST(req: NextRequest) {
+  if(LEGACY_HELPDESK_EMAIL_ONLY_DISABLED){
+    return NextResponse.json({ok:false,error:"Verified helpdesk identity not configured."},{
+      status:503,headers:{"Cache-Control":"private, no-store"},
+    });
+  }
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
