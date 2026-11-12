@@ -64,6 +64,7 @@ export default async function ServiceBillingPage({searchParams}:{
     plans={plans.map(p=>({
      ...p,nextDraftAt:p.nextDraftAt.toISOString(),
      lastDraftAt:p.lastDraftAt?.toISOString()??null,
+     lastInspectedAt:p.lastInspectedAt?.toISOString()??null,
      approvedAt:p.approvedAt?.toISOString()??null,
      createdAt:p.createdAt.toISOString(),
      updatedAt:p.updatedAt.toISOString(),

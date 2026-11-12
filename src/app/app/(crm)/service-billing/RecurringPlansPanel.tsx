@@ -7,7 +7,7 @@ type BillableCase={id:string;clientProfileId:string;service:string};
 type Plan={id:string;businessId:string;clientProfileId:string;
  serviceCaseId:string;service:string;descriptionCode:string;
  amountCents:string;status:string;nextDraftAt:string;
- lastDraftAt:string|null;approvedAt:string|null;
+ lastDraftAt:string|null;lastInspectedAt:string|null;approvedAt:string|null;
  createdAt:string;updatedAt:string;mayApprove:boolean;mayPause:boolean};
 const codes:Record<string,string[]>={
  ACCOUNTING:["ACCOUNTING_MONTHLY","ACCOUNTING_PROJECT"],
@@ -50,6 +50,11 @@ export default function RecurringPlansPanel({businessId,cases,plans,schedulerEna
    Plan creation and separate approval authorize only future invoice DRAFTS.
    Each generated invoice must still receive independent approval and
    delivery review. No automatic charge, refund, bank debit or posting occurs.
+  </p>
+  <p className="text-xs text-slate-700">
+   Last inspection means the draft worker examined a plan, not that it
+   created, approved, delivered or charged an invoice. A plan may remain
+   due after an unsuccessful authorization check.
   </p>
   <p className="text-xs font-semibold text-slate-600">
    Scheduler: {schedulerEnabled?"Configuration enabled for reviewed tenants":
@@ -105,6 +110,8 @@ export default function RecurringPlansPanel({businessId,cases,plans,schedulerEna
      <p className="text-xs text-slate-600">
       {p.status} · Next draft {p.nextDraftAt.slice(0,10)}
       {p.lastDraftAt?` · Previous ${p.lastDraftAt.slice(0,10)}`:""}
+      {p.lastInspectedAt?` · Worker checked ${p.lastInspectedAt.slice(0,16).replace("T"," ")} UTC`:
+       " · Never checked by scheduled worker"}
      </p>
     </div>
     <div className="flex gap-2">

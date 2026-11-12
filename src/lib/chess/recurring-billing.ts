@@ -132,7 +132,8 @@ export async function listChessRecurringPlans(businessId:string){
   service:row.service,descriptionCode:row.descriptionCode,
   amountCents:row.amountCents.toString(),currency:row.currency,
   status:row.status,nextDraftAt:row.nextDraftAt,
-  lastDraftAt:row.lastDraftAt,approvedAt:row.approvedAt,
+  lastDraftAt:row.lastDraftAt,lastInspectedAt:row.lastInspectedAt,
+  approvedAt:row.approvedAt,
   createdAt:row.createdAt,updatedAt:row.updatedAt,
   mayApprove:row.status==="PENDING"&&
    row.createdByClerkUserId!==actor.clerkUserId,
