@@ -12,6 +12,8 @@ import { requirePermission, PermissionError } from "@/lib/rbac/require-permissio
 import { getPageWithBlocks } from "@/lib/sites/queries";
 import { updatePage, publishPage, deletePage } from "@/lib/sites/mutations";
 
+import { sitePageBelongsToSite } from "@/lib/security/historical-resource-scope";
+
 export const dynamic = "force-dynamic";
 
 function fail(err: unknown) {
@@ -24,6 +26,8 @@ async function historicalAuditedGet(_req: NextRequest, { params }: { params: { s
   try {
     await requirePermission("record:read");
     const { db } = getTenantDb();
+    if (!await sitePageBelongsToSite(db, params.siteId, params.pageId))
+      return NextResponse.json({ ok: false, error: "Page not found." }, { status: 404 });
     const page = await getPageWithBlocks(db, params.pageId);
     if (!page) return NextResponse.json({ ok: false, error: "Page not found." }, { status: 404 });
     return NextResponse.json({ ok: true, page });
@@ -42,6 +46,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { siteId: st
   try {
     await requirePermission("record:update");
     const { db } = getTenantDb();
+    if (!await sitePageBelongsToSite(db, params.siteId, params.pageId))
+      return NextResponse.json({ ok: false, error: "Page not found." }, { status: 404 });
     await updatePage(db, params.pageId, {
       title: body.title as string | undefined,
       slug: body.slug as string | undefined,
@@ -63,6 +69,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: { siteId: 
   try {
     await requirePermission("record:delete");
     const { db } = getTenantDb();
+    if (!await sitePageBelongsToSite(db, params.siteId, params.pageId))
+      return NextResponse.json({ ok: false, error: "Page not found." }, { status: 404 });
     await deletePage(db, params.pageId);
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -13,6 +13,8 @@ import { listDomains } from "@/lib/sites/queries";
 import { addDomain, deleteDomain } from "@/lib/sites/mutations";
 import { isValidDomain } from "@/lib/sites/site-utils";
 
+import { siteDomainBelongsToSite } from "@/lib/security/historical-resource-scope";
+
 export const dynamic = "force-dynamic";
 
 function fail(err: unknown) {
@@ -51,12 +53,14 @@ export async function POST(req: NextRequest, { params }: { params: { siteId: str
   }
 }
 
-export async function DELETE(req: NextRequest, { params: _params }: { params: { siteId: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: { siteId: string } }) {
   try {
     await requirePermission("record:update");
     const domainId = req.nextUrl.searchParams.get("domainId") ?? "";
     if (!domainId) return NextResponse.json({ ok: false, error: "domainId is required." }, { status: 400 });
     const { db } = getTenantDb();
+    if (!await siteDomainBelongsToSite(db, params.siteId, domainId))
+      return NextResponse.json({ ok: false, error: "Domain not found." }, { status: 404 });
     await deleteDomain(db, domainId);
     return NextResponse.json({ ok: true });
   } catch (err) {

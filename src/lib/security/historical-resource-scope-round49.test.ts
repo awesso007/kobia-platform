@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   formFieldBelongsToForm, formStepBelongsToForm, scopedFormFieldsMatch,
   scopedFormStepsMatch, sitePageBelongsToSite, siteBlockBelongsToPage,
-  scopedSiteBlocksMatch, workflowRunBelongsToWorkflow,
+  scopedSiteBlocksMatch, workflowRunBelongsToWorkflow, siteDomainBelongsToSite,
 } from "./historical-resource-scope";
 
 describe("Round 49 path parent-child security", () => {
@@ -24,6 +24,13 @@ describe("Round 49 path parent-child security", () => {
     expect(await scopedFormFieldsMatch({formField} as never,"form-a",["field-a","field-a"])).toBe(false);
     const formStep={count:vi.fn(async()=>1)};
     expect(await scopedFormStepsMatch({formStep} as never,"form-a",["step-a","foreign"])).toBe(false);
+  });
+  it("rejects deleting domains from another site", async () => {
+    const siteDomain = {findFirst: vi.fn(async ({where}:{where:{id:string;siteId:string}})=>
+      where.id==="domain-a" && where.siteId==="site-a" ? {id:"domain-a"} : null)};
+    expect(await siteDomainBelongsToSite({siteDomain} as never,"site-a","domain-a")).toBe(true);
+    expect(await siteDomainBelongsToSite({siteDomain} as never,"site-b","domain-a")).toBe(false);
+    expect(siteDomain.findFirst).toHaveBeenCalledWith({where:{id:"domain-a",siteId:"site-b"},select:{id:true}});
   });
   it("requires nested site, block and workflow run ancestry, not mere tenant membership", async () => {
     const sitePage={findFirst:vi.fn(async ({where}:{where:{siteId:string}})=>

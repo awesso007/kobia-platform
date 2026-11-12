@@ -4,7 +4,7 @@
  * Never trust a parent URL that is not part of the downstream WHERE.
  */
 import type { PrismaClient } from "@/lib/db/generated/tenant";
-type Db = Pick<PrismaClient, "formV2" | "formStep" | "formField" | "sitePage" | "siteBlock" | "workflowRun">;
+type Db = Pick<PrismaClient, "formV2" | "formStep" | "formField" | "sitePage" | "siteBlock" | "siteDomain" | "workflowRun">;
 
 export async function formExists(db: Pick<Db,"formV2">, formId: string): Promise<boolean> {
   return !!formId && !!(await db.formV2.findFirst({
@@ -51,5 +51,11 @@ export async function scopedSiteBlocksMatch(db: Pick<Db,"siteBlock">, pageId: st
 export async function workflowRunBelongsToWorkflow(db: Pick<Db,"workflowRun">, workflowId: string, runId: string): Promise<boolean> {
   return !!workflowId && !!runId && !!(await db.workflowRun.findFirst({
     where: { id: runId, workflowId }, select: { id: true },
+  }));
+}
+
+export async function siteDomainBelongsToSite(db: Pick<Db,"siteDomain">, siteId: string, domainId: string): Promise<boolean> {
+  return !!siteId && !!domainId && !!(await db.siteDomain.findFirst({
+    where: { id: domainId, siteId }, select: { id: true },
   }));
 }
