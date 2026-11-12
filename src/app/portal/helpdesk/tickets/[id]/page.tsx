@@ -10,7 +10,7 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
-import { validatePortalSession, PORTAL_COOKIE } from "@/lib/helpdesk/portal";
+import { validatePortalSession, PORTAL_COOKIE, LEGACY_HELPDESK_EMAIL_ONLY_DISABLED } from "@/lib/helpdesk/portal";
 import { statusClass, priorityClass, fmtDateTime } from "@/app/app/(crm)/helpdesk/helpdesk-utils";
 import { PortalReply } from "../../PortalUI";
 
@@ -28,6 +28,11 @@ export default async function PortalTicketDetail({
   params: { id: string };
   searchParams: Record<string, string | string[] | undefined>;
 }) {
+  if(LEGACY_HELPDESK_EMAIL_ONLY_DISABLED){
+    return <Shell><p className="text-base text-slate-700">
+      Secure customer sign-in is not yet enabled for this helpdesk.
+    </p></Shell>;
+  }
   const q = (k: string) => (Array.isArray(searchParams[k]) ? searchParams[k]?.[0] : searchParams[k]) as string | undefined;
   const tenant = sanitizeSlug(q("t")) ?? sanitizeSlug(q("tenant"));
   if (!tenant) return <Shell><Unavailable /></Shell>;
