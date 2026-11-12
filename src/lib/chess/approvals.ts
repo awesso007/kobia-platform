@@ -2,6 +2,7 @@ import {z} from "zod";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
 import {assertBusinessAccess} from "./business-units";
+import {auditedChessEmployeeRead} from "./sensitive-read-audit";
 
 const request=z.object({
  businessId:z.string().min(1).max(128),
@@ -79,17 +80,30 @@ export async function listChessActionApprovals(businessId:string){
  await assertBusinessAccess(id);
  const actor=await getCurrentMembership();
  if(!actor||actor.status!=="ACTIVE")throw new PermissionError("record:read");
- const reviewer=["OWNER","ADMIN"].includes(actor.role);
  const {db}=getTenantDb();
- const rows=await db.chessActionApproval.findMany({
-  where:{businessId:id,...(!reviewer?{requestedBy:actor.clerkUserId}:{})},
-  select:{id:true,actionType:true,requestedBy:true,reviewedBy:true,
-   status:true,createdAt:true,reviewedAt:true},
-  orderBy:{createdAt:"desc"},take:100,
+ return auditedChessEmployeeRead(db,{
+  businessId:id,actorClerkUserId:actor.clerkUserId,
+  action:"ACTION_APPROVAL_DIRECTORY_READ",resourceType:"ChessActionApproval",
+  resourceId:"business:"+id,
+ },async tx=>{
+  const current=await tx.membership.findUnique({
+   where:{clerkUserId:actor.clerkUserId},
+   select:{status:true,role:true},
+  });
+  if(!current||current.status!=="ACTIVE")return null;
+  const reviewer=["OWNER","ADMIN"].includes(current.role);
+  const rows=await tx.chessActionApproval.findMany({
+   where:{businessId:id,...(!reviewer?{requestedBy:actor.clerkUserId}:{})},
+   select:{id:true,actionType:true,requestedBy:true,reviewedBy:true,
+    status:true,createdAt:true,reviewedAt:true},
+   orderBy:{createdAt:"desc"},take:100,
+  });
+  // Never send creator/reviewer Clerk IDs to the browser merely to decide
+  // whether a button should appear. Re-evaluate the role in the same snapshot.
+  return rows.map(({requestedBy,reviewedBy:_reviewedBy,...row})=>({
+   ...row,canReview:row.status==="PENDING"&&
+    !protectedChessApprovalType(row.actionType)&&
+    canReviewAction(requestedBy,actor.clerkUserId,current.role),
+  }));
  });
- return rows.map(row=>({...row,
-  canReview:row.status==="PENDING"&&
-   !protectedChessApprovalType(row.actionType)&&canReviewAction(
-   row.requestedBy,actor.clerkUserId,actor.role),
- }));
 }
