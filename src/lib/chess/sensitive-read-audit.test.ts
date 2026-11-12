@@ -57,7 +57,7 @@ describe("manager-scoped privacy audits on sensitive directories",()=>{
    chessSecurityEvent:{create:async(event:unknown)=>{captured.push(event);}},
   };
   const db={
-   $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => {
+   $transaction: async (callback: (client: unknown) => Promise<unknown>) => {
     return callback(tx);
    },
   } as unknown as PrismaClient;
