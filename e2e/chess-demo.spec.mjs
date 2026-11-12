@@ -121,6 +121,16 @@ test("employee signs in, navigates to own work and sees one assigned business on
   await expect(page.getByRole("heading", { name: "Employee work items" })).toBeVisible();
   await expect(page.getByText(taskTitle, { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Calendar sharing" })).toBeVisible();
+  await expect(page.getByText("Work-item sharing: Off")).toBeVisible();
+  const share = page.getByRole("button", { name: "Enable work-item calendar sharing" });
+  await expect(share).toBeDisabled();
+  const acknowledge = page.getByRole("checkbox", {
+    name: /I explicitly authorize sharing generic work-item timing/,
+  });
+  await acknowledge.check();
+  await expect(share).toBeEnabled();
+  await acknowledge.uncheck();
+  await expect(share).toBeDisabled();
   await expect(page.getByRole("heading", { name: "Manager oversight" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Operations health" })).toHaveCount(0);
 
@@ -128,6 +138,13 @@ test("employee signs in, navigates to own work and sees one assigned business on
   expect(units.status).toBe(200);
   expect(units.payload.businesses).toHaveLength(1);
   expect(units.payload.businesses[0].slug).toBe("bookkeeping");
+
+  // Basic CRM relationships without individual assignment are not visible
+  // to the support employee simply because the profiles exist in the tenant.
+  await page.goto("/app/client-profiles");
+  await expect(page.getByRole("heading", { name: "Unified Client Profiles" }))
+    .toBeVisible();
+  await expect(page.getByText("Morgan Fictional (FICTIONAL)")).toHaveCount(0);
 });
 
 test("employee changes an assigned task through the UI and sees persisted state", async ({ page }) => {
