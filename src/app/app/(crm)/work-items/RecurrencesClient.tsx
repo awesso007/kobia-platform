@@ -5,9 +5,10 @@ type Recurrence={
  active:boolean;nextRunAt:string;lastRunAt:string|null;lastInspectedAt:string|null;
  assignedClerkUserId:string|null;updatedAt:string;
 };
+type StaffChoice={clerkUserId:string;displayName:string;role:string};
 export default function RecurrencesClient({
- businessId,initialRecurrences,
-}:{businessId:string;initialRecurrences:Recurrence[]}){
+ businessId,initialRecurrences,staff=[],
+}:{businessId:string;initialRecurrences:Recurrence[];staff?:StaffChoice[]}){
  const [items,setItems]=useState(initialRecurrences);
  const [title,setTitle]=useState("");
  const [frequency,setFrequency]=useState<Recurrence["frequency"]>("MONTHLY");
@@ -79,16 +80,24 @@ export default function RecurrencesClient({
      onChange={e=>setInterval(Number(e.target.value))}
      className="mt-1 block w-full rounded-md border border-slate-300 p-2"/>
    </label>
-   <label className="text-sm sm:col-span-2">Assigned employee ID (optional)
-    <input value={assignee} onChange={e=>setAssignee(e.target.value)}
-     placeholder="Active employee's Clerk user ID"
-     className="mt-1 block w-full rounded-md border border-slate-300 p-2"/>
+   <label className="text-sm sm:col-span-2">Assign to employee
+    <select value={assignee} onChange={e=>setAssignee(e.target.value)}
+     className="mt-1 block w-full rounded-md border border-slate-300 p-2">
+     <option value="">Leave unassigned for manager review</option>
+     {staff.map(person=><option key={person.clerkUserId} value={person.clerkUserId}>
+      {person.displayName}
+     </option>)}
+    </select>
    </label>
    <button disabled={busy} type="submit"
     className="rounded-lg bg-emerald-800 px-4 py-3 font-semibold text-white disabled:opacity-40">
     Create recurring schedule
    </button>
   </form>
+  {items.length===0?<p role="status" className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+   No recurring schedules exist for this business. Create a schedule above;
+   an approved worker must be running before due work items can be generated.
+  </p>:null}
   <ul className="space-y-2">{items.map(item=><li key={item.id}
    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 p-4 text-sm">
    <div><strong className="block">{item.title}</strong>
