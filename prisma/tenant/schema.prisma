@@ -4152,6 +4152,19 @@ enum ChessDocumentStatus {
   READY
   REJECTED
 }
+enum ChessDocumentRevisionKind {
+  ORIGINAL
+  REPLACEMENT
+  REDACTED
+}
+enum ChessDocumentDisposalStatus {
+  REQUESTED
+  APPROVED
+  EXECUTING
+  UNKNOWN
+  PURGED
+  REJECTED
+}
 model ChessClientDocument {
   id String @id @default(cuid())
   businessId String
@@ -4167,6 +4180,15 @@ model ChessClientDocument {
   checksumSha256 String?
   status ChessDocumentStatus @default(PENDING)
   uploadedByClerkUserId String
+  // A replacement points to one immutable predecessor. REDACTED means a
+  // separately supplied, reviewed and scanned derivative, not a visual mask.
+  replacesDocumentId String? @unique
+  revisionNumber Int @default(1)
+  revisionKind ChessDocumentRevisionKind @default(ORIGINAL)
+  redactionApprovedByClerkUserId String?
+  redactionApprovedAt DateTime?
+  supersededAt DateTime?
+  purgedAt DateTime?
   createdAt DateTime @default(now())
   verifiedAt DateTime?
   // Policy metadata is write-once; no object deletion workflow is
@@ -4176,8 +4198,27 @@ model ChessClientDocument {
   legalHoldByClerkUserId String?
   suppressedAt DateTime?
   suppressedByClerkUserId String?
+  disposal ChessDocumentDisposal?
   @@index([businessId,clientProfileId,service,status])
   @@index([businessId,retentionUntil,suppressedAt])
+  @@index([replacesDocumentId,revisionNumber])
+  @@index([businessId,purgedAt,supersededAt])
+}
+model ChessDocumentDisposal {
+  id String @id @default(cuid())
+  documentId String @unique
+  businessId String
+  status ChessDocumentDisposalStatus @default(REQUESTED)
+  requestedByClerkUserId String
+  approvedByClerkUserId String?
+  requestedAt DateTime @default(now())
+  approvedAt DateTime?
+  executionStartedAt DateTime?
+  completedAt DateTime?
+  receiptDigest String?
+  lastErrorCode String?
+  document ChessClientDocument @relation(fields:[documentId],references:[id],onDelete:Restrict)
+  @@index([businessId,status,requestedAt])
 }
 
 // M5 bridging metadata. Finance rows remain in the legacy tenant-scoped ledger.
