@@ -140,8 +140,9 @@ export async function deleteObject(storageKey: string): Promise<void> {
   await client().send(new DeleteObjectCommand({ Bucket: bucketName()!, Key: storageKey }));
 }
 
-/** Stream a private, quarantined object to the malware scanner.
- * Only server-side scanner workers should call this function. */
+/** Stream a pinned private object to server-side scanning or the
+ * authenticated CHESS document proxy. Never expose this body to an
+ * unauthenticated caller. */
 export async function getObjectBody(storageKey: string, versionId?: string) {
   const response = await client().send(new GetObjectCommand({
     Bucket: bucketName()!, Key: storageKey, VersionId: versionId,
