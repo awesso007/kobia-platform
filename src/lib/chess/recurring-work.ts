@@ -92,16 +92,31 @@ export async function setChessRecurrenceActive(
  });
 }
 
+/** Scan at most 25 due templates per run. Sort by last inspection before
+ * due date so a revoked assignment or inactive unit cannot starve newer work.
+ * The 26th row is only a backlog probe: no work or provider call occurs for it.
+ * lastInspectedAt never means an actual task was created. */
 export async function runDueChessRecurrences(now=new Date()){
  const {db}=getTenantDb();
- const due=await db.chessWorkRecurrence.findMany({
+ const candidateRows=await db.chessWorkRecurrence.findMany({
   where:{active:true,nextRunAt:{lte:now}},
-  orderBy:{nextRunAt:"asc"},take:25,
+  orderBy:[{lastInspectedAt:{sort:"asc",nulls:"first"}},
+   {nextRunAt:"asc"},{id:"asc"}],take:26,
  });
+ const due=candidateRows.slice(0,25);
+ const backlog=candidateRows.length>25;
  let generated=0,blocked=0;
  for(const template of due){
   try{
    const result=await db.$transaction(async tx=>{
+    // Claim this exact due version and stamp inspection atomically. A second
+    // worker cannot create the same task from a stale template snapshot.
+    const inspected=await tx.chessWorkRecurrence.updateMany({
+     where:{id:template.id,active:true,nextRunAt:template.nextRunAt,
+      lastInspectedAt:template.lastInspectedAt},
+     data:{lastInspectedAt:now},
+    });
+    if(inspected.count!==1)return false;
     const business=await tx.chessBusinessUnit.findUnique({
      where:{id:template.businessId},select:{status:true},
     });
@@ -121,10 +136,11 @@ export async function runDueChessRecurrences(now=new Date()){
     const next=nextRecurrenceUtc(template.nextRunAt,template.frequency,
       template.interval,template.anchorDay);
     const claim=await tx.chessWorkRecurrence.updateMany({
-     where:{id:template.id,active:true,nextRunAt:template.nextRunAt},
+     where:{id:template.id,active:true,nextRunAt:template.nextRunAt,
+      lastInspectedAt:now},
      data:{nextRunAt:next,lastRunAt:template.nextRunAt},
     });
-    if(claim.count!==1)return false;
+    if(claim.count!==1)throw new Error("Recurrence version changed during task creation.");
     const task=await tx.chessWorkItem.create({data:{
      businessId:template.businessId,clientProfileId:template.clientProfileId,
      recurrenceId:template.id,scheduledFor:template.nextRunAt,
@@ -138,8 +154,6 @@ export async function runDueChessRecurrences(now=new Date()){
       message:"A new CHESS work item was assigned to you.",
       dedupeKey:`work:${task.id}:assigned`,
      }});
-    }
-    if(template.assignedClerkUserId){
      await tx.chessCalendarOutbox.create({data:{
       businessId:template.businessId,workItemId:task.id,
       recipientClerkUserId:template.assignedClerkUserId,
@@ -154,10 +168,16 @@ export async function runDueChessRecurrences(now=new Date()){
    });
    if(result)generated++;else blocked++;
   }catch{
-   // Any failure rolls back the claim and task atomically. Report aggregate
-   // without disclosing a client's private task details to the scheduler.
+   // The task and recurrence advance roll back together. Best-effort
+   // inspection stamp prevents a permanently failing template from taking
+   // every future bounded window; a failed stamp leaves the original due
+   // template eligible for operator investigation rather than mutating work.
+   await db.chessWorkRecurrence.updateMany({
+    where:{id:template.id,active:true,nextRunAt:template.nextRunAt},
+    data:{lastInspectedAt:now},
+   }).catch(()=>{});
    blocked++;
   }
  }
- return {examined:due.length,generated,blocked};
+ return {examined:due.length,generated,blocked,backlog};
 }
