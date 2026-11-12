@@ -1,3 +1,4 @@
+import * as React from "react";
 import type {ChessFinancialAttemptState} from "@/lib/chess/bank-financial-attempt";
 import {financialAttemptStates} from "@/lib/chess/financial-attempt-health";
 
