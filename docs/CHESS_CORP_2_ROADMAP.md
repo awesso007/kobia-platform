@@ -8,6 +8,27 @@ business-operations layer within an isolated KOBIA tenant, not an assertion
 that a single legal entity holds all operating licenses.
 
 
+## CURRENT ROUND 33 — fictional demo usability and manager/staff navigation
+
+Reviewed /app/overview, /app/chess-desk, work items, finance, action approvals,
+business administration, bank posting monitor, billing and regulated intake.
+Found manager-to-support mixed assignments could send people to another
+business and several pages silently substituted the first business after
+a revoked deep link. Some failed sensitive reads appeared as zero tasks or
+calendar-sharing OFF. Added current-manager business selection, strict
+explicit link handling, role-appropriate manager navigation, user-facing
+fail-closed load errors and helpful empty states; added business-keyed
+client component resets and a named recurring staff chooser.
+
+See [Round 33 demo usability review](CHESS_CORP_2_ROUND33_DEMO_USABILITY.md)
+and new Round 33 unit/source regressions. Normal CI is code proof only;
+the protected Clerk/Neon browser run from checklist item 01, mobile/keyboard/
+screen-reader review, legal approvals and actual sandbox evidence remain
+unperformed. **8/8 production milestones remain blocked and 0/8 approved.**
+Draft PR #24 remains unmerged; no main-branch or production deployment.
+
+---
+
 ## CURRENT ROUND 32 — signed-in consent and worker health read audits
 
 The Round 31 final SHA was green (3/3 jobs) at the start of this round.
