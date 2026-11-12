@@ -2,15 +2,15 @@ import type {Prisma,PrismaClient} from "@/lib/db/generated/tenant";
 import {PermissionError} from "@/lib/rbac/require-permission";
 
 type SensitiveReadContext={
- businessId:string;actorClerkUserId:string;
- action:"REGULATED_WORKFLOW_READ"|"BANK_REVIEW_DETAILS_READ";
- resourceType:"ChessServiceCase";resourceId:string;
+ businessId?:string;actorClerkUserId:string;
+ action:"REGULATED_WORKFLOW_READ"|"BANK_REVIEW_DETAILS_READ"|"OPERATIONS_PORTFOLIO_READ";
+ resourceType:"ChessServiceCase"|"ChessOperationsPortfolio";resourceId:string;
 };
 /** Privacy-minimal record-access outcome. No names, properties, amounts,
  * document keys or raw service payloads are persisted in the audit. */
 export function sensitiveReadEvent(ctx:SensitiveReadContext,allowed:boolean){
  return {
-  businessId:ctx.businessId,
+  ...(ctx.businessId?{businessId:ctx.businessId}:{}),
   actorClerkUserId:ctx.actorClerkUserId,
   action:ctx.action,
   resourceType:ctx.resourceType,

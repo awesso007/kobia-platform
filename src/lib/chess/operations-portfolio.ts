@@ -2,6 +2,7 @@ import {z} from "zod";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
 import {invoiceSummaryGroups,reportWindow} from "./operations-reporting";
+import {auditedChessSensitiveRead} from "./sensitive-read-audit";
 
 const monthSchema=z.string().regex(/^20[2-9][0-9]-(0[1-9]|1[0-2])$/);
 
@@ -45,7 +46,16 @@ export async function getChessPortfolioOperationsReport(input:unknown){
  if(!actor||!mayReadPortfolio(actor.role,actor.status))
   throw new PermissionError("record:read");
  const {db}=getTenantDb();
- const units=await db.chessBusinessUnit.findMany({where:{status:"ACTIVE"},
+ return auditedChessSensitiveRead(db,{
+  actorClerkUserId:actor.clerkUserId,action:"OPERATIONS_PORTFOLIO_READ",
+  resourceType:"ChessOperationsPortfolio",resourceId:month,
+ },async tx=>{
+  // Recheck active owner/admin membership inside the read/audit transaction.
+  const live=await tx.membership.findUnique({
+   where:{clerkUserId:actor.clerkUserId},select:{role:true,status:true},
+  });
+  if(!live||!mayReadPortfolio(live.role,live.status))return null;
+  const units=await tx.chessBusinessUnit.findMany({where:{status:"ACTIVE"},
   select:{id:true,name:true},orderBy:{name:"asc"},take:101});
  // Never return a misleading, silently truncated report.
  if(units.length>100)throw new Error("Portfolio exceeds report unit cap.");
@@ -53,18 +63,18 @@ export async function getChessPortfolioOperationsReport(input:unknown){
  const createdAt={gte:from,lt:to};
  const businessId={in:units.map(x=>x.id)};
  const [cases,tasks,ai,invoices,regulated,consents]=await Promise.all([
-  db.chessServiceCase.groupBy({by:["businessId","service","status"],
+  tx.chessServiceCase.groupBy({by:["businessId","service","status"],
    where:{businessId,createdAt},_count:{_all:true}}),
-  db.chessWorkItem.groupBy({by:["businessId","status"],
+  tx.chessWorkItem.groupBy({by:["businessId","status"],
    where:{businessId,createdAt},_count:{_all:true}}),
-  db.chessAiSuggestion.groupBy({by:["businessId","status"],
+  tx.chessAiSuggestion.groupBy({by:["businessId","status"],
    where:{businessId,createdAt},_count:{_all:true}}),
-  db.chessBillingInvoice.groupBy({by:["businessId","status"],
+  tx.chessBillingInvoice.groupBy({by:["businessId","status"],
    where:{businessId,createdAt},_count:{_all:true},
    _sum:{amountCents:true}}),
-  db.chessRegulatedWorkflow.groupBy({by:["businessId","service","status"],
+  tx.chessRegulatedWorkflow.groupBy({by:["businessId","service","status"],
    where:{businessId,createdAt},_count:{_all:true}}),
-  db.chessClientConsent.groupBy({by:["businessId","status"],
+  tx.chessClientConsent.groupBy({by:["businessId","status"],
    where:{businessId,createdAt},_count:{_all:true}}),
  ]);
  const businesses:PortfolioUnitMetrics[]=units.map(unit=>({
@@ -94,5 +104,6 @@ export async function getChessPortfolioOperationsReport(input:unknown){
    "Invoice amounts are proposed invoice face values, not collected cash or GL revenue.",
    "Each business remains separate. Cross-entity eliminations and statutory consolidation are excluded.",
    "No client, account, property, health, tax-return or payroll detail is returned.",
-  ]};
+  ]  ]};
+ });
 }
