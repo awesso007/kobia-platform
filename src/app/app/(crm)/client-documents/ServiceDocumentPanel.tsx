@@ -38,7 +38,7 @@ export default function ServiceDocumentPanel({businessId,clientProfileId,service
    action==="SUPPRESS"?
     "Suppress future authenticated downloads of this version? Already downloaded copies cannot be recalled.":
    action==="REDACTION_APPROVE"?
-    "You must be a different reviewer from the uploader. Confirm you inspected the ACTUAL redacted file, including hidden layers and metadata; this replaces the visible original but retains its stored evidence.":
+    "You must FIRST inspect the clean-scanned redacted file with the secure review control, as a different owner/admin from the uploader. Confirm you independently inspected all pages, hidden layers and metadata; the server checks your post-scan audit record.":
    action==="REQUEST_DELETE"?
     "Request disposal of this version? Storage bytes will not be deleted until another authorized reviewer approves and a separately approved worker verifies disposal.":
    action==="APPROVE_DELETE"?
@@ -55,6 +55,7 @@ export default function ServiceDocumentPanel({businessId,clientProfileId,service
     body:JSON.stringify({documentId,businessId,clientProfileId,service,action,
      ...(action==="SET_RETENTION"?{retainUntil:new Date(
       `${retainUntil}T23:59:59.000Z`).toISOString()}:{}),
+     ...(action==="REDACTION_APPROVE"?{reviewedContent:true}:{}),
     }),
    });
    if(!response.ok)throw new Error(response.status===403?
@@ -117,6 +118,29 @@ export default function ServiceDocumentPanel({businessId,clientProfileId,service
   }catch(err){setError(err instanceof Error?err.message:"Upload not confirmed.");}
   finally{setBusy(false);}
  }
+ async function reviewRedaction(documentId:string){
+  if(loadingId)return;
+  setError("");setMessage("");setLoadingId(documentId);
+  try{
+   const q=new URLSearchParams({businessId,clientProfileId,service,
+    review:"redacted"});
+   const response=await fetch(
+    `/api/chess/documents/${encodeURIComponent(documentId)}/download?${q}`,{
+     credentials:"same-origin",cache:"no-store",
+   });
+   if(!response.ok)throw new Error(
+    "Independent redaction review requires a different owner/admin, a current service grant and a completed clean scan.");
+   const bytes=await response.blob();
+   // A preview is opened from the already-authorized private response.
+   // The original storage URL is never exposed to this browser.
+   const view=URL.createObjectURL(bytes);
+   const win=window.open(view,"_blank","noopener,noreferrer");
+   if(!win){URL.revokeObjectURL(view);
+    throw new Error("Allow a new tab to inspect the redacted document.");}
+   setMessage("Review the complete redacted file, including metadata and hidden layers. Then independently attest to the review before approval.");
+  }catch(e){setError(e instanceof Error?e.message:"Redaction review unavailable.");}
+  finally{setLoadingId("");}
+ }
  async function download(documentId:string){
   if(loadingId)return;
   setError("");setLoadingId(documentId);
@@ -144,7 +168,7 @@ export default function ServiceDocumentPanel({businessId,clientProfileId,service
    Only documents for this authorized business, client and service are shown.
    A live employee service grant and purpose-specific client consent are checked
    again for every listing and download. New uploads remain quarantined until
-   independently scanned. Approved download links expire after 60 seconds.
+   independently scanned. Downloads use a private authenticated route without bearer storage URLs.
   </p>
   {canUpload&&<form className="flex flex-wrap items-end gap-3" onSubmit={upload}>
    <label className="min-w-[240px] flex-1 text-sm font-semibold">
@@ -196,6 +220,13 @@ export default function ServiceDocumentPanel({businessId,clientProfileId,service
      className="rounded-md border border-emerald-700 px-3 py-2 font-semibold text-emerald-800 disabled:opacity-40">
      {loadingId===d.id?"Checking...":"Download verified version"}</button>}
      {canManageLifecycle&&<div className="flex flex-wrap items-center gap-2">
+      {d.revisionKind==="REDACTED"&&d.status==="QUARANTINED"&&
+       d.verifiedAt&&!d.redactionApprovedAt&&!d.suppressedAt&&
+       <button type="button" disabled={!!lifecycleBusy||!!loadingId}
+        onClick={()=>void reviewRedaction(d.id)}
+        className="rounded-md border border-blue-800 px-2 py-1 text-xs font-semibold">
+        {loadingId===d.id?"Checking...":"Inspect scanned redaction"}
+       </button>}
       {d.revisionKind==="REDACTED"&&d.status==="QUARANTINED"&&
        d.verifiedAt&&!d.redactionApprovedAt&&<button type="button"
         disabled={!!lifecycleBusy}
