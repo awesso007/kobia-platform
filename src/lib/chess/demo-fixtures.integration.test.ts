@@ -3,7 +3,6 @@ import {PrismaClient} from "@/lib/db/generated/tenant";
 import {PrismaClient as PlatformClient} from "@/lib/db/generated/platform";
 import {registerChessDemoTenant,setupAndVerifyChessDemoFixtures} from "./demo-setup-core";
 import {assertIsolatedChessDemoDatabase} from "./demo-target-policy";
-import {seedChessDemoRecords,verifyChessDemoRecords} from "./demo-fixtures";
 
 const integration=process.env.RUN_CHESS_DB_INTEGRATION==="1"?describe:describe.skip;
 
