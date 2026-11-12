@@ -2,6 +2,7 @@ import {createHash,timingSafeEqual} from "node:crypto";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import * as s3 from "@/lib/storage/s3";
 import {documentPurgeEnabled} from "./document-lifecycle";
+import {chessDemoModeActive} from "./demo-mode";
 
 type PurgeDocument={
  status:string;legalHoldAt:Date|null;retentionUntil:Date|null;
@@ -25,10 +26,11 @@ export function authorizedDocumentPurgeWorker(token:string):boolean{
  * Each deletion is by S3 VERSION ID and verified through an explicit 404.
  */
 export async function runChessDocumentPurge(limit=10){
- if(!documentPurgeEnabled()||!s3.isConfigured())
+ if(!documentPurgeEnabled()||!s3.isConfigured()||
+    process.env.CHESS_DEMO_MODE==="true"||chessDemoModeActive())
   return {disabled:true,processed:0,purged:0,unknown:0,blocked:0};
  const count=Math.min(Math.max(Math.floor(limit),1),25);
- const {db}=getTenantDb();
+ const {db,tenantId}=getTenantDb();
  const cases=await db.chessDocumentDisposal.findMany({where:{
   status:"APPROVED",
  },select:{id:true},orderBy:{requestedAt:"asc"},take:count});
@@ -38,6 +40,7 @@ export async function runChessDocumentPurge(limit=10){
    const claim=await tx.chessDocumentDisposal.findUnique({where:{id:item.id},
     include:{document:true}});
    if(!claim||claim.status!=="APPROVED"||
+      !claim.document.storageKey.startsWith("tenants/"+tenantId+"/")||
       !claim.approvedByClerkUserId||
       claim.approvedByClerkUserId===claim.requestedByClerkUserId||
       !eligibleForDocumentPurge(claim.document))return null;
@@ -55,9 +58,18 @@ export async function runChessDocumentPurge(limit=10){
   },{isolationLevel:"Serializable"});
   if(!picked){blocked++;continue;}
   try{
+   // A signed PUT can create multiple historical versions of the same key.
+   // Never delete one and pretend all sensitive bytes are erased.
+   const before=await s3.inventoryPinnedStorageVersions(
+    picked.storageKey,picked.versionId);
+   if(before!=="ONLY_PINNED")throw new Error("Ambiguous object version inventory");
    const result=await s3.deletePinnedObjectVersion(picked.storageKey,picked.versionId);
    const gone=await s3.isPinnedObjectVersionAbsent(picked.storageKey,picked.versionId);
    if(!gone)throw new Error("Pinned object version remains after delete");
+   const after=await s3.inventoryPinnedStorageVersions(
+    picked.storageKey,picked.versionId);
+   if(after!=="NO_CONTENT_VERSIONS")
+    throw new Error("Other object content versions remain");
    // Only opaque hashes/IDs are retained, never storage paths or file data.
    const digest=createHash("sha256").update([
     picked.id,picked.documentId,picked.versionId,result.requestId??"none",
