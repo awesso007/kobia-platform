@@ -2,6 +2,7 @@ import Link from "next/link";
 import type {Metadata} from "next";
 import {getCurrentMembership} from "@/lib/rbac/require-permission";
 import {listBusinessUnits} from "@/lib/chess/business-units";
+import {getTenantDb} from "@/lib/db/get-tenant-db";
 import ChessDeskDirectory from "./ChessDeskDirectory";
 export const dynamic="force-dynamic";
 export const metadata:Metadata={title:"CHESS employee service desk",robots:{index:false,follow:false}};
@@ -10,6 +11,11 @@ export default async function ChessServiceDeskPage(){
   const actor=await getCurrentMembership();
   if(!actor||actor.status!=="ACTIVE")throw new Error("Inactive membership");
   const businesses=await listBusinessUnits();
+  const managerAssignments=actor.role==="MEMBER"&&businesses.length>0?
+   await getTenantDb().db.chessEmployeeAssignment.count({where:{
+    clerkUserId:actor.clerkUserId,role:"MANAGER",revokedAt:null,
+    businessId:{in:businesses.map(unit=>unit.id)},
+   }}):0;
   return <main className="mx-auto max-w-7xl space-y-8 px-6 py-10">
    <header>
     <p className="text-xs font-semibold uppercase tracking-widest text-emerald-800">
@@ -26,7 +32,8 @@ export default async function ChessServiceDeskPage(){
     </p>
    </header>
    <ChessDeskDirectory hasBusiness={businesses.length>0}
-    isAdministrator={["OWNER","ADMIN"].includes(actor.role)}/>
+    isAdministrator={["OWNER","ADMIN"].includes(actor.role)}
+    isBusinessManager={managerAssignments>0}/>
    <Link href="/app/overview" className="text-sm font-semibold text-emerald-800 underline">
     Return to overview
    </Link>
