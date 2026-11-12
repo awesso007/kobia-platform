@@ -161,7 +161,7 @@ jobs:
         env:
           DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_finance_fault_ci?schema=public"
         run: npx prisma db push --schema=prisma/schema.prisma --skip-generate --accept-data-loss
-      - name: Distributed financial timeout rollback retry and consent tests
+      - name: Round 38 and 44 distributed dual-database timeout, partial failure, retry and idempotency tests
         env:
           RUN_CHESS_DISTRIBUTED_DB_INTEGRATION: "1"
           CHESS_FAULT_LEGACY_DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_finance_fault_ci?schema=public"
