@@ -1,7 +1,7 @@
 "use client";
 import {useState} from "react";
 import {useRouter} from "next/navigation";
-type Row={id:string;actionType:string;requestedBy:string;status:string;
+type Row={id:string;actionType:string;status:string;
  canReview:boolean;createdAt:string;reviewedAt:string|null};
 const kinds=[
  ["INTERNAL_PROCESS_REVIEW","Internal process review"],
