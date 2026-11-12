@@ -31,7 +31,7 @@ export default defineConfig({
     {
       name: "chromium",
       dependencies: ["clerk-setup"],
-      testMatch: /chess-demo(?:-employee-client)?\.spec\.mjs/,
+      testMatch: /chess-demo(?:-(?:employee-client|round46))?\.spec\.mjs/,
       use: { ...devices["Desktop Chrome"] },
     },
   ],
