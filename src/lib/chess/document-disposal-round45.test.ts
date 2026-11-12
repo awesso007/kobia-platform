@@ -38,8 +38,8 @@ function setup(status="REQUESTED",reviewer="independent-owner"){
   status:"READY",createdAt:new Date("2025-01-01"),
   uploadedByClerkUserId:"uploader",revisionKind:"ORIGINAL",
   replacesDocumentId:null,checksumSha256:"f".repeat(64),
-  verifiedAt:new Date("2025-04-01"),retentionUntil:expired,
-  legalHoldAt:null,supersededAt:null,suppressedAt:null,purgedAt:null,
+  verifiedAt:new Date("2025-04-01"),retentionUntil:expired as Date|null,
+  legalHoldAt:null as Date|null,supersededAt:null,suppressedAt:null,purgedAt:null,
   storageKey:"tenants/tenant-test/2026/11/unique.pdf",
   storageVersionId:"exact-version-v1",
  };
@@ -96,7 +96,7 @@ describe("Round 45 independently approved disposal and UNKNOWN audit",()=>{
   document.legalHoldAt=new Date();
   await expect(updateChessDocumentLifecycle(request)).rejects.toThrow();
   document.legalHoldAt=null;
-  document.retentionUntil=null as never;
+  document.retentionUntil=null;
   await expect(updateChessDocumentLifecycle(request)).rejects.toThrow();
   document.retentionUntil=new Date("2030-01-01");
   await expect(updateChessDocumentLifecycle(request)).rejects.toThrow();
