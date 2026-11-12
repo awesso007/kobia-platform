@@ -11,6 +11,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
 import { notifyOn } from "@/lib/notifications/notify";
+import { secureBookingManageTokenMatches } from "@/lib/security/booking-manage-token";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,14 +52,18 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
     where: { id: bookingId, bookingPage: { slug: params.slug } },
     include: { bookingPage: { select: { name: true, ownerClerkUserId: true } } },
   });
-  if (!booking || booking.rescheduleToken !== token) {
+  if (!booking || !secureBookingManageTokenMatches(token, booking.rescheduleToken)) {
     return NextResponse.json({ ok: false, error: "Booking not found." }, { status: 404, headers: CORS });
   }
-  if (booking.status === "CANCELED") {
+  // Conditional update prevents two concurrent requests from both executing
+  // cancellation side effects; a repeated valid token remains idempotent.
+  const canceled = await db.booking.updateMany({
+    where: { id: booking.id, rescheduleToken: booking.rescheduleToken, status: { not: "CANCELED" } },
+    data: { status: "CANCELED" },
+  });
+  if (canceled.count === 0) {
     return NextResponse.json({ ok: true, alreadyCanceled: true }, { status: 200, headers: CORS });
   }
-
-  await db.booking.update({ where: { id: booking.id }, data: { status: "CANCELED" as never } });
   if (booking.eventId) {
     await db.calendarEvent.update({ where: { id: booking.eventId }, data: { status: "CANCELED" as never } }).catch(() => {});
   }
