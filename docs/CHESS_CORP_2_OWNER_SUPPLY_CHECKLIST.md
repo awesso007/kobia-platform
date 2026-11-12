@@ -1,6 +1,6 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 36 | Engineering evidence through Round 35 baseline (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 37 | Engineering evidence through Round 36 CI baseline (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
@@ -22,6 +22,34 @@ their responsible owner/contracting professional supplies and approves
 the required inputs. Source changes are recorded in
 [the authoritative Round 35 M1–M8 milestone matrix](CHESS_CORP_2_ROADMAP.md).
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 37 historical KOBIA sensitive-read hardening — owner evidence
+
+**Source-only controls are not external acceptance.** Verified-client
+identity and immutable access evidence still require independent staging
+under existing groups **01,02,03,04,05,15,17,18**. New required
+development/staging-only secret **within existing group 05**:
+`KOBIA_LOCAL_DOWNLOAD_SIGNING_KEY`, distinct random 32+ byte server-only
+secret kept in the approved vault. Its absence prevents LOCAL fallback
+downloads. Real clients require private versioned object storage, independent
+malware scans and signed audit retention; do not treat LOCAL as production.
+
+The original support/helpdesk portal used an **email-only impersonable
+session**. It is now disabled in source, including previously issued legacy
+cookies and direct API reads, until a third-party-approved verified
+email challenge/identity provider, single-use token consumption,
+audit events and real session isolation are implemented and accepted
+under **04/17/18**. **No environment toggle can reenable the old email-only
+login.** Do not provide customer data or use the disabled portal as
+an identity proof.
+
+The Round 37 snapshot also adds owner/role scoped read audits for legacy
+GL, trial-balance, mail, selected workflow/form submission and document
+download paths. Protected Clerk roles, role revocation races, cross-tenant
+identities, successful and denied access audit receipts, real storage and
+WORM/PITR witnesses must still be supplied to close **02/05/15/17/18**.
+Remaining historical routes must be independently inventoried and
+reviewed before claiming all-path coverage.
 
 ## Round 36 legacy KOBIA tax-export privacy evidence (no new secret)
 
