@@ -13,6 +13,12 @@ import {reconcileLegacyChessPosting} from "./bank-ledger-reconcile";
 import {chessBankPostingEnabled,postingSourceRef,bankGlAccountMatchesType} from "./bank-posting-gate";
 import {chessDemoModeActive} from "./demo-mode";
 import {auditedChessSensitiveRead} from "./sensitive-read-audit";
+import {
+ reserveChessBankPostingAttempt,
+ startChessBankPostingAttempt,
+ markChessBankPostingAttemptUnknown,
+ markChessBankPostingAttemptCommitted,
+} from "./bank-financial-attempt";
 
 const accountService=z.enum(["ACCOUNTING","BOOKKEEPING"]);
 const contextSchema=z.object({
@@ -65,7 +71,7 @@ async function context(raw:unknown){
   db.chessClientConsent.findMany({where:{
    businessId:data.businessId,clientProfileId:data.clientProfileId,
    purpose:`service:${data.service}`,
-  },select:{status:true,expiresAt:true,consentedAt:true,
+  },select:{id:true,status:true,expiresAt:true,consentedAt:true,withdrawnAt:true,
    acceptedByClerkUserId:true,verifiedEmailDigest:true,acceptanceEvidenceDigest:true}}),
   getTenantBySlug(tenantId),
  ]);
@@ -420,19 +426,33 @@ export async function executeChessApprovedBankPosting(input:unknown){
  if(!creatorAllowed||!reviewerAllowed)
   throw new PermissionError("record:update");
  const sourceRefId=postingSourceRef(review.id);
- // Only the identical recorded CHESS posting may be replayed. The ledger
- // transaction is the authority, not an unverified CHESS response flag.
- if(txn.status==="CATEGORIZED"&&txn.categorizedJournalEntryId){
-  const posted=await ledger.journalEntry.findFirst({where:{
-   id:txn.categorizedJournalEntryId,tenantId:state.legacyTenantId,
-   entityId:state.legacyEntityId,source:"BANK_FEED",
-   sourceRefId,status:"POSTED",
-  },select:{id:true}});
-  if(!posted)throw new PermissionError("record:update");
-  return {postedToLedger:true,replay:true,journalEntryId:posted.id,
-   bankTransactionId:txn.id,bankSettled:false};
- }
- if(txn.status!=="UNMATCHED")throw new PermissionError("record:update");
+  // Only the identical, balanced source journal may be replayed. A durable
+  // attempt receipt is pinned if the previous request lost its response.
+  if(txn.status==="CATEGORIZED"&&txn.categorizedJournalEntryId){
+   const reconciled=await reconcileLegacyChessPosting(ledger,{
+    tenantId:state.legacyTenantId,entityId:state.legacyEntityId,
+    bankTransactionId:txn.id,sourceRefId,
+   });
+   if(reconciled.status!=="MATCHED_POSTED"||
+    reconciled.journalEntryId!==txn.categorizedJournalEntryId)
+    throw new PermissionError("record:update");
+   const attempt=await state.db.chessFinancialAttempt.findUnique({
+    where:{sourceRefId},select:{id:true,status:true,journalEntryId:true},
+   });
+   if(attempt){
+    if(attempt.status==="EXECUTING"||attempt.status==="UNKNOWN"){
+     const pinned=await markChessBankPostingAttemptCommitted(
+      state.db,attempt.id,state.actor.clerkUserId,reconciled.journalEntryId);
+     if(!pinned)throw new PermissionError("record:update");
+    }else if(attempt.status!=="COMMITTED"||
+     attempt.journalEntryId!==reconciled.journalEntryId){
+     throw new PermissionError("record:update");
+    }
+   }
+   return {postedToLedger:true,replay:true,journalEntryId:reconciled.journalEntryId,
+    bankTransactionId:txn.id,bankSettled:false};
+  }
+  if(txn.status!=="UNMATCHED")throw new PermissionError("record:update");
  await assertOffsetAccount(state.legacyTenantId,state.legacyEntityId,
   review.approvedAccountId,txn.bankAccount.glAccountId);
  const [bank,entity,offset,bankGl]=await Promise.all([
@@ -457,33 +477,57 @@ export async function executeChessApprovedBankPosting(input:unknown){
   !bankGl||!bankGlAccountMatchesType(bank.accountType,bankGl.type))
   throw new PermissionError("record:update");
  createBankPostingPreview(review,{
-  id:txn.id,bankAccountGlId:bank.glAccountId,amountCents:txn.amountCents,
-  status:txn.status,fingerprint:bankTransactionFingerprint(
-   txn,state.legacyTenantId,state.legacyEntityId),
- },state.actor);
+   id:txn.id,bankAccountGlId:bank.glAccountId,amountCents:txn.amountCents,
+   status:txn.status,fingerprint:bankTransactionFingerprint(
+    txn,state.legacyTenantId,state.legacyEntityId),
+  },state.actor);
 
- // Audit intent before any GL write. If the audit store is unavailable,
- // financial execution is forbidden. No PII or bank description is logged.
- await state.db.chessSecurityEvent.create({data:{
-  businessId:data.businessId,actorClerkUserId:state.actor.clerkUserId,
-  action:"BANK_POSTING_ATTEMPT",resourceType:"ChessBankReview",
-  resourceId:review.id,decision:"REVIEW",
- }});
+  // Reserve and audit in the tenant DB before any legacy GL mutation. The
+  // reservation and consent withdrawal serialize on the same consent row.
+  const attempt=await reserveChessBankPostingAttempt(state.db,{
+   businessId:data.businessId,consentId:state.consentId,reviewId:review.id,
+   legacyTenantId:state.legacyTenantId,legacyEntityId:state.legacyEntityId,
+   legacyBankTransactionId:txn.id,sourceDigest:data.expectedTransactionDigest,
+   sourceRefId,createdByClerkUserId:state.actor.clerkUserId,
+  });
+  if(attempt.status!=="RESERVED")throw new PermissionError("record:update");
 
- // Re-evaluate current case, grant, mapping, and consent after the
- // durable attempt audit, immediately before the legacy write. There
- // remains a cross-DB race requiring independent pre-production review.
- await context({businessId:data.businessId,clientProfileId:data.clientProfileId,
-  serviceCaseId:data.serviceCaseId,service:data.service});
- const created=await commitLegacyBankClassification(ledger,{
-  tenantId:state.legacyTenantId,entityId:state.legacyEntityId,
-  bankTransactionId:txn.id,bankAccountId:txn.bankAccountId,
-  dedupHash:txn.dedupHash,postedDate:txn.postedDate,
-  amountCents:txn.amountCents,bankGlAccountId:bank.glAccountId,
-  offsetAccountId:offset.id,sourceRefId,actorId:state.actor.clerkUserId,
- });
+  // Audit intent before any GL write. If the audit store is unavailable,
+  // financial execution is forbidden. No PII or bank description is logged.
+  await state.db.chessSecurityEvent.create({data:{
+   businessId:data.businessId,actorClerkUserId:state.actor.clerkUserId,
+   action:"BANK_POSTING_ATTEMPT",resourceType:"ChessBankReview",
+   resourceId:review.id,decision:"REVIEW",
+  }});
 
- // If the audit receipt fails, the API must not claim the external outcome
+  // Re-evaluate case, grant, mapping and consent; then acquire the consent
+  // row lock and move RESERVED -> EXECUTING immediately before the GL write.
+  await context({businessId:data.businessId,clientProfileId:data.clientProfileId,
+   serviceCaseId:data.serviceCaseId,service:data.service});
+  const started=await startChessBankPostingAttempt(
+   state.db,attempt.id,state.actor.clerkUserId);
+  if(!started)throw new PermissionError("record:update");
+
+  let created:string;
+  try{
+   created=await commitLegacyBankClassification(ledger,{
+    tenantId:state.legacyTenantId,entityId:state.legacyEntityId,
+    bankTransactionId:txn.id,bankAccountId:txn.bankAccountId,
+    dedupHash:txn.dedupHash,postedDate:txn.postedDate,
+    amountCents:txn.amountCents,bankGlAccountId:bank.glAccountId,
+    offsetAccountId:offset.id,sourceRefId,actorId:state.actor.clerkUserId,
+   });
+  }catch(error){
+   // The legacy transaction may have committed even if its acknowledgement
+   // was lost. Preserve UNKNOWN and require independent reconciliation.
+   await markChessBankPostingAttemptUnknown(
+    state.db,attempt.id,state.actor.clerkUserId).catch(()=>undefined);
+   throw error;
+  }
+  const pinned=await markChessBankPostingAttemptCommitted(
+   state.db,attempt.id,state.actor.clerkUserId,created);
+  if(!pinned)throw new Error("Legacy posting completed but the CHESS attempt receipt is not pinned; reconciliation is required.");
+  // If the audit receipt fails, the API must not claim the external outcome
  // succeeded. A retry resolves the verified source journal without posting.
  await state.db.chessSecurityEvent.create({data:{
   businessId:data.businessId,actorClerkUserId:state.actor.clerkUserId,
