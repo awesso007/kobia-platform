@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Single page API (Sprint 17, authenticated). GET returns the page with its
  * blocks; PATCH updates page fields/SEO/order/slug and can toggle published
@@ -19,7 +20,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { siteId: string; pageId: string } }) {
+async function historicalAuditedGet(_req: NextRequest, { params }: { params: { siteId: string; pageId: string } }) {
   try {
     await requirePermission("record:read");
     const { db } = getTenantDb();
@@ -68,3 +69,5 @@ export async function DELETE(_req: NextRequest, { params }: { params: { siteId: 
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("sites/[siteId]/pages/[pageId]",historicalAuditedGet);

@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Forms 2.0 collection API (Sprint 19, authenticated). GET lists the tenant's
  * Forms 2.0 with field/step/submission counts; POST creates a new form (with an
@@ -19,7 +20,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET() {
+async function historicalAuditedGet() {
   try {
     await requirePermission("form:manage");
     const { db } = getTenantDb();
@@ -52,3 +53,5 @@ export async function POST(req: NextRequest) {
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("forms2",historicalAuditedGet);

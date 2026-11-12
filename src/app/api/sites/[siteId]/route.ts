@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Single site API (Sprint 17, authenticated). GET returns the site; PATCH
  * updates fields (name, description, favicon, theme, homePageId); DELETE removes
@@ -19,7 +20,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { siteId: string } }) {
+async function historicalAuditedGet(_req: NextRequest, { params }: { params: { siteId: string } }) {
   try {
     await requirePermission("record:read");
     const { db } = getTenantDb();
@@ -65,3 +66,5 @@ export async function DELETE(_req: NextRequest, { params }: { params: { siteId: 
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("sites/[siteId]",historicalAuditedGet);

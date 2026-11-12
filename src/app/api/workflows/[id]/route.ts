@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Single workflow API (Sprint 18, authenticated). GET returns detail (graph +
  * variables); PATCH updates name/description/trigger/graph/status/variables;
@@ -20,7 +21,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+async function historicalAuditedGet(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await requirePermission("automation:manage");
     const { db } = getTenantDb();
@@ -67,3 +68,5 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("workflows/[id]",historicalAuditedGet);

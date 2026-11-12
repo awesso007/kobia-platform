@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Helpdesk tickets API (Sprint 15, authenticated). GET lists tickets with the
  * same filters as the admin UI; POST opens a new ticket. Both enforce
@@ -20,7 +21,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET(req: NextRequest) {
+async function historicalAuditedGet(req: NextRequest) {
   try {
     await requirePermission("record:read");
     const sp = req.nextUrl.searchParams;
@@ -69,3 +70,5 @@ export async function POST(req: NextRequest) {
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("helpdesk/tickets",historicalAuditedGet);

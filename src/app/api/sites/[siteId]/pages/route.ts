@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Site pages collection API (Sprint 17, authenticated). GET lists a site's
  * pages with block counts; POST creates a page. Guarded by RBAC, tenant via
@@ -19,7 +20,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { siteId: string } }) {
+async function historicalAuditedGet(_req: NextRequest, { params }: { params: { siteId: string } }) {
   try {
     await requirePermission("record:read");
     const { db } = getTenantDb();
@@ -48,3 +49,5 @@ export async function POST(req: NextRequest, { params }: { params: { siteId: str
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("sites/[siteId]/pages",historicalAuditedGet);

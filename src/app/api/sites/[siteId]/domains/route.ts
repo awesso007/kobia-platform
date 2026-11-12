@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Site domains API (Sprint 17, authenticated). GET lists a site's custom
  * domains; POST adds one (generating a verification token); DELETE removes one
@@ -20,7 +21,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { siteId: string } }) {
+async function historicalAuditedGet(_req: NextRequest, { params }: { params: { siteId: string } }) {
   try {
     await requirePermission("record:read");
     const { db } = getTenantDb();
@@ -62,3 +63,5 @@ export async function DELETE(req: NextRequest, { params: _params }: { params: { 
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("sites/[siteId]/domains",historicalAuditedGet);

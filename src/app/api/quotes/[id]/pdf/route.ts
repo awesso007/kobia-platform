@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Quote PDF download (Sprint 10). REQUIRES permission (record:read) - this is
  * the internal/authenticated route used by the builder's PDF button, not the
@@ -13,7 +14,7 @@ import { generateQuotePdfBuffer } from "@/app/app/(crm)/quotes/pdf";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+async function historicalAuditedGet(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await requirePermission("record:read");
     const { buffer, fileName } = await generateQuotePdfBuffer(params.id);
@@ -31,3 +32,5 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
   }
 }
+
+export const GET=withAuditedHistoricalGet("quotes/[id]/pdf",historicalAuditedGet);
