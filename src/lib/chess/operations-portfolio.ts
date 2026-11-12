@@ -104,6 +104,6 @@ export async function getChessPortfolioOperationsReport(input:unknown){
    "Invoice amounts are proposed invoice face values, not collected cash or GL revenue.",
    "Each business remains separate. Cross-entity eliminations and statutory consolidation are excluded.",
    "No client, account, property, health, tax-return or payroll detail is returned.",
-  ]  ]};
+  ]};
  });
 }
