@@ -24,7 +24,7 @@ describe("Round 47: machine cron authorization", () => {
     for (const candidate of [
       undefined, "", `Bearer ${secret}x`, `Bearer ${secret.slice(0, -1)}`,
       `Basic ${secret}`, `bearer ${secret}`, secret,
-      `Bearer  ${secret}`, `Bearer ${secret} `,
+      `Bearer  ${secret}`, `Bearer${secret}` // HTTP Headers normalizes trailing whitespace; test missing separator,
     ]) {
       expect(cronAuthorizationDecision(request(candidate), secret)).toBe("UNAUTHORIZED");
     }
