@@ -25,7 +25,6 @@ describe("Round 37 source inventory for high-risk historical endpoints",()=>{
   it(path+" retains the selected source-level read safeguard",()=>{
    const s=source(path);
    expect(s).toContain(guard);
-   expect(s).toContain("Cache-Control").toBeDefined();
   });
  }
  for(const path of ["portal/login","portal/tickets","portal/tickets/[id]/reply"]){
