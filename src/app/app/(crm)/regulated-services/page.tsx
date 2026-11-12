@@ -1,10 +1,11 @@
 import Link from "next/link";
-import {getTenantDb} from "@/lib/db/get-tenant-db";
+
 import {getCurrentMembership} from "@/lib/rbac/require-permission";
 import {listBusinessUnits} from "@/lib/chess/business-units";
+import {listChessAuthorizedRegulatedCases} from "@/lib/chess/regulated-case-directory";
 import {selectChessWorkspace} from "@/lib/chess/workspace-selection";
-import {getClientServiceLink} from "@/lib/client-profile/service";
-import {isUsableConsent} from "@/lib/chess/onboarding";
+
+
 import {listChessRegulatedAffiliations} from "@/lib/chess/regulated-affiliations";
 import AffiliationClient from "./AffiliationClient";
 import {listChessLicensesForReview} from "@/lib/chess/license-registry";
@@ -35,26 +36,8 @@ export default async function ChessRegulatedServicesPage({
   </Link>
  </main>;
  const chosen=workspace.selected;
- const {db}=getTenantDb();
- const rawCases=await db.chessServiceCase.findMany({where:{
-  businessId:chosen.id,service:{in:[
-   "MORTGAGE","INSURANCE","REAL_ESTATE","INVESTMENTS",
-  ]},status:"ACTIVE",
- },select:{id:true,clientProfileId:true,service:true,ownerClerkUserId:true},
-  orderBy:{createdAt:"desc"},take:100});
- const authorized:typeof rawCases=[];
- for(const item of rawCases){
-  try{
-   const grant=await getClientServiceLink(item.clientProfileId,chosen.id,item.service);
-   if(!grant)continue;
-   const consents=await db.chessClientConsent.findMany({where:{
-    businessId:chosen.id,clientProfileId:item.clientProfileId,
-    purpose:`service:${item.service}`,
-   },select:{status:true,expiresAt:true,consentedAt:true,acceptedByClerkUserId:true,
-    verifiedEmailDigest:true,acceptanceEvidenceDigest:true}});
-   if(consents.some(x=>isUsableConsent(x)))authorized.push(item);
-  }catch{/* A service without an explicit grant must not appear. */}
- }
+
+ const authorized=await listChessAuthorizedRegulatedCases(chosen.id);
  let licenseQueue:Awaited<ReturnType<typeof listChessLicensesForReview>>|null=null;
  let affiliations:Awaited<ReturnType<typeof listChessRegulatedAffiliations>>=[];
  if(["OWNER","ADMIN"].includes(member.role)){
