@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
 
   // Outbound-dial legs: bridge straight to the dialed party.
   if (direction === "OUTBOUND") {
-    return xml(generateTwiML({ dialNumber: peerE164, callerId: ourE164, recordingEnabled: true }));
+    return xml(generateTwiML({ dialNumber: peerE164, callerId: ourE164, recordingEnabled: true, tenantSlug: slug }));
   }
 
   // Inbound: consult the VOICE routing rule.
@@ -92,6 +92,7 @@ export async function POST(req: NextRequest) {
     return xml(
       generateTwiML({
         voicemailPrompt: cfg.voicemailPrompt || "Please leave a message after the tone.",
+        tenantSlug: slug,
       }),
     );
   }
@@ -99,6 +100,7 @@ export async function POST(req: NextRequest) {
     return xml(
       generateTwiML({
         voicemailPrompt: cfg.ivrPrompt || "Thanks for calling. Please leave a message and we will return your call.",
+        tenantSlug: slug,
       }),
     );
   }
@@ -109,5 +111,5 @@ export async function POST(req: NextRequest) {
     const pref = await db.userPreference.findUnique({ where: { clerkUserId: ourNumber.assignedClerkUserId } });
     if (pref?.callForwardingE164) dialTarget = pref.callForwardingE164;
   }
-  return xml(generateTwiML({ dialNumber: dialTarget, callerId: ourE164, recordingEnabled: true }));
+  return xml(generateTwiML({ dialNumber: dialTarget, callerId: ourE164, recordingEnabled: true, tenantSlug: slug }));
 }

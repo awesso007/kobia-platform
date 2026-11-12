@@ -55,6 +55,20 @@ function appBaseUrl(): string {
   return "http://localhost:3000";
 }
 
+/**
+ * A signed Twilio URL must select an explicit active tenant; never create
+ * provider callbacks targeting a default tenant or an unscoped route.
+ */
+export function twilioTenantCallbackUrl(path: string, tenantSlug: string | undefined): string {
+  if (!tenantSlug || !/^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/.test(tenantSlug))
+    throw new Error("Explicit safe tenant slug required for provider callback");
+  if (!/^\/api\/webhooks\/twilio\/(?:sms(?:\/status)?|voice\/(?:incoming|status|recording))$/.test(path))
+    throw new Error("Unrecognized Twilio callback endpoint");
+  const url = new URL(path, appBaseUrl());
+  url.searchParams.set("tenant", tenantSlug);
+  return url.toString();
+}
+
 export type NumberCapabilities = { voice: boolean; sms: boolean; mms: boolean };
 
 export type AvailableNumber = {
@@ -105,16 +119,15 @@ export type PurchasedNumber = {
 };
 
 /** Buy a number and point its voice + SMS webhooks at this app. */
-export async function buyNumber(e164: string): Promise<PurchasedNumber> {
+export async function buyNumber(e164: string, tenantSlug: string): Promise<PurchasedNumber> {
   const c = await client();
-  const base = appBaseUrl();
   const bought = await c.incomingPhoneNumbers.create({
     phoneNumber: e164,
-    voiceUrl: `${base}/api/webhooks/twilio/voice/incoming`,
+    voiceUrl: twilioTenantCallbackUrl("/api/webhooks/twilio/voice/incoming", tenantSlug),
     voiceMethod: "POST",
-    statusCallback: `${base}/api/webhooks/twilio/voice/status`,
+    statusCallback: twilioTenantCallbackUrl("/api/webhooks/twilio/voice/status", tenantSlug),
     statusCallbackMethod: "POST",
-    smsUrl: `${base}/api/webhooks/twilio/sms`,
+    smsUrl: twilioTenantCallbackUrl("/api/webhooks/twilio/sms", tenantSlug),
     smsMethod: "POST",
   });
   return {
@@ -134,7 +147,7 @@ export async function releaseNumber(sid: string): Promise<void> {
   await c.incomingPhoneNumbers(sid).remove();
 }
 
-export type SendSmsInput = { from: string; to: string; body: string; mediaUrls?: string[] };
+export type SendSmsInput = { from: string; to: string; body: string; mediaUrls?: string[]; tenantSlug?: string };
 
 export async function sendSms(input: SendSmsInput): Promise<{ sid: string; status: string }> {
   const c = await client();
@@ -143,12 +156,12 @@ export async function sendSms(input: SendSmsInput): Promise<{ sid: string; statu
     to: input.to,
     body: input.body,
     ...(input.mediaUrls && input.mediaUrls.length > 0 ? { mediaUrl: input.mediaUrls } : {}),
-    statusCallback: `${appBaseUrl()}/api/webhooks/twilio/sms/status`,
+    statusCallback: twilioTenantCallbackUrl("/api/webhooks/twilio/sms/status", input.tenantSlug),
   });
   return { sid: msg.sid, status: msg.status };
 }
 
-export type OutboundCallInput = { from: string; to: string; recordingEnabled?: boolean };
+export type OutboundCallInput = { from: string; to: string; recordingEnabled?: boolean; tenantSlug?: string };
 
 /**
  * Place an outbound call. The call dials `to`; TwiML served at the dial webhook
@@ -156,15 +169,14 @@ export type OutboundCallInput = { from: string; to: string; recordingEnabled?: b
  */
 export async function createOutboundCall(input: OutboundCallInput): Promise<{ sid: string; status: string }> {
   const c = await client();
-  const base = appBaseUrl();
   const call = await c.calls.create({
     from: input.from,
     to: input.to,
-    url: `${base}/api/webhooks/twilio/voice/incoming`,
-    statusCallback: `${base}/api/webhooks/twilio/voice/status`,
+    url: twilioTenantCallbackUrl("/api/webhooks/twilio/voice/incoming", input.tenantSlug),
+    statusCallback: twilioTenantCallbackUrl("/api/webhooks/twilio/voice/status", input.tenantSlug),
     statusCallbackMethod: "POST",
     statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
-    ...(input.recordingEnabled ? { record: true, recordingStatusCallback: `${base}/api/webhooks/twilio/voice/recording` } : {}),
+    ...(input.recordingEnabled ? { record: true, recordingStatusCallback: twilioTenantCallbackUrl("/api/webhooks/twilio/voice/recording", input.tenantSlug) } : {}),
   });
   return { sid: call.sid, status: call.status };
 }
@@ -178,6 +190,7 @@ export type TwiMLDialOptions = {
   recordingEnabled?: boolean;
   /** When set, falls back to voicemail prompt + record instead of dialing. */
   voicemailPrompt?: string;
+  tenantSlug?: string;
 };
 
 /**
@@ -190,7 +203,7 @@ export function generateTwiML(opts: TwiMLDialOptions): string {
   const parts: string[] = ['<?xml version="1.0" encoding="UTF-8"?>', "<Response>"];
   if (opts.voicemailPrompt) {
     parts.push(`<Say>${esc(opts.voicemailPrompt)}</Say>`);
-    parts.push(`<Record maxLength="120" playBeep="true" recordingStatusCallback="/api/webhooks/twilio/voice/recording" />`);
+    parts.push(`<Record maxLength="120" playBeep="true" recordingStatusCallback="${esc(twilioTenantCallbackUrl("/api/webhooks/twilio/voice/recording", opts.tenantSlug))}" />`);
   } else {
     const dialAttrs: string[] = [];
     if (opts.callerId) dialAttrs.push(`callerId="${esc(opts.callerId)}"`);

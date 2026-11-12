@@ -25,6 +25,7 @@ export type SendSmsInput = {
   mediaUrls?: string[];
   contactId?: string | null;
   leadId?: string | null;
+  tenantSlug?: string;
 };
 
 export type SendSmsResult = {
@@ -85,7 +86,7 @@ export async function sendAndRecordSms(input: SendSmsInput, injectedDb?: Db): Pr
   let sendError: string | null = null;
   if (isConfigured()) {
     try {
-      const res = await twilioSendSms({ from, to, body: input.body, mediaUrls: input.mediaUrls });
+      const res = await twilioSendSms({ from, to, body: input.body, mediaUrls: input.mediaUrls, tenantSlug: input.tenantSlug ?? (injectedDb ? undefined : getTenantDb().tenantId) });
       sid = res.sid;
     } catch (err) {
       sendError = String(err instanceof Error ? err.message : err);

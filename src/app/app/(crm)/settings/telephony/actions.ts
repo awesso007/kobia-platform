@@ -67,10 +67,10 @@ export async function searchAvailableNumbers(input: { areaCode?: string; contain
 
 export async function buyPhoneNumber(e164: string): Promise<{ ok: boolean; id?: string; error?: string }> {
   await requirePermission("telephony:manage");
-  const { db } = getTenantDb();
+  const { db, tenantId } = getTenantDb();
   if (!isConfigured()) return { ok: false, error: "Twilio not configured." };
   try {
-    const bought = await twilioBuy(e164);
+    const bought = await twilioBuy(e164, tenantId);
     const row = await db.phoneNumber.create({
       data: {
         e164: bought.e164,
