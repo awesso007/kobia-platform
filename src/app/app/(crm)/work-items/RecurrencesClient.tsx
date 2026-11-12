@@ -1,5 +1,5 @@
 "use client";
-import {useState} from "react";
+import React,{useState} from "react";
 type Recurrence={
  id:string;title:string;frequency:"DAILY"|"WEEKLY"|"MONTHLY";interval:number;
  active:boolean;nextRunAt:string;lastRunAt:string|null;lastInspectedAt:string|null;
