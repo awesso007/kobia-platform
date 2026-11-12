@@ -412,7 +412,7 @@ export async function executeChessApprovedBankPosting(input:unknown){
  if(!bank||bank.glAccountId!==txn.bankAccount.glAccountId||!entity||!offset||
   !bankGl||!bankGlAccountMatchesType(bank.accountType,bankGl.type))
   throw new PermissionError("record:update");
- const preview=createBankPostingPreview(review,{
+ createBankPostingPreview(review,{
   id:txn.id,bankAccountGlId:bank.glAccountId,amountCents:txn.amountCents,
   status:txn.status,fingerprint:bankTransactionFingerprint(
    txn,state.legacyTenantId,state.legacyEntityId),
