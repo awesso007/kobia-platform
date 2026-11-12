@@ -83,7 +83,7 @@ test("Round 40 employee and client workflow suite runs only in protected Clerk d
   const config=readFileSync("playwright.config.mjs","utf8");
   const source=readFileSync("e2e/chess-demo-employee-client.spec.mjs","utf8");
   const workflow=readFileSync(".github/workflows/chess-demo-browser-e2e.yml","utf8");
-  assert.match(config,/chess-demo\(\?:-employee-client\)\?/);
+  assert.match(config,/chess-demo\(\?:-\(\?:employee-client\|round46\)\)\?/);
   assert.match(config,/assertSafeChessDemoBrowserEnvironment/);
   assert.match(workflow,/environment: chess-demo-e2e/);
   assert.match(workflow,/npm run test:e2e/);
