@@ -950,9 +950,7 @@ integration("CHESS CORP 2 tenant PostgreSQL integration",()=>{
     linkId_clerkUserId:{linkId:linked[0]!.id,clerkUserId:staff},
    }}))?.revokedAt).not.toBeNull();
   }finally{
-   await db.chessSecurityEvent.deleteMany({where:{
-    businessId:unit.id,action:"EMPLOYEE_ASSIGNMENT_AND_GRANTS_REVOKED",
-   }});
+   // Audit security events are immutable: leave the synthetic proof in CI.
    await db.clientServiceLink.deleteMany({where:{
     profileId:profile.id,
    }});
