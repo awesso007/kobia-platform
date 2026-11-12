@@ -6,7 +6,8 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { getTenantDb, NoTenantError } from "@/lib/db/get-tenant-db";
-import { requirePermission, PermissionError } from "@/lib/rbac/require-permission";
+import { requirePermission, getCurrentMembership, PermissionError } from "@/lib/rbac/require-permission";
+import {auditedHistoricalTenantRead} from "@/lib/chess/historical-sensitive-read";
 import { getRun } from "@/lib/workflows/queries";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,14 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string;
   try {
     await requirePermission("automation:manage");
     const { db } = getTenantDb();
-    const run = await getRun(db, params.id, params.runId);
+    const member=await getCurrentMembership();
+    if(!member)throw new PermissionError("record:read");
+    const run=await auditedHistoricalTenantRead(db,{
+      actorClerkUserId:member.clerkUserId,
+      action:"HISTORICAL_WORKFLOW_RUN_DETAIL_READ",
+      resourceType:"WorkflowRun",resourceId:params.runId,
+      allowedRoles:["OWNER","ADMIN"],
+    },tx=>getRun(tx,params.id,params.runId));
     if (!run) return NextResponse.json({ ok: false, error: "Not found." }, { status: 404 });
     return NextResponse.json({ ok: true, run });
   } catch (err) {
