@@ -28,7 +28,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "postinstall": "prisma generate && prisma generate --schema=prisma/platform/schema.prisma && prisma generate --schema=prisma/tenant/schema.prisma",
     "demo:setup": "node --env-file=.env.local --import tsx scripts/chess-demo-setup.ts",
-    "demo:verify": "node --env-file=.env.local --import tsx scripts/chess-demo-verify.ts"
+    "demo:verify": "node --env-file=.env.local --import tsx scripts/chess-demo-verify.ts",
+    "test:e2e": "node --env-file=.env.local ./node_modules/@playwright/test/cli.js test --config=playwright.config.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1063.0",
