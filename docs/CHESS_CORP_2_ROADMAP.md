@@ -8,9 +8,74 @@ business-operations layer within an isolated KOBIA tenant, not an assertion
 that a single legal entity holds all operating licenses.
 
 
+## CURRENT / AUTHORITATIVE — Round 24 milestone status, November 11, 2026
+
+**Source of truth for M1–M8 through Round 23 code:** draft
+[PR #24](https://github.com/awesso007/kobia-platform/pull/24),
+branch `feature/operations-overview` at verified source SHA
+`5b653a9fd92b8fe0cebb0272862eadc881f8cde9` ([CI
+43136509383](https://github.com/awesso007/kobia-platform/actions/runs/43136509383)).
+All **three** jobs completed/succeeded: `build` (lint, typecheck, unit
+tests, Next.js build, security smoke), `chess-db-integration` (real
+disposable tenant PostgreSQL migration/integration, isolated demo seed) and
+`chess-legacy-ledger-integration` (real disposable legacy PostgreSQL
+posting, concurrency, replay and closed-period rollback). This is **code
+verification**, not evidence of deployed services, actual provider contracts,
+legally binding e-signatures, licensed capacity, real money settlement,
+privacy acceptance or production authorization. Round 24 is a
+documentation/consolidation update; confirm CI separately at its own head SHA.
+
+**Overall: 8/8 milestones have partial development implementation;
+0/8 have passed every required production release gate. The entire
+CHESS CORP 2 BUILD remains INCOMPLETE / NOT APPROVED FOR PRODUCTION.**
+This status explicitly supersedes the Round 14 table and all dated,
+historical "not implemented" statements further down this file.
+
+**ONE canonical owner-supplied list:** [Round 24 external inputs,
+credentials and approvals](CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md).
+Do not treat prior round-by-round inputs as additional lists; those are
+implementation history only. Never share actual keys in chat, GitHub
+PRs/issues or source control. Inject secrets through a protected vault
+or approved GitHub environment after the responsible reviewer signs off.
+
+| Milestone | Verified development implementation (on Round 23 SHA) | What is still not complete / independently verified | Source item IDs | Production release |
+| --- | --- | --- | --- | --- |
+| **M1 · Shared profile and permissions** | Tenant-local CHESS profiles, service links, direct staff grants/revocation, protected employee screens; append-only, atomic service-link allow/deny audits and selected regulated/bank/portfolio sensitive read audits in tenant PostgreSQL | Full **all-sensitive-path** audit/retention, signed-in two-tenant/two-business role tests, privacy/legal approval for information sharing; cross-tenant identity matching deliberately **DEFERRED** | M1-01–03; checklist 02,03,15,17,18 | **PARTIAL CODE / RELEASE BLOCKED** |
+| **M2 · Business units and staff** | Isolated business units, employee assignment and revocation, owner/admin screens, role/licensing/affiliation gateway validators | Verified actual legal entities/ownership, licensed employer/firm sponsorship, official professional verification and employee/grant revocation in authenticated staging | M2-01–03; checklist 02,03,10,17,18 | **PARTIAL CODE / RELEASE BLOCKED** |
+| **M3 · Client consent, onboarding, documents** | Version/purpose scoped consent, verified Clerk-email client portal (default OFF), HMAC acceptance metadata, immutable PostgreSQL consent evidence, withdrawal/expiry checks, private version-pinned document upload/quarantine/CLEAN-only downloads, write-once retention/hold/suppression metadata, tests; Round 23 strengthens fail-closed historical withdrawn grants | Approved enforceable e-sign vendor and exact disclosure text; client login, consent race/expiry/withdrawal E2E; actual private S3/KMS/WORM/ClamAV outcomes, hold release/erasure legal policy, historical migration and backup/rollback rehearsal | M3-01–07; checklist 02,04,05,16,17,18 | **PARTIAL CODE / RELEASE BLOCKED** |
+| **M4 · Workflows, calendars and scheduling** | Employee work queue, manager reassignment/escalation, recurrences, alerts, appointments with PostgreSQL overlap exclusion, private employee calendar consent and delegated OAuth gateway/outbox; safe UNKNOWN/cancel reconciliation, bounded paging/worker health, **241-appointment PostgreSQL** regression | Actual delegated Google/Microsoft calendar gateway create/status/cancel, scheduled deployment and paging, employee communication privacy/cancellation E2E and provider sandbox; cross-tenant calendar conflict detection intentionally **DEFERRED** | M4-01–08; checklist 02,03,06,15,17,18 | **PARTIAL CODE / RELEASE BLOCKED** |
+| **M5 · Accounting, bookkeeping, payroll, tax** | Case-to-existing-entity and approved service mapping, USD bank feed normalized import/review, read-only balanced GL previews; default-OFF, three-person manual bank posting path with isolated PostgreSQL balanced JE/replay/concurrency/closed-period tests; tax workpaper snapshot reviews; certified-gated payroll dispatch/status and **server-bound POSTED-run request/reviewer/operator** approvals with PostgreSQL source uniqueness, audit provenance and consent rechecks | **No certified** real bank/Plaid source + webhooks/reconciliation, production GL settlement/reversal and cross-database consent race proof, certified payroll calculations/ACH/tax payment/wage receipt, actual return prep/e-file, professional and finance signoff; no live funding/filing approval | M5-01–06; checklist 07–09,14,16–18 | **PARTIAL CODE / LIVE FINANCIAL EXECUTION OFF** |
+| **M6 · Mortgage, insurance, real estate, investments** | Official-source credential and active affiliation validation adapters, service/handoff-specific consent, 3-person workflow/checklists, opaque service-specific partner coordination (not a regulated transaction), idempotent UNKNOWN reconciliation; Round 23 strict tenant/business/case/workflow/service/partner remote receipt matching | Official NMLS/DOI/DRE/FINRA/SEC/CRD/IARD evidence and firm sponsorship as applicable, four certified partner IDs and scoped APIs, actual licensed origination/binding/agency/investment execution systems, signed sector disclosures and responsible licensed supervision | M6-01–06; checklist 03,04,10,11,17,18 | **PARTIAL COORDINATION CODE / REGULATED EXECUTION OFF** |
+| **M7 · AI, invoices, billing, financial reporting** | Minimal metadata-only AI triage with daily budget and independent human review, task follow-up only; consent-bound invoice draft/review/delivery/status adapters, vendor-signed merchant **observations** only; default-OFF monthly **DRAFT-only** subscriptions with 500-plan bounded scan/backlog 503; operational aggregates and separately approved immutable monthly operational snapshots | Contracted AI cost/DPA and tests; merchant charge/settlement/refund/chargeback or true revenue posting; certified invoice and payment vendor; audited general-ledger close, intercompany consolidation, bank cash reconciliation, statutory GAAP/IFRS financials and independent accountant/counsel signoff | M7-01–06; checklist 12–14,15,17,18 | **PARTIAL CODE / REAL MONEY AND STATUTORY REPORTING OFF** |
+| **M8 · Security, testing, recovery and deployment** | Versioned migrations; append-only audit/consent/retention DB controls; role/rate/CSRF guards; CI **3 green jobs** at Round 23 SHA; manual-only staging, two-tenant auth E2E, DR/restore and sandbox validation scripts; tenant-only owner/admin security/worker dashboard and signed health monitoring adapter | **Actual** private HTTPS staging at pinned SHA, real verified Clerk role/e-sign client sessions, full sensitive-read audit and independent WORM receipt, least-privilege vault rotation, live encrypted PITR and witnessed RPO/RTO, load/pen/accessibility tests, external incident pager/runbook, security/legal/licensing/privacy signoffs and actual authorized go/no-go | M8-01–12; checklist 02–05,15–18 | **PARTIAL CODE / NO STAGING ACCEPTANCE OR RELEASE AUTHORIZATION** |
+
+### Precise remaining work (code vs real-world dependencies)
+
+- **Code + independent evidence still outstanding:** all-path sensitive-access audits and privacy-limited immutable external archival; complete client portal/e-sign and document hold-release/erasure policy implementation; end-to-end tested two-tenant identity/consent/grant-revocation; source/legacy cross-database approval and consent revocation races; provider settlement/reconciliation/refunds/tax filing; qualified financial close/consolidation; automation monitoring/worker alerting; role/accessibility/security performance fixes found during the real pilot.
+- **Externally blocked even with perfect CI:** legal entity/staff/sponsorship verification, provider onboarding and sandbox API credentials, approved e-sign/retention/DPA, distinct true practitioner licenses and firm memberships, private S3/KMS/ClamAV/WORM, bank/merchant/AI/calendar/payroll gateways, actual restore and recorded RTO/RPO, real browser sessions, third-party penetration/a11y/security review, authorized deployment/rollback and signed release owner.
+- **Safe deferrals:** optional cross-tenant person matching (M1-01), cross-tenant shared appointment conflict service (M4-07), and optional outbound SMS/email; these are **not** secretly turned on or counted as accomplished.
+- **Financial/regulated truth constraints:** bank posting and provider activations must stay default-OFF; a **POSTED** ledger run is not paid payroll, an invoice **SENT** or merchant observation is not collected cash, an AI suggestion is not a posted GL action, and a regulated handoff **SUBMITTED** is not a signed loan, bound policy, executed real estate transaction or securities trade.
+- **Deployment constraint:** keep PR #24 **draft and unmerged**, with `main`/the current production Vercel deployment unchanged until a separately scoped, human-signed cutover is authorized.
+
+### Release progress accounting
+
+| Verification type | Measured result | Interpretation |
+| --- | --- | --- |
+| Last inspected code baseline: Round 23 GitHub Actions | **3 of 3 jobs PASS** at the cited SHA | Tests of committed implementation, including disposable PostgreSQL |
+| Verified real provider onboarding / test tenant acceptance | **Not established** by source and GitHub CI | Must obtain owner/provider evidence on checklist |
+| Independently authorized milestones | **0 / 8** | Every milestone has at least one unresolved production gate |
+| Authorized production deployment | **NO** | No merge, production credential activation or cutover authorized |
+
+**Old implementation history begins below.** The older Round 14/earlier
+tables intentionally remain for development traceability only. For what to
+supply, always use the **single Round 24 owner-supply checklist**, not
+multiple overlapping round notes.
+
+---
+
 ## Verified milestone status — Round 14 reconciliation (2026-11-11)
 
-**Authoritative current status.** The original M1-M8 milestone summaries
+**Historical Round 14 snapshot, superseded by the Round 24 status above.** The original M1-M8 milestone summaries
 immediately below are historical baseline notes, NOT current feature
 inventories. Later rounds supersede their "not implemented" statements.
 This table reconciles the branch through Round 13 against committed code
