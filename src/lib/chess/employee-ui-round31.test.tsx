@@ -16,7 +16,7 @@ describe("Round 31 manager financial exception and recurrence screens",()=>{
     updatedAt:"2026-11-11T04:16:00Z"}]}/>);
   expect(html).toContain("2 execution or UNKNOWN attempt(s)");
   expect(html).toContain("2026-11-11 04:15 UTC");
-  expect(html).toContain("not a bank balance");
+  expect(html).toContain("settlement is not proven");
   expect(html).toContain("Do not retry an ambiguous bank posting");
   expect(html).toContain("This monitoring screen cannot execute");
   expect(html).not.toContain("Post approved journal");
