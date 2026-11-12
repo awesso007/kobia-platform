@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {listBusinessUnits} from "@/lib/chess/business-units";
+import {selectChessWorkspace} from "@/lib/chess/workspace-selection";
 import {listChessActionApprovals} from "@/lib/chess/approvals";
 import ApprovalClient from "./ApprovalClient";
 
@@ -12,11 +13,19 @@ export default async function ChessActionApprovalPage({
  try{businesses=await listBusinessUnits();}
  catch{return <main role="alert" className="mx-auto max-w-4xl p-8">
   Approval workspace unavailable or access denied.</main>;}
- const selected=businesses.find(b=>b.id===searchParams.businessId)??businesses[0];
- if(!selected)return <main className="mx-auto max-w-4xl space-y-4 p-8">
-  <h1 className="text-2xl font-semibold">Action approvals</h1>
-  <p>No active business-unit assignment is available.</p>
+ const workspace=selectChessWorkspace(businesses,searchParams.businessId);
+ if(workspace.status!=="READY")return <main role="status" className="mx-auto max-w-4xl space-y-4 p-8">
+  <h1 className="text-2xl font-semibold">Action approvals unavailable</h1>
+  <p className="text-sm text-slate-700">
+   {workspace.status==="UNAVAILABLE"?
+    "The requested business is not currently assigned to you.":
+    "No active business-unit assignment is available. Ask your administrator to assign a workspace."}
+  </p>
+  <Link href="/app/chess-desk" className="text-sm font-semibold text-emerald-800 underline">
+   Return to service desk
+  </Link>
  </main>;
+ const selected=workspace.selected;
  let rows:Awaited<ReturnType<typeof listChessActionApprovals>>=[];
  try{rows=await listChessActionApprovals(selected.id);}
  catch{return <main role="alert" className="mx-auto max-w-4xl p-8">
