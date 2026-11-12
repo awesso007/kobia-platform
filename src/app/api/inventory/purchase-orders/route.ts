@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Purchase orders collection API (Sprint 20, authenticated). GET lists POs
  * (optional status filter); POST creates a DRAFT PO with line items and computed
@@ -19,7 +20,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET(req: NextRequest) {
+async function historicalAuditedGet(req: NextRequest) {
   try {
     await requirePermission("inventory:manage");
     const { db } = getTenantDb();
@@ -61,3 +62,5 @@ export async function POST(req: NextRequest) {
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("inventory/purchase-orders",historicalAuditedGet);

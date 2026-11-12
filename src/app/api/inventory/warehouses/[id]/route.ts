@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Single warehouse API (Sprint 20, authenticated). GET returns the warehouse
  * plus its stock rows; PATCH updates it; DELETE removes it (cascade of stock
@@ -19,7 +20,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+async function historicalAuditedGet(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await requirePermission("inventory:manage");
     const { db } = getTenantDb();
@@ -67,3 +68,5 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("inventory/warehouses/[id]",historicalAuditedGet);

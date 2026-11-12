@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Stock movements API (Sprint 20, authenticated). GET returns a paginated,
  * filterable slice of the movement ledger. RBAC inventory:manage.
@@ -17,7 +18,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET(req: NextRequest) {
+async function historicalAuditedGet(req: NextRequest) {
   try {
     await requirePermission("inventory:manage");
     const { db } = getTenantDb();
@@ -37,3 +38,5 @@ export async function GET(req: NextRequest) {
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("inventory/movements",historicalAuditedGet);

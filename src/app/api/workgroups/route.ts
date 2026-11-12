@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Workgroups collection API (Sprint 22, authenticated). GET returns the current
  * user's groups plus discoverable groups; POST creates a new group (and its
@@ -17,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 const VISIBILITIES: WorkgroupVisibility[] = ["PUBLIC", "PRIVATE", "SECRET"];
 
-export async function GET() {
+async function historicalAuditedGet() {
   try {
     await requirePermission("record:read");
     const { db } = getTenantDb();
@@ -64,3 +65,5 @@ export async function POST(req: NextRequest) {
     return failWorkgroup(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("workgroups",historicalAuditedGet);

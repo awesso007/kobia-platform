@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Vendors collection API (Sprint 20, authenticated). GET lists vendors; POST
  * creates a vendor. RBAC inventory:manage.
@@ -18,7 +19,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET() {
+async function historicalAuditedGet() {
   try {
     await requirePermission("inventory:manage");
     const { db } = getTenantDb();
@@ -57,3 +58,5 @@ export async function POST(req: NextRequest) {
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("inventory/vendors",historicalAuditedGet);
