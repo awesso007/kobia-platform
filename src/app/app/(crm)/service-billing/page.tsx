@@ -59,7 +59,7 @@ export default async function ServiceBillingPage({searchParams}:{
      updatedAt:i.updatedAt.toISOString()}))}
     suggestions={[]} tasks={[]} aiReady={false}
     billingReady={billingProviderConfigured()}/>
-   <RecurringPlansPanel businessId={selected.id} cases={cases}
+   <RecurringPlansPanel key={selected.id} businessId={selected.id} cases={cases}
     schedulerEnabled={recurringInvoiceDraftsEnabled()}
     plans={plans.map(p=>({
      ...p,nextDraftAt:p.nextDraftAt.toISOString(),
