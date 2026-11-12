@@ -15,7 +15,8 @@ const action=z.discriminatedUnion("action",[
  z.object({...base,action:z.literal("SUPPRESS")}).strict(),
  z.object({...base,action:z.literal("SET_RETENTION"),
   retainUntil:z.string().datetime()}).strict(),
- z.object({...base,action:z.literal("REDACTION_APPROVE")}).strict(),
+ z.object({...base,action:z.literal("REDACTION_APPROVE"),
+  reviewedContent:z.literal(true)}).strict(),
  z.object({...base,action:z.literal("REQUEST_DELETE")}).strict(),
  z.object({...base,action:z.literal("APPROVE_DELETE")}).strict(),
  z.object({...base,action:z.literal("REJECT_DELETE")}).strict(),
@@ -112,8 +113,19 @@ export async function updateChessDocumentLifecycle(input:unknown){
    if(current.revisionKind!=="REDACTED"||current.status!=="QUARANTINED"||
      !current.replacesDocumentId||!current.verifiedAt||
      !current.checksumSha256||
-     current.uploadedByClerkUserId===actor.clerkUserId)
+     current.uploadedByClerkUserId===actor.clerkUserId||
+     current.supersededAt||current.suppressedAt)
     throw new PermissionError("record:update");
+   // The reviewer must have requested the exact quarantined derivative through
+   // the secure review proxy AFTER the clean scan was committed. A mere UI
+   // confirmation or upload by the original creator never satisfies this.
+   const reviewed=await tx.chessSecurityEvent.findFirst({where:{
+    businessId:data.businessId,actorClerkUserId:actor.clerkUserId,
+    action:"DOCUMENT_REDACTION_REVIEW_CONTENT_READ",
+    resourceType:"ChessClientDocument",resourceId:data.documentId,
+    decision:"ALLOW",occurredAt:{gte:current.verifiedAt},
+   },select:{id:true}});
+   if(!reviewed)throw new PermissionError("record:update");
    // Publishing a checked, scanned derivative atomically disables the original
    // for all authenticated downloads. The original remains for legal holds.
    const parent=await tx.chessClientDocument.updateMany({where:{
