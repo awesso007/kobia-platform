@@ -10,6 +10,22 @@
 # P0 fictional demo is a SEPARATE database and Clerk test instance, documented
 # in README. Do NOT use a demo database to test real payments/tax/regulated work.
 
+# Round 46 manual PROTECTED FICTIONAL browser E2E ONLY.
+# Supply values as protected GitHub Environment 'chess-demo-e2e' secrets/vars,
+# not an .env file committed to the repository and never in production.
+# Workflow secret DATABASE_URL must target non-pooled Neon chess_demo ONLY,
+# TLS sslmode=require; the existing CLERK_SECRET_KEY, and the separate
+# GitHub secret CLERK_PUBLISHABLE_KEY, must both be development/test keys.
+# GitHub vars (three DISTINCT verified test identities from that same Clerk app):
+# CHESS_DEMO_OWNER_EMAIL=
+# CHESS_DEMO_EMPLOYEE_EMAIL=
+# CHESS_DEMO_CLIENT_EMAIL=
+# CHESS_DEMO_E2E_BASE_URL=http://127.0.0.1:3000  # pinned local only
+# CHESS_DEMO_MODE=true    # ONLY in isolated development browser workflow
+# NEXT_PUBLIC_DEFAULT_TENANT=chess-demo  # ONLY protected test workflow
+# The workflow requires manual confirm_isolated_demo=true; never auto-run.
+# Normal CI tests syntax and disposable seeded PostgreSQL, not Clerk browsers.
+
 # P1 tenant HTTPS app, separate runtime/migration PostgreSQL, Clerk TEST app
 # DATABASE_URL=
 # DIRECT_URL=
