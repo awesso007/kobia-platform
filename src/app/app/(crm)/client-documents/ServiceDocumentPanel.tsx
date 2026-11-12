@@ -134,10 +134,15 @@ export default function ServiceDocumentPanel({businessId,clientProfileId,service
    // A preview is opened from the already-authorized private response.
    // The original storage URL is never exposed to this browser.
    const view=URL.createObjectURL(bytes);
-   const win=window.open(view,"_blank","noopener,noreferrer");
-   if(!win){URL.revokeObjectURL(view);
-    throw new Error("Allow a new tab to inspect the redacted document.");}
-   setMessage("Review the complete redacted file, including metadata and hidden layers. Then independently attest to the review before approval.");
+   const anchor=document.createElement("a");
+   anchor.href=view;anchor.target="_blank";anchor.rel="noopener noreferrer";
+   anchor.download=""; // Intentionally no auto-download: reviewer chooses inspection.
+   anchor.removeAttribute("download");
+   anchor.click();
+   // Leave the blob alive long enough for the newly opened document viewer
+   // to consume it. It is not a durable bearer S3 URL.
+   window.setTimeout(()=>URL.revokeObjectURL(view),120000);
+   setMessage("Inspect the complete redacted file, including metadata and hidden layers. Then independently attest to the review before approval.");
   }catch(e){setError(e instanceof Error?e.message:"Redaction review unavailable.");}
   finally{setLoadingId("");}
  }
