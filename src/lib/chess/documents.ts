@@ -86,11 +86,11 @@ export async function confirmChessDocumentUpload(documentId:string,businessId:st
  return {status:"QUARANTINED" as const};
 }
 
-/** Downloads are available only after a trusted malware scan declares READY.
- * The presigned URL is short-lived and requires an explicit service grant. */
-export async function getChessDocumentDownload(
- documentId:string,businessId:string,clientProfileId:string,service:z.infer<typeof request>["service"],
-) {
+async function authorizedChessDocumentDownload(
+ documentId:string,businessId:string,clientProfileId:string,
+ service:z.infer<typeof request>["service"],
+ auditAction:"DOCUMENT_DOWNLOAD_ROUTE_ISSUED"|"DOCUMENT_DOWNLOAD_READ",
+){
  const member=await getCurrentMembership();
  if(!member || member.status!=="ACTIVE")throw new PermissionError("record:read");
  const link=await getClientServiceLink(clientProfileId,businessId,service);
@@ -107,13 +107,12 @@ export async function getChessDocumentDownload(
  const pinned=await s3.headObject(document.storageKey,document.storageVersionId);
  if(!matchesPinnedDocument(document,pinned))
   throw new PermissionError("record:read");
- // Audit the final source-version and current grant+purpose consent together.
- // No presigned URL is returned if the transactional audit fails. Already
- // issued S3 URLs remain valid for at most their independent 60-second TTL.
+
+ // Authorization, latest consent, suppression and pinned-version metadata
+ // are checked in the same SERIALIZABLE transaction as the audit event.
  await auditedChessSensitiveRead(db,{
   businessId,actorClerkUserId:member.clerkUserId,
-  action:"DOCUMENT_DOWNLOAD_READ",resourceType:"ChessClientDocument",
-  resourceId:documentId,
+  action:auditAction,resourceType:"ChessClientDocument",resourceId:documentId,
  },async tx=>{
   const authorized=await authorizeChessDocumentService(tx,{
    businessId,clientProfileId,service,actorClerkUserId:member.clerkUserId,
@@ -127,10 +126,52 @@ export async function getChessDocumentDownload(
    latest?.storageVersionId===document.storageVersionId&&
    latest.storageETag===document.storageETag?true:null;
  });
- const url=await s3.createPresignedDownloadUrl(document.storageKey,{
-  expiresIn:60,contentDisposition:"attachment",versionId:document.storageVersionId,
- });
- return {url,expiresInSeconds:60};
+ return {document,member};
+}
+
+/** The returned URL is an authenticated application route, never a bearer S3 URL. */
+export function chessDocumentDownloadPath(
+ documentId:string,businessId:string,clientProfileId:string,
+ service:z.infer<typeof request>["service"],
+):string{
+ const query=new URLSearchParams({businessId,clientProfileId,service});
+ return \`/api/chess/documents/\${encodeURIComponent(documentId)}/download?\${query.toString()}\`;
+}
+
+/** Returns a same-origin route. The actual bytes are streamed only after the
+ * proxy repeats membership, grant, consent, retention and pinned-version checks. */
+export async function getChessDocumentDownload(
+ documentId:string,businessId:string,clientProfileId:string,
+ service:z.infer<typeof request>["service"],
+){
+ await authorizedChessDocumentDownload(
+  documentId,businessId,clientProfileId,service,"DOCUMENT_DOWNLOAD_ROUTE_ISSUED");
+ return {url:chessDocumentDownloadPath(documentId,businessId,clientProfileId,service),
+  expiresInSeconds:0};
+}
+
+/** Reauthorize every download request and stream the exact pinned S3 version.
+ * Previously issued presigned URLs are no longer created by this code path. */
+export async function streamChessDocumentDownload(
+ documentId:string,businessId:string,clientProfileId:string,
+ service:z.infer<typeof request>["service"],
+){
+ const {document}=await authorizedChessDocumentDownload(
+  documentId,businessId,clientProfileId,service,"DOCUMENT_DOWNLOAD_READ");
+ const body=await s3.getObjectBody(document.storageKey,document.storageVersionId!);
+ return {
+  stream:body.transformToWebStream(),
+  fileName:document.fileName,
+  mimeType:document.mimeType,
+  actualBytes:document.actualBytes,
+ };
+}
+
+export function safeChessAttachmentDisposition(fileName:string):string{
+ const ascii=fileName.replace(/[\\r\\n"\\\\]/g,"_").replace(/[^\\x20-\\x7e]/g,"_")||"download";
+ const encoded=encodeURIComponent(fileName).replace(/[!'()*]/g,
+  char=>"%"+char.charCodeAt(0).toString(16).toUpperCase());
+ return \`attachment; filename="\${ascii}"; filename*=UTF-8''\${encoded}\`;
 }
 
 
