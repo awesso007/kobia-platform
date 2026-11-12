@@ -63,6 +63,34 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS CORP 2 Round 41 — safe recovery of ambiguous outcomes
+
+Round 41 adds **independent, default-OFF** resolution of ambiguous
+document deletion and bank journal posting. The S3 disposal path verifies
+the exact pinned object version and enumerates all content versions before
+and after deletion. On an UNKNOWN outcome a third owner/admin may only
+inspect exact VersionId absence and pin a verified receipt; the code never
+reissues a DELETE. The private S3 bucket must support
+`s3:ListBucketVersions`, Object Lock/legal holds, approved KMS/IAM and
+independently witnessed backup/erasure evidence. No physical deletion
+is enabled by these changes.
+
+Bank posting UNKNOWN and stale EXECUTING outcomes can only be reconciled
+by a **fourth independent person** using an existing balanced and posted
+ledger journal. A matching GL entry without a durable COMMITTED tenant
+receipt no longer permits the original executor to claim replay success.
+New release switches `CHESS_BANK_OUTCOME_RESOLUTION_ENABLED=false` and
+`CHESS_BANK_OUTCOME_POLICY_APPROVED=false` stay OFF. The workflow never
+posts a journal, retries an UNPOSTED/ambiguous result, or calls a bank
+transaction settled. Source-only tests do not prove external acceptance.
+
+See [Round 41 code-gap audit](docs/CHESS_CORP_2_ROUND41_CODE_GAP_AUDIT.md),
+[the current M1–M8 matrix](docs/CHESS_CORP_2_ROADMAP.md) and
+[the one owner-supply checklist](docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md).
+Many historical sensitive-read routes and other code-only/security and
+external acceptance items remain unverified; PR #24 stays draft,
+unmerged, with `main` and production unchanged.
+
 ## CHESS CORP 2 Round 40 — fictional employee/client workflow acceptance
 
 Round 40 extends the **manual, protected** `chess-demo-e2e` Playwright
