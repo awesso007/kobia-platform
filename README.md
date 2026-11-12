@@ -63,6 +63,41 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS CORP 2 Round 46 — additional employee and client fictional-demo browser workflows
+
+Recovered Round 45 final SHA
+`b6b41f590292c4b8335c092f82afe0cb666c1b29`: normal CI run
+[43306304711](https://github.com/awesso007/kobia-platform/actions/runs/43306304711)
+passed **all 3 jobs**; the interrupted response did not leave uncommitted
+or failing Round 45 work.
+
+Round 46 adds `e2e/chess-demo-round46.spec.mjs` to the existing
+**manually dispatched, protected `chess-demo-e2e` Playwright
+Chromium suite**. Its six signed-in owner/employee/client tests exercise
+the eight-business demo tour and accounting task, employee two-browser-tab
+409 stale update recovery, foreign mortgage task POST/PATCH rejection,
+verified client PENDING disclosure and document isolation, separate
+work-item/appointment calendar consent round trip with OFF cleanup, and
+mobile employee/client serious/critical axe accessibility checks.
+
+The normal build CI **syntax-checks and source-policy-gates** the new
+test source; it does **not** actually run Clerk browser tests. Disposable
+`chess_demo_ci` PostgreSQL fixture tests additionally assert all five
+client profiles' two business links, zero grants/documents/regulated
+cases, PENDING unsigned disclosures, and rejection of an
+unauthorized GRANTED transition. Manual protected browser execution
+requires three distinct verified Clerk TEST identities, an isolated
+non-pooled Neon `chess_demo` database, and independent review of actual
+Playwright traces; those results are **not yet verified**.
+
+No real provider, payment, consent acceptance, regulated workflow,
+production merge or deploy is enabled. See
+[Round 46 browser-test matrix](docs/CHESS_CORP_2_ROUND46_EMPLOYEE_CLIENT_BROWSER_E2E.md),
+[authoritative roadmap](docs/CHESS_CORP_2_ROADMAP.md),
+[names-only config placeholders](docs/CHESS_CORP_2_ENV_PLACEHOLDERS.example)
+and the [owner checklist](docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md).
+Draft PR #24 remains unmerged. Production gates remain 8/8 blocked.
+
 ## CHESS CORP 2 Round 45 — immutable document lifecycle, audited redaction review and safe disposal
 
 M3 now adds a PostgreSQL trigger migration preventing replacements and
