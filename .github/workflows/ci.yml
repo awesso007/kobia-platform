@@ -39,6 +39,9 @@ jobs:
       - name: Verify demo setup CLI refuses production and live Clerk keys
         run: node --test scripts/chess-demo-cli-check.mjs
 
+      - name: Inventory all CHESS service API security boundaries
+        run: node --test scripts/chess-sensitive-route-inventory-check.mjs
+
       - name: Validate signed-in browser and accessibility test harness
         run: |
           node --check playwright.config.mjs
