@@ -2,6 +2,7 @@ import { z } from "zod";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { getCurrentMembership, PermissionError } from "@/lib/rbac/require-permission";
 import {revokeBusinessAssignmentAndServiceGrants} from "./business-assignment-revocation";
+import {auditedChessSensitiveRead} from "./sensitive-read-audit";
 
 export const businessUnitInput = z.object({
   slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(64),
@@ -103,17 +104,33 @@ export async function getChessBusinessAssignmentAdmin(businessId: string) {
   const user = await actor();
   if (!isBusinessAdmin(user.role)) throw new PermissionError("member:manage");
   const { db } = getTenantDb();
-  const [members, assignments] = await Promise.all([
-    db.membership.findMany({
-      where: { status: "ACTIVE", role: { not: "VIEWER" } },
-      select: { clerkUserId: true, displayName: true, role: true },
-      orderBy: { joinedAt: "asc" }, take: 100,
-    }),
-    db.chessEmployeeAssignment.findMany({
-      where: { businessId, revokedAt: null },
-      select: { id: true, clerkUserId: true, role: true, assignedAt: true },
-      orderBy: { assignedAt: "asc" }, take: 100,
-    }),
-  ]);
-  return { members, assignments };
+  return auditedChessSensitiveRead(db,{
+    businessId,actorClerkUserId:user.clerkUserId,
+    action:"BUSINESS_STAFF_ADMIN_READ",resourceType:"ChessEmployeeAssignment",
+    resourceId:"business:"+businessId,
+  },async tx=>{
+    // A role revoked between entry and reading another employee's membership
+    // must not release a staff directory. The SELECT and audit commit together.
+    const [current,unit]=await Promise.all([
+      tx.membership.findUnique({where:{clerkUserId:user.clerkUserId},
+       select:{status:true,role:true}}),
+      tx.chessBusinessUnit.findUnique({where:{id:businessId},
+       select:{status:true}}),
+    ]);
+    if(current?.status!=="ACTIVE"||!isBusinessAdmin(current.role)||
+       unit?.status!=="ACTIVE")return null;
+    const [members,assignments]=await Promise.all([
+      tx.membership.findMany({
+        where:{status:"ACTIVE",role:{not:"VIEWER"}},
+        select:{clerkUserId:true,displayName:true,role:true},
+        orderBy:{joinedAt:"asc"},take:100,
+      }),
+      tx.chessEmployeeAssignment.findMany({
+        where:{businessId,revokedAt:null},
+        select:{id:true,clerkUserId:true,role:true,assignedAt:true},
+        orderBy:{assignedAt:"asc"},take:100,
+      }),
+    ]);
+    return {members,assignments};
+  });
 }
