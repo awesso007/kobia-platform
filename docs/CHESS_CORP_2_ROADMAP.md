@@ -8,6 +8,31 @@ business-operations layer within an isolated KOBIA tenant, not an assertion
 that a single legal entity holds all operating licenses.
 
 
+## CURRENT ROUND 30 — signed-in browser acceptance source coverage
+
+Added twelve Clerk test-mode Playwright cases for the first CHESS tenant:
+OWNER overview, eight-company fictional tour and finance authorization; MEMBER
+service desk, single Bookkeeping business, task-state persistence, read-only
+calendar-consent controls and cross-business denials; CLIENT pending consent,
+one verified-email fictional profile and no employee/admin access; plus
+unauthenticated redirect and axe-core WCAG 2.1 A/AA serious/critical scans.
+The test harness now refuses live/mismatched Clerk credentials, remote browser
+targets, non-demo databases, duplicate identities or enabled external
+services before opening a browser. A separate client-consent service gate
+prevents direct API acceptance without the three approved portal flags, and
+blocks all client consent mutations in fictional mode.
+
+See [Round 30 signed-in browser acceptance](CHESS_CORP_2_ROUND30_BROWSER_ACCEPTANCE.md)
+for the test matrix and exact evidence boundary. The ordinary three-job CI
+can verify the code, but **does not prove real Clerk/browser/axe execution**
+without the protected external inputs in the **single owner-supply checklist,
+item 01**. No real provider, legal signature, stage/DR or independent
+accessibility evidence was supplied. **8/8 production release milestones
+remain blocked; 0/8 are independently approved.** PR #24 remains unmerged
+and no production deployment is authorized.
+
+---
+
 ## CURRENT ROUND 29 — source-only engineering and strict release separation
 
 Round 29 adds a persistent M5 bank-attempt reservation/UNKNOWN journal,
