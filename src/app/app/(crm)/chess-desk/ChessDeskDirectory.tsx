@@ -33,8 +33,8 @@ function Group({name,description,items}:{name:string;description:string;items:De
   </ul>
  </section>;
 }
-export default function ChessDeskDirectory({isAdministrator,hasBusiness}:{
- isAdministrator:boolean;hasBusiness:boolean;
+export default function ChessDeskDirectory({isAdministrator,hasBusiness,isBusinessManager=false}:{
+ isAdministrator:boolean;hasBusiness:boolean;isBusinessManager?:boolean;
 }){
  return <div className="space-y-8">
   {hasBusiness?<Group name="Employee workspaces"
@@ -42,6 +42,10 @@ export default function ChessDeskDirectory({isAdministrator,hasBusiness}:{
    items={staff}/>:<p role="status" className="rounded-xl border p-5 text-sm text-slate-700">
    No active business assignment is available. Ask an administrator to review your membership.
   </p>}
+  {hasBusiness&&!isAdministrator&&isBusinessManager&&
+   <Group name="Business manager workspaces"
+    description="Manager work queues are limited to assigned active businesses. Financial attempt records are read only."
+    items={manager.filter(item=>["/app/finance-operations","/app/financial-attempts"].includes(item.href))}/>}
   {isAdministrator&&<Group name="Owner and administrator workspaces"
    description="Restricted controls require a current administrator role, individual client grants and current consent."
    items={manager}/>}
