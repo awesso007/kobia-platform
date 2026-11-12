@@ -3,6 +3,7 @@ import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {getCurrentMembership,PermissionError} from "@/lib/rbac/require-permission";
 import {assertBusinessAccess} from "./business-units";
 import {assertBusinessManager} from "./business-manager";
+import {auditedChessManagerRead} from "./sensitive-read-audit";
 
 /** Only the signed-in recipient can list/read their own in-app alerts.
  * Alert text intentionally excludes sensitive client data. */
@@ -33,28 +34,37 @@ export async function markChessAlertRead(businessId:string,alertId:string){
 /** Manager work queue only. Staff without a MANAGER assignment cannot view
  * other employees' blocked, overdue, or unassigned work. */
 export async function getChessManagerQueue(businessId:string,now=new Date()){
- await assertBusinessManager(businessId);
+ const actor=await assertBusinessManager(businessId);
  const {db}=getTenantDb();
- const active={businessId,status:{in:["TODO","IN_PROGRESS","BLOCKED"] as
-   ("TODO"|"IN_PROGRESS"|"BLOCKED")[]}};
- const [blocked,unassigned,overdue]=await Promise.all([
-  db.chessWorkItem.findMany({
-   where:{businessId,status:"BLOCKED"},
-   select:{id:true,title:true,status:true,assignedClerkUserId:true,dueAt:true,updatedAt:true},
-   orderBy:{updatedAt:"asc"},take:50,
-  }),
-  db.chessWorkItem.findMany({
-   where:{...active,assignedClerkUserId:null},
-   select:{id:true,title:true,status:true,assignedClerkUserId:true,dueAt:true,updatedAt:true},
-   orderBy:{createdAt:"asc"},take:50,
-  }),
-  db.chessWorkItem.findMany({
-   where:{...active,dueAt:{lt:now}},
-   select:{id:true,title:true,status:true,assignedClerkUserId:true,dueAt:true,updatedAt:true},
-   orderBy:{dueAt:"asc"},take:50,
-  }),
- ]);
- return {blocked,unassigned,overdue,asOf:now};
+ return auditedChessManagerRead(db,{
+  businessId,actorClerkUserId:actor.clerkUserId,
+  action:"MANAGER_WORK_QUEUE_READ",resourceType:"ChessWorkItem",
+  resourceId:"business:"+businessId,
+ },async tx=>{
+  const active={businessId,status:{in:["TODO","IN_PROGRESS","BLOCKED"] as
+    ("TODO"|"IN_PROGRESS"|"BLOCKED")[]}};
+  const [blocked,unassigned,overdue]=await Promise.all([
+   tx.chessWorkItem.findMany({
+    where:{businessId,status:"BLOCKED"},
+    select:{id:true,title:true,status:true,assignedClerkUserId:true,
+     dueAt:true,updatedAt:true},
+    orderBy:{updatedAt:"asc"},take:50,
+   }),
+   tx.chessWorkItem.findMany({
+    where:{...active,assignedClerkUserId:null},
+    select:{id:true,title:true,status:true,assignedClerkUserId:true,
+     dueAt:true,updatedAt:true},
+    orderBy:{createdAt:"asc"},take:50,
+   }),
+   tx.chessWorkItem.findMany({
+    where:{...active,dueAt:{lt:now}},
+    select:{id:true,title:true,status:true,assignedClerkUserId:true,
+     dueAt:true,updatedAt:true},
+    orderBy:{dueAt:"asc"},take:50,
+   }),
+  ]);
+  return {blocked,unassigned,overdue,asOf:now};
+ });
 }
 
 const assignment=z.object({
