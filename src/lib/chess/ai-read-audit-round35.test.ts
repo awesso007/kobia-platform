@@ -31,7 +31,7 @@ function setup(role:Role="OWNER",status="ACTIVE",business="ACTIVE"){
   })},
  };
  const db={$transaction:vi.fn(async(
-  run:(tx:typeof tx)=>Promise<unknown>,options:unknown,
+  run:(tx:typeof tx)=>Promise<unknown>,_options:unknown,
  )=>run(tx))};
  vi.mocked(getTenantDb).mockReturnValue({db} as never);
  vi.mocked(assertBusinessManager).mockResolvedValue({
