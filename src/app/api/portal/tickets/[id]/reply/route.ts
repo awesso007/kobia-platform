@@ -8,7 +8,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
-import { validatePortalSession, PORTAL_COOKIE } from "@/lib/helpdesk/portal";
+import { validatePortalSession, PORTAL_COOKIE, LEGACY_HELPDESK_EMAIL_ONLY_DISABLED } from "@/lib/helpdesk/portal";
 import { addMessage } from "@/lib/helpdesk/tickets";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +19,11 @@ function sanitizeSlug(slug: string | null | undefined): string | null {
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  if(LEGACY_HELPDESK_EMAIL_ONLY_DISABLED){
+    return NextResponse.json({ok:false,error:"Verified helpdesk identity not configured."},{
+      status:503,headers:{"Cache-Control":"private, no-store"},
+    });
+  }
   const tenant =
     sanitizeSlug(req.nextUrl.searchParams.get("t")) ?? sanitizeSlug(req.nextUrl.searchParams.get("tenant"));
   if (!tenant) return NextResponse.json({ ok: false, error: "Unknown workspace." }, { status: 400 });
