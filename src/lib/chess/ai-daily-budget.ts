@@ -89,9 +89,10 @@ export async function getChessAiWorkerSnapshot(businessId:string){
   ]);
   if(member?.status!=="ACTIVE"||!["OWNER","ADMIN"].includes(member.role)||
    unit?.status!=="ACTIVE")return null;
-  return tx.chessWorkerRun.findFirst({where:{kind:"AI_TRIAGE"},
+  const latest=await tx.chessWorkerRun.findFirst({where:{kind:"AI_TRIAGE"},
    orderBy:{occurredAt:"desc"},select:{
     status:true,examined:true,processed:true,blocked:true,occurredAt:true,
    }});
+  return {latest};
  });
 }
