@@ -87,7 +87,8 @@ const auditProtectedQuery = t.middleware(async ({ctx,path,type,next})=>{
   },{isolationLevel:"Serializable",maxWait:5000,timeout:30000});
   if(!result.allowed)throw new TRPCError({code:"FORBIDDEN"});
   return result.execution;
- }catch{
+ }catch(error){
+  if(error instanceof TRPCError&&error.code==="FORBIDDEN")throw error;
   throw new TRPCError({code:"INTERNAL_SERVER_ERROR",
    message:"Protected query transaction unavailable"});
  }
