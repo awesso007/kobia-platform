@@ -201,6 +201,18 @@ export async function revokeClientServiceGrant(linkId: string, clerkUserId: stri
   if (!link) throw new PermissionError("member:manage");
   await assertBusinessAccess(link.businessId);
   return db.$transaction(async tx => {
+    const [current,liveLink,unit]=await Promise.all([
+      tx.membership.findUnique({where:{clerkUserId:actor.clerkUserId},
+       select:{status:true,role:true}}),
+      tx.clientServiceLink.findUnique({where:{id:linkId},
+       select:{businessId:true}}),
+      tx.chessBusinessUnit.findUnique({where:{id:link.businessId},
+       select:{status:true}}),
+    ]);
+    if(current?.status!=="ACTIVE"||
+       !["OWNER","ADMIN"].includes(current.role)||
+       liveLink?.businessId!==link.businessId||unit?.status!=="ACTIVE")
+      throw new PermissionError("member:manage");
     const result = await tx.clientServiceGrant.updateMany({
       where: { linkId: idInput.parse(linkId), clerkUserId: idInput.parse(clerkUserId), revokedAt: null },
       data: { revokedAt: new Date(), canRead: false, canWrite: false },
@@ -212,7 +224,7 @@ export async function revokeClientServiceGrant(linkId: string, clerkUserId: stri
       }});
     }
     return result;
-  });
+  },{isolationLevel:"Serializable"});
 }
 
 
