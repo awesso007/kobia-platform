@@ -1,6 +1,6 @@
 import {describe,expect,it,vi} from "vitest";
 import type {AuthContext} from "@/lib/auth";
-import {auditedLegacyTaxExport,parseLegacyTaxYear} from "./legacy-tax-export";
+import {auditedLegacyTaxExport,parseLegacyTaxYear,parseLegacyLedgerRange,parseLegacyReportDate} from "./legacy-tax-export";
 
 const context={
  tenant:{id:"tenant-a",isActive:true},
@@ -104,5 +104,17 @@ describe("Round 36: legacy 1099 tax export access",()=>{
   for(const value of ["","NaN","2026.5","-2020","0000","9999","20000","202x"]){
    expect(parseLegacyTaxYear(value,today)).toBeNull();
   }
+ });
+ it("rejects impossible or inverted financial report periods",()=>{
+  const now=new Date("2026-11-12T12:00:00.000Z");
+  expect(parseLegacyLedgerRange(null,null,now)).toEqual({
+   startDate:new Date("2026-01-01T00:00:00.000Z"),
+   endDate:new Date("2026-11-12T23:59:59.999Z"),
+  });
+  expect(parseLegacyReportDate("2026-02-29",now)).toBeNull();
+  expect(parseLegacyReportDate("2024-02-29",now)?.toISOString()).toBe("2024-02-29T00:00:00.000Z");
+  expect(parseLegacyLedgerRange("2026-11-13","2026-11-12",now)).toBeNull();
+  expect(parseLegacyLedgerRange("2026-12-32","2026-12-31",now)).toBeNull();
+  expect(parseLegacyLedgerRange("invalid","2026-12-31",now)).toBeNull();
  });
 });
