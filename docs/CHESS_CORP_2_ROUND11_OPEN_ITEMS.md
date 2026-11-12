@@ -408,3 +408,22 @@ manufacture evidence for legacy clients.
   Do not set enable/approval flags to true based on regular CI alone.
 
 See docs/CHESS_CORP_2_ROUND20_CODE_AUDIT.md. All M1-M8 release holds remain.
+
+
+## Round 20 continued - portfolio financial-control hardening
+
+- **M7-05 / M8-09 [CODE PARTIAL]:** An operational-portfolio
+  report rechecks the current owner/admin membership inside the same
+  SERIALIZABLE tenant transaction that produces the report. An immutable
+  ALLOW or DENY security decision commits before any response. The audit
+  records a month and actor but NO client names, bank identifiers,
+  invoice details or fake business-unit scoping.
+- **M5-06 [CODE PARTIAL]:** Added active bank GL validation and compatible
+  account types: cash/checking/savings/money-market map to ASSET,
+  credit cards map to LIABILITY; loan/other bank types fail closed pending
+  an independently approved account-type mapping. The financial posting
+  execution path is still disabled by default and NOT sandbox-certified.
+- **Still blocked:** actual multi-entity financial close/statement
+  certification, all-path sensitive-read audit, real bank legacy DB
+  concurrency/compensation tests, bank provider approval, signed
+  supervisory policy, provider settlement and staging release.

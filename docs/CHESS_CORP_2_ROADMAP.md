@@ -1083,3 +1083,13 @@ The original milestone summaries above are historical. For the exact
 remaining external and engineering items, use
 docs/CHESS_CORP_2_ROUND20_CODE_AUDIT.md and the append-only outstanding
 items register. **No milestone's production-release gate is closed.**
+
+
+### Round 20 final code-security additions
+
+Operational-portfolio aggregates now use the same tenant-only,
+serializable, immutable read-audit mechanism as regulated-workflow
+and bank-review detail reads. M5 posting also refuses inactive or
+incorrectly classified bank GL accounts. Source-level CI does not
+remove outstanding multi-entity accounting, bank-settlement,
+compliance or production authorization blockers.

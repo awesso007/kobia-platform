@@ -70,3 +70,16 @@ protected HTTPS staging, signed release owner and cutover remain open.
    professional license verification.
 4. Any unresolved external/BOTH/CODE condition remains an explicit release
    blocker. No merge, deployment, or final-complete phrase.
+
+
+## Additional bounded code protections
+
+- The tenant-only OPERATIONAL portfolio report is now a serializable
+  audited read with a fresh active owner/admin check; it cannot inherit
+  a stale membership from an earlier request. Denials and failures
+  do not return the aggregate report.
+- A bank transaction may never be categorized through this new adapter
+  with an inactive bank GL, an incompatible bank account/GL type or a
+  non-USD entity/bank account. Unsupported LOAN/OTHER account types are
+  rejected. Actual legacy financial execution integration still needs
+  real PostgreSQL and independent accounting acceptance.
