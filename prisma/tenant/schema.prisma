@@ -3646,6 +3646,7 @@ model ChessClientConsent {
   expiresAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  financialAttempts ChessFinancialAttempt[]
   @@index([clientProfileId, businessId, purpose, status])
 }
 model ChessIntakeItem {
@@ -4262,6 +4263,45 @@ model ChessBankReview {
 
   @@unique([serviceCaseId,legacyBankTransactionId])
   @@index([businessId,status,createdAt])
+}
+
+/// Durable tenant-side reservation and attempt journal for a legacy GL post.
+/// It coordinates consent withdrawal with the separate legacy database but
+/// never pretends the two databases share one atomic transaction.
+enum ChessFinancialAttemptStatus {
+  RESERVED
+  EXECUTING
+  UNKNOWN
+  COMMITTED
+  FAILED
+  CANCELLED
+}
+
+model ChessFinancialAttempt {
+  id String @id @default(cuid())
+  businessId String
+  consentId String
+  reviewId String
+  legacyTenantId String
+  legacyEntityId String
+  legacyBankTransactionId String
+  sourceDigest String
+  sourceRefId String @unique
+  status ChessFinancialAttemptStatus @default(RESERVED)
+  createdByClerkUserId String
+  journalEntryId String?
+  lastErrorCode String?
+  reservedAt DateTime @default(now())
+  executionStartedAt DateTime?
+  resolvedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  consent ChessClientConsent @relation(fields: [consentId], references: [id], onDelete: Restrict)
+
+  @@unique([reviewId,sourceDigest])
+  @@index([businessId,status,reservedAt])
+  @@index([consentId,status])
 }
 
 enum ChessTaxWorkpaperStatus {
