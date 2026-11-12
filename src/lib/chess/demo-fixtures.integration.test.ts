@@ -86,6 +86,48 @@ integration("CHESS fictional demo seed on isolated PostgreSQL",()=>{
    title:{startsWith:"Fictional "},
   }})).toBe(8);
  });
+ it("keeps fictional employee tasks business-scoped while a client has PENDING consent only",async()=>{
+  const [bookkeeping,mortgage,morgan]=await Promise.all([
+   db.chessBusinessUnit.findUnique({where:{slug:"bookkeeping"},select:{id:true}}),
+   db.chessBusinessUnit.findUnique({where:{slug:"mortgage"},select:{id:true}}),
+   db.clientProfile.findFirst({where:{displayName:"Morgan Fictional (FICTIONAL)"},
+    select:{id:true}}),
+  ]);
+  expect(bookkeeping?.id).toBeTruthy();
+  expect(mortgage?.id).toBeTruthy();
+  expect(morgan?.id).toBeTruthy();
+  const [bookTasks,mortgageTasks,staffAssignments,links,disclosures]=await Promise.all([
+   db.chessWorkItem.findMany({where:{businessId:bookkeeping!.id,
+    title:{startsWith:"Fictional "}},select:{id:true,businessId:true,
+     assignedClerkUserId:true,status:true}}),
+   db.chessWorkItem.findMany({where:{businessId:mortgage!.id,
+    title:{startsWith:"Fictional "}},select:{id:true,businessId:true}}),
+   db.chessEmployeeAssignment.findMany({where:{businessId:bookkeeping!.id,
+    revokedAt:null},select:{clerkUserId:true,role:true}}),
+   db.clientServiceLink.findMany({where:{profileId:morgan!.id},
+    select:{id:true,businessId:true,grants:{select:{id:true}}}}),
+   db.chessClientConsent.findMany({where:{clientProfileId:morgan!.id,
+    policyVersion:"fictional-demo-v1"},select:{status:true,consentedAt:true,
+     verifiedEmailDigest:true,acceptanceEvidenceDigest:true}}),
+  ]);
+  expect(bookTasks).toHaveLength(1);
+  expect(mortgageTasks).toHaveLength(1);
+  expect(bookTasks[0]!.id).not.toBe(mortgageTasks[0]!.id);
+  expect(bookTasks[0]!.businessId).toBe(bookkeeping!.id);
+  expect(bookTasks[0]!.status).toBe("TODO");
+  expect(staffAssignments.some(a=>a.clerkUserId===
+   bookTasks[0]!.assignedClerkUserId)).toBe(true);
+  expect(links).toHaveLength(2);
+  expect(links.every(l=>l.grants.length===0)).toBe(true);
+  expect(disclosures).toHaveLength(1);
+  expect(disclosures[0]!.status).toBe("PENDING");
+  expect(disclosures[0]!.consentedAt).toBeNull();
+  expect(disclosures[0]!.verifiedEmailDigest).toBeNull();
+  expect(disclosures[0]!.acceptanceEvidenceDigest).toBeNull();
+  expect(await db.chessServiceCase.count({where:{
+   clientProfileId:morgan!.id,
+  }})).toBe(0);
+ });
  it("fails safely if a foreign application schema exists in the demo database",async()=>{
   await platform.$executeRawUnsafe('CREATE SCHEMA "unrelated_fictional_customer"');
   try{
