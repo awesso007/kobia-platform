@@ -15,6 +15,8 @@ import { getTenantDb, NoTenantError } from "@/lib/db/get-tenant-db";
 import { requirePermission, getCurrentMembership, PermissionError } from "@/lib/rbac/require-permission";
 import type { Action } from "@/lib/rbac/permissions";
 import { getOwnedAccount } from "./queries";
+import {auditedHistoricalTenantRead} from "@/lib/chess/historical-sensitive-read";
+import type {Prisma} from "@/lib/db/generated/tenant";
 
 export class MailAccessError extends Error {}
 export class MailNotFoundError extends Error {}
@@ -36,4 +38,26 @@ export async function resolveMail(accountId: string, action: Action) {
   const account = await getOwnedAccount(db, accountId, userId);
   if (!account) throw new MailNotFoundError("Email account not found.");
   return { db, userId, account };
+}
+
+/** Historical inbox reads are bound to current account ownership and live
+ * role in the same tenant transaction as mailbox SELECT and access audit. */
+export async function auditedOwnedMailRead<T>(
+ accountId:string,
+ action:string,
+ read:(tx:Prisma.TransactionClient,accountId:string)=>Promise<T|null>,
+):Promise<T>{
+ const member=await getCurrentMembership();
+ if(!member)throw new PermissionError("record:read");
+ const {db}=getTenantDb();
+ return auditedHistoricalTenantRead(db,{
+  actorClerkUserId:member.clerkUserId,action,
+  resourceType:"EmailAccount",resourceId:accountId,
+ },async tx=>{
+  const account=await tx.emailAccount.findFirst({
+   where:{id:accountId,ownerClerkUserId:member.clerkUserId},
+   select:{id:true},
+  });
+  return account?read(tx,account.id):null;
+ });
 }
