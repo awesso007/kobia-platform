@@ -104,6 +104,7 @@ export default async function ChessWorkItemsPage({searchParams}:{searchParams:{b
    <RecurrencesClient businessId={selected.id} initialRecurrences={recurrences.map(item=>({
     ...item,nextRunAt:item.nextRunAt.toISOString(),
     lastRunAt:item.lastRunAt?.toISOString()??null,
+    lastInspectedAt:item.lastInspectedAt?.toISOString()??null,
     updatedAt:item.updatedAt.toISOString(),
    }))}/>
   </section>}
