@@ -37,7 +37,7 @@ export async function auditedLegacyTaxExport<T>(
     membership.role==="ACCOUNTANT")&&!!entity;
   // Never query the vendor table when a role was revoked, or when an entity
   // belongs to a different tenant. Never place taxpayer PII in audit metadata.
-  const data=allowed ? await read(tx,entity) : null;
+  const data=allowed&&entity ? await read(tx,entity) : null;
   await tx.auditLog.create({data:{
    tenantId:auth.tenant.id,userId:auth.user.id,
    action:form==="1099_NEC"?"sensitive.export.1099_nec":"sensitive.export.1099_misc",
@@ -51,7 +51,7 @@ export async function auditedLegacyTaxExport<T>(
 /** A strict four-digit tax-year boundary: avoid NaN, fractions and extremes. */
 export function parseLegacyTaxYear(value:string|null,now=new Date()):number|null{
  if(value===null)return now.getUTCFullYear();
- if(!/^\\d{4}$/.test(value))return null;
+ if(!/^\d{4}$/.test(value))return null;
  const year=Number(value);
  return year>=1900&&year<=9998?year:null;
 }
