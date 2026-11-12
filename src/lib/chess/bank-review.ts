@@ -11,6 +11,7 @@ import {createBankPostingPreview,BankPostingPreviewError} from "./bank-posting-p
 import {postJournalEntry} from "@/lib/accounting/ledger";
 import {chessBankPostingEnabled,postingSourceRef} from "./bank-posting-gate";
 import {chessDemoModeActive} from "./demo-mode";
+import {auditedChessSensitiveRead} from "./sensitive-read-audit";
 
 const accountService=z.enum(["ACCOUNTING","BOOKKEEPING"]);
 const contextSchema=z.object({
@@ -201,13 +202,42 @@ export async function reviewChessBankSuggestion(input:unknown){
 }
 export async function listChessBankReviews(raw:unknown){
  const state=await context(raw);
- return state.db.chessBankReview.findMany({where:{
-  serviceCaseId:state.data.serviceCaseId,businessId:state.data.businessId,
-  legacyTenantId:state.legacyTenantId,
- },orderBy:{createdAt:"desc"},take:100,select:{
-  id:true,status:true,legacyBankTransactionId:true,suggestedAccountId:true,
-  approvedAccountId:true,confidenceBasisPoints:true,createdAt:true,updatedAt:true,
- }});
+ return auditedChessSensitiveRead(state.db,{
+  businessId:state.data.businessId,actorClerkUserId:state.actor.clerkUserId,
+  action:"BANK_REVIEW_DETAILS_READ",
+  resourceType:"ChessServiceCase",resourceId:state.data.serviceCaseId,
+ },async tx=>{
+  const [liveCase,membership,link,consents]=await Promise.all([
+   tx.chessServiceCase.findFirst({where:{
+    id:state.data.serviceCaseId,businessId:state.data.businessId,
+    clientProfileId:state.data.clientProfileId,service:state.data.service,
+    status:"ACTIVE",
+   },select:{id:true}}),
+   tx.membership.findUnique({where:{clerkUserId:state.actor.clerkUserId},
+    select:{status:true}}),
+   tx.clientServiceLink.findUnique({where:{profileId_businessId_service:{
+    profileId:state.data.clientProfileId,businessId:state.data.businessId,
+    service:state.data.service,
+   }},select:{grants:{where:{
+    clerkUserId:state.actor.clerkUserId,canRead:true,revokedAt:null,
+   },select:{id:true}}}}),
+   tx.chessClientConsent.findMany({where:{
+    businessId:state.data.businessId,clientProfileId:state.data.clientProfileId,
+    purpose:"service:"+state.data.service,
+   },select:{status:true,expiresAt:true,consentedAt:true,
+    acceptedByClerkUserId:true,verifiedEmailDigest:true,
+    acceptanceEvidenceDigest:true}}),
+  ]);
+  if(!liveCase||membership?.status!=="ACTIVE"||!link?.grants.length||
+   !consents.some(c=>isUsableConsent(c)))return null;
+  return tx.chessBankReview.findMany({where:{
+   serviceCaseId:state.data.serviceCaseId,businessId:state.data.businessId,
+   legacyTenantId:state.legacyTenantId,
+  },orderBy:{createdAt:"desc"},take:100,select:{
+   id:true,status:true,legacyBankTransactionId:true,suggestedAccountId:true,
+   approvedAccountId:true,confidenceBasisPoints:true,createdAt:true,updatedAt:true,
+  }});
+ });
 }
 
 

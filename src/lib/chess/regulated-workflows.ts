@@ -1,6 +1,8 @@
 import {z} from "zod";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {PermissionError} from "@/lib/rbac/require-permission";
+import {isUsableConsent} from "./onboarding";
+import {auditedChessSensitiveRead} from "./sensitive-read-audit";
 import {regulatedCaseAccess,assertRegulatedProfessionalReady} from "./regulated-access";
 import {requiredRegulatedChecklist,regulatedIdempotencyKey,
  canReviewRegulatedWorkflow,workflowService} from "./regulated-policy";
@@ -71,13 +73,43 @@ export async function createChessRegulatedWorkflow(value:unknown){
 export async function listChessRegulatedWorkflows(value:unknown){
  const data=listInput.parse(value);
  const access=await regulatedCaseAccess(data.businessId,data.serviceCaseId);
- return access.db.chessRegulatedWorkflow.findMany({where:{
-  businessId:data.businessId,serviceCaseId:data.serviceCaseId,
-  clientProfileId:access.record.clientProfileId,service:access.record.service,
- },orderBy:{createdAt:"desc"},take:100,select:{
-  id:true,kind:true,status:true,createdAt:true,updatedAt:true,
-  checklist:{select:{id:true,itemKey:true,completedAt:true,evidenceDocumentId:true}},
- }});
+ return auditedChessSensitiveRead(access.db,{
+  businessId:data.businessId,actorClerkUserId:access.actor.clerkUserId,
+  action:"REGULATED_WORKFLOW_READ",
+  resourceType:"ChessServiceCase",resourceId:data.serviceCaseId,
+ },async tx=>{
+  // Recheck membership, case, service grants and current consent inside
+  // the same serializable, audited read as the returned workflow payload.
+  const [caseRow,member,link,consents]=await Promise.all([
+   tx.chessServiceCase.findFirst({where:{
+    id:data.serviceCaseId,businessId:data.businessId,
+    clientProfileId:access.record.clientProfileId,
+    service:access.record.service,
+   },select:{id:true,status:true}}),
+   tx.membership.findUnique({where:{clerkUserId:access.actor.clerkUserId},
+    select:{status:true}}),
+   tx.clientServiceLink.findUnique({where:{profileId_businessId_service:{
+    profileId:access.record.clientProfileId,businessId:data.businessId,
+    service:access.record.service,
+   }},select:{grants:{where:{clerkUserId:access.actor.clerkUserId,
+    canRead:true,revokedAt:null},select:{id:true}}}}),
+   tx.chessClientConsent.findMany({where:{
+    businessId:data.businessId,clientProfileId:access.record.clientProfileId,
+    purpose:"service:"+access.record.service,
+   },select:{status:true,expiresAt:true,consentedAt:true,
+    acceptedByClerkUserId:true,verifiedEmailDigest:true,
+    acceptanceEvidenceDigest:true}}),
+  ]);
+  if(!caseRow||member?.status!=="ACTIVE"||!link?.grants.length||
+   !consents.some(c=>isUsableConsent(c)))return null;
+  return tx.chessRegulatedWorkflow.findMany({where:{
+   businessId:data.businessId,serviceCaseId:data.serviceCaseId,
+   clientProfileId:access.record.clientProfileId,service:access.record.service,
+  },orderBy:{createdAt:"desc"},take:100,select:{
+   id:true,kind:true,status:true,createdAt:true,updatedAt:true,
+   checklist:{select:{id:true,itemKey:true,completedAt:true,evidenceDocumentId:true}},
+  }});
+ });
 }
 
 /** Checklist completion is an authenticated human attestation, not automatic
