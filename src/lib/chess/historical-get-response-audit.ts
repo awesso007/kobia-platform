@@ -73,3 +73,7 @@ export function withAuditedHistoricalGet<A extends unknown[],R extends Response>
   return response;
  };
 }
+
+/** Use only for an explicitly read-only POST, e.g. search. Never wrap a
+ * mutation, financial command, file upload, callback or public token flow. */
+export const withAuditedHistoricalReadResponse=withAuditedHistoricalGet;
