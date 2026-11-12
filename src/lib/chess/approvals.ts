@@ -48,9 +48,10 @@ export async function reviewChessApproval(id:string,businessId:string,decision:"
  if (!actor || actor.status!=="ACTIVE") throw new PermissionError("record:update");
  const {db}=getTenantDb();
  const approval=await db.chessActionApproval.findFirst({
-  where:{id,businessId},select:{requestedBy:true,status:true},
+  where:{id,businessId},select:{requestedBy:true,status:true,actionType:true},
  });
- if (!approval || approval.status!=="PENDING" ||
+ if (!approval || protectedChessApprovalType(approval.actionType) ||
+     approval.status!=="PENDING" ||
      !canReviewAction(approval.requestedBy,actor.clerkUserId,actor.role)) {
   throw new PermissionError("record:update");
  }
@@ -87,7 +88,8 @@ export async function listChessActionApprovals(businessId:string){
   orderBy:{createdAt:"desc"},take:100,
  });
  return rows.map(row=>({...row,
-  canReview:row.status==="PENDING"&&canReviewAction(
+  canReview:row.status==="PENDING"&&
+   !protectedChessApprovalType(row.actionType)&&canReviewAction(
    row.requestedBy,actor.clerkUserId,actor.role),
  }));
 }
