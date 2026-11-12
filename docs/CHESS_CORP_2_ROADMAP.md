@@ -8,6 +8,27 @@ business-operations layer within an isolated KOBIA tenant, not an assertion
 that a single legal entity holds all operating licenses.
 
 
+## CURRENT ROUND 31 — manager exception monitor and recurrence inspection UI
+
+Reviewed existing employee/admin screens against the CHESS API inventory. The
+newly introduced M5 bank posting attempt states lacked a dedicated operational
+exception screen; the M4 fairness scheduler did not display persisted worker
+inspection timestamps. Added **/app/financial-attempts**, an audited
+business-manager-only read-only status dashboard with no client details, posting
+or UNKNOWN retry controls, and added last-inspected/never-inspected text to
+the manager's recurrence list. Current MEMBER/MANAGER assignments now expose
+only limited finance and monitor links in /app/chess-desk; ordinary SUPPORT
+staff never receive these links or owner/admin controls.
+
+See [Round 31 employee UI register](CHESS_CORP_2_ROUND31_EMPLOYEE_UI.md) for
+paths and negative checks. This is a code-only UI increment. **All 8/8
+production milestones remain blocked, 0/8 independently signed.**
+The existing canonical owner checklist 06/07/16/17/18 still covers external
+worker, bank, migration, staged auth and independent signoff requirements.
+No real ledger posting, licensed activity or production deployment is approved.
+
+---
+
 ## CURRENT ROUND 30 — signed-in browser acceptance source coverage
 
 Added twelve Clerk test-mode Playwright cases for the first CHESS tenant:
