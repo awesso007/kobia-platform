@@ -133,7 +133,7 @@ jobs:
       - name: Apply versioned tenant migrations
         run: npx prisma migrate deploy --schema=prisma/tenant/schema.prisma
       - name: Run tenant isolation and CHESS authorization tests (public CI schema)
-        run: npx vitest run src/lib/chess/schema.integration.test.ts
+        run: npx vitest run src/lib/chess/schema.integration.test.ts src/lib/chess/recurring-fairness.integration.test.ts
 
       # Explicitly exercise the multi-schema migration order used by demo:setup.
       # This is an isolated CI-only PostgreSQL database, NOT a Neon account.
