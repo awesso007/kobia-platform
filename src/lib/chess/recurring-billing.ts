@@ -97,7 +97,7 @@ export async function pauseChessRecurringPlan(input:unknown){
   plan.service as keyof typeof productCodes);
  return db.$transaction(async tx=>{
   const changed=await tx.chessBillingSubscriptionPlan.updateMany({
-   where:{id:plan.id,status:"ACTIVE"},data:{status:"PAUSED",lastInspectedAt:now},
+   where:{id:plan.id,status:"ACTIVE"},data:{status:"PAUSED"},
   });
   if(changed.count!==1)throw new PermissionError("record:update");
   await tx.chessSecurityEvent.create({data:{
@@ -227,7 +227,7 @@ export async function runChessRecurringInvoiceDrafts(now=new Date()){
     if(!authorized){
      const hold=await tx.chessBillingSubscriptionPlan.updateMany({
       where:{id:current.id,status:"ACTIVE",nextDraftAt:current.nextDraftAt},
-      data:{status:"PAUSED"},
+      data:{status:"PAUSED",lastInspectedAt:now},
      });
      if(hold.count!==1)throw new Error("Recurring plan changed on pause.");
      await tx.chessSecurityEvent.create({data:{
