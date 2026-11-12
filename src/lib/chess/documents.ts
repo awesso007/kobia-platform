@@ -93,31 +93,75 @@ export async function initiateChessDocumentUpload(input:unknown) {
 
 /** S3 HEAD verifies only the object metadata. A malware scanner must explicitly
  * transition QUARANTINED to READY. Never expose a public download URL here. */
-export async function confirmChessDocumentUpload(documentId:string,businessId:string,clientProfileId:string,service:z.infer<typeof request>["service"]) {
+export async function confirmChessDocumentUpload(
+ documentId:string,businessId:string,clientProfileId:string,
+ service:z.infer<typeof request>["service"],
+){
  const member=await getCurrentMembership();
- if(!member || member.status!=="ACTIVE")throw new PermissionError("record:update");
- const link=await getClientServiceLink(clientProfileId,businessId,service);
- if(!link)throw new PermissionError("record:update");
- const {db}=getTenantDb();
- const permission=await db.$transaction(tx=>authorizeChessDocumentService(tx,{
-  businessId,clientProfileId,service,actorClerkUserId:member.clerkUserId,
-  requireWrite:true,
- }),{isolationLevel:"Serializable"});
- if(!permission)throw new PermissionError("record:update");
- const doc=await db.chessClientDocument.findFirst({
-  where:{id:documentId,businessId,clientProfileId,service,status:"PENDING",uploadedByClerkUserId:member.clerkUserId},
+ if(!member||member.status!=="ACTIVE")
+  throw new PermissionError("record:update");
+ const {db,tenantId}=getTenantDb();
+ const document=await db.chessClientDocument.findFirst({
+  where:{id:documentId,businessId,clientProfileId,service,
+   status:"PENDING",uploadedByClerkUserId:member.clerkUserId},
+  select:{id:true,storageKey:true,maxBytes:true,mimeType:true},
  });
- if(!doc)throw new PermissionError("record:update");
- const head=await s3.headObject(doc.storageKey);
- if(!head || !head.versionId || head.versionId==="null" || !head.etag || head.size<1 || head.size>doc.maxBytes || head.mimeType!==doc.mimeType) {
-  await db.chessClientDocument.updateMany({where:{id:doc.id,status:"PENDING"},data:{status:"REJECTED"}});
-  return {status:"REJECTED" as const};
- }
- await db.chessClientDocument.updateMany({
-  where:{id:doc.id,status:"PENDING"},data:{status:"QUARANTINED",actualBytes:head.size,
-   storageVersionId:head.versionId,storageETag:head.etag},
- });
- return {status:"QUARANTINED" as const};
+ if(!document||!document.storageKey.startsWith("tenants/"+tenantId+"/"))
+  throw new PermissionError("record:update");
+
+ // No state transition if the PUT is not yet visible, or provider HEAD is
+ // unreachable. Storage timeout/403 is not evidence of rejected content.
+ const head=await s3.headObjectStrict(document.storageKey);
+ if(!head)throw new Error("Uploaded object not yet verified.");
+ const metadataValid=!!head.versionId&&head.versionId!=="null"&&
+  !!head.etag&&Number.isSafeInteger(head.size)&&
+  head.size>0&&head.size<=document.maxBytes&&
+  head.mimeType===document.mimeType;
+ // Multiple content versions at this exact key are ambiguous: the scanner
+ // must never assert clean bytes while an unscanned version also exists.
+ const inventory=metadataValid?
+  await s3.inventoryPinnedStorageVersions(document.storageKey,head.versionId!):
+  "AMBIGUOUS";
+ const accepted=metadataValid&&inventory==="ONLY_PINNED";
+ return db.$transaction(async tx=>{
+  const live=await tx.membership.findUnique({
+   where:{clerkUserId:member.clerkUserId},
+   select:{role:true,status:true},
+  });
+  const authorized=await authorizeChessDocumentService(tx,{
+   businessId,clientProfileId,service,
+   actorClerkUserId:member.clerkUserId,requireWrite:true,
+  });
+  if(live?.status!=="ACTIVE"||live.role==="VIEWER"||!authorized)
+   throw new PermissionError("record:update");
+  const latest=await tx.chessClientDocument.findFirst({
+   where:{id:documentId,businessId,clientProfileId,service,
+    status:"PENDING",uploadedByClerkUserId:member.clerkUserId,
+    storageKey:document.storageKey},
+   select:{id:true,maxBytes:true,mimeType:true,storageVersionId:true},
+  });
+  if(!latest||latest.storageVersionId||latest.mimeType!==document.mimeType||
+     latest.maxBytes!==document.maxBytes)
+   throw new PermissionError("record:update");
+  const next=accepted?"QUARANTINED" as const:"REJECTED" as const;
+  const changed=await tx.chessClientDocument.updateMany({
+   where:{id:documentId,businessId,clientProfileId,service,
+    status:"PENDING",uploadedByClerkUserId:member.clerkUserId,
+    storageVersionId:null},
+   data:accepted?{status:next,actualBytes:head.size,
+    storageVersionId:head.versionId!,storageETag:head.etag!}:
+    {status:next},
+  });
+  if(changed.count!==1)throw new PermissionError("record:update");
+  await tx.chessSecurityEvent.create({data:{
+   businessId,actorClerkUserId:member.clerkUserId,
+   action:accepted?"DOCUMENT_UPLOAD_PINNED_QUARANTINED":
+    "DOCUMENT_UPLOAD_METADATA_REJECTED",
+   resourceType:"ChessClientDocument",resourceId:documentId,
+   decision:accepted?"REVIEW":"DENY",
+  }});
+  return {status:next};
+ },{isolationLevel:"Serializable"});
 }
 
 async function authorizedChessDocumentDownload(
