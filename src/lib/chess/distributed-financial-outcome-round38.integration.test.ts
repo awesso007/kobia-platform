@@ -1,0 +1,261 @@
+/**
+ * Round 38, two physically separate disposable PostgreSQL databases.
+ * Faults are injected around real persistence calls, never against a bank
+ * provider or production tenant. We intentionally never auto-repeat a ledger
+ * write with an UNKNOWN outcome. CI must supply both isolated URLs.
+ */
+import { randomUUID } from "node:crypto";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { PrismaClient as TenantDb } from "@/lib/db/generated/tenant";
+import { PrismaClient as LegacyDb } from "@prisma/client";
+import {
+  reserveChessBankPostingAttempt, startChessBankPostingAttempt,
+  markChessBankPostingAttemptUnknown, markChessBankPostingAttemptCommitted,
+} from "./bank-financial-attempt";
+import { guardAndCancelReservedFinancialAttempts } from "./financial-attempt-guard";
+import { commitLegacyBankClassification } from "./bank-ledger-commit";
+import { reconcileLegacyChessPosting } from "./bank-ledger-reconcile";
+
+const integration = process.env.RUN_CHESS_DISTRIBUTED_DB_INTEGRATION === "1"
+  ? describe : describe.skip;
+
+integration("Round 38 distributed outcome faults on two separate Postgres databases", () => {
+  let tenantDb: TenantDb;
+  let ledgerDb: LegacyDb;
+
+  beforeAll(async () => {
+    const url = process.env.CHESS_FAULT_LEGACY_DATABASE_URL;
+    if (!url || !process.env.DATABASE_URL || url === process.env.DATABASE_URL) {
+      throw new Error("Distributed fault tests require distinct disposable database URLs.");
+    }
+    tenantDb = new TenantDb();
+    ledgerDb = new LegacyDb({ datasources: { db: { url } } });
+    await Promise.all([tenantDb.$connect(), ledgerDb.$connect()]);
+    const tenantDatabase = new URL(process.env.DATABASE_URL).pathname;
+    const ledgerDatabase = new URL(url).pathname;
+    if (tenantDatabase === ledgerDatabase) {
+      throw new Error("Fault test databases must have different database names.");
+    }
+  });
+
+  afterAll(async () => {
+    await Promise.all([tenantDb?.$disconnect(), ledgerDb?.$disconnect()]);
+  });
+
+  async function fixture(tag: string, amountCents = 18537n) {
+    const suffix = randomUUID().replace(/-/g, "").slice(0, 16) + tag;
+    const businessId = "round38-business-" + suffix;
+    const actor = "round38-operator-" + suffix;
+    const clientActor = "round38-client-" + suffix;
+    const consent = await tenantDb.chessClientConsent.create({ data: {
+      businessId, clientProfileId: "round38-client-profile-" + suffix,
+      purpose: "service:BOOKKEEPING", policyVersion: "fictional-ci-v1",
+      policyText: "Fictional isolated CI consent; no real bank activity.",
+      status: "GRANTED", consentedAt: new Date(Date.now() - 10000),
+      acceptedByClerkUserId: clientActor, verifiedEmailDigest: "a".repeat(64),
+      acceptanceEvidenceDigest: "b".repeat(64),
+    } });
+    const company = await ledgerDb.tenant.create({
+      data: { slug: "round38-" + suffix, name: "FICTIONAL isolated tenant" },
+    });
+    const entity = await ledgerDb.entity.create({data: {
+      tenantId: company.id, name: "Fictional entity " + suffix,
+      baseCurrency: "USD",
+    }});
+    const bankGl = await ledgerDb.account.create({data: {
+      tenantId: company.id, entityId: entity.id,
+      code: "1010", name: "Fake cash", type: "ASSET",
+    }});
+    const offset = await ledgerDb.account.create({data: {
+      tenantId: company.id, entityId: entity.id,
+      code: "4010", name: "Fake revenue", type: "REVENUE",
+    }});
+    const bankAccount = await ledgerDb.bankAccount.create({data: {
+      tenantId: company.id, entityId: entity.id, glAccountId: bankGl.id,
+      name: "FICTIONAL bank", accountType: "CHECKING", currency: "USD",
+    }});
+    const txn = await ledgerDb.bankTransaction.create({data: {
+      tenantId: company.id, bankAccountId: bankAccount.id,
+      postedDate: new Date("2026-10-19T00:00:00Z"), amountCents,
+      dedupHash: "round38-" + suffix, description: "FICTIONAL, NO REAL MONEY",
+    }});
+    const reviewId = "round38-review-" + suffix;
+    const sourceRefId = "chess-bank-review:" + reviewId;
+    const reservation = {
+      businessId, consentId: consent.id, reviewId,
+      legacyTenantId: company.id, legacyEntityId: entity.id,
+      legacyBankTransactionId: txn.id, sourceDigest: "c".repeat(64),
+      sourceRefId, createdByClerkUserId: actor,
+    };
+    const posting = {
+      tenantId: company.id, entityId: entity.id,
+      bankTransactionId: txn.id, bankAccountId: bankAccount.id,
+      dedupHash: txn.dedupHash, postedDate: txn.postedDate, amountCents,
+      bankGlAccountId: bankGl.id, offsetAccountId: offset.id,
+      sourceRefId, actorId: actor,
+    };
+    const read = () => reconcileLegacyChessPosting(ledgerDb, {
+      tenantId: company.id, entityId: entity.id,
+      bankTransactionId: txn.id, sourceRefId,
+    });
+    const receipts = async () => ({
+      tenant: await tenantDb.chessFinancialAttempt.findUnique({ where: { sourceRefId } }),
+      bank: await ledgerDb.bankTransaction.findUnique({ where: { id: txn.id } }),
+      journals: await ledgerDb.journalEntry.findMany({
+        where: { tenantId: company.id, entityId: entity.id, sourceRefId },
+        include: { lines: true },
+      }),
+      cash: await ledgerDb.account.findUnique({ where: { id: bankGl.id } }),
+      income: await ledgerDb.account.findUnique({ where: { id: offset.id } }),
+    });
+    return { consent, actor, clientActor, reservation, posting, txn, read, receipts,
+      entity, bankGl, offset, businessId };
+  }
+
+  async function start(f: Awaited<ReturnType<typeof fixture>>) {
+    const attempt = await reserveChessBankPostingAttempt(tenantDb, f.reservation);
+    expect(attempt.status).toBe("RESERVED");
+    expect(await startChessBankPostingAttempt(tenantDb, attempt.id, f.actor)).toBe(true);
+    return attempt;
+  }
+
+  async function withdraw(f: Awaited<ReturnType<typeof fixture>>) {
+    await tenantDb.$transaction(async tx => {
+      await guardAndCancelReservedFinancialAttempts(
+        tx, f.consent.id, new Date(), f.clientActor,
+      );
+      await tx.chessClientConsent.update({where: {id: f.consent.id},
+        data: {status: "WITHDRAWN", withdrawnAt: new Date()}});
+    }, {isolationLevel: "Serializable"});
+  }
+
+  it("lost commit ACK/timeout yields UNKNOWN, no repeat journal, then a verified receipt pins exactly once", async () => {
+    const f = await fixture("ack");
+    const attempt = await start(f);
+    let actualJournal = "";
+    // Simulated network ACK loss happens AFTER a real commit to the other DB.
+    try {
+      actualJournal = await commitLegacyBankClassification(ledgerDb, f.posting);
+      throw new Error("SYNTHETIC_ETIMEDOUT_AFTER_LEGACY_COMMIT");
+    } catch (error) {
+      expect(String(error)).toContain("SYNTHETIC_ETIMEDOUT");
+      await markChessBankPostingAttemptUnknown(tenantDb, attempt.id, f.actor);
+    }
+    const unresolved = await f.receipts();
+    expect(unresolved.tenant?.status).toBe("UNKNOWN");
+    expect(unresolved.tenant?.journalEntryId).toBeNull();
+    expect(unresolved.journals).toHaveLength(1);
+    expect(unresolved.bank?.categorizedJournalEntryId).toBe(actualJournal);
+    expect(await startChessBankPostingAttempt(tenantDb, attempt.id, f.actor)).toBe(false);
+    await expect(commitLegacyBankClassification(ledgerDb, f.posting)).rejects.toThrow();
+    const checked = await f.read();
+    expect(checked).toMatchObject({
+      status:"MATCHED_POSTED", journalEntryId:actualJournal,
+      bankSettled:false, requiresIndependentReview:false,
+    });
+    expect(await markChessBankPostingAttemptCommitted(
+      tenantDb,attempt.id,f.actor,checked.journalEntryId!)).toBe(true);
+    expect(await markChessBankPostingAttemptCommitted(
+      tenantDb,attempt.id,f.actor,checked.journalEntryId!)).toBe(true);
+    expect(await markChessBankPostingAttemptCommitted(
+      tenantDb,attempt.id,f.actor,"other-journal")).toBe(false);
+    const done = await f.receipts();
+    expect(done.tenant?.status).toBe("COMMITTED");
+    expect(done.tenant?.journalEntryId).toBe(actualJournal);
+    expect(done.journals).toHaveLength(1);
+    expect(done.journals[0]?.lines).toHaveLength(2);
+    expect(done.cash?.balanceCents).toBe(f.posting.amountCents);
+    expect(done.income?.balanceCents).toBe(f.posting.amountCents);
+    await withdraw(f);
+    expect((await tenantDb.chessClientConsent.findUnique({
+      where:{id:f.consent.id},
+    }))?.status).toBe("WITHDRAWN");
+  });
+
+  it("timeout before legacy call never posts, cannot auto-retry UNKNOWN, and blocks consent withdrawal", async () => {
+    const f=await fixture("before");
+    const attempt=await start(f);
+    // Inject timeout before opening the other database transaction.
+    await markChessBankPostingAttemptUnknown(tenantDb,attempt.id,f.actor);
+    expect(await f.read()).toMatchObject({
+      status:"UNPOSTED",journalEntryId:null,bankSettled:false,
+    });
+    expect((await f.receipts()).journals).toHaveLength(0);
+    expect(await reserveChessBankPostingAttempt(tenantDb,f.reservation))
+      .toMatchObject({id:attempt.id,status:"UNKNOWN"});
+    expect(await startChessBankPostingAttempt(tenantDb,attempt.id,f.actor)).toBe(false);
+    await expect(withdraw(f)).rejects.toThrow();
+    const after=await f.receipts();
+    expect(after.tenant?.status).toBe("UNKNOWN");
+    expect(after.bank?.status).toBe("UNMATCHED");
+    expect(after.cash?.balanceCents).toBe(0n);
+    expect(after.income?.balanceCents).toBe(0n);
+  });
+
+  it("partial ledger write failure rolls back bank claim, journals, lines and account balances", async () => {
+    const f=await fixture("closed");
+    await ledgerDb.accountingPeriod.create({data:{
+      tenantId:f.posting.tenantId,entityId:f.posting.entityId,
+      startDate:new Date("2026-10-01T00:00:00Z"),
+      endDate:new Date("2026-10-31T00:00:00Z"),
+      label:"Fictional closed period",status:"CLOSED",
+    }});
+    const attempt=await start(f);
+    await expect(commitLegacyBankClassification(ledgerDb,f.posting)).rejects.toThrow();
+    await markChessBankPostingAttemptUnknown(tenantDb,attempt.id,f.actor);
+    const after=await f.receipts();
+    expect(after.tenant?.status).toBe("UNKNOWN");
+    expect(after.bank?.status).toBe("UNMATCHED");
+    expect(after.bank?.categorizedJournalEntryId).toBeNull();
+    expect(after.journals).toHaveLength(0);
+    expect(after.cash?.balanceCents).toBe(0n);
+    expect(after.income?.balanceCents).toBe(0n);
+    expect(await f.read()).toMatchObject({status:"UNPOSTED",bankSettled:false});
+    await expect(withdraw(f)).rejects.toThrow();
+  });
+
+  it("tenant receipt timeout after legacy success leaves safe unresolved state and one journal", async () => {
+    const f=await fixture("receipt");
+    const attempt=await start(f);
+    const journalId=await commitLegacyBankClassification(ledgerDb,f.posting);
+    // Inject tenant receipt store outage before the COMMITTED transition.
+    expect((await f.receipts()).tenant?.status).toBe("EXECUTING");
+    await markChessBankPostingAttemptUnknown(tenantDb,attempt.id,f.actor);
+    await expect(withdraw(f)).rejects.toThrow();
+    expect((await f.read()).journalEntryId).toBe(journalId);
+    expect(await markChessBankPostingAttemptCommitted(
+      tenantDb,attempt.id,f.actor,journalId)).toBe(true);
+    expect((await f.receipts()).journals).toHaveLength(1);
+  });
+
+  it("duplicate requests and a consent race never create a second reservation or journal", async () => {
+    const f=await fixture("race");
+    const [a,b]=await Promise.all([
+      reserveChessBankPostingAttempt(tenantDb,f.reservation),
+      reserveChessBankPostingAttempt(tenantDb,f.reservation),
+    ]);
+    expect(a.id).toBe(b.id);
+    const started=await Promise.all([
+      startChessBankPostingAttempt(tenantDb,a.id,f.actor),
+      startChessBankPostingAttempt(tenantDb,b.id,f.actor),
+    ]);
+    expect(started.sort()).toEqual([false,true]);
+    await expect(withdraw(f)).rejects.toThrow();
+    const journalId=await commitLegacyBankClassification(ledgerDb,f.posting);
+    await markChessBankPostingAttemptCommitted(tenantDb,a.id,f.actor,journalId);
+    expect((await f.receipts()).journals).toHaveLength(1);
+    await expect(commitLegacyBankClassification(ledgerDb,f.posting)).rejects.toThrow();
+  });
+
+  it("consent withdrawn during RESERVED cancels attempt before any ledger write", async () => {
+    const f=await fixture("consent");
+    const attempt=await reserveChessBankPostingAttempt(tenantDb,f.reservation);
+    await withdraw(f);
+    expect(await startChessBankPostingAttempt(tenantDb,attempt.id,f.actor)).toBe(false);
+    const after=await f.receipts();
+    expect(after.tenant?.status).toBe("CANCELLED");
+    expect(after.bank?.status).toBe("UNMATCHED");
+    expect(after.journals).toHaveLength(0);
+    await expect(reserveChessBankPostingAttempt(tenantDb,f.reservation)).rejects.toThrow();
+  });
+});
