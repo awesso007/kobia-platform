@@ -3,6 +3,7 @@ import {auth,currentUser} from "@clerk/nextjs/server";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {PermissionError} from "@/lib/rbac/require-permission";
 import {z} from "zod";
+import {guardAndCancelReservedFinancialAttempts} from "./financial-attempt-guard";
 
 const request=z.object({
  consentId:z.string().min(1).max(128),
@@ -76,10 +77,12 @@ export async function withdrawOwnClientConsent(consentId:string) {
  const clerkUserId=auth().userId;
  if(!clerkUserId)throw new PermissionError("record:update");
  const {db}=getTenantDb();
+ const now=new Date();
  const result=await db.$transaction(async tx=>{
+  await guardAndCancelReservedFinancialAttempts(tx,consentId,now,clerkUserId);
   const changed=await tx.chessClientConsent.updateMany({
    where:{id:consentId,status:"GRANTED",acceptedByClerkUserId:clerkUserId},
-   data:{status:"WITHDRAWN",withdrawnAt:new Date()},
+   data:{status:"WITHDRAWN",withdrawnAt:now},
   });
   if(changed.count===1){
    const consent=await tx.chessClientConsent.findUnique({where:{id:consentId},
@@ -103,7 +106,7 @@ export async function withdrawOwnClientConsent(consentId:string) {
    }});
   }
   return changed;
- });
+ },{isolationLevel:"Serializable"});
  if(result.count!==1)throw new PermissionError("record:update");
  return {withdrawn:true};
 }
