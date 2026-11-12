@@ -3,6 +3,7 @@ import {describe,expect,it,vi} from "vitest";
 import {renderToStaticMarkup} from "react-dom/server";
 import FinancialAttemptMonitor from "@/app/app/(crm)/financial-attempts/FinancialAttemptMonitor";
 import RecurrencesClient from "@/app/app/(crm)/work-items/RecurrencesClient";
+import ChessDeskDirectory from "@/app/app/(crm)/chess-desk/ChessDeskDirectory";
 
 vi.mock("next/navigation",()=>({useRouter:()=>({refresh:()=>undefined})}));
 
@@ -51,5 +52,18 @@ describe("Round 31 manager financial exception and recurrence screens",()=>{
    }]}/>);
   expect(html).toContain("Never inspected by scheduled worker");
   expect(html).toContain("Paused");
+ });
+ it("shows financial exception navigation only to managers and not support staff",()=>{
+  const support=renderToStaticMarkup(<ChessDeskDirectory isAdministrator={false}
+   isBusinessManager={false} hasBusiness={true}/>);
+  const manager=renderToStaticMarkup(<ChessDeskDirectory isAdministrator={false}
+   isBusinessManager={true} hasBusiness={true}/>);
+  const admin=renderToStaticMarkup(<ChessDeskDirectory isAdministrator={true}
+   isBusinessManager={false} hasBusiness={true}/>);
+  expect(support).not.toContain('href="/app/financial-attempts"');
+  expect(manager).toContain('href="/app/financial-attempts"');
+  expect(manager).toContain("Business manager workspaces");
+  expect(manager).not.toContain('href="/app/security-operations"');
+  expect(admin).toContain('href="/app/financial-attempts"');
  });
 });
