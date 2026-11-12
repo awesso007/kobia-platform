@@ -150,3 +150,34 @@ export async function getObjectBody(storageKey: string, versionId?: string) {
   if (!response.Body) throw new Error("Storage object has no body.");
   return response.Body;
 }
+
+/** Delete exactly the pinned version, never a versionless key/delete marker.
+ * Object Lock or missing IAM privilege MUST propagate as an error. The
+ * returned AWS request ID is operational evidence, not immutable WORM proof. */
+export async function deletePinnedObjectVersion(storageKey:string,versionId:string):
+ Promise<{requestId:string|null}>{
+ if(!storageKey.startsWith("tenants/")||!versionId||versionId==="null")
+  throw new Error("Refusing an unpinned storage deletion.");
+ const deleted=await client().send(new DeleteObjectCommand({
+  Bucket:bucketName()!,Key:storageKey,VersionId:versionId,
+ }));
+ return {requestId:deleted.$metadata.requestId??null};
+}
+
+/** HEAD must return an explicit 404 for the exact version; network errors,
+ * access denied and provider timeouts are UNKNOWN and must fail closed. */
+export async function isPinnedObjectVersionAbsent(storageKey:string,versionId:string):
+ Promise<boolean>{
+ if(!storageKey.startsWith("tenants/")||!versionId||versionId==="null")
+  throw new Error("Refusing an unpinned storage verification.");
+ try{
+  await client().send(new HeadObjectCommand({
+   Bucket:bucketName()!,Key:storageKey,VersionId:versionId,
+  }));
+  return false;
+ }catch(error){
+  const status=(error as {$metadata?:{httpStatusCode?:number}})?.$metadata?.httpStatusCode;
+  if(status===404)return true;
+  throw error;
+ }
+}
