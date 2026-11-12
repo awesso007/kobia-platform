@@ -2,6 +2,7 @@ import { z } from "zod";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { getCurrentMembership, PermissionError } from "@/lib/rbac/require-permission";
 import { assertBusinessAccess } from "./business-units";
+import { guardAndCancelReservedFinancialAttempts } from "./financial-attempt-guard";
 
 const requestSchema = z.object({
  businessId: z.string().min(1).max(128),
@@ -43,10 +44,12 @@ export async function withdrawClientConsent(consentId: string,businessId: string
  const actor=await getCurrentMembership();
  if (!actor || !["OWNER","ADMIN"].includes(actor.role)) throw new PermissionError("record:update");
  const {db}=getTenantDb();
+ const now=new Date();
  return db.$transaction(async tx=>{
+  await guardAndCancelReservedFinancialAttempts(tx,consentId,now);
   const changed=await tx.chessClientConsent.updateMany({
    where:{id:consentId,businessId,status:"GRANTED"},
-   data:{status:"WITHDRAWN",withdrawnAt:new Date()},
+   data:{status:"WITHDRAWN",withdrawnAt:now},
   });
   if(changed.count===1){
    const consent=await tx.chessClientConsent.findUnique({
@@ -72,7 +75,7 @@ export async function withdrawClientConsent(consentId: string,businessId: string
    }});
   }
   return changed;
- });
+ },{isolationLevel:"Serializable"});
 }
 
 export function isUsableConsent(consent: {status:string; expiresAt:Date|null; consentedAt?:Date|null; acceptedByClerkUserId?:string|null; verifiedEmailDigest?:string|null; acceptanceEvidenceDigest?:string|null; withdrawnAt?:Date|null},now=new Date()) {
