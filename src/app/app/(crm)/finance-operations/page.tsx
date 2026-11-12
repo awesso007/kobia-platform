@@ -100,6 +100,17 @@ export default async function ChessFinanceOperationsPage({
     ...c,createdAt:c.createdAt.toISOString(),
     updatedAt:c.updatedAt.toISOString(),
    }))}/>}
+  <section className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+   <h2 className="font-semibold text-amber-950">Bank posting exception monitoring</h2>
+   <p className="mt-2 text-sm text-amber-900">
+    Inspect reserved, executing and UNKNOWN legacy journal attempts before
+    any manual reconciliation. An UNKNOWN outcome must never be blindly retried.
+   </p>
+   <Link href={`/app/financial-attempts?businessId=${encodeURIComponent(selected.id)}`}
+    className="mt-3 inline-block text-sm font-semibold text-amber-950 underline">
+    Open read-only financial attempt monitor
+   </Link>
+  </section>
   <section className="space-y-2 rounded-xl border border-slate-200 p-5">
    <h2 className="font-semibold">Financial controls and activation</h2>
    <p className="text-sm text-slate-600">
