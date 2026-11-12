@@ -8,6 +8,33 @@ business-operations layer within an isolated KOBIA tenant, not an assertion
 that a single legal entity holds all operating licenses.
 
 
+## CURRENT ROUND 32 — signed-in consent and worker health read audits
+
+The Round 31 final SHA was green (3/3 jobs) at the start of this round.
+GitHub's branch TODO search returned **incomplete** results; no claim is
+made that every TODO in KOBIA is closed.
+
+This round closes two documented M1/M3/M8 **code-only sensitive-read**
+gaps: authenticated client-consent directory and disclosure details now
+perform verified-email ownership checks and commit an opaque ALLOW/DENY
+event inside the SAME serializable tenant transaction as all SELECTs.
+The directory no longer loads full policy text. Tenant-wide worker,
+calendar and archive health now similarly rechecks current OWNER/ADMIN
+membership and audits the read before releasing metrics. New negative tests
+cover foreign Clerk grants, stale contact ownership, unverified identity,
+revoked roles, audit outages and privacy-minimal event content.
+
+See [Round 32 security read audit](CHESS_CORP_2_ROUND32_SECURITY_READ_AUDIT.md)
+for changed paths, tests and unverified work. This does NOT establish
+full historical/legacy-path audit coverage, live finance execution,
+signed-in Clerk staging verification, third-party security approval,
+WORM evidence or DR. Existing owner checklist 01/02/04/05/07/16/17/18
+still applies. **All 8/8 production milestones remain blocked; 0/8
+independent release approvals.** Never merge PR #24 or deploy `main`
+as a result of a normal CI pass.
+
+---
+
 ## CURRENT ROUND 31 — manager exception monitor and recurrence inspection UI
 
 Reviewed existing employee/admin screens against the CHESS API inventory. The
