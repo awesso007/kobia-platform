@@ -4,23 +4,20 @@
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
-**Latest independently observed development CI baseline (not external
-acceptance):** Round 33 feature SHA
-`1775d4bd54bf4f57c7567a385658e32a3b9ca607` completed
-**3/3 success** in [Actions 43177693237](https://github.com/awesso007/kobia-platform/actions/runs/43177693237).
-Prior checkpoints: Round 31
-[`96902a15` / run 43171848342](https://github.com/awesso007/kobia-platform/actions/runs/43171848342)
-and Round 32
-[`ac9123aa` / run 43174744357](https://github.com/awesso007/kobia-platform/actions/runs/43174744357).
-All three normal jobs test source and disposable PostgreSQL only.
-**Round 34 documentation head `6d241a2a0efdad2cd3e0494d7f859cf1f79169c0` passed 3/3 normal CI jobs in [run 43179174988](https://github.com/awesso007/kobia-platform/actions/runs/43179174988). Round 35 final `d0b0677b25d862959c4a490340bf3cd904d63200` passed 3/3 normal CI jobs in [run 43184184877](https://github.com/awesso007/kobia-platform/actions/runs/43184184877). Round 36 needs its own exact-final-head CI verification.**
-No protected, real Clerk authenticated browser/axe, private staging,
-vendor settlement, WORM/PITR restore or independent legal/security signoff
-is proven by normal CI. No outside credential was newly required by
-Rounds 31–35; the configuration placeholders below remain disabled until
-their responsible owner/contracting professional supplies and approves
-the required inputs. Source changes are recorded in
-[the authoritative Round 35 M1–M8 milestone matrix](CHESS_CORP_2_ROADMAP.md).
+**Latest independently observed completed normal CI baseline (not
+external acceptance):** Round 38 source commit
+`f7ea573b45800b508de42fb073c2688a47807193` passed **3/3**
+GitHub Actions jobs in [run 43280276731](https://github.com/awesso007/kobia-platform/actions/runs/43280276731),
+including its disposable cross-database financial fault suite. Earlier
+verified rounds and their exact SHAs are preserved in the
+[authoritative Round 40 M1–M8 matrix](CHESS_CORP_2_ROADMAP.md).
+Rounds 39–40 require their own exact-final-commit CI verification.
+No normal CI run can establish a real signed-in Clerk/Neon browser/axe
+acceptance, private S3 redaction/deletion, vendor settlement, WORM/PITR,
+or independent legal/security approval. All feature activation and
+external credentials remain under this one checklist; source-only
+placeholder values are NOT owner approval.
+
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
 
 ## Round 40 employee/client fictional demo E2E — protected acceptance
