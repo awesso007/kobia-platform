@@ -59,7 +59,7 @@ export async function reserveChessBankPostingAttempt(
   }
 
   return db.$transaction(async (tx) => {
-    await tx.$queryRaw<Array<{ id: string }>>\`SELECT "id" FROM "ChessClientConsent" WHERE "id" = \${input.consentId} FOR UPDATE\`;
+    await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "ChessClientConsent" WHERE "id" = ${input.consentId} FOR UPDATE`;
 
     const consent = await tx.chessClientConsent.findUnique({
       where: { id: input.consentId },
@@ -156,7 +156,7 @@ export async function startChessBankPostingAttempt(
     if (!attempt || attempt.status !== "RESERVED" ||
         attempt.createdByClerkUserId !== actorClerkUserId) return false;
 
-    await tx.$queryRaw<Array<{ id: string }>>\`SELECT "id" FROM "ChessClientConsent" WHERE "id" = \${attempt.consentId} FOR UPDATE\`;
+    await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "ChessClientConsent" WHERE "id" = ${attempt.consentId} FOR UPDATE`;
     const consent = await tx.chessClientConsent.findUnique({
       where: { id: attempt.consentId },
       select: {
