@@ -2,6 +2,7 @@ import {z} from "zod";
 import {getTenantDb} from "@/lib/db/get-tenant-db";
 import {assertBusinessManager} from "./business-manager";
 import {PermissionError} from "@/lib/rbac/require-permission";
+import {auditedChessSensitiveRead} from "./sensitive-read-audit";
 
 const periodInput=z.object({
  businessId:z.string().min(1).max(128),
@@ -34,24 +35,35 @@ export async function getChessOperationsReport(input:unknown){
  const {db,tenantId}=getTenantDb();
  const {from,to}=reportWindow(month);
  const period={gte:from,lt:to};
+ return auditedChessSensitiveRead(db,{
+  businessId,actorClerkUserId:manager.clerkUserId,
+  action:"OPERATIONS_REPORT_READ",resourceType:"ChessOperationsReport",
+  resourceId:month,
+ },async tx=>{
+  const current=await tx.membership.findUnique({
+   where:{clerkUserId:manager.clerkUserId},
+   select:{status:true,role:true},
+  });
+  if(current?.status!=="ACTIVE"||
+   !["OWNER","ADMIN"].includes(current.role))return null;
  const [unit,cases,workItems,ai,invoices,regulated,consents]=await Promise.all([
-  db.chessBusinessUnit.findFirst({where:{id:businessId,status:"ACTIVE"},
+  tx.chessBusinessUnit.findFirst({where:{id:businessId,status:"ACTIVE"},
    select:{id:true,name:true}}),
-  db.chessServiceCase.groupBy({by:["service","status"],
+  tx.chessServiceCase.groupBy({by:["service","status"],
    where:{businessId,createdAt:period},_count:{_all:true}}),
-  db.chessWorkItem.groupBy({by:["status"],
+  tx.chessWorkItem.groupBy({by:["status"],
    where:{businessId,createdAt:period},_count:{_all:true}}),
-  db.chessAiSuggestion.groupBy({by:["status"],
+  tx.chessAiSuggestion.groupBy({by:["status"],
    where:{businessId,createdAt:period},_count:{_all:true}}),
-  db.chessBillingInvoice.groupBy({by:["status"],
+  tx.chessBillingInvoice.groupBy({by:["status"],
    where:{businessId,createdAt:period},_count:{_all:true},
    _sum:{amountCents:true}}),
-  db.chessRegulatedWorkflow.groupBy({by:["service","status"],
+  tx.chessRegulatedWorkflow.groupBy({by:["service","status"],
    where:{businessId,createdAt:period},_count:{_all:true}}),
-  db.chessClientConsent.groupBy({by:["status"],
+  tx.chessClientConsent.groupBy({by:["status"],
    where:{businessId,createdAt:period},_count:{_all:true}}),
  ]);
- if(!unit)throw new PermissionError("record:read");
+ if(!unit)return null;
  return {
   tenantSlug:tenantId,businessId:unit.id,businessName:unit.name,
   month,range:{from:from.toISOString(),toExclusive:to.toISOString()},
@@ -70,4 +82,5 @@ export async function getChessOperationsReport(input:unknown){
    "No client, account, property, health, payroll or tax-return details are included.",
   ],
  };
+ });
 }

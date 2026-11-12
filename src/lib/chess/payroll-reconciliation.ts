@@ -4,6 +4,7 @@ import {getTenantBySlug} from "@/lib/tenant";
 import {PermissionError,getCurrentMembership} from "@/lib/rbac/require-permission";
 import {assertBusinessManager} from "./business-manager";
 import {getPayrollProviderStatus,payrollStatusConfigured} from "./payroll-provider";
+import {auditedChessSensitiveRead} from "./sensitive-read-audit";
 
 type Status="SUBMITTED"|"PROVIDER_PAID"|"PROVIDER_FAILED"|"UNKNOWN";
 export function mapProviderPayrollStatus(
@@ -89,9 +90,22 @@ export async function listChessPayrollDispatches(businessId:string){
  const actor=await getCurrentMembership();
  if(!actor || actor.status!=="ACTIVE")throw new PermissionError("record:read");
  const {db}=getTenantDb();
- return db.chessPayrollDispatch.findMany({where:{businessId},
-  orderBy:{createdAt:"desc"},take:100,select:{
-   id:true,legacyPayRunId:true,status:true,providerRequestId:true,
-   createdAt:true,submittedAt:true,providerCheckedAt:true,
-  }});
+ return auditedChessSensitiveRead(db,{
+  businessId,actorClerkUserId:actor.clerkUserId,
+  action:"PAYROLL_DISPATCH_READ",resourceType:"ChessPayrollDispatch",
+  resourceId:"BUSINESS",
+ },async tx=>{
+  const [member,unit]=await Promise.all([
+   tx.membership.findUnique({where:{clerkUserId:actor.clerkUserId},
+    select:{status:true,role:true}}),
+   tx.chessBusinessUnit.findUnique({where:{id:businessId},select:{status:true}}),
+  ]);
+  if(member?.status!=="ACTIVE"||unit?.status!=="ACTIVE"||
+   !["OWNER","ADMIN"].includes(member.role))return null;
+  return tx.chessPayrollDispatch.findMany({where:{businessId},
+   orderBy:{createdAt:"desc"},take:100,select:{
+    id:true,legacyPayRunId:true,status:true,providerRequestId:true,
+    createdAt:true,submittedAt:true,providerCheckedAt:true,
+   }});
+ });
 }

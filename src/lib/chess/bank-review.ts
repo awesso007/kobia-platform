@@ -246,6 +246,48 @@ export async function listChessBankReviews(raw:unknown){
  * the CHESS registry or performs a ledger mutation. */
 export async function listChessBankReviewCandidates(raw:unknown){
  const state=await context(raw);
+ return auditedChessSensitiveRead(state.db,{
+  businessId:state.data.businessId,actorClerkUserId:state.actor.clerkUserId,
+  action:"BANK_CANDIDATES_READ",
+  resourceType:"ChessServiceCase",resourceId:state.data.serviceCaseId,
+ },async tx=>{
+  // Recheck CHESS permissions and purpose-specific consent inside a tenant
+  // SERIALIZABLE transaction. The legacy bank/GL SELECT is separate, so its
+  // cross-database freshness must still be independently tested in staging.
+  const [member,unit,serviceCase,link,consents,mapping]=await Promise.all([
+   tx.membership.findUnique({where:{clerkUserId:state.actor.clerkUserId},
+    select:{status:true}}),
+   tx.chessBusinessUnit.findUnique({where:{id:state.data.businessId},
+    select:{status:true}}),
+   tx.chessServiceCase.findFirst({where:{
+    id:state.data.serviceCaseId,businessId:state.data.businessId,
+    clientProfileId:state.data.clientProfileId,service:state.data.service,
+    status:"ACTIVE",
+   },select:{id:true}}),
+   tx.clientServiceLink.findUnique({where:{profileId_businessId_service:{
+    profileId:state.data.clientProfileId,businessId:state.data.businessId,
+    service:state.data.service,
+   }},select:{grants:{where:{
+    clerkUserId:state.actor.clerkUserId,canRead:true,revokedAt:null,
+   },select:{id:true}}}}),
+   tx.chessClientConsent.findMany({where:{
+    businessId:state.data.businessId,clientProfileId:state.data.clientProfileId,
+    purpose:"service:"+state.data.service,
+   },select:{status:true,expiresAt:true,consentedAt:true,
+    acceptedByClerkUserId:true,verifiedEmailDigest:true,
+    acceptanceEvidenceDigest:true,withdrawnAt:true}}),
+   tx.chessFinancialLink.findUnique({where:{
+    serviceCaseId:state.data.serviceCaseId,
+   },select:{businessId:true,clientProfileId:true,service:true,
+    legacyTenantId:true,legacyEntityId:true}}),
+  ]);
+  if(member?.status!=="ACTIVE"||unit?.status!=="ACTIVE"||!serviceCase||
+   !link?.grants.length||!consents.some(c=>isUsableConsent(c))||
+   mapping?.businessId!==state.data.businessId||
+   mapping.clientProfileId!==state.data.clientProfileId||
+   mapping.service!==state.data.service||
+   mapping.legacyTenantId!==state.legacyTenantId||
+   mapping.legacyEntityId!==state.legacyEntityId)return null;
  const [transactions,accounts]=await Promise.all([
   ledger.bankTransaction.findMany({where:{
    tenantId:state.legacyTenantId,status:"UNMATCHED",
@@ -264,6 +306,7 @@ export async function listChessBankReviewCandidates(raw:unknown){
   id:t.id,postedDate:t.postedDate,description:t.description,
   amountCents:t.amountCents.toString(),bankAccountId:t.bankAccountId,
  })),accounts};
+ });
 }
 
 
