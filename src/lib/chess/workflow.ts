@@ -36,6 +36,42 @@ export async function createChessWorkItem(data:unknown) {
   if(!link)throw new PermissionError("record:read");
  }
  return db.$transaction(async tx=>{
+  // Repeat every permission and target-assignment check atomically with
+  // the work creation and audit. Preliminary checks above are not a
+  // substitute for the latest role or a revoked service assignment.
+  const [current,unit,assignment]=await Promise.all([
+   tx.membership.findUnique({where:{clerkUserId:actor.clerkUserId},
+    select:{role:true,status:true}}),
+   tx.chessBusinessUnit.findUnique({where:{id:parsed.businessId},
+    select:{status:true}}),
+   tx.chessEmployeeAssignment.findUnique({where:{
+    businessId_clerkUserId:{businessId:parsed.businessId,
+     clerkUserId:actor.clerkUserId},
+   },select:{revokedAt:true}}),
+  ]);
+  if(!canReadChessWorkBusiness({
+   membershipStatus:current?.status??null,role:current?.role??null,
+   unitStatus:unit?.status??null,
+   currentAssignment:!!assignment&&!assignment.revokedAt,
+  }))throw new PermissionError("record:create");
+  if(parsed.assignedClerkUserId){
+   const [assigned,assignee]=await Promise.all([
+    tx.chessEmployeeAssignment.findUnique({where:{
+     businessId_clerkUserId:{businessId:parsed.businessId,
+      clerkUserId:parsed.assignedClerkUserId},
+    },select:{revokedAt:true}}),
+    tx.membership.findUnique({where:{clerkUserId:parsed.assignedClerkUserId},
+     select:{status:true}}),
+   ]);
+   if(!assigned||assigned.revokedAt||assignee?.status!=="ACTIVE")
+    throw new PermissionError("record:create");
+  }
+  if(parsed.clientProfileId){
+   const currentLink=await tx.clientServiceLink.findFirst({where:{
+    profileId:parsed.clientProfileId,businessId:parsed.businessId,
+   },select:{id:true}});
+   if(!currentLink)throw new PermissionError("record:create");
+  }
   const item=await tx.chessWorkItem.create({data:parsed,select:{
    id:true,businessId:true,title:true,status:true,assignedClerkUserId:true,dueAt:true,updatedAt:true,
   }});
@@ -59,7 +95,7 @@ export async function createChessWorkItem(data:unknown) {
    action:"WORK_ITEM_CREATED",resourceType:"ChessWorkItem",resourceId:item.id,decision:"ALLOW",
   }});
   return item;
- });
+ },{isolationLevel:"Serializable"});
 }
 export function canReadChessWorkBusiness(input:{
  membershipStatus:string|null;role:string|null;unitStatus:string|null;
