@@ -63,6 +63,26 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS CORP 2 Round 40 — fictional employee/client workflow acceptance
+
+Round 40 extends the **manual, protected** `chess-demo-e2e` Playwright
+browser suite with employee cross-business deep-link denial, stale task
+HTTP 409 concurrency, manager-versus-SUPPORT permissions, client private
+document/task denials and independent simultaneous owner/employee/client
+Clerk TEST sessions. The demo setup still uses only the isolated fictional
+Neon `chess_demo` tenant and never creates valid client service consent
+or connects to any bank/provider. Normal CI tests browser-suite source
+policy, syntax and seeded PostgreSQL task/consent integrity, not the
+real authenticated browser. See the
+[Round 40 E2E matrix](docs/CHESS_CORP_2_ROUND40_DEMO_EMPLOYEE_CLIENT_E2E.md)
+and [protected demo workflow](.github/workflows/chess-demo-browser-e2e.yml).
+
+Round 39 also added document revision/redaction/disposal source. It is
+default OFF pending approved legal retention, S3 object-version deletion,
+WORM evidence and separately configured `CHESS_DOCUMENT_PURGE_WORKER_TOKEN`
+and release gates. The recovered Round 39 build regressions were repaired.
+No production deletion, bank posting, or customer onboarding is enabled.
+
 ## CHESS CORP 2 Round 38 — distributed financial fault simulation
 
 The source-only CI test `distributed-financial-outcome-round38.integration.test.ts`
