@@ -28,6 +28,27 @@ export function validateChessDemoEnvironment(env: DemoEnvironment): {
       !env.CLERK_SECRET_KEY?.startsWith("sk_test_")) {
     throw new Error("Only Clerk TEST publishable and secret keys are accepted.");
   }
+
+  // Even in a test-only Neon database the demo must refuse ANY external
+  // execution/notification activation. No consent, licensed activity,
+  // payment or vendor request is authorized by fictional fixtures.
+  const prohibited = [
+    "CHESS_BANK_POSTING_ENABLED","CHESS_BANK_FEED_ENABLED",
+    "CHESS_BANK_FEED_IMPORT_ENABLED","CHESS_PAYROLL_EXECUTION_ENABLED",
+    "CHESS_PAYROLL_APPROVAL_REQUESTS_ENABLED","CHESS_PAYROLL_STATUS_ENABLED",
+    "CHESS_REGULATED_HANDOFF_ENABLED","CHESS_CALENDAR_SYNC_ENABLED",
+    "CHESS_CALENDAR_OAUTH_ENABLED","CHESS_SCHEDULER_ENABLED",
+    "CHESS_AI_TRIAGE_ENABLED","CHESS_BILLING_DELIVERY_ENABLED",
+    "CHESS_BILLING_RECURRING_DRAFTS_ENABLED","CHESS_MERCHANT_WEBHOOK_ENABLED",
+    "CHESS_AUDIT_EXPORT_ENABLED","CHESS_SCAN_CALLBACK_ENABLED",
+    "CHESS_CLIENT_CONSENT_PORTAL_ENABLED","CHESS_DOCUMENT_LIFECYCLE_ENABLED",
+    "CHESS_INCIDENT_MONITOR_ENABLED",
+  ] as const;
+  const active = prohibited.filter(key => env[key] === "true");
+  if (active.length) {
+    throw new Error("CHESS fictional demo refuses activated external services: " +
+      active.join(", "));
+  }
   const ownerEmail = (env.CHESS_DEMO_OWNER_EMAIL ?? "").trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(ownerEmail)) {
     throw new Error("Set CHESS_DEMO_OWNER_EMAIL to your verified Clerk test-user email.");

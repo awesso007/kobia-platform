@@ -33,3 +33,20 @@ export async function setupAndVerifyChessDemoFixtures(db:TenantDb){
  await seedChessDemoRecords(db);
  return verifyChessDemoRecords(db);
 }
+
+
+/** Read-only post-setup audit shared by the real Codespaces verification
+ * command and CI. Does not create users, grants, approvals or source rows. */
+export async function verifyChessDemoInstallation(platform:PlatformDb,db:TenantDb){
+ await assertIsolatedChessDemoDatabase(platform);
+ const registry=await platform.tenantRegistry.findUnique({
+  where:{slug:CHESS_DEMO_SLUG},
+  select:{slug:true,schemaName:true,status:true,plan:true},
+ });
+ if(!registry||registry.schemaName!==CHESS_DEMO_SCHEMA||
+  registry.status!=="ACTIVE"||registry.plan!=="DEMO"){
+  throw new Error("Demo registry is missing or does not map to the isolated tenant.");
+ }
+ const fixture=await verifyChessDemoRecords(db);
+ return {tenant:registry.slug,schema:registry.schemaName,fixture};
+}

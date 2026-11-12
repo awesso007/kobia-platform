@@ -1,7 +1,7 @@
 import {beforeAll,afterAll,describe,expect,it} from "vitest";
 import {PrismaClient} from "@/lib/db/generated/tenant";
 import {PrismaClient as PlatformClient} from "@/lib/db/generated/platform";
-import {registerChessDemoTenant,setupAndVerifyChessDemoFixtures} from "./demo-setup-core";
+import {registerChessDemoTenant,setupAndVerifyChessDemoFixtures,verifyChessDemoInstallation} from "./demo-setup-core";
 import {assertIsolatedChessDemoDatabase} from "./demo-target-policy";
 
 const integration=process.env.RUN_CHESS_DB_INTEGRATION==="1"?describe:describe.skip;
@@ -34,6 +34,8 @@ integration("CHESS fictional demo seed on isolated PostgreSQL",()=>{
   await assertIsolatedChessDemoDatabase(platform);
   await setupAndVerifyChessDemoFixtures(db);
   const fixture=await setupAndVerifyChessDemoFixtures(db);
+  const installed=await verifyChessDemoInstallation(platform,db);
+  expect(installed).toEqual({tenant:"chess-demo",schema:"tenant_chess_demo",fixture});
   expect(fixture).toEqual({businessUnits:8,employeeAssignments:24,
    clients:5,pendingDisclosures:5});
   const unitSlugs=["accounting","bookkeeping","payroll","tax",

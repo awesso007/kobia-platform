@@ -18,6 +18,16 @@ describe("isolated CHESS Codespaces demo", () => {
       expect(chessDemoModeActive({ ...safe, [key]: undefined })).toBe(false);
     }
   });
+  it("refuses demo setup when external execution or consent portal is activated", () => {
+    for (const flag of ["CHESS_BANK_POSTING_ENABLED",
+      "CHESS_PAYROLL_EXECUTION_ENABLED","CHESS_REGULATED_HANDOFF_ENABLED",
+      "CHESS_BILLING_DELIVERY_ENABLED","CHESS_SCHEDULER_ENABLED",
+      "CHESS_CLIENT_CONSENT_PORTAL_ENABLED"]) {
+      expect(chessDemoModeActive({...safe,[flag]:"true"})).toBe(false);
+      expect(() => validateChessDemoEnvironment({...safe,[flag]:"true"}))
+        .toThrow(/refuses activated external services/);
+    }
+  });
   it("refuses production even when test keys and flags are set", () => {
     const prod = { ...safe, NODE_ENV: "production" };
     expect(chessDemoModeActive(prod)).toBe(false);
