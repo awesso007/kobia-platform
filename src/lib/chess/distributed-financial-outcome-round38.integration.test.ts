@@ -353,4 +353,117 @@ integration("Round 38 distributed outcome faults on two separate Postgres databa
     expect(after.bank?.status).toBe("UNMATCHED");
   },15000);
 
+  it("partial failure after claiming a bank row for a missing GL offset rolls back all cross-entity ledger effects",async()=>{
+    const f=await fixture("offset-failure");
+    const attempt=await start(f);
+    // The first UPDATE would claim UNMATCHED -> CATEGORIZED; subsequent
+    // GL validation fails within that SAME legacy SERIALIZABLE transaction.
+    await expect(commitLegacyBankClassification(ledgerDb,{
+      ...f.posting,offsetAccountId:"fictional-no-matching-gl-account",
+    })).rejects.toThrow();
+    await markChessBankPostingAttemptUnknown(tenantDb,attempt.id,f.actor);
+    const after=await f.receipts();
+    expect(after.tenant?.status).toBe("UNKNOWN");
+    expect(after.bank?.status).toBe("UNMATCHED");
+    expect(after.bank?.categorizedJournalEntryId).toBeNull();
+    expect(after.journals).toHaveLength(0);
+    expect(after.cash?.balanceCents).toBe(0n);
+    expect(after.income?.balanceCents).toBe(0n);
+    expect(await f.read()).toMatchObject({status:"UNPOSTED",bankSettled:false});
+    await expect(withdraw(f)).rejects.toThrow();
+  },15000);
+
+  it("inactive bank account found after source-row claim rejects and rolls back rather than leaving an orphan CATEGORIZED bank row",async()=>{
+    const f=await fixture("inactive-bank");
+    const attempt=await start(f);
+    await ledgerDb.bankAccount.update({
+      where:{id:f.posting.bankAccountId},data:{isActive:false},
+    });
+    await expect(commitLegacyBankClassification(ledgerDb,f.posting)).rejects.toThrow();
+    await markChessBankPostingAttemptUnknown(tenantDb,attempt.id,f.actor);
+    const after=await f.receipts();
+    expect(after.bank?.status).toBe("UNMATCHED");
+    expect(after.bank?.categorizedJournalEntryId).toBeNull();
+    expect(after.journals).toHaveLength(0);
+    expect(after.cash?.balanceCents).toBe(0n);
+    expect(after.income?.balanceCents).toBe(0n);
+    expect(after.tenant?.status).toBe("UNKNOWN");
+  },15000);
+
+  it("reconciliation read timeout after legacy success never retries the ledger write or releases unresolved consent",async()=>{
+    const f=await fixture("reconcile-timeout");
+    const attempt=await start(f);
+    const journalId=await commitLegacyBankClassification(ledgerDb,f.posting);
+    await markChessBankPostingAttemptUnknown(tenantDb,attempt.id,f.actor);
+    let reads=0;
+    const flakyRead=async()=>{
+      reads++;
+      if(reads===1)throw new Error("SYNTHETIC_LEDGER_READ_TIMEOUT");
+      return f.read();
+    };
+    await expect(flakyRead()).rejects.toThrow("SYNTHETIC_LEDGER_READ_TIMEOUT");
+    expect((await f.receipts()).tenant?.status).toBe("UNKNOWN");
+    await expect(withdraw(f)).rejects.toThrow();
+    const observed=await flakyRead();
+    expect(observed).toMatchObject({status:"MATCHED_POSTED",
+      journalEntryId:journalId,bankSettled:false});
+    expect(reads).toBe(2);
+    expect((await f.receipts()).journals).toHaveLength(1);
+    expect((await f.receipts()).tenant?.status).toBe("UNKNOWN");
+    expect(await startChessBankPostingAttempt(tenantDb,attempt.id,f.actor)).toBe(false);
+    await expect(commitLegacyBankClassification(ledgerDb,f.posting)).rejects.toThrow();
+  },15000);
+
+  it("concurrent matching receipt confirmations are idempotent and create one durable COMMITTED event",async()=>{
+    const f=await fixture("receipt-race");
+    const attempt=await start(f);
+    const journalId=await commitLegacyBankClassification(ledgerDb,f.posting);
+    await markChessBankPostingAttemptUnknown(tenantDb,attempt.id,f.actor);
+    const attempts=await Promise.allSettled([
+      markChessBankPostingAttemptCommitted(tenantDb,attempt.id,f.actor,journalId),
+      markChessBankPostingAttemptCommitted(tenantDb,attempt.id,f.actor,journalId),
+    ]);
+    for(const result of attempts){
+      if(result.status==="rejected")
+        expect((result.reason as {code?:string}).code).toBe("P2034");
+      else expect(typeof result.value).toBe("boolean");
+    }
+    // A transaction serialization retry is safe ONLY for receipt pinning,
+    // not for a second bank posting or an UNKNOWN ledger write.
+    expect(await markChessBankPostingAttemptCommitted(
+      tenantDb,attempt.id,f.actor,journalId)).toBe(true);
+    expect(await markChessBankPostingAttemptCommitted(
+      tenantDb,attempt.id,f.actor,"fabricated-second-receipt")).toBe(false);
+    const done=await f.receipts();
+    expect(done.tenant?.status).toBe("COMMITTED");
+    expect(done.tenant?.journalEntryId).toBe(journalId);
+    expect(done.journals).toHaveLength(1);
+    expect(await tenantDb.chessSecurityEvent.count({where:{
+      resourceType:"ChessFinancialAttempt",resourceId:attempt.id,
+      action:"BANK_POSTING_ATTEMPT_COMMITTED",
+    }})).toBe(1);
+  },15000);
+
+  it("a different source reference cannot reclassify an already posted bank row or invent a receipt",async()=>{
+    const f=await fixture("other-source");
+    const attempt=await start(f);
+    const journalId=await commitLegacyBankClassification(ledgerDb,f.posting);
+    await markChessBankPostingAttemptUnknown(tenantDb,attempt.id,f.actor);
+    const different={...f.posting,sourceRefId:f.posting.sourceRefId+"-other"};
+    await expect(commitLegacyBankClassification(ledgerDb,different)).rejects.toThrow();
+    const observation=await reconcileLegacyChessPosting(ledgerDb,{
+      tenantId:f.posting.tenantId,entityId:f.posting.entityId,
+      bankTransactionId:f.posting.bankTransactionId,
+      sourceRefId:different.sourceRefId,
+    });
+    expect(observation).toMatchObject({status:"DIVERGED",
+      journalEntryId:null,requiresIndependentReview:true,bankSettled:false});
+    const after=await f.receipts();
+    expect(after.journals).toHaveLength(1);
+    expect(after.journals[0]?.id).toBe(journalId);
+    expect(after.tenant?.status).toBe("UNKNOWN");
+    expect(after.tenant?.journalEntryId).toBeNull();
+    expect(after.bank?.categorizedJournalEntryId).toBe(journalId);
+  },15000);
+
 });
