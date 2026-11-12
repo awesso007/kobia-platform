@@ -538,3 +538,41 @@ requirements remain release blockers.
 The canonical owner-supply register is
 docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md item 01; no duplicate new
 credential list is created by this round. All M1–M8 release gates remain.
+
+
+## Round 26 — code-first engineering changes and remaining blockers
+
+- **M1-02 / M8-09 [CODE EXPANDED, RELEASE OPEN]:** Audited serializable
+  reads now cover profile directory/detail/provisioning, document
+  inventory/download, bank candidates and reconciliation,
+  payroll dispatch status and monthly business operational reports,
+  plus earlier service-link/regulated/portfolio/security decisions.
+  A full sensitive-path inventory and remote WORM evidence remain open.
+- **M2-02 [CODE HARDENED, EXTERNAL E2E OPEN]:** Revoking an employee
+  assignment now atomically revokes their client service grants for
+  that business without changing grants in other businesses; repeat
+  requests and reassignments do not silently restore grants.
+- **M3-06 [CODE HARDENED, EXTERNAL SIGNATURE/STORAGE OPEN]:** Client
+  document uploads, confirmation, lists and READY/download checks
+  now require a currently valid, purpose-bound consent and explicit
+  service grant. Lists/downloads are auditable; previously issued
+  60-second storage links and approved legal retention still require
+  separate operational acceptance.
+- **M5-06 [CODE PARTIAL, CRITICAL RACE OPEN]:** Added a read-only
+  legacy bank-posting reconciler + scoped audited owner/admin endpoint
+  and employee control. It detects tampered/unbalanced/missing source
+  journals and does not post/settle/retry; cross-DB consent-revocation
+  atomicity and durable UNKNOWN recovery are not complete.
+- **M7-04 [CODE IMPROVED, EXTERNAL ACCEPTANCE OPEN]:** Added
+  versioned M7 recurring worker last-inspected timestamp, null-first
+  fairness, 550-plan repeat-run tests, real PostgreSQL ordering and
+  exact 500-item overflow detection. Still draft-only and
+  default-OFF; test migration on restored clone, enable pager
+  after authorization and preserve provider settlement boundaries.
+- **Round 26 deliverable status:** Full source/test evidence and
+  still-open code+external items:
+  docs/CHESS_CORP_2_ROUND26_ENGINEERING_AUDIT.md. No claim that
+  the complete engineering roadmap is finished.
+
+Existing owner-supplied items continue to be managed ONLY in
+docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md.

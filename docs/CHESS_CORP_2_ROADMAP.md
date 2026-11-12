@@ -8,6 +8,35 @@ business-operations layer within an isolated KOBIA tenant, not an assertion
 that a single legal entity holds all operating licenses.
 
 
+## CURRENT ROUND 26 — engineering verification scope (November 11, 2026)
+
+**Latest development change inventory:** M1 role-scoped profile/provisioning
+audit, M2 atomic assignment+service-grant revocation, M3 consent-checked
+document access, M5 read-only bank-to-GL reconciliation/API/UI, M7
+fairness-paged draft billing with its additive PostgreSQL migration, and
+M8 additional audited sensitive SELECT paths. Round 26 also preserves
+the existing M4 work/calendar and M6 regulated coordination controls
+without enabling uncontracted providers.
+
+**Status:** **8/8 milestones still incomplete for production, 0/8 signed
+release approvals**. The Round 24 milestone-by-milestone table below
+remains the baseline release gate matrix. New code changes do **not**
+make the remaining cross-database race, all-sensitive-read auditing,
+full e-signature/retention, licensed-provider execution, statutory
+consolidation, actual browser E2E, DR/incident paging or real staging
+pass automatically.
+
+For exact new code, tests, unresolved code-only work and the M7 migration,
+see [Round 26 engineering audit](CHESS_CORP_2_ROUND26_ENGINEERING_AUDIT.md).
+For **one** list of secrets, contracts, provider keys and independent
+approvals, continue to use the
+[owner-supply checklist](CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md).
+No new real credential is introduced by the read-only ledger
+reconciler. Never merge or deploy draft PR #24 without a separately
+authorized release.
+
+---
+
 ## CURRENT / AUTHORITATIVE — Round 24 milestone status, November 11, 2026
 
 **Source of truth for M1–M8 through Round 23 code:** draft
