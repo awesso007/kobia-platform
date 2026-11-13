@@ -281,6 +281,12 @@ jobs:
           DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
         run: npx vitest run src/lib/security/legacy-marketing-tracking-round55.integration.test.ts
 
+      - name: Round 57 tenant PostgreSQL mutation-and-audit rollback
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+        run: npx vitest run src/lib/chess/historical-mutation-round57.integration.test.ts
+
       - name: Verify repeatable fictional demo seed against isolated tenant schema
         env:
           DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
