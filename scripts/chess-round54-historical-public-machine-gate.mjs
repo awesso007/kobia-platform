@@ -99,7 +99,10 @@ for (const path of [
   "src/app/api/portal/login/route.ts",
   "src/app/api/portal/tickets/route.ts",
   "src/app/api/portal/tickets/[id]/reply/route.ts",
-]) requireTokens(path, ["status: 503"]);
+]) {
+  if (!/status:\\s*503/.test(read(path)))
+    failures.push(path + " must keep verified-helpdesk login disabled");
+}
 console.log(JSON.stringify({
   historicallyInventoriedPublic: publicPaths.length,
   historicallyInventoriedMachine: machinePaths.length,
