@@ -16,6 +16,7 @@
 import { NextResponse } from "next/server";
 import { requireKobiaCronAuth } from "@/lib/security/cron-authorization";
 import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { activeWebhookTenantSchema } from "@/lib/security/legacy-webhook-tenant";
 import { notifyOn } from "@/lib/notifications/notify";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
 
@@ -45,7 +46,10 @@ export async function GET(req: Request) {
     for (const t of tenants) {
       let notified = 0;
       try {
-        const db = getTenantPrisma(t.schemaName);
+        // Never let a stale platform row route a worker into a foreign schema.
+        const schema = await activeWebhookTenantSchema(t.slug);
+        if (!schema || schema !== t.schemaName) continue;
+        const db = getTenantPrisma(schema);
         const due = await db.task.findMany({
           where: {
             deletedAt: null,
