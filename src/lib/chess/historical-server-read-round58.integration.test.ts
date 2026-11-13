@@ -36,7 +36,8 @@ suite("Round 58 atomic client-authorized PostgreSQL sensitive SELECT",()=>{
     await one.clientServiceLink.deleteMany({where:{id:linkId}});
    }
    if(profileId)await one.clientProfile.deleteMany({where:{id:profileId}});
-   if(eventId)await one.chessSecurityEvent.deleteMany({where:{id:eventId}});
+   // Intentionally never delete ChessSecurityEvent: its PostgreSQL table has an append-only trigger.
+   // Disposable CI database is destroyed after the job; the receipt remains immutable until then.
   }
   await Promise.all([one?.$disconnect(),two?.$disconnect()]);
  });
