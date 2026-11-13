@@ -77,6 +77,11 @@ jobs:
           node --check scripts/chess-round54-historical-public-machine-gate.mjs
           node scripts/chess-round54-historical-public-machine-gate.mjs
 
+      - name: Gate Round 55 live machine tenant and legacy lead authorization
+        run: |
+          node --check scripts/chess-round55-live-machine-legacy-lead-gate.mjs
+          node scripts/chess-round55-live-machine-legacy-lead-gate.mjs
+
       - name: Gate all scheduled legacy machine cron endpoints
         run: |
           node --check scripts/chess-round47-cron-auth-gate.mjs
