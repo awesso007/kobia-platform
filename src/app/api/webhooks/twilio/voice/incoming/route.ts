@@ -14,7 +14,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { getTenantPrisma } from "@/lib/db/tenant-prisma";
-import { validatedWebhookTenantSlug, activeWebhookTenantSchema } from "@/lib/security/legacy-webhook-tenant";
+import { validatedWebhookTenantSlug, activeWebhookTenantSchema, readBoundedTwilioParams, twilioAccountMatches } from "@/lib/security/legacy-webhook-tenant";
 import { resolveLinkForPhone } from "@/lib/telephony/link";
 import { validateSignature, generateTwiML } from "@/lib/telephony/twilio";
 
@@ -29,13 +29,15 @@ export async function POST(req: NextRequest) {
   const slug = validatedWebhookTenantSlug(req.nextUrl.searchParams.get("tenant"));
   if (!slug) return NextResponse.json({ ok: false, error: "Missing or invalid tenant." }, { status: 400 });
 
-  const form = await req.formData();
-  const params: Record<string, string> = {};
-  for (const [k, v] of form.entries()) params[k] = String(v);
+  let params: Record<string, string>;
+  try { params = await readBoundedTwilioParams(req); }
+  catch {
+    return NextResponse.json({ ok: false, error: "Invalid callback payload." }, { status: 400 });
+  }
 
   const signature = req.headers.get("x-twilio-signature");
   const ok = await validateSignature(signature, req.nextUrl.toString(), params);
-  if (!ok) return NextResponse.json({ ok: false, error: "Invalid signature." }, { status: 401 });
+  if (!ok || !twilioAccountMatches(params.AccountSid)) return NextResponse.json({ ok: false, error: "Invalid signature or account." }, { status: 401 });
 
   // Require an ACTIVE platform registry entry bound to the signed URL selector.
   const schema = await activeWebhookTenantSchema(slug);
@@ -52,6 +54,8 @@ export async function POST(req: NextRequest) {
   const ourE164 = direction === "OUTBOUND" ? from : to;
   const peerE164 = direction === "OUTBOUND" ? to : from;
   const ourNumber = await db.phoneNumber.findUnique({ where: { e164: ourE164 } });
+  if (!ourNumber || ourNumber.status !== "ACTIVE" || ourNumber.provider !== "TWILIO")
+    return NextResponse.json({ ok: false, error: "Number unavailable." }, { status: 404 });
 
   // Upsert a Call row keyed by provider SID (idempotent on retries).
   if (callSid) {

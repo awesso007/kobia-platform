@@ -11,7 +11,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { getTenantPrisma } from "@/lib/db/tenant-prisma";
-import { validatedWebhookTenantSlug, activeWebhookTenantSchema } from "@/lib/security/legacy-webhook-tenant";
+import { validatedWebhookTenantSlug, activeWebhookTenantSchema, readBoundedTwilioParams, twilioAccountMatches } from "@/lib/security/legacy-webhook-tenant";
 import { validateSignature } from "@/lib/telephony/twilio";
 
 export const dynamic = "force-dynamic";
@@ -21,13 +21,15 @@ export async function POST(req: NextRequest) {
   const slug = validatedWebhookTenantSlug(req.nextUrl.searchParams.get("tenant"));
   if (!slug) return NextResponse.json({ ok: false, error: "Missing or invalid tenant." }, { status: 400 });
 
-  const form = await req.formData();
-  const params: Record<string, string> = {};
-  for (const [k, v] of form.entries()) params[k] = String(v);
+  let params: Record<string, string>;
+  try { params = await readBoundedTwilioParams(req); }
+  catch {
+    return NextResponse.json({ ok: false, error: "Invalid callback payload." }, { status: 400 });
+  }
 
   const signature = req.headers.get("x-twilio-signature");
   const ok = await validateSignature(signature, req.nextUrl.toString(), params);
-  if (!ok) return NextResponse.json({ ok: false, error: "Invalid signature." }, { status: 401 });
+  if (!ok || !twilioAccountMatches(params.AccountSid)) return NextResponse.json({ ok: false, error: "Invalid signature or account." }, { status: 401 });
 
   // Require an ACTIVE platform registry entry bound to the signed URL selector.
   const schema = await activeWebhookTenantSchema(slug);
@@ -35,8 +37,19 @@ export async function POST(req: NextRequest) {
 
   const callSid = params.CallSid || null;
   const recordingUrl = params.RecordingUrl || null;
-  const recordingDurationSec = Number(params.RecordingDuration ?? "0") || 0;
-  if (!callSid || !recordingUrl) return NextResponse.json({ ok: true });
+  const seconds = Number(params.RecordingDuration ?? "0");
+  const recordingDurationSec = Number.isSafeInteger(seconds) && seconds >= 0 && seconds <= 86400 ? seconds : 0;
+  // Do not turn a provider-signed recording link into a generic fetch SSRF
+  // target. We only persist the expected Twilio HTTPS recording endpoint.
+  let safeRecording = false;
+  if (recordingUrl && recordingUrl.length < 2048) {
+    try {
+      const u = new URL(recordingUrl);
+      safeRecording = u.protocol === "https:" && u.hostname === "api.twilio.com" &&
+        !u.username && !u.password;
+    } catch { safeRecording = false; }
+  }
+  if (!callSid || !recordingUrl || !safeRecording) return NextResponse.json({ ok: true });
 
   const db = getTenantPrisma(schema);
   const call = await db.call.findFirst({ where: { providerCallSid: callSid } });

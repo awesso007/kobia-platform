@@ -7,7 +7,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { getTenantPrisma } from "@/lib/db/tenant-prisma";
-import { validatedWebhookTenantSlug, activeWebhookTenantSchema } from "@/lib/security/legacy-webhook-tenant";
+import { validatedWebhookTenantSlug, activeWebhookTenantSchema, readBoundedTwilioParams, twilioAccountMatches } from "@/lib/security/legacy-webhook-tenant";
 import { validateSignature } from "@/lib/telephony/twilio";
 
 export const dynamic = "force-dynamic";
@@ -26,13 +26,15 @@ export async function POST(req: NextRequest) {
   const slug = validatedWebhookTenantSlug(req.nextUrl.searchParams.get("tenant"));
   if (!slug) return NextResponse.json({ ok: false, error: "Missing or invalid tenant." }, { status: 400 });
 
-  const form = await req.formData();
-  const params: Record<string, string> = {};
-  for (const [k, v] of form.entries()) params[k] = String(v);
+  let params: Record<string, string>;
+  try { params = await readBoundedTwilioParams(req); }
+  catch {
+    return NextResponse.json({ ok: false, error: "Invalid callback payload." }, { status: 400 });
+  }
 
   const signature = req.headers.get("x-twilio-signature");
   const ok = await validateSignature(signature, req.nextUrl.toString(), params);
-  if (!ok) return NextResponse.json({ ok: false, error: "Invalid signature." }, { status: 401 });
+  if (!ok || !twilioAccountMatches(params.AccountSid)) return NextResponse.json({ ok: false, error: "Invalid signature or account." }, { status: 401 });
 
   // Require an ACTIVE platform registry entry bound to the signed URL selector.
   const schema = await activeWebhookTenantSchema(slug);
@@ -43,17 +45,25 @@ export async function POST(req: NextRequest) {
   if (!sid) return NextResponse.json({ ok: true });
 
   const db = getTenantPrisma(schema);
-  const message = await db.smsMessage.findFirst({ where: { providerMessageSid: sid } });
+  const message = await db.smsMessage.findFirst({
+    where: { providerMessageSid: sid, direction: "OUTBOUND" },
+  });
   if (!message) return NextResponse.json({ ok: true });
 
   const mapped = STATUS_MAP[raw];
   if (mapped) {
-    await db.smsMessage.update({
-      where: { id: message.id },
+    // Never roll back delivery to SENT or QUEUED when delayed callbacks arrive.
+    const transitions: Record<string, string[]> = {
+      QUEUED: ["QUEUED"], SENT: ["QUEUED", "SENT"],
+      DELIVERED: ["QUEUED", "SENT", "DELIVERED"],
+      FAILED: ["QUEUED", "SENT", "FAILED"],
+    };
+    await db.smsMessage.updateMany({
+      where: { id: message.id, status: { in: transitions[mapped] as never } },
       data: {
         status: mapped as never,
-        errorCode: mapped === "FAILED" ? params.ErrorCode ?? "delivery failed" : message.errorCode,
-        deliveredAt: mapped === "DELIVERED" ? new Date() : message.deliveredAt,
+        errorCode: mapped === "FAILED" ? (params.ErrorCode ?? "delivery failed").slice(0, 120) : message.errorCode,
+        deliveredAt: mapped === "DELIVERED" ? message.deliveredAt ?? new Date() : message.deliveredAt,
       },
     });
   }
