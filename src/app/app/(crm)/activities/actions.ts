@@ -86,10 +86,10 @@ export async function createActivity(input:ActivityInput){
       const row=await tx.crmActivity.create({data:{
         type:parsed.type,subject:parsed.subject,body:parsed.body,dueAt:parsed.dueAt,
         ownerClerkUserId:owner??actor.id,createdByUserId:actor.id,
-        ...(parsed.related?({
-          [{LEAD:"leadId",DEAL:"dealId",CONTACT:"contactId",COMPANY:"companyId"}[parsed.related.entity]]:
-            parsed.related.id,
-        }):{}),
+        leadId:parsed.related?.entity==="LEAD"?parsed.related.id:null,
+        dealId:parsed.related?.entity==="DEAL"?parsed.related.id:null,
+        contactId:parsed.related?.entity==="CONTACT"?parsed.related.id:null,
+        companyId:parsed.related?.entity==="COMPANY"?parsed.related.id:null,
       },select:{id:true}});
       return row.id;
     });
@@ -107,12 +107,12 @@ export async function updateActivity(id:string,input:ActivityInput){
         parsed.related.entity,parsed.related.id,"record:update");
       const owner=await verifyLegacyCrmCreateOwner(tx,actor,
         parsed.owner??before.ownerClerkUserId);
-      const fk={leadId:null,dealId:null,contactId:null,companyId:null};
-      if(parsed.related){
-        const col={LEAD:"leadId",DEAL:"dealId",CONTACT:"contactId",
-          COMPANY:"companyId"}[parsed.related.entity];
-        fk[col]=parsed.related.id as never;
-      }
+      const fk={
+        leadId:parsed.related?.entity==="LEAD"?parsed.related.id:null,
+        dealId:parsed.related?.entity==="DEAL"?parsed.related.id:null,
+        contactId:parsed.related?.entity==="CONTACT"?parsed.related.id:null,
+        companyId:parsed.related?.entity==="COMPANY"?parsed.related.id:null,
+      };
       await tx.crmActivity.update({where:{id},data:{
         ...fk,type:parsed.type,subject:parsed.subject,
         body:parsed.body,dueAt:parsed.dueAt,ownerClerkUserId:owner,
