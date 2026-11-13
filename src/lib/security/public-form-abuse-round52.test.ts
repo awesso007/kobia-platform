@@ -6,6 +6,7 @@ import {
 } from "./public-form-abuse";
 const key = "r".repeat(36);
 const env = {
+  NODE_ENV: "test" as const,
   CHESS_PUBLIC_FORM_ABUSE_ENABLED: "true",
   CHESS_PUBLIC_FORM_RATE_HASH_KEY: key,
   CHESS_TURNSTILE_SECRET_KEY: "s".repeat(36),
