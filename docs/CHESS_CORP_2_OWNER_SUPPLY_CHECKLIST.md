@@ -1,15 +1,16 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 55 | Final exact-SHA CI evidence required (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 58 | Final exact-SHA CI evidence required (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
-**Latest verified prior round (not external acceptance):** Round 53 final
-commit `59acb65d621d3c97a0ea1075b6ae0ab3b1485e09` passed all three
-normal CI jobs in [run 43340055042](https://github.com/awesso007/kobia-platform/actions/runs/43340055042).
-Rounds 54–55 must have their own exact final SHA green 3-job CI run;
-no older passing job certifies later commits. The final SHA and run are
-recorded on draft PR #24 after verification.
+**Latest fully verified prior round (not external acceptance):** Round 57
+final commit `ad15bfef1a2ef3694bb62430bf5b354f909b678f`
+passed all three normal CI jobs in
+[run 43355891168](https://github.com/awesso007/kobia-platform/actions/runs/43355891168).
+Round 58 requires its OWN exact-final-SHA green three-job run before
+source changes may be called verified; the final run is linked from
+draft PR #24. A previous SHA cannot certify later commits.
 No normal CI run supplies actual Clerk browser sign-in, security/axe
 acceptance, legal, storage, provider, staging or production approval.
 No normal CI run can establish a real signed-in Clerk/Neon browser/axe
@@ -19,6 +20,37 @@ external credentials remain under this one checklist; source-only
 placeholder values are NOT owner approval.
 
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 58 — protected client-wide READ authorization and audit
+
+**No new secret name; owner/provider actions OPEN.** Reuse owner-supply
+groups **01,02,03,05,15,17,18**. The Round 58 code now intentionally
+refuses many historical tenant-wide dashboards, client pickers, private
+document/email loaders, reports and project/telephony settings when
+historical CHESS business ownership or client-service read grants cannot
+be proven. **Do not bypass this safety decision with fake blanket grants.**
+
+- Provide verified **businessId**, historical business lineage (including
+  retired/inactive businesses), ClientProfile-to-Contact/Deal/Project
+  mappings and each exact licensed service's lawful sharing/consent
+  basis. Preserve denied data for reviewed migration, never auto-assign
+  a record to a convenient current unit.
+- Have a licensed/authorized reviewer approve each
+  `ClientServiceLink` and the named staff
+  `ClientServiceGrant(canRead, canWrite, revokedAt)`. Revoked/missing
+  grants must continue denying client-wide aggregate queries.
+- Supply protected two-Clerk-tenant/Neon-staging acceptance, role
+  suspensions and reassignments, service-grant changes, simultaneous
+  two-app-instance revocation/read races, immutable audit insert
+  failure and external archive WORM receipts.
+- Audit the still-unreviewed historical server components/actions,
+  direct Prisma loaders and public/machine business callbacks before
+  enabling multi-business shared dashboards. Retain external legal,
+  penetration and DR attestation obligations from groups 15/17/18.
+  Normal disposable CI is NOT real licensed multi-tenant acceptance.
+
+[Round 58 source and regression report](CHESS_CORP_2_ROUND58_TRANSACTION_SENSITIVE_READS.md).
+**8/8 production gates remain BLOCKED; 0/8 signed off.**
 
 ## Round 55 — provider callbacks, legacy business scope and unsubscribe
 

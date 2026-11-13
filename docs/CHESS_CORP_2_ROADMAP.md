@@ -8,12 +8,24 @@ business-operations layer within an isolated KOBIA tenant, not an assertion
 that a single legal entity holds all operating licenses.
 
 
-## CURRENT / AUTHORITATIVE — Round 55 milestone matrix (Rounds 31–55 engineering)
+## CURRENT / AUTHORITATIVE — Round 58 milestone matrix (Rounds 31–58 engineering)
 
 
 **This table remains the current M1–M8 development and release-gate matrix,
 with the additional Round 54–55 delta below.** No milestone production
 release gate has been approved by normal CI.
+
+### Round 56–58 verified source additions and still-open release gates
+
+| Gate | Source progress (not production acceptance) | Still required |
+| --- | --- | --- |
+| M1 — Client/business authorization | R56 Contact, Company, Deal, Activity and bulk CRM actions recheck single-business records, ownership and live per-client service grants inside serializable mutation+audit transactions. R58 adds transaction-coupled sensitive SELECT audit to 71 server query entrypoints in 13 CRM modules plus 5 project/task reads and 3 telephony actions. | BusinessId backfill, legal client sharing decisions and complete cross-client/service authorization across all other server components, mutations and helpers |
+| M2 — Tenant & staff separation | R58 tenant-wide historical views deny a multi-business tenant, including any past INACTIVE unit; owner/admin views also fail if even one ClientProfile lacks a service link or any service has an unrevoked read grant missing | Reviewed per-client service grants, employee/client access mappings and protected signed-in multi-business acceptance |
+| M8 — Security & release | R57 authenticated historical REST write audit covers 33 source route files/44 methods, plus transaction-bound tRPC mutations. R58 audit-before-release SELECT binds a live actor, client grant predicates, original query, and immutable security event to one serializable transaction; integration and source regression gates are added. | Remaining historical/API/server-action and external provider outcome audits, reliable outbox, immutable external receipt custody, protected Clerk/Neon staging race tests, penetration and legal/security signoff |
+
+See the [Round 58 technical report](CHESS_CORP_2_ROUND58_TRANSACTION_SENSITIVE_READS.md).
+**Source coverage is not completion of every M1–M8 engineering item: all eight
+production release gates remain BLOCKED and none has independent signoff.**
 
 ### Current Round 54–55 engineering delta (applies to the matrix below)
 

@@ -63,6 +63,22 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS CORP 2 Round 58 — transaction-coupled sensitive CRM reads
+
+[Round 58 technical report](docs/CHESS_CORP_2_ROUND58_TRANSACTION_SENSITIVE_READS.md).
+Continued and verified Round 57 CI before expanding sensitive SELECT
+coverage: 71 historical CRM server-page query entrypoints across 13
+modules, five project/task loaders and three telephony server-action
+directory reads now use serializable tenant transactions. Every wide
+read checks an ACTIVE principal, one historical business and all
+per-client service read grants; SELECT and privacy-minimal immutable
+audit are in the same COMMIT. Unsupported cross-client or multi-business
+read authorization is deliberately blocked until safe migration.
+PostgreSQL and source-gate regression coverage are included. Other
+unreviewed direct database loaders, service integrations and protected
+real-client staged approvals remain open. **Do not merge/deploy on
+normal CI alone.**
+
 ## CHESS CORP 2 Round 55 — resumed machine API and cross-business review
 
 Recovered and repaired interrupted Round 54 work; check [the Round 55
