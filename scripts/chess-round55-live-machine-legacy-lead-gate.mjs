@@ -51,7 +51,7 @@ const inbound=markers("src/app/api/email/inbound/route.ts", [
 if(inbound.includes("resolveLinkForAddress(") || inbound.includes("dispatchAutomation("))
   problems.push("Inbound relay still auto-links an unauthenticated sender to CRM");
 const lead=markers("src/lib/chess/legacy-lead-security-round54.ts", [
-  "withAuditedLegacyLeadRead(", "withAuditedLegacyLeadMutation(",
+  "withAuditedLegacyLeadRead<T>(", "withAuditedLegacyLeadMutation<T>(",
   "liveLegacyLeadActor(", "units.length > 1",
   "units[0].status", "chessSecurityEvent.create",
   'isolationLevel: "Serializable"',
