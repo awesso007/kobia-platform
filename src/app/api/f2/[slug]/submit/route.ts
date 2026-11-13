@@ -51,6 +51,10 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
   }
   const values = (body.values && typeof body.values === "object" &&
     !Array.isArray(body.values) ? body.values : {}) as Record<string, unknown>;
+  // Prevent caller-injected challenge fields from being persisted in
+  // the FormV2Submission JSON document by the legacy submit helper.
+  delete values.turnstileToken;
+  delete values["cf-turnstile-response"];
   let admitted: Awaited<ReturnType<typeof admitPublicFormSubmission>>;
   try {
     admitted = await admitPublicFormSubmission(req, {
