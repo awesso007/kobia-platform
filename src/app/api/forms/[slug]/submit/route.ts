@@ -16,7 +16,8 @@
  */
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
+import { admitPublicFormSubmission, readPublicFormBody,
+  publicFormErrorResponse, PublicFormGateError } from "@/lib/security/public-form-abuse";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
 
 export const runtime = "nodejs";
@@ -33,20 +34,6 @@ function sanitizeSlug(slug: string | null | undefined): string | null {
   return /^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/.test(slug) ? slug : null;
 }
 
-// Best-effort in-memory rate limit: max 10 submits / 60s per IP. Resets on
-// cold start; sufficient as a v0.1 abuse speed bump, not a hard guarantee.
-const RATE_WINDOW_MS = 60_000;
-const RATE_MAX = 10;
-const hits = new Map<string, number[]>();
-
-function rateLimited(ip: string): boolean {
-  const now = Date.now();
-  const recent = (hits.get(ip) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
-  recent.push(now);
-  hits.set(ip, recent);
-  return recent.length > RATE_MAX;
-}
-
 export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS });
 }
@@ -59,23 +46,35 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
     return NextResponse.json({ ok: false, error: "Missing or invalid tenant." }, { status: 400, headers: CORS });
   }
 
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  if (rateLimited(ip)) {
-    return NextResponse.json({ ok: false, error: "Too many submissions. Try again shortly." }, { status: 429, headers: CORS });
-  }
-
-  // Accept JSON or form-encoded bodies.
+  // Bound bytes before parsing; CORS-open embeds must still prove a bot check.
+  // Only JSON and browser-encoded form payloads are supported.
   let payload: Record<string, string> = {};
   try {
+    const raw = await readPublicFormBody(req);
     const ct = req.headers.get("content-type") ?? "";
     if (ct.includes("application/json")) {
-      payload = (await req.json()) as Record<string, string>;
-    } else {
-      const form = await req.formData();
-      for (const [k, v] of form.entries()) payload[k] = typeof v === "string" ? v : "";
-    }
-  } catch {
-    return NextResponse.json({ ok: false, error: "Invalid body." }, { status: 400, headers: CORS });
+      const obj: unknown = JSON.parse(new TextDecoder().decode(raw));
+      if (!obj || typeof obj !== "object" || Array.isArray(obj)) throw Error("body");
+      for (const [key, value] of Object.entries(obj)) {
+        if (typeof value !== "string") throw Error("field type");
+        payload[key] = value;
+      }
+    } else if (ct.includes("application/x-www-form-urlencoded") || ct.includes("multipart/form-data")) {
+      const parsed = new Request(req.url, { method: "POST",
+        headers: { "Content-Type": ct },
+        body: new Blob([raw.buffer as ArrayBuffer]),
+      });
+      const form = await parsed.formData();
+      for (const [key, value] of form.entries()) {
+        if (typeof value !== "string") throw Error("file upload not supported");
+        payload[key] = value;
+      }
+    } else throw Error("content-type");
+  } catch (error) {
+    const failure = error instanceof PublicFormGateError
+      ? publicFormErrorResponse(error) : { status: 400, message: "Invalid body." };
+    return NextResponse.json({ ok: false, error: failure.message },
+      { status: failure.status, headers: CORS });
   }
 
   // Honeypot: silently accept (200) so bots do not learn they were blocked.
@@ -83,7 +82,22 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
     return NextResponse.json({ ok: true }, { status: 200, headers: CORS });
   }
 
-  const db = getTenantPrisma(schemaNameForSlug(tenantSlug));
+  // Token is never copied into lead notes, indexing, or automations.
+  const token = payload["cf-turnstile-response"];
+  delete payload["cf-turnstile-response"];
+  let db: Awaited<ReturnType<typeof admitPublicFormSubmission>>["db"];
+  try {
+    ({ db } = await admitPublicFormSubmission(req, {
+      tenant: tenantSlug, kind: "legacy", form: params.slug, token,
+    }));
+  } catch (error) {
+    const failure = publicFormErrorResponse(error);
+    return NextResponse.json({ ok: false, error: failure.message },
+      { status: failure.status, headers: {
+        ...CORS, "Cache-Control": "no-store",
+        ...(failure.retryAfter ? { "Retry-After": failure.retryAfter } : {}),
+      } });
+  }
 
   const form = await db.webForm.findUnique({ where: { slug: params.slug } });
   if (!form) {
@@ -127,7 +141,7 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
   }
 
   // Run RECORD_CREATED automations against the new lead (tenant-bound db).
-  await dispatchAutomation({ type: "RECORD_CREATED", entityType: "LEAD", entityId: leadId }, db);
+  await dispatchAutomation({ type: "RECORD_CREATED", entityType: "LEAD", entityId: leadId }, db).catch(() => undefined);
 
   return NextResponse.json(
     { ok: true, redirectUrl: form.redirectUrl ?? null, thankYouUrl: form.thankYouUrl ?? null },
