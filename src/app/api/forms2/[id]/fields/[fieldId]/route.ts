@@ -1,3 +1,4 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
 /*
  * Forms 2.0 single field API (Sprint 19, authenticated). PATCH updates any field
  * setting (type, label, options, validation, visibility rule, calculation,
@@ -22,7 +23,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string; fieldId: string } }) {
+async function PATCHOriginal(req: NextRequest, { params }: { params: { id: string; fieldId: string } }) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -63,7 +64,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string; fieldId: string } }) {
+async function DELETEOriginal(_req: NextRequest, { params }: { params: { id: string; fieldId: string } }) {
   try {
     await requirePermission("form:manage");
     const { db } = getTenantDb();
@@ -75,3 +76,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return fail(err);
   }
 }
+
+export const PATCH = withAuditedHistoricalMutation("forms2/[id]/fields/[fieldId]", "PATCH", PATCHOriginal);
+
+export const DELETE = withAuditedHistoricalMutation("forms2/[id]/fields/[fieldId]", "DELETE", DELETEOriginal);

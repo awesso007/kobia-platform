@@ -1,3 +1,4 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
 /*
  * Forms 2.0 step reorder API (Sprint 19, authenticated). PATCH accepts an
  * ordered array of step ids and rewrites their order. RBAC form:manage.
@@ -19,7 +20,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+async function PATCHOriginal(req: NextRequest, { params }: { params: { id: string } }) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -40,3 +41,5 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return fail(err);
   }
 }
+
+export const PATCH = withAuditedHistoricalMutation("forms2/[id]/steps/reorder", "PATCH", PATCHOriginal);

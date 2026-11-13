@@ -1,3 +1,4 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
 /*
  * Forms 2.0 single step API (Sprint 19, authenticated). PATCH updates a step's
  * title/description; DELETE removes it (its fields survive as orphans on the
@@ -20,7 +21,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string; stepId: string } }) {
+async function PATCHOriginal(req: NextRequest, { params }: { params: { id: string; stepId: string } }) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -42,7 +43,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string; stepId: string } }) {
+async function DELETEOriginal(_req: NextRequest, { params }: { params: { id: string; stepId: string } }) {
   try {
     await requirePermission("form:manage");
     const { db } = getTenantDb();
@@ -54,3 +55,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return fail(err);
   }
 }
+
+export const PATCH = withAuditedHistoricalMutation("forms2/[id]/steps/[stepId]", "PATCH", PATCHOriginal);
+
+export const DELETE = withAuditedHistoricalMutation("forms2/[id]/steps/[stepId]", "DELETE", DELETEOriginal);
