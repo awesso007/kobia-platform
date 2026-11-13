@@ -1,3 +1,4 @@
+import { withAuditedHistoricalServerRead } from "@/lib/chess/historical-server-read-round58";
 /*
  * Project + Task query helpers (server-only). All reads go through
  * getTenantDb(). Returns plain serializable shapes for the client components.
@@ -80,13 +81,13 @@ function memberMap(members: Array<{ clerkUserId: string; displayName: string | n
 }
 
 /** All tenant members, used to resolve owner/assignee display names. */
-export async function getMembersLite(): Promise<Array<{ clerkUserId: string; displayName: string | null; email: string | null }>> {
+async function getMembersLiteOriginal(): Promise<Array<{ clerkUserId: string; displayName: string | null; email: string | null }>> {
   const { db } = getTenantDb();
   const rows = await db.membership.findMany({ select: { clerkUserId: true, displayName: true, email: true } });
   return rows;
 }
 
-export async function listProjects(): Promise<ProjectListRow[]> {
+async function listProjectsOriginal(): Promise<ProjectListRow[]> {
   const { db } = getTenantDb();
   const projects = await db.project.findMany({
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
@@ -111,7 +112,7 @@ export async function listProjects(): Promise<ProjectListRow[]> {
   }));
 }
 
-export async function getProjectDetail(id: string): Promise<ProjectDetail | null> {
+async function getProjectDetailOriginal(id: string): Promise<ProjectDetail | null> {
   const { db } = getTenantDb();
   const project = await db.project.findUnique({ where: { id } });
   if (!project) return null;
@@ -131,7 +132,7 @@ export async function getProjectDetail(id: string): Promise<ProjectDetail | null
       where: { OR: [{ projectId: id }, { task: { projectId: id } }] },
       orderBy: { startedAt: "desc" },
     }),
-    getMembersLite(),
+    getMembersLiteOriginal(),
   ]);
 
   const mm = memberMap(members);
@@ -221,7 +222,7 @@ function serializeTask(t: RawTask): TaskRow {
 }
 
 /** Tasks assigned to a user across all projects + their personal tasks. */
-export async function getMyTasks(clerkUserId: string): Promise<TaskRow[]> {
+async function getMyTasksOriginal(clerkUserId: string): Promise<TaskRow[]> {
   const { db } = getTenantDb();
   const tasks = await db.task.findMany({
     where: {
@@ -243,7 +244,7 @@ export type TaskFullDetail = TaskRow & {
   successors: Array<{ id: string; successorTaskId: string; type: string; lagMinutes: number }>;
 };
 
-export async function getTaskDetail(id: string): Promise<TaskFullDetail | null> {
+async function getTaskDetailOriginal(id: string): Promise<TaskFullDetail | null> {
   const { db } = getTenantDb();
   const task = await db.task.findUnique({
     where: { id },
@@ -259,7 +260,7 @@ export async function getTaskDetail(id: string): Promise<TaskFullDetail | null> 
   });
   if (!task) return null;
 
-  const members = await getMembersLite();
+  const members = await getMembersLiteOriginal();
   const mm = memberMap(members);
 
   const fileIds = task.attachments.map((a) => a.fileId);
@@ -303,3 +304,13 @@ export async function getTaskDetail(id: string): Promise<TaskFullDetail | null> 
     successors: task.successors.map((d) => ({ id: d.id, successorTaskId: d.successorTaskId, type: d.type, lagMinutes: d.lagMinutes })),
   };
 }
+
+export const getMembersLite = withAuditedHistoricalServerRead("projects.getMembersLite", getMembersLiteOriginal);
+
+export const listProjects = withAuditedHistoricalServerRead("projects.listProjects", listProjectsOriginal);
+
+export const getProjectDetail = withAuditedHistoricalServerRead("projects.getProjectDetail", getProjectDetailOriginal);
+
+export const getMyTasks = withAuditedHistoricalServerRead("projects.getMyTasks", getMyTasksOriginal);
+
+export const getTaskDetail = withAuditedHistoricalServerRead("projects.getTaskDetail", getTaskDetailOriginal);
