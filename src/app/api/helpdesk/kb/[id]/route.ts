@@ -1,3 +1,4 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
 /*
  * Single KB article API (Sprint 15, authenticated). PATCH updates via
  * upsertArticle; DELETE removes the article and its search index entry.
@@ -18,7 +19,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+async function PATCHOriginal(req: NextRequest, { params }: { params: { id: string } }) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -45,7 +46,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+async function DELETEOriginal(_req: Request, { params }: { params: { id: string } }) {
   try {
     await requirePermission("record:delete");
     const { db } = getTenantDb();
@@ -56,3 +57,7 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     return fail(err);
   }
 }
+
+export const PATCH = withAuditedHistoricalMutation("helpdesk/kb/[id]", "PATCH", PATCHOriginal);
+
+export const DELETE = withAuditedHistoricalMutation("helpdesk/kb/[id]", "DELETE", DELETEOriginal);

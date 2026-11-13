@@ -1,3 +1,4 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
 import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Workflows collection API (Sprint 18, authenticated). GET lists workflows;
@@ -31,7 +32,7 @@ async function historicalAuditedGet() {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function POSTOriginal(req: NextRequest) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -57,3 +58,5 @@ export async function POST(req: NextRequest) {
 }
 
 export const GET=withAuditedHistoricalGet("workflows",historicalAuditedGet);
+
+export const POST = withAuditedHistoricalMutation("workflows", "POST", POSTOriginal);

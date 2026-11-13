@@ -27,6 +27,7 @@ const expected=[
  "forms2/[id]/steps/[stepId]",
  "forms2/[id]/steps/reorder",
  "forms2/[id]/steps",
+ "forms2/[id]/publish",
  "forms2/[id]",
  "forms2",
  "sites/[siteId]/pages/[pageId]/blocks",
@@ -35,7 +36,12 @@ const expected=[
  "sites",
  "sites/themes",
  "sites/[siteId]",
+ "workflows",
+ "workflows/[id]",
+ "workflows/[id]/publish",
  "workflows/[id]/runs/[runId]/cancel",
+ "helpdesk/kb",
+ "helpdesk/kb/[id]",
  "helpdesk/categories",
  "helpdesk/categories/[id]",
  "helpdesk/kb-categories",
@@ -50,7 +56,7 @@ const expected=[
  "inventory/warehouses/[id]",
 ];
 const expectedSet=new Set(expected);
-if(expected.length!==27||expectedSet.size!==27)err.push("reviewed list must contain exactly 27 distinct route files");
+if(expected.length!==33||expectedSet.size!==33)err.push("reviewed list must contain exactly 27 distinct route files");
 const all=walk("src/app/api").filter(p=>p.endsWith("/route.ts"));
 const writeOf=s=>{
  const methods=[...s.matchAll(/export\s+(?:async\s+function|const)\s+(POST|PUT|PATCH|DELETE)\b/g)]
@@ -81,8 +87,8 @@ for(const path of all){
 for(const id of expected)
  if(!counted.some(x=>x.id===id&&x.audited))
   err.push("Reviewed audited route disappeared: "+id);
-if(verifiedMethods!==36)
- err.push("Expected 36 transaction-coupled REST methods, found "+verifiedMethods);
+if(verifiedMethods!==44)
+ err.push("Expected 44 transaction-coupled REST methods, found "+verifiedMethods);
 const trpc=must("src/server/trpc.ts",[
  "auditProtectedMutation", "withLegacyTrpcMutationScope(",
  'action:"HISTORICAL_TRPC_PROTECTED_MUTATION_ATOMIC"',

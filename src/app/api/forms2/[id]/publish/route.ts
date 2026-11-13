@@ -1,3 +1,4 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
 /*
  * Forms 2.0 publish toggle API (Sprint 19, authenticated). POST sets the form
  * status (defaults PUBLISHED). RBAC form:manage.
@@ -19,7 +20,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+async function POSTOriginal(req: NextRequest, { params }: { params: { id: string } }) {
   let body: Record<string, unknown> = {};
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -39,3 +40,5 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return fail(err);
   }
 }
+
+export const POST = withAuditedHistoricalMutation("forms2/[id]/publish", "POST", POSTOriginal);
