@@ -8,8 +8,6 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
-import { resolveLinkForAddress } from "@/lib/email/link";
-import { dispatchAutomation } from "@/lib/automations/dispatch";
 import { reindex } from "@/lib/search";
 import { getPlatformDb } from "@/lib/db/platform";
 import {
@@ -99,10 +97,10 @@ export async function POST(req: NextRequest) {
     if (duplicate) return NextResponse.json({ ok: true, duplicate: true }, { headers });
     const refIds = [replyTo, ...(references ?? "").split(/\s+/)]
       .filter((x): x is string => !!x && x.length <= 320).slice(0, 16);
-    const link = await resolveLinkForAddress(db, from);
     const accepted = await db.$transaction(async tx => {
       const old = refIds.length ? await tx.emailMessage.findFirst({
-        where: { accountId: account.id, externalId: { in: refIds } },
+        where: { accountId: account.id, externalId: { in: refIds },
+          fromAddress: { equals: from, mode: "insensitive" } },
         orderBy: { createdAt: "desc" }, select: { threadId: true },
       }) : null;
       const thread = old ? await tx.emailThread.findFirst({
@@ -112,8 +110,10 @@ export async function POST(req: NextRequest) {
         data: {
           subject, accountId: account.id, lastMessageAt: new Date(),
           participantsJson: { from, to: [to] } as never,
-          recordType: (link?.recordType ?? null) as never,
-          recordId: link?.recordId ?? null,
+          // Do not link an arbitrary inbound sender to a CRM record by
+          // matching a spoofable From address. Manual verified attachment only.
+          recordType: null,
+          recordId: null,
           messageCount: 0, unreadCount: 0,
         }, select: { id: true },
       })).id;
@@ -137,15 +137,6 @@ export async function POST(req: NextRequest) {
     }, { isolationLevel: "Serializable", maxWait: 5000, timeout: 15000 });
     // Never re-trigger message side effects before the committed receipt.
     await reindex(db, "EMAIL_MESSAGE", accepted.messageId).catch(() => undefined);
-    if (link?.recordType && link.recordId) {
-      await dispatchAutomation({
-        type: "EMAIL_RECEIVED",
-        entityType: link.recordType as never,
-        entityId: link.recordId,
-        payload: { messageId: accepted.messageId, threadId: accepted.threadId,
-          from, subject: subject ?? "" },
-      }, db).catch(() => undefined);
-    }
     return NextResponse.json({ ok: true }, { headers });
   } catch (error) {
     if ((error as { code?: string }).code === "P2002") {
