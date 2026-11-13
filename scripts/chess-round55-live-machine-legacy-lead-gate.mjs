@@ -48,12 +48,17 @@ for (const [kind,path] of [
   const source=markers(path, [
     "verifyLegacyTrackingCapability(", "activeWebhookTenantSchema(",
     "claimPublicSurfaceQuota(", "trustedPublicFormIp(",
-    "broadcastRecipient.updateMany(", 'status: { in: [',
+    "recordSignedLegacyTracking(",
   ]);
   if (!source.includes('kind: "' + kind + '"') ||
       source.includes("broadcastRecipient.update({"))
     problems.push(path + " can bypass distributed telemetry quota or atomic recipient update");
 }
+markers("src/lib/security/legacy-marketing-tracking-round55.ts", [
+  "recordSignedLegacyTracking(", "db.$transaction(async tx",
+  "tx.unsubscribe.findFirst(", "tx.broadcastRecipient.updateMany(",
+  'isolationLevel: "Serializable"',
+]);
 const inbound=markers("src/app/api/email/inbound/route.ts", [
   "inboundMailCredentialDecision(", "tenantRegistry.findUnique",
   "requireSingleLegacyMachineBusiness(db)", "requireSingleLegacyMachineBusiness(tx)",

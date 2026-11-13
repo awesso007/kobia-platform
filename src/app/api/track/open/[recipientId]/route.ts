@@ -14,6 +14,7 @@ import { activeWebhookTenantSchema } from "@/lib/security/legacy-webhook-tenant"
 import { verifyLegacyTrackingCapability } from "@/lib/security/legacy-tracking-capability";
 import { claimPublicSurfaceQuota } from "@/lib/security/public-surface-round53";
 import { trustedPublicFormIp } from "@/lib/security/public-form-abuse";
+import { recordSignedLegacyTracking } from "@/lib/security/legacy-marketing-tracking-round55";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -48,12 +49,7 @@ export async function GET(req: NextRequest, { params }: { params: { recipientId:
         clientIp: trustedPublicFormIp(req.headers, trusted),
         rateKey: process.env.CHESS_PUBLIC_FORM_RATE_HASH_KEY ?? "",
       });
-      // Atomic conditional: no stale status read can override opt-out.
-      await db.broadcastRecipient.updateMany({
-        where: { id: params.recipientId, status: { in: ["SENT", "DELIVERED"] },
-          openedAt: null },
-        data: { status: "OPENED", openedAt: new Date() },
-      });
+      await recordSignedLegacyTracking(db, params.recipientId, "OPEN");
     } catch {
       // Telemetry failures never reveal a recipient or break the pixel.
     }

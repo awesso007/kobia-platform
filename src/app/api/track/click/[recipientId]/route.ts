@@ -14,6 +14,7 @@ import { activeWebhookTenantSchema } from "@/lib/security/legacy-webhook-tenant"
 import { verifyLegacyTrackingCapability } from "@/lib/security/legacy-tracking-capability";
 import { claimPublicSurfaceQuota } from "@/lib/security/public-surface-round53";
 import { trustedPublicFormIp } from "@/lib/security/public-form-abuse";
+import { recordSignedLegacyTracking } from "@/lib/security/legacy-marketing-tracking-round55";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -36,13 +37,7 @@ export async function GET(req: NextRequest, { params }: { params: { recipientId:
       clientIp: trustedPublicFormIp(req.headers, trusted),
       rateKey: process.env.CHESS_PUBLIC_FORM_RATE_HASH_KEY ?? "",
     });
-    // The status predicate executes AT UPDATE, not a stale pre-read. A click
-    // racing an unsubscribe must not resurrect UNSUBSCRIBED to CLICKED.
-    await db.broadcastRecipient.updateMany({
-      where: { id: params.recipientId, status: { in: ["SENT", "DELIVERED", "OPENED"] },
-        clickedAt: null },
-      data: { status: "CLICKED", clickedAt: new Date() },
-    });
+    await recordSignedLegacyTracking(db, params.recipientId, "CLICK");
   } catch {
     // A valid signed redirect works even when telemetry is rate-limited.
   }
