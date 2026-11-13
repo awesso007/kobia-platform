@@ -6,7 +6,10 @@
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
-import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
+import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { activePublicTenantSchema } from "@/lib/security/public-tenant";
+import { secureBookingManageTokenMatches } from "@/lib/security/booking-manage-token";
+import { publicSurfaceAction } from "@/lib/security/public-surface-round53";
 import { RescheduleClient } from "./RescheduleClient";
 import type { PublicBookingPage } from "../../../BookingClient";
 
@@ -41,16 +44,22 @@ export default async function ReschedulePage({
   let page: PublicBookingPage | null = null;
   let current: { startAt: string; status: string; inviteeName: string; inviteeEmail: string; inviteePhone: string | null } | null = null;
   try {
-    const db = getTenantPrisma(schemaNameForSlug(tenantSlug));
+    const schema = await activePublicTenantSchema(tenantSlug);
+    if (!schema) return notAvailable;
+    const db = getTenantPrisma(schema);
     const booking = await db.booking.findFirst({
       where: { id: params.bookingId, bookingPage: { slug: params.slug } },
       include: { bookingPage: { include: { availability: { select: { dayOfWeek: true } } } } },
     });
-    if (booking && booking.rescheduleToken === params.token) {
+    if (booking && booking.bookingPage.active &&
+      secureBookingManageTokenMatches(params.token, booking.rescheduleToken)) {
       const bp = booking.bookingPage;
       const weekdays = Array.from(new Set(bp.availability.map((a) => a.dayOfWeek))).sort();
       page = {
         tenantSlug,
+        siteKey: process.env.CHESS_PUBLIC_FORM_ABUSE_ENABLED === "true" ?
+          (process.env.NEXT_PUBLIC_CHESS_TURNSTILE_SITE_KEY ?? "") : "",
+        challengeAction: publicSurfaceAction(tenantSlug, bp.slug),
         slug: bp.slug,
         name: bp.name,
         description: bp.description,
