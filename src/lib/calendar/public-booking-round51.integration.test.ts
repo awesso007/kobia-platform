@@ -5,7 +5,8 @@
 import { randomUUID } from "node:crypto";
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
 import { PrismaClient } from "@/lib/db/generated/tenant";
-import { reservePublicBooking, PublicBookingError } from "./public-booking";
+import { reservePublicBooking } from "./public-booking";
+import type { PublicBookingError } from "./public-booking";
 
 const integration = process.env.RUN_CHESS_DB_INTEGRATION === "1" ? describe : describe.skip;
 integration("Round 51 public booking atomic tenant PostgreSQL", () => {
