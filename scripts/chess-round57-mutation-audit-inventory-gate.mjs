@@ -95,22 +95,21 @@ must("src/server/trpc-db.ts",[
  "Write operation prohibited in audited query",
 ]);
 must("src/server/trpc-read-scope.ts",[
- "withLegacyTrpcMutationScope(", "mode:", "mutations:0",
+ "withLegacyTrpcMutationScope<T>(", "mode:", "mutations:0",
 ]);
 if(!trpc.includes(".use(auditProtectedQuery).use(auditProtectedMutation)"))
  err.push("Protected tRPC query and mutation audit middleware absent");
 must("src/lib/db/historical-read-scope.ts",[
- "withHistoricalTenantWriteScope(", "scope.closed=true",
+ "withHistoricalTenantWriteScope<T>(", "scope.closed=true",
  "scope.schemaName !== schemaName",
 ]);
 must("src/lib/chess/historical-mutation-response-audit-round57.ts",[
  "withAuditedHistoricalMutation", "db.$transaction(async tx",
  "tx.membership.findUnique", "tx.chessSecurityEvent.create",
- "result.status>=400", "scope.accesses===0",
+ "result.status>=400", "accesses===0",
  'isolationLevel:"Serializable"',
 ]);
 for(const path of [
- "src/app/app/(crm)/leads/actions.ts",
  "src/app/app/(crm)/contacts/actions.ts",
  "src/app/app/(crm)/companies/actions.ts",
  "src/app/app/(crm)/deals/actions.ts",
@@ -122,6 +121,9 @@ for(const path of [
 ]){
  must(path,["withLegacyCrmTransaction("]);
 }
+must("src/app/app/(crm)/leads/actions.ts",[
+ "withAuditedLegacyLeadMutation(", "withAuditedLegacyLeadRead(",
+]);
 must("src/lib/chess/security-events.ts",[
  'action:z.literal("OPERATOR_SECURITY_REVIEW_REQUESTED")',
  'decision:z.literal("REVIEW")',
