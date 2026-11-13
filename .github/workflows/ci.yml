@@ -77,6 +77,11 @@ jobs:
           node --check scripts/chess-round54-historical-public-machine-gate.mjs
           node scripts/chess-round54-historical-public-machine-gate.mjs
 
+      - name: Gate Round 57 authenticated mutation release and honest write-surface inventory
+        run: |
+          node --check scripts/chess-round57-mutation-audit-inventory-gate.mjs
+          node scripts/chess-round57-mutation-audit-inventory-gate.mjs
+
       - name: Gate Round 55 live machine tenant and legacy lead authorization
         run: |
           node --check scripts/chess-round55-live-machine-legacy-lead-gate.mjs
