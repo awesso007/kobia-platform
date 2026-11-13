@@ -30,19 +30,19 @@ export async function listLeads(params: LeadListParams): Promise<{
   const page = Math.max(1, Math.min(1000, requested));
   return withAuditedLegacyLeadRead(db, member.clerkUserId, "LEGACY_LEAD_DIRECTORY_READ",
     "PAGE:" + page, async (tx, actor) => {
-      const where: Prisma.LeadWhereInput = {
-        AND: [
-          legacyOwnerFilter(actor),
-          ...(params.status ? [{ status: params.status as Prisma.LeadWhereInput["status"] }] : []),
-          ...(params.source ? [{ source: params.source as Prisma.LeadWhereInput["source"] }] : []),
-          ...(params.owner ? [{ ownerUserId: params.owner }] : []),
-          ...(params.search?.trim() ? [{ OR: [
-            { name: { contains: params.search.trim().slice(0, 120), mode: "insensitive" } },
-            { email: { contains: params.search.trim().slice(0, 120), mode: "insensitive" } },
-            { companyName: { contains: params.search.trim().slice(0, 120), mode: "insensitive" } },
-          ] }] : []),
-        ],
-      };
+      const and: Prisma.LeadWhereInput[] = [legacyOwnerFilter(actor)];
+      if (params.status) and.push({ status: params.status as Prisma.LeadWhereInput["status"] });
+      if (params.source) and.push({ source: params.source as Prisma.LeadWhereInput["source"] });
+      if (params.owner) and.push({ ownerUserId: params.owner });
+      if (params.search?.trim()) {
+        const q = params.search.trim().slice(0, 120);
+        and.push({ OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { email: { contains: q, mode: "insensitive" } },
+          { companyName: { contains: q, mode: "insensitive" } },
+        ] });
+      }
+      const where: Prisma.LeadWhereInput = { AND: and };
       const sortField = SORTABLE.has(params.sort ?? "") ? params.sort! : "createdAt";
       const sortDir = params.dir === "asc" ? "asc" : "desc";
       const [total, leads, ownerRows] = await Promise.all([

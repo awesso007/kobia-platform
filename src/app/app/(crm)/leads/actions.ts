@@ -33,7 +33,18 @@ const leadSchema = z.object({
   tagIds: z.array(z.string().min(1).max(128)).max(40).optional(),
   customFields: z.record(z.unknown()).optional(),
 }).strict();
-export type LeadInput = z.input<typeof leadSchema>;
+export type LeadInput = Omit<z.input<typeof leadSchema>, "source" | "status"> & {
+  source?: string; status?: string;
+};
+function parsedLead(input: LeadInput) {
+  const sources = ["WEBSITE", "REFERRAL", "CALL", "EMAIL", "EVENT", "OTHER"];
+  const statuses = ["NEW", "CONTACTED", "QUALIFIED", "UNQUALIFIED", "CONVERTED"];
+  return leadSchema.parse({
+    ...input,
+    source: sources.includes(input.source ?? "") ? input.source : "WEBSITE",
+    status: statuses.includes(input.status ?? "") ? input.status : "NEW",
+  });
+}
 
 async function identity(): Promise<string> {
   const member = await getCurrentMembership();
@@ -151,7 +162,7 @@ export async function moveLeadToStage(leadId: string, stageId: string) {
 }
 
 export async function createLead(input: LeadInput) {
-  const parsed = leadSchema.parse(input);
+  const parsed = parsedLead(input);
   const userId = await identity();
   const { db } = getTenantDb();
   const result = await withAuditedLegacyLeadMutation(db, userId, "record:create",
@@ -172,7 +183,7 @@ export async function createLead(input: LeadInput) {
 }
 
 export async function updateLead(id: string, input: LeadInput) {
-  const parsed = leadSchema.parse(input);
+  const parsed = parsedLead(input);
   const userId = await identity();
   const { db } = getTenantDb();
   const changed = await withAuditedLegacyLeadMutation(db, userId, "record:read",
