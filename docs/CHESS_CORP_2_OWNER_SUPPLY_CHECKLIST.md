@@ -66,6 +66,13 @@ configuration placeholders and evidence are mandatory before activation:
   duplicate delivery and UNKNOWN; durable outbox is still engineering
   work. Independently accept e-signature identity, intent, audit
   retention and countersigned legal records.
+- **Marketing tracking and privacy:** the existing
+  `CHESS_PUBLIC_FORM_RATE_HASH_KEY` and verified overwritten ingress
+  header must be configured for signed tracking mutations.
+  Test rate-limit exhaustion, stale pixels, unsubscribe-before-click,
+  same recipient across two app instances and signed redirect behavior
+  during quota outages. Independently approve marketing and analytics
+  consent, privacy retention and unsubscribe accessibility.
 - **Protected acceptance:** 2 actual authenticated tenants,
   OWNER/ADMIN/MEMBER/VIEWER, revoked roles and assignments,
   historical multi-business and service-grant data, signed vendor

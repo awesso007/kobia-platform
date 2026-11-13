@@ -102,3 +102,20 @@ approved. \`main\` and \`kobia-platform.vercel.app\` remain unchanged.
 
 **CI:** See the final exact-SHA GitHub Actions evidence linked in draft
 PR #24. An earlier passing run is not evidence for later commits.
+
+## Round 55 addendum — signed email-tracking authorization and abuse
+
+Both previously signed click/open pixel callbacks now have independent
+PostgreSQL tenant/resource/visitor rate quotas under the existing
+`CHESS_PUBLIC_FORM_RATE_HASH_KEY` and explicitly trusted ingress header.
+A valid signed capability and ACTIVE registry are still required. After
+quota admission, a SERIALIZABLE transaction checks the recipient's exact
+current unsubscribe state (case-insensitively) and executes an atomic
+conditional status update. Scanner replays, an old sent link after opt-out,
+or late opens following a click cannot resurrect delivery/telemetry state.
+The signed redirect/pixel remains non-sensitive and works if telemetry
+storage is unavailable; no business record is mutated after quota failure.
+Normal CI now executes a disposable PostgreSQL regression with two
+independent Prisma connections, concurrent open attempts and an opt-out
+record. Hosted bot/WAF tuning and independent marketing/privacy consent
+attestation remain owner/provider obligations.

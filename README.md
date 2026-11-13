@@ -79,6 +79,11 @@ transaction; multi-business rows are blocked pending businessId
 migration. A new source-policy CI gate and regression tests protect
 these boundaries.
 
+Signed legacy email open/click tracking now uses distributed quotas and
+transaction-coupled unsubscribe checks. Tracking cannot undo a
+recipient's opt-out; a two-Prisma-client PostgreSQL regression covers
+late/replayed tracking requests.
+
 Prior Round 54 hardened signed unsubscribe, public e-signatures,
 published KB feedback, webhook parsing and database replay controls.
 Outbound marketing email requires an opaque recipient-owned unsubscribe
