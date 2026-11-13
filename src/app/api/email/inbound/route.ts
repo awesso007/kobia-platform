@@ -14,6 +14,7 @@ import {
   inboundMailCredentialDecision, inboundMailTenantSlug,
 } from "@/lib/security/legacy-inbound-mail";
 import { readPublicFormBody, PublicFormGateError } from "@/lib/security/public-form-abuse";
+import { requireSingleLegacyMachineBusiness } from "@/lib/security/legacy-machine-business-round55";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
     if (tenant?.status !== "ACTIVE" || tenant.schemaName !== schemaNameForSlug(slug))
       return NextResponse.json({ ok: false, error: "Recipient unavailable." }, { status: 404, headers });
     const db = getTenantPrisma(tenant.schemaName);
+    await requireSingleLegacyMachineBusiness(db);
     const account = await db.emailAccount.findFirst({
       where: { address: { equals: to, mode: "insensitive" }, status: "ACTIVE" },
       select: { id: true },
@@ -98,6 +100,7 @@ export async function POST(req: NextRequest) {
     const refIds = [replyTo, ...(references ?? "").split(/\s+/)]
       .filter((x): x is string => !!x && x.length <= 320).slice(0, 16);
     const accepted = await db.$transaction(async tx => {
+      await requireSingleLegacyMachineBusiness(tx);
       const old = refIds.length ? await tx.emailMessage.findFirst({
         where: { accountId: account.id, externalId: { in: refIds },
           fromAddress: { equals: from, mode: "insensitive" } },

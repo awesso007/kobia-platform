@@ -11,6 +11,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { requireSingleLegacyMachineBusiness } from "@/lib/security/legacy-machine-business-round55";
 import { validatedWebhookTenantSlug, activeWebhookTenantSchema, readBoundedTwilioParams, twilioAccountMatches } from "@/lib/security/legacy-webhook-tenant";
 import { validateSignature } from "@/lib/telephony/twilio";
 
@@ -52,6 +53,10 @@ export async function POST(req: NextRequest) {
   if (!callSid || !recordingUrl || !safeRecording) return NextResponse.json({ ok: true });
 
   const db = getTenantPrisma(schema);
+  try { await requireSingleLegacyMachineBusiness(db); }
+  catch {
+    return NextResponse.json({ ok: false, error: "Callback unavailable." }, { status: 503 });
+  }
   const call = await db.call.findFirst({ where: { providerCallSid: callSid } });
   if (!call) return NextResponse.json({ ok: true });
 

@@ -17,6 +17,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { requireSingleLegacyMachineBusiness } from "@/lib/security/legacy-machine-business-round55";
 import { validatedWebhookTenantSlug, activeWebhookTenantSchema, readBoundedTwilioParams, twilioAccountMatches } from "@/lib/security/legacy-webhook-tenant";
 import { resolveLinkForPhone } from "@/lib/telephony/link";
 import { validateSignature } from "@/lib/telephony/twilio";
@@ -74,6 +75,10 @@ export async function POST(req: NextRequest) {
     }
   }
   const db = getTenantPrisma(schema);
+  try { await requireSingleLegacyMachineBusiness(db); }
+  catch {
+    return NextResponse.json({ ok: false, error: "Callback unavailable." }, { status: 503 });
+  }
   // The signed account must own an ACTIVE Twilio number in THIS tenant.
   const ourNumber = await db.phoneNumber.findUnique({ where: { e164: to } });
   if (!ourNumber || ourNumber.status !== "ACTIVE" || ourNumber.provider !== "TWILIO")
@@ -96,6 +101,7 @@ export async function POST(req: NextRequest) {
   };
   try {
     created = await db.$transaction(async tx => {
+      await requireSingleLegacyMachineBusiness(tx);
       const oldThread = await tx.smsThread.findUnique({
         where: { ourNumberE164_peerE164: { ourNumberE164: to, peerE164: from } },
       });
