@@ -1,17 +1,15 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 51 | Final exact-SHA CI evidence required (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 52 | Final exact-SHA CI evidence required (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
-**Latest independently observed completed normal CI baseline (not
-external acceptance):** Round 45 final commit
-`b6b41f590292c4b8335c092f82afe0cb666c1b29` passed **3/3**
-GitHub Actions jobs in [run 43306304711](https://github.com/awesso007/kobia-platform/actions/runs/43306304711):
-`build`, `chess-db-integration`, and `chess-legacy-ledger-integration`.
-Earlier Round 38–44 baselines are in the
-[authoritative Round 46 M1–M8 matrix](CHESS_CORP_2_ROADMAP.md).
-Round 46 requires its **own exact-final-SHA green normal CI verification**.
+**Latest independently observed normal CI baseline (not external acceptance):**
+Round 51 final commit `2ed8cc37e2ca39cc422def6813548a4f2ac4b332`
+passed all three normal CI jobs in
+[run 43333595164](https://github.com/awesso007/kobia-platform/actions/runs/43333595164).
+Round 52 must obtain a NEW successful three-job run on its exact final SHA;
+source changes cannot be treated as verified before that run.
 No normal CI run supplies actual Clerk browser sign-in, security/axe
 acceptance, legal, storage, provider, staging or production approval.
 No normal CI run can establish a real signed-in Clerk/Neon browser/axe
@@ -21,6 +19,44 @@ external credentials remain under this one checklist; source-only
 placeholder values are NOT owner approval.
 
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 52 — public form anti-abuse provider and staging acceptance
+
+Under existing owner-supply **02, 04, 15, 17 and 18**, independently
+configure and review:
+
+- **Cloudflare Turnstile:** create sandbox and approved deployment widgets,
+  supply the public `NEXT_PUBLIC_CHESS_TURNSTILE_SITE_KEY`, protect
+  `CHESS_TURNSTILE_SECRET_KEY` in the runtime/GitHub Environment secret
+  manager, and set exact `CHESS_TURNSTILE_ALLOWED_HOSTNAMES`
+  (no wildcard, scheme or port). Test valid, expired, reused, missing,
+  wrong-action and wrong-hostname tokens. The secret is server-only;
+  never send its value into ChatGPT or GitHub source/comments.
+- **Distributed request quotas:** provision an independent 32+ byte secret
+  `CHESS_PUBLIC_FORM_RATE_HASH_KEY` in the vault (rotate with a planned
+  temporary quota reset), migrate/verify `ChessRequestRateWindow` on every
+  intended tenant schema, and check concurrent requests on at least two
+  separate hosted application instances. Review 120/min/tenant,
+  40/min/form, 8/min/trusted-IP, 3/min/unknown settings and legitimate
+  shared-NAT accessibility impacts.
+- **Trusted ingress:** explicitly set `CHESS_PUBLIC_FORM_TRUSTED_IP_HEADER`
+  to `x-vercel-forwarded-for` or `cf-connecting-ip` ONLY after showing
+  that the approved reverse proxy overwrites the header and direct-origin
+  bypass is impossible. Do not configure end-user `x-forwarded-for`.
+  Test spoofed comma chains, missing IP headers, bursts, outages, and 429
+  Retry-After. No raw IP identity is retained in the quota table.
+- **Protected activation:** set `CHESS_PUBLIC_FORM_ABUSE_ENABLED=true`
+  only in protected fictional staging after confirming forms render
+  and reset Turnstile challenges. Default absence/false, quota database
+  outage, or Siteverify failure denies new leads and submissions.
+  Confirm CORS/embed hostnames, privacy policy/retention, and no automation
+  side effects after challenge denial. Evidence: approved test origins,
+  actual hosted response captures, reviewer and dated acceptance.
+
+**No provider account or secret was supplied during Round 52.**
+Bookable appointments, public analytics trackers, unsubscribe and remaining
+public/machine routes still need independent abuse/authorization review.
+All 8 production milestones remain blocked, none signed off.
 
 ## Round 51 — public booking protected staging acceptance
 

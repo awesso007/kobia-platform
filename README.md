@@ -63,6 +63,27 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS CORP 2 Round 52 — distributed protection for public forms
+
+Both public web-to-lead form APIs (legacy and Forms 2.0) now use an
+ACTIVE tenant registry check, a bounded request body, privacy-keyed
+PostgreSQL rate limits shared across server instances, and an exact
+tenant/form action + hostname validated Turnstile Siteverify challenge
+before inserting records. Process-local IP maps are removed. The public
+form pages render a challenge widget and reset single-use tokens on
+failed submission. Quota breaches return HTTP 429 with Retry-After 60.
+
+**Disabled until explicitly configured and independently accepted.** Missing
+secret/provider configuration or quota storage fails closed with no new
+lead/submission. The existing tenant `ChessRequestRateWindow` migration must
+be applied. Operator inputs (Cloudflare widget/secret, private rate HMAC,
+trusted ingress header and approved hostnames) are in the owner-supply
+checklist. Source gate, unit tests and independent-client PostgreSQL
+concurrency regression run in CI. See
+[Round 52 report](docs/CHESS_CORP_2_ROUND52_PUBLIC_FORM_ABUSE.md).
+Booking, public analytics, unsubscribe and other machine callbacks
+need separate abuse review; none is promoted to production.
+
 ## CHESS CORP 2 Round 51 — public booking tenant isolation and atomic reservations
 
 Public booking slots, submit and cancellation now refuse inactive or unknown
