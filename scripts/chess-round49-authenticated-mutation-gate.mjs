@@ -26,7 +26,7 @@ function methods(src){
  for(let i=0;i<matches.length;i++)result[matches[i][1]]=src.slice(matches[i].index,matches[i+1]?.index??src.length);
  // Round 57 transaction-coupled wrapper. The underlying Original action
  // must still contain its own type-specific authorization before DB access.
- for(const found of src.matchAll(/export\\s+const\\s+(POST|PUT|PATCH|DELETE)\\s*=\\s*withAuditedHistoricalMutation\\s*\\(/g)){
+ for(const found of src.matchAll(/export\s+const\s+(POST|PUT|PATCH|DELETE)\s*=\s*withAuditedHistoricalMutation\s*\(/g)){
   const verb=found[1],prefix="async function "+verb+"Original(";
   const start=src.indexOf(prefix);
   if(start<0)issues.push("Missing wrapped original "+verb);
