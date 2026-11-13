@@ -13,14 +13,15 @@ const READS=new Set(["findFirst","findFirstOrThrow","findUnique","findUniqueOrTh
 function delegateProxy<T extends object>(delegate:T):T{
  return new Proxy(delegate,{
   get(target,method){
-   if(typeof method==="string"&&MUTATIONS.has(method))
+   const checked=currentLegacyTrpcReadScope();
+   if(typeof method==="string"&&MUTATIONS.has(method)&&checked?.mode!=="mutation")
     throw new HistoricalTrpcReadScopeError("Write operation prohibited in audited query");
    const value=Reflect.get(target,method,target);
    if(typeof value==="function"){
     return (...args:unknown[])=>{
      const scope=currentLegacyTrpcReadScope();
      if(!scope)throw new HistoricalTrpcReadScopeError("Leaked query delegate");
-     if(typeof method==="string"&&READS.has(method))scope.accesses++;
+     if(typeof method==="string"&&(READS.has(method)||MUTATIONS.has(method)))scope.accesses++;
      return Reflect.apply(value,target,args);
     };
    }
