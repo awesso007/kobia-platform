@@ -264,8 +264,8 @@ function aggregate(values: number[], agg: string): number {
 }
 
 /** Run a custom report definition and return tabular + chart-ready data. */
-export async function runReport(def: ReportDefinition): Promise<ReportResult> {
-  const { db } = getTenantDb();
+export async function runReport(def: ReportDefinition, scopedDb?: Db): Promise<ReportResult> {
+  const db = scopedDb ?? getTenantDb().db;
   const all = await loadEntityRows(db, def.entity);
   const rows = all.filter((r) => def.filters.every((f) => matchesFilter(r, f)));
 
