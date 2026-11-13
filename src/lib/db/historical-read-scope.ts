@@ -56,3 +56,27 @@ export async function withHistoricalTenantReadScope<T>(
     finally { scope.closed = true; }
   });
 }
+
+
+/**
+ * Round 57: a separate write-scoped operation that binds authenticated
+ * historical API mutation handlers to ONE tenant PostgreSQL transaction.
+ * Scope cannot nest or change tenant; all existing getTenantDb() reads/writes
+ * by the handler resolve to the exact same transaction client as its audit.
+ * External providers must NOT be invoked before the commit; those routes
+ * require a durable outbox and are not eligible for this adapter.
+ */
+export async function withHistoricalTenantWriteScope<T>(
+ input:{tenantId:string;schemaName:string;tx:Prisma.TransactionClient},
+ run:(scope:HistoricalTenantReadScope)=>Promise<T>,
+):Promise<T>{
+ if(!VALID_SLUG.test(input.tenantId)||
+    input.schemaName!=="tenant_"+input.tenantId.replace(/-/g,"_")||
+    storage.getStore())
+  throw new HistoricalReadScopeError("Invalid or nested historical write transaction");
+ const scope:HistoricalTenantReadScope={...input,accesses:0,closed:false};
+ return storage.run(scope,async()=>{
+  try{return await run(scope)}
+  finally{scope.closed=true}
+ });
+}
