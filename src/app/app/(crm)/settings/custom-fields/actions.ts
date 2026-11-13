@@ -11,6 +11,9 @@
 import { revalidatePath } from "next/cache";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 import { auditWrite } from "@/lib/crm/audit";
+import { getCurrentMembership, PermissionError } from "@/lib/rbac/require-permission";
+import { withLegacyCrmTransaction, assertLegacyCrmRecord } from "@/lib/chess/legacy-crm-security-round56";
+import { writeLegacyCrmMetadata } from "@/lib/chess/legacy-crm-metadata-round56";
 import {
   CUSTOM_FIELD_TYPES,
   ENTITY_TYPES,
@@ -134,75 +137,43 @@ export async function reorderCustomFields(entityType: string, orderedIds: string
  * value deletes the row.
  */
 export async function setCustomFieldValue(input: {
-  customFieldId: string;
-  entityType: string;
-  entityId: string;
-  value: unknown;
+  customFieldId: string; entityType: string; entityId: string; value: unknown;
 }) {
+  // Direct server action, not a trusted helper. Verify parent and definition.
+  if (!ENTITY_TYPES.includes(input.entityType as EntityType))
+    throw new PermissionError("record:update");
+  const member = await getCurrentMembership();
+  if (!member || member.status !== "ACTIVE") throw new PermissionError("record:update");
+  const entity = input.entityType as EntityType;
   const { db } = getTenantDb();
-  const entityType = asEntityType(input.entityType);
-  const empty =
-    input.value === null ||
-    input.value === undefined ||
-    input.value === "" ||
-    (Array.isArray(input.value) && input.value.length === 0);
-
-  if (empty) {
-    await db.customFieldValue.deleteMany({
-      where: { customFieldId: input.customFieldId, entityId: input.entityId },
+  await withLegacyCrmTransaction(db, member.clerkUserId, "record:update",
+    entity, input.entityId, "LEGACY_CRM_FIELD_UPDATED", async (tx, actor) => {
+      await assertLegacyCrmRecord(tx, actor, entity, input.entityId, "record:update");
+      await writeLegacyCrmMetadata(tx, entity, input.entityId, {
+        customFields: { [input.customFieldId]: input.value },
+      });
     });
-    return;
-  }
-
-  await db.customFieldValue.upsert({
-    where: { customFieldId_entityId: { customFieldId: input.customFieldId, entityId: input.entityId } },
-    create: {
-      customFieldId: input.customFieldId,
-      entityType,
-      entityId: input.entityId,
-      value: input.value as never,
-    },
-    update: { value: input.value as never },
-  });
 }
 
 /**
- * Upsert a batch of custom-field values for one record. Used by entity create
- * and edit flows that collect all field values in a single { fieldId: value }
- * map. Skips unknown fields (they may have been deleted between load and save).
+ * Do not expose a custom-field-value write bypass through a directly callable
+ * server action. All row/field/grant/actor checks and the security event share
+ * one transaction. An unknown field or a revoked client permission fails closed.
  */
 export async function saveCustomFieldValues(input: {
-  entityType: string;
-  entityId: string;
-  values: Record<string, unknown>;
+  entityType: string; entityId: string; values: Record<string, unknown>;
 }) {
+  if (!ENTITY_TYPES.includes(input.entityType as EntityType))
+    throw new PermissionError("record:update");
+  const member = await getCurrentMembership();
+  if (!member || member.status !== "ACTIVE") throw new PermissionError("record:update");
+  const entity = input.entityType as EntityType;
   const { db } = getTenantDb();
-  const entityType = asEntityType(input.entityType);
-  const fieldIds = Object.keys(input.values);
-  if (fieldIds.length === 0) return;
-
-  const known = await db.customField.findMany({
-    where: { entityType, id: { in: fieldIds } },
-    select: { id: true },
-  });
-  const knownIds = new Set(known.map((k) => k.id));
-
-  for (const fieldId of fieldIds) {
-    if (!knownIds.has(fieldId)) continue;
-    const value = input.values[fieldId];
-    const empty =
-      value === null ||
-      value === undefined ||
-      value === "" ||
-      (Array.isArray(value) && value.length === 0);
-    if (empty) {
-      await db.customFieldValue.deleteMany({ where: { customFieldId: fieldId, entityId: input.entityId } });
-    } else {
-      await db.customFieldValue.upsert({
-        where: { customFieldId_entityId: { customFieldId: fieldId, entityId: input.entityId } },
-        create: { customFieldId: fieldId, entityType, entityId: input.entityId, value: value as never },
-        update: { value: value as never },
+  await withLegacyCrmTransaction(db, member.clerkUserId, "record:update",
+    entity, input.entityId, "LEGACY_CRM_FIELDS_UPDATED", async (tx, actor) => {
+      await assertLegacyCrmRecord(tx, actor, entity, input.entityId, "record:update");
+      await writeLegacyCrmMetadata(tx, entity, input.entityId, {
+        customFields: input.values,
       });
-    }
-  }
+    });
 }
