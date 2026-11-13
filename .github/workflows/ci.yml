@@ -275,6 +275,12 @@ jobs:
           DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
         run: npx vitest run src/lib/security/round54-replay.integration.test.ts
 
+      - name: Round 55 signed tracking and unsubscribe cross-instance PostgreSQL regressions
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+        run: npx vitest run src/lib/security/legacy-marketing-tracking-round55.integration.test.ts
+
       - name: Verify repeatable fictional demo seed against isolated tenant schema
         env:
           DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
