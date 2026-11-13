@@ -1,3 +1,4 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
 import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * SLA policies API (Sprint 15, authenticated). GET lists policies; POST creates
@@ -28,7 +29,7 @@ async function historicalAuditedGet() {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function POSTOriginal(req: NextRequest) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -56,3 +57,5 @@ export async function POST(req: NextRequest) {
 }
 
 export const GET=withAuditedHistoricalGet("helpdesk/sla",historicalAuditedGet);
+
+export const POST = withAuditedHistoricalMutation("helpdesk/sla", "POST", POSTOriginal);

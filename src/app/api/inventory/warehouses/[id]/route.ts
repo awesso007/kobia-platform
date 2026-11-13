@@ -1,3 +1,4 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
 import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Single warehouse API (Sprint 20, authenticated). GET returns the warehouse
@@ -32,7 +33,7 @@ async function historicalAuditedGet(_req: NextRequest, { params }: { params: { i
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+async function PATCHOriginal(req: NextRequest, { params }: { params: { id: string } }) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -58,7 +59,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+async function DELETEOriginal(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await requirePermission("inventory:manage");
     const { db } = getTenantDb();
@@ -70,3 +71,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
 }
 
 export const GET=withAuditedHistoricalGet("inventory/warehouses/[id]",historicalAuditedGet);
+
+export const PATCH = withAuditedHistoricalMutation("inventory/warehouses/[id]", "PATCH", PATCHOriginal);
+
+export const DELETE = withAuditedHistoricalMutation("inventory/warehouses/[id]", "DELETE", DELETEOriginal);

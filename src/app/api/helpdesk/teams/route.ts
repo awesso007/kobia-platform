@@ -1,3 +1,4 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
 import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Teams API (Sprint 15, authenticated). GET lists teams; POST creates one.
@@ -27,7 +28,7 @@ async function historicalAuditedGet() {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function POSTOriginal(req: NextRequest) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -49,3 +50,5 @@ export async function POST(req: NextRequest) {
 }
 
 export const GET=withAuditedHistoricalGet("helpdesk/teams",historicalAuditedGet);
+
+export const POST = withAuditedHistoricalMutation("helpdesk/teams", "POST", POSTOriginal);
