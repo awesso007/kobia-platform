@@ -63,6 +63,32 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS CORP 2 Round 55 — resumed machine API and cross-business review
+
+Recovered and repaired interrupted Round 54 work; check [the Round 55
+engineering report](docs/CHESS_CORP_2_ROUND55_PUBLIC_MACHINE_AUTHZ.md)
+for commits, source and test scope. All 17 signed cron routes now
+re-read the ACTIVE canonical tenant registry before selecting a
+tenant schema. Five Twilio callbacks and the inbound mail relay
+deny tenant-wide machine operations when legacy provider records cannot
+be assigned to a single CHESS business. Inbound mail no longer
+auto-links a spoofable From sender to a CRM client. Legacy Lead
+directory, Kanban and server actions now verify live membership,
+ownership, one-business assignment and audit in one serializable
+transaction; multi-business rows are blocked pending businessId
+migration. A new source-policy CI gate and regression tests protect
+these boundaries.
+
+Prior Round 54 hardened signed unsubscribe, public e-signatures,
+published KB feedback, webhook parsing and database replay controls.
+Outbound marketing email requires an opaque recipient-owned unsubscribe
+capability and a vault-supplied AES key; unsigned old links need a
+human support replacement. Mail attachments are fail-closed until
+scanned. All protections remain source-only; external provider,
+legal, signed-in tenant staging, durable outbox and business-data
+backfill/release gates remain open. **Never merge/deploy merely because
+the CI run is green.**
+
 ## CHESS CORP 2 Round 53 — distributed booking and analytics protection
 
 All three anonymous booking APIs and both public analytics POST APIs now

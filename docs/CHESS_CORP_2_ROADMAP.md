@@ -8,10 +8,30 @@ business-operations layer within an isolated KOBIA tenant, not an assertion
 that a single legal entity holds all operating licenses.
 
 
-## CURRENT / AUTHORITATIVE — Round 53 milestone matrix (Rounds 31–53 engineering)
+## CURRENT / AUTHORITATIVE — Round 55 milestone matrix (Rounds 31–55 engineering)
 
 
-**This table is the current M1–M8 development and release-gate matrix.**
+**This table remains the current M1–M8 development and release-gate matrix,
+with the additional Round 54–55 delta below.** No milestone production
+release gate has been approved by normal CI.
+
+### Current Round 54–55 engineering delta (applies to the matrix below)
+
+| Milestone | Added source/test protection | Remaining obligations |
+| --- | --- | --- |
+| M1 — Authorization and client data | R54 public unsubscribe AES-GCM recipient capability and atomic suppression; public e-sign serializable signer+audit; R55 legacy Lead list/board/detail and create/update/stage/convert have transaction-coupled live member, owned record and privacy-minimal audit checks, and explicitly fail closed whenever more than one business unit has existed in a tenant | Backfill explicit businessId and service grants for legacy CRM Lead/Contact/Deal and related objects; finish other server action and tRPC source/mutation audit, revocation race and two-tenant signed-in tests |
+| M2 — Business separation | Legacy unpartitioned CRM and SMS/voice/mail machine operations deny multi-business tenants, including inactive secondary units | Per-provider mailbox/phone business mapping, live assignment/grant policy across remaining modules and authenticated staging |
+| M3 — Consent/documents | Sequential signer capability verifies active registry and atomically signs, audits and completes; inbound attachments denied pending approved malware scanning | Real legal e-sign consent/evidence, secure delivery outbox, attachment quarantine and external records acceptance |
+| M8 — Security | R54 catalog checks 9 public and 26 machine route entrypoints; provider duplicate-SID/Message-ID database uniqueness, bounded machine inputs, Twilio account binding; R55 rechecks live ACTIVE canonical tenant schema in all 17 cron jobs; limits sender-spoofed mail CRM association; adds regression tests/source CI gate | Full public/callback threat-model acceptance, hosted provider signatures, detailed cross-business mutation audit, durable idempotent outbox, independent penetration review, witnessed recovery and security signoff |
+
+**All other M3–M7 engineering/release obligations below remain unchanged.**
+The Round 54 and Round 55 source gates are safeguards against changes to
+reviewed code, **not** a proof that every provider callback is production
+certified or that a tenant membership authorizes every client or business.
+See [Round 55 report](CHESS_CORP_2_ROUND55_PUBLIC_MACHINE_AUTHZ.md)
+and the consolidated owner-supply checklist.
+
+
 The detailed Round 24 matrix below is historical and must not be mistaken for
 the latest code inventory. Round 48 secures selected public and machine entrypoints; Round 51 adds ACTIVE tenant and atomic reservation checks to the three public booking routes. Round 49 adds
 specific authenticated mutation protections and full inventory source
@@ -22,7 +42,7 @@ establishes complete cross-business authorization, external immutable
 receipt custody or protected staging acceptance. Each row separates **implemented and CI-verified
 source** from **incomplete engineering or real-world acceptance**.
 
-| Milestone | Implemented source and test scope through Round 46 (exact final CI status below) | Outstanding engineering, protected staging and independent evidence | Owner-supply groups | Production gate |
+| Milestone | Historical implemented source and test scope (superseded where stated by current delta) | Outstanding engineering, protected staging and independent evidence | Owner-supply groups | Production gate |
 | --- | --- | --- | --- | --- |
 | **M1 — Shared profiles, authorization and sensitive reads** | Tenant-scoped client profiles, service grants and revocation; transaction-coupled ALLOW/DENY access audit for selected directories; Round 32 verified-client consent index/disclosure reads with same-transaction identity checks; Round 33 owner/manager/staff link separation; Round 35 business/regulated directory and client profile/link/grant writes now recheck live authorization in audited serializable transactions; Round 36 legacy 1099 tax exports require live finance roles/audit; Round 37 legacy GL/TB CSV, file/document, mail and selected workflow/form reads add live role/audit guards, while 162 historical API route files are inventoried; Round 41 applies a serializable, audit-coupled live role/business/assignment check to employee task-list reads; Round 43 source adds 41 authenticated historical GET audit-before-release wrappers, global search read-only POST response audit, protected tRPC successful-query legacy audit and explicit tenant selector; Round 48 removes payment stub settlement, exact-binds inbound mail to active tenant/mailbox, enforces signed expiring public tracking capabilities, strengthens booking cancellation and inventories legacy API method entrypoint controls; Round 49 hardens explicit-tenant module selection, LOCAL uploads, nested forms/sites/workflow resources, private chat and DM membership, and gates classified non-GET admission in CI; Round 50 moves all inventoried authenticated historical GETs into either a serializable tenant SELECT+membership+security-event transaction (39 routes), a previously verified scoped profile SELECT transaction (2 routes), or a separate legacy-ledger tRPC protected query+membership+AuditLog transaction (1 route). The read-only search POST uses the tenant transaction wrapper. | Transaction-coupled historical read source now covers inventoried authenticated GET/read-only search paths, but NOT all helper-internal independent DB access, platform PUBLIC/machine reads or all business/client grant selectors; mutation responses, 9 public capability and 26 machine callbacks need separate review; external immutable audit receipts, authenticated two-tenant and multi-business role/grant revocation races and legal data-sharing approval remain outstanding | **01,02,03,15,17,18** | **PARTIAL CODE — BLOCKED** |
 | **M2 — Business units and employee assignments** | Business unit provisioning and atomic assignment/service-grant revocation; Round 33 current MANAGER assignment selects only authorized finance units, revoked deep links no longer fall back to a different business, and business-local admin forms reset on unit change; Round 35 business/staff provisioning and assignment directories recheck live roles and append immutable events atomically | Real legal-company/firm and licensed-staff records, staged proof of active vs revoked roles, cross-business employee separation and least-privilege review | **01,02,03,10,17,18** | **PARTIAL CODE — BLOCKED** |

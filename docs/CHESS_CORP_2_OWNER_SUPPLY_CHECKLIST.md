@@ -1,15 +1,15 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 53 | Final exact-SHA CI evidence required (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 55 | Final exact-SHA CI evidence required (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
-**Latest independently observed normal CI baseline (not external acceptance):**
-Round 52 final commit `0748951597380487171d4c4c70ed43b83c06e53c`
-passed all three normal CI jobs in
-[run 43336863201](https://github.com/awesso007/kobia-platform/actions/runs/43336863201).
-Round 53 requires a NEW exact-final-SHA green 3-job normal CI run;
-source changes are not considered verified until that run succeeds.
+**Latest verified prior round (not external acceptance):** Round 53 final
+commit `59acb65d621d3c97a0ea1075b6ae0ab3b1485e09` passed all three
+normal CI jobs in [run 43340055042](https://github.com/awesso007/kobia-platform/actions/runs/43340055042).
+Rounds 54–55 must have their own exact final SHA green 3-job CI run;
+no older passing job certifies later commits. The final SHA and run are
+recorded on draft PR #24 after verification.
 No normal CI run supplies actual Clerk browser sign-in, security/axe
 acceptance, legal, storage, provider, staging or production approval.
 No normal CI run can establish a real signed-in Clerk/Neon browser/axe
@@ -19,6 +19,62 @@ external credentials remain under this one checklist; source-only
 placeholder values are NOT owner approval.
 
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 55 — provider callbacks, legacy business scope and unsubscribe
+
+**All requirements OPEN / no owner credentials supplied.** Reuse existing
+owner-supply groups **01,02,03,04,05,06,13,15,17,18**. The following
+configuration placeholders and evidence are mandatory before activation:
+
+- **New marketing recipient secret:** supply
+  `CHESS_UNSUBSCRIBE_ENCRYPTION_KEYS` in an approved vault as one or more
+  **64-character hexadecimal AES-256 keys** separated by commas (current
+  encryption key first; retained decryption keys after a reviewed rotation).
+  Require HTTPS `NEXT_PUBLIC_APP_URL` for new encrypted opt-out links.
+  Never put key material in GitHub, tickets, this chat or log output.
+  Missing key or invalid origin intentionally blocks new broadcast email
+  to avoid sending messages without a secure opt-out link.
+  Existing legacy emails with only unsigned tenant+email opt-out links
+  will not self-authenticate: owner must offer a verified manual unsubscribe
+  support process and send replacement links where legally required.
+- **Provider trust:** supply only through a secrets vault
+  `CRON_SECRET`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
+  `EMAIL_INBOUND_SECRET`, `EMAIL_INBOUND_DOMAIN`, the approved
+  provider callback HTTPS origin, private rate HMAC and trusted edge
+  ingress identity. In a real vendor sandbox, confirm all 17 crons
+  require their secret, skip suspended/mismatched registry schemas,
+  and all five signed Twilio callbacks refuse foreign AccountSid,
+  duplicate form keys, wrong phone numbers and replayed status.
+- **Historical provider replay migration:** inspect existing data for
+  duplicate `SmsMessage(direction,providerMessageSid)` and
+  `EmailMessage(accountId,direction,externalId)` before applying
+  the Round 54 UNIQUE migrations to non-disposable environments.
+  Resolve duplicates through approved retention/audit workflows, not
+  automatic record erasure. Test two application instances, retry races
+  and misdelivered Twilio or mail callbacks.
+- **Multi-business ownership backfill:** supply reviewed business-to-number,
+  mail-account and CRM Lead/Contact/Deal mappings and consent/legal-sharing
+  rules, including historical INACTIVE businesses. The legacy routes now
+  deliberately refuse operations when more than one business unit has
+  existed and source rows have no explicit businessId. A one-business
+  demo does not establish safe cross-business tenancy.
+- **Mail and delivery acceptance:** operator must manually review inbound
+  sender linkage before CRM client association. Provider inbound
+  attachments are denied until private quarantine, malware scanning,
+  exact bytes, hold/version policy and reviewer approval are in place.
+  Test post-COMMIT notification/email/SMS and automation retries,
+  duplicate delivery and UNKNOWN; durable outbox is still engineering
+  work. Independently accept e-signature identity, intent, audit
+  retention and countersigned legal records.
+- **Protected acceptance:** 2 actual authenticated tenants,
+  OWNER/ADMIN/MEMBER/VIEWER, revoked roles and assignments,
+  historical multi-business and service-grant data, signed vendor
+  sandboxes, receipt archive and external penetration/DR review.
+  Source gate and disposable CI are not external acceptance.
+
+The Round 55 technical record is
+[Round 55 public/machine review](CHESS_CORP_2_ROUND55_PUBLIC_MACHINE_AUTHZ.md).
+**All 8 production milestone gates BLOCKED, none independently approved.**
 
 ## Round 53 — public booking/analytics edge protection and authority
 
