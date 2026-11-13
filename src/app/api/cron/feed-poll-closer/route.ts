@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import { requireKobiaCronAuth } from "@/lib/security/cron-authorization";
 import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { activeWebhookTenantSchema } from "@/lib/security/legacy-webhook-tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,10 @@ export async function GET(req: Request) {
     const results: { tenant: string; closed: number; error?: string }[] = [];
     for (const t of tenants) {
       try {
-        const db = getTenantPrisma(t.schemaName);
+        // Never let a stale platform row route a worker into a foreign schema.
+        const schema = await activeWebhookTenantSchema(t.slug);
+        if (!schema || schema !== t.schemaName) continue;
+        const db = getTenantPrisma(schema);
         const res = await db.feedPoll.updateMany({
           where: { closedAt: null, closesAt: { not: null, lte: now } },
           data: { closedAt: now },
