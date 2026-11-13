@@ -11,12 +11,12 @@ import { useState } from "react";
 
 export function UnsubscribeClient({
   initialEmail,
-  tenantSlug,
+  capability,
 }: {
   initialEmail: string;
-  tenantSlug: string | null;
+  capability: string | null;
 }) {
-  const [email, setEmail] = useState(initialEmail);
+  const email = initialEmail;
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -25,16 +25,16 @@ export function UnsubscribeClient({
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    if (!tenantSlug) {
-      setError("This unsubscribe link is missing its tenant. Please use the link from your email.");
+    if (!capability) {
+      setError("This unsubscribe link is unavailable. Please use a current link from your email.");
       return;
     }
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/unsubscribe?t=${encodeURIComponent(tenantSlug)}`, {
+      const res = await fetch("/api/unsubscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), tenant: tenantSlug, reason: reason.trim() || undefined }),
+        body: JSON.stringify({ cap: capability, reason: reason.trim().slice(0, 500) || undefined }),
       });
       const json = (await res.json()) as { ok: boolean; error?: string };
       if (!res.ok || !json.ok) {
@@ -63,7 +63,7 @@ export function UnsubscribeClient({
           <form onSubmit={onSubmit}>
             <h1 style={titleStyle}>Unsubscribe</h1>
             <p style={bodyStyle}>
-              Confirm the email address below to stop receiving marketing messages.
+              Confirm the address associated with your secure unsubscribe link.
             </p>
             <label style={labelStyle} htmlFor="unsub-email">
               Email
@@ -73,7 +73,7 @@ export function UnsubscribeClient({
               type="email"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              readOnly
               style={inputStyle}
               placeholder="you@example.com"
             />
@@ -87,8 +87,11 @@ export function UnsubscribeClient({
               style={{ ...inputStyle, minHeight: 72, resize: "vertical" }}
               placeholder="Tell us why (optional)"
             />
+            {!capability ? (
+              <p style={errorStyle}>This link is unavailable. Please use the unsubscribe link in your email or contact the sender.</p>
+            ) : null}
             {error ? <p style={errorStyle}>{error}</p> : null}
-            <button type="submit" disabled={submitting} style={buttonStyle}>
+            <button type="submit" disabled={submitting || !capability} style={buttonStyle}>
               {submitting ? "Processing..." : "Unsubscribe"}
             </button>
           </form>
