@@ -36,6 +36,7 @@ describe("Round 57 tRPC write transaction binding", () => {
       expect(await proxy.account.findMany()).toEqual([{ id: "TENANT_A" }]);
       expect(await proxy.account.update()).toEqual({ id: "TENANT_A" });
       expect(scope.accesses).toBe(2);
+      expect(scope.mutations).toBe(1);
       expect(() => proxy.$transaction).toThrow("Nested legacy Prisma transaction prohibited");
     });
     expect(source.account.findMany).not.toHaveBeenCalled();

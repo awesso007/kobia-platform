@@ -21,7 +21,10 @@ function delegateProxy<T extends object>(delegate:T):T{
     return (...args:unknown[])=>{
      const scope=currentLegacyTrpcReadScope();
      if(!scope)throw new HistoricalTrpcReadScopeError("Leaked query delegate");
-     if(typeof method==="string"&&(READS.has(method)||MUTATIONS.has(method)))scope.accesses++;
+     if(typeof method==="string"){
+      if(READS.has(method)||MUTATIONS.has(method))scope.accesses++;
+      if(scope.mode==="mutation"&&MUTATIONS.has(method))scope.mutations++;
+     }
      return Reflect.apply(value,target,args);
     };
    }

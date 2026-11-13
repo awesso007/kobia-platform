@@ -118,7 +118,7 @@ const auditProtectedMutation = t.middleware(async ({ctx,path,type,next})=>{
     tenantId:tenant.id,userId:user.id,tx,
    },async scope=>{
     const res=await next({ctx:{...ctx,auth}});
-    if(!res.ok || scope.accesses===0)
+    if(!res.ok || scope.mutations===0)
      throw new Error("Historical tRPC mutation failed or escaped the audited transaction");
     return res;
    });

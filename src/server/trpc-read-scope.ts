@@ -9,7 +9,7 @@ type LegacyScope={
  readonly tenantId:string;readonly userId:string;
  readonly tx:Prisma.TransactionClient;
  readonly mode:"query"|"mutation";
- accesses:number;closed:boolean;
+ accesses:number;mutations:number;closed:boolean;
 };
 const storage=new AsyncLocalStorage<LegacyScope>();
 export class HistoricalTrpcReadScopeError extends Error{
@@ -29,7 +29,7 @@ export async function withLegacyTrpcReadScope<T>(
 ):Promise<T>{
  if(!input.tenantId||!input.userId||storage.getStore())
   throw new HistoricalTrpcReadScopeError("Invalid or nested legacy query");
- const scope:LegacyScope={...input,mode:"query",accesses:0,closed:false};
+ const scope:LegacyScope={...input,mode:"query",accesses:0,mutations:0,closed:false};
  return storage.run(scope,async()=>{
   try{return await fn(scope)}
   finally{scope.closed=true}
@@ -44,7 +44,7 @@ export async function withLegacyTrpcMutationScope<T>(
 ):Promise<T>{
  if(!input.tenantId||!input.userId||storage.getStore())
   throw new HistoricalTrpcReadScopeError("Invalid or nested legacy mutation");
- const scope:LegacyScope={...input,mode:"mutation",accesses:0,closed:false};
+ const scope:LegacyScope={...input,mode:"mutation",accesses:0,mutations:0,closed:false};
  return storage.run(scope,async()=>{
   try{return await fn(scope)}
   finally{scope.closed=true}
