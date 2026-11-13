@@ -50,11 +50,8 @@ export default async function PublicFormV2Page({
   }
   if (!form || form.status !== "PUBLISHED") return notFound;
 
-  if (db) {
-    await db.formV2Analytics
-      .create({ data: { formId: form.id, event: "VIEW" } })
-      .catch(() => undefined);
-  }
+  // Round 53: do not write an unmetered VIEW during SSR.
+  // The client sends VIEW through the same distributed analytics gate.
 
   const publicForm: PublicForm = {
     name: form.name,

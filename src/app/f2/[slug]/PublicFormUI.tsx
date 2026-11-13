@@ -12,7 +12,7 @@
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PublicFormChallenge } from "@/components/public-forms/PublicFormChallenge";
 import {
   evaluateVisibility,
@@ -68,6 +68,10 @@ export function PublicFormUI({
   const [challengeToken, setChallengeToken] = useState<string | null>(null);
   const [resetNonce, setResetNonce] = useState(0);
   const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    track(formSlug, tenantSlug, "VIEW");
+  }, [formSlug, tenantSlug]);
 
   // Group fields per step; fields with no stepId fall into the first step.
   const orderedSteps: PublicStep[] = steps.length > 0 ? steps : [{ id: "__single", order: 0, title: "", description: null }];
