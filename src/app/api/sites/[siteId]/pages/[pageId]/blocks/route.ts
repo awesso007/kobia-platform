@@ -1,3 +1,4 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
 /*
  * Page blocks API (Sprint 17, authenticated). POST creates a block; PATCH
  * either reorders the page's blocks (when `orderedIds` is sent) or updates a
@@ -22,7 +23,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function POST(req: NextRequest, { params }: { params: { siteId: string; pageId: string } }) {
+async function POSTOriginal(req: NextRequest, { params }: { params: { siteId: string; pageId: string } }) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: { siteId: str
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { siteId: string; pageId: string } }) {
+async function PATCHOriginal(req: NextRequest, { params }: { params: { siteId: string; pageId: string } }) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -76,7 +77,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { siteId: st
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { siteId: string; pageId: string } }) {
+async function DELETEOriginal(req: NextRequest, { params }: { params: { siteId: string; pageId: string } }) {
   try {
     await requirePermission("record:delete");
     const blockId = req.nextUrl.searchParams.get("blockId") ?? "";
@@ -91,3 +92,9 @@ export async function DELETE(req: NextRequest, { params }: { params: { siteId: s
     return fail(err);
   }
 }
+
+export const POST = withAuditedHistoricalMutation("sites/[siteId]/pages/[pageId]/blocks", "POST", POSTOriginal);
+
+export const PATCH = withAuditedHistoricalMutation("sites/[siteId]/pages/[pageId]/blocks", "PATCH", PATCHOriginal);
+
+export const DELETE = withAuditedHistoricalMutation("sites/[siteId]/pages/[pageId]/blocks", "DELETE", DELETEOriginal);

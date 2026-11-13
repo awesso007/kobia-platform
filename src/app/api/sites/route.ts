@@ -1,3 +1,4 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
 import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Sites collection API (Sprint 17, authenticated). GET lists the tenant's sites
@@ -31,7 +32,7 @@ async function historicalAuditedGet() {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function POSTOriginal(req: NextRequest) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -56,3 +57,5 @@ export async function POST(req: NextRequest) {
 }
 
 export const GET=withAuditedHistoricalGet("sites",historicalAuditedGet);
+
+export const POST = withAuditedHistoricalMutation("sites", "POST", POSTOriginal);

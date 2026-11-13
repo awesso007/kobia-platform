@@ -1,3 +1,4 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
 import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Site domains API (Sprint 17, authenticated). GET lists a site's custom
@@ -34,7 +35,7 @@ async function historicalAuditedGet(_req: NextRequest, { params }: { params: { s
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { siteId: string } }) {
+async function POSTOriginal(req: NextRequest, { params }: { params: { siteId: string } }) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: { siteId: str
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { siteId: string } }) {
+async function DELETEOriginal(req: NextRequest, { params }: { params: { siteId: string } }) {
   try {
     await requirePermission("record:update");
     const domainId = req.nextUrl.searchParams.get("domainId") ?? "";
@@ -69,3 +70,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { siteId: s
 }
 
 export const GET=withAuditedHistoricalGet("sites/[siteId]/domains",historicalAuditedGet);
+
+export const POST = withAuditedHistoricalMutation("sites/[siteId]/domains", "POST", POSTOriginal);
+
+export const DELETE = withAuditedHistoricalMutation("sites/[siteId]/domains", "DELETE", DELETEOriginal);

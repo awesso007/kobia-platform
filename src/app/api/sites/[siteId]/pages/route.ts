@@ -1,3 +1,4 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
 import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Site pages collection API (Sprint 17, authenticated). GET lists a site's
@@ -31,7 +32,7 @@ async function historicalAuditedGet(_req: NextRequest, { params }: { params: { s
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { siteId: string } }) {
+async function POSTOriginal(req: NextRequest, { params }: { params: { siteId: string } }) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -51,3 +52,5 @@ export async function POST(req: NextRequest, { params }: { params: { siteId: str
 }
 
 export const GET=withAuditedHistoricalGet("sites/[siteId]/pages",historicalAuditedGet);
+
+export const POST = withAuditedHistoricalMutation("sites/[siteId]/pages", "POST", POSTOriginal);
