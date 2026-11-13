@@ -18,7 +18,7 @@ function context(signerStatus = "SENT", envelopeStatus = "SENT") {
     envelopeAuditEvent: { create: vi.fn().mockResolvedValue({ id: "audit" }) },
   };
   const db = {
-    $transaction: vi.fn(async (cb: (tx: typeof tx) => Promise<unknown>, _opts?: unknown) => cb(tx)),
+    $transaction: vi.fn(async (cb: (value: unknown) => Promise<unknown>, _opts?: unknown) => cb(tx)),
     emailAccount: { findFirst: vi.fn().mockResolvedValue(null) },
   };
   return { tx, db };
