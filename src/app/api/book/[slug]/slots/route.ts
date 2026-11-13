@@ -10,8 +10,8 @@
  */
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getTenantPrisma } from "@/lib/db/tenant-prisma";
-import { activePublicTenantSchema } from "@/lib/security/public-tenant";
+import { admitPublicSurface } from "@/lib/security/public-surface-round53";
+import { publicFormErrorResponse } from "@/lib/security/public-form-abuse";
 import { getBookingSlots } from "@/lib/calendar/availability";
 
 export const runtime = "nodejs";
@@ -38,10 +38,21 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
   if (dayUtc.toISOString().slice(0, 10) !== dateStr)
     return NextResponse.json({ ok: false, slots: [] }, { status: 400 });
 
+  let admitted: Awaited<ReturnType<typeof admitPublicSurface>>;
   try {
-    const schema = await activePublicTenantSchema(tenantSlug);
-    if (!schema) return NextResponse.json({ ok: false, slots: [] }, { status: 404 });
-    const db = getTenantPrisma(schema);
+    admitted = await admitPublicSurface(req, {
+      tenant: tenantSlug, kind: "booking_slots", resource: params.slug,
+    });
+  } catch (error) {
+    const failure = publicFormErrorResponse(error);
+    return NextResponse.json({ ok: false, slots: [], error: failure.message },
+      { status: failure.status, headers: {
+        "Cache-Control": "no-store",
+        ...(failure.retryAfter ? { "Retry-After": failure.retryAfter } : {}),
+      } });
+  }
+  try {
+    const db = admitted.db;
     const page = await db.bookingPage.findUnique({
       where: { slug: params.slug },
       select: {

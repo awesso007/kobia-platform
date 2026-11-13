@@ -15,9 +15,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { KbButton } from "@/components/crm/ui";
 import { BOOKING_LOCATION_LABELS } from "@/lib/calendar/shared";
+import { PublicFormChallenge } from "@/components/public-forms/PublicFormChallenge";
 
 export type PublicBookingPage = {
   tenantSlug: string;
+  siteKey: string;
+  challengeAction: string;
   slug: string;
   name: string;
   description: string | null;
@@ -50,6 +53,8 @@ export function BookingClient({ page }: { page: PublicBookingPage }) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [challengeToken, setChallengeToken] = useState<string | null>(null);
+  const [resetNonce, setResetNonce] = useState(0);
   const [done, setDone] = useState<{ rescheduleToken: string; bookingId: string } | null>(null);
 
   const tz = useMemo(() => (typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC"), []);
@@ -98,6 +103,7 @@ export function BookingClient({ page }: { page: PublicBookingPage }) {
 
   async function submit() {
     if (!slot) return;
+    if (!challengeToken) { setError("Please complete the security check."); return; }
     if (!name.trim()) {
       setError("Please enter your name.");
       return;
@@ -118,11 +124,13 @@ export function BookingClient({ page }: { page: PublicBookingPage }) {
       const res = await fetch(`/api/book/${encodeURIComponent(page.slug)}/submit?t=${encodeURIComponent(page.tenantSlug)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ startAt: slot.startAt, name: name.trim(), email: email.trim(), phone: phone.trim(), timezone: tz, answers }),
+        body: JSON.stringify({ startAt: slot.startAt, name: name.trim(), email: email.trim(), phone: phone.trim(), timezone: tz, answers, turnstileToken: challengeToken }),
       });
       const j = await res.json();
       if (!res.ok || !j.ok) {
         setError(j.error || "Could not complete the booking.");
+        setChallengeToken(null);
+        setResetNonce(n => n + 1);
         return;
       }
       if (j.redirectUrl) {
@@ -132,6 +140,8 @@ export function BookingClient({ page }: { page: PublicBookingPage }) {
       setDone({ rescheduleToken: j.rescheduleToken, bookingId: j.bookingId });
     } catch {
       setError("Network error. Please try again.");
+      setChallengeToken(null);
+      setResetNonce(n => n + 1);
     } finally {
       setBusy(false);
     }
@@ -249,8 +259,11 @@ export function BookingClient({ page }: { page: PublicBookingPage }) {
             ))}
           </div>
           {error && <p className="mt-3 text-sm" style={{ color: "var(--kb-error)" }}>{error}</p>}
-          <div className="mt-4">
-            <KbButton variant="primary" onClick={submit} disabled={busy}>
+          <div className="mt-4 space-y-3">
+            <PublicFormChallenge siteKey={page.siteKey} action={page.challengeAction}
+              onToken={setChallengeToken} resetNonce={resetNonce} />
+            <KbButton variant="primary" onClick={submit}
+              disabled={busy || !challengeToken || !page.siteKey}>
               {busy ? "Booking..." : page.requireApproval ? "Request booking" : "Confirm booking"}
             </KbButton>
           </div>

@@ -9,8 +9,8 @@
  */
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getTenantPrisma } from "@/lib/db/tenant-prisma";
-import { activePublicTenantSchema } from "@/lib/security/public-tenant";
+import { admitPublicSurface } from "@/lib/security/public-surface-round53";
+import { readPublicFormBody, publicFormErrorResponse, PublicFormGateError } from "@/lib/security/public-form-abuse";
 import { notifyOn } from "@/lib/notifications/notify";
 import { secureBookingManageTokenMatches } from "@/lib/security/booking-manage-token";
 
@@ -38,21 +38,32 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
 
   let body: { bookingId?: string; token?: string };
   try {
-    body = (await req.json()) as typeof body;
-  } catch {
-    return NextResponse.json({ ok: false, error: "Invalid body." }, { status: 400, headers: CORS });
+    body = JSON.parse(new TextDecoder().decode(await readPublicFormBody(req))) as typeof body;
+  } catch (error) {
+    const failure = error instanceof PublicFormGateError
+      ? publicFormErrorResponse(error) : { status: 400, message: "Invalid body." };
+    return NextResponse.json({ ok: false, error: failure.message },
+      { status: failure.status, headers: CORS });
   }
-  const bookingId = body.bookingId?.trim();
-  const token = body.token?.trim();
-  if (!bookingId || !token) {
+  const bookingId = typeof body?.bookingId === "string" ? body.bookingId.trim() : "";
+  const token = typeof body?.token === "string" ? body.token.trim() : "";
+  if (!bookingId || !token || bookingId.length > 128 || token.length > 256) {
     return NextResponse.json({ ok: false, error: "Missing booking reference." }, { status: 400, headers: CORS });
   }
 
-  let schema: string | null;
-  try { schema = await activePublicTenantSchema(tenantSlug); }
-  catch { return NextResponse.json({ ok: false, error: "Booking unavailable." }, { status: 503, headers: CORS }); }
-  if (!schema) return NextResponse.json({ ok: false, error: "Booking not found." }, { status: 404, headers: CORS });
-  const db = getTenantPrisma(schema);
+  let db: Awaited<ReturnType<typeof admitPublicSurface>>["db"];
+  try {
+    ({ db } = await admitPublicSurface(req, {
+      tenant: tenantSlug, kind: "booking_manage", resource: params.slug,
+    }));
+  } catch (error) {
+    const failure = publicFormErrorResponse(error);
+    return NextResponse.json({ ok: false, error: failure.message },
+      { status: failure.status, headers: {
+        ...CORS, "Cache-Control": "no-store",
+        ...(failure.retryAfter ? { "Retry-After": failure.retryAfter } : {}),
+      } });
+  }
   const booking = await db.booking.findFirst({
     where: { id: bookingId, bookingPage: { slug: params.slug } },
     include: { bookingPage: { select: { name: true, ownerClerkUserId: true } } },

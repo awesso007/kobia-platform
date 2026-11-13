@@ -17,8 +17,8 @@
  */
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getTenantPrisma } from "@/lib/db/tenant-prisma";
-import { activePublicTenantSchema } from "@/lib/security/public-tenant";
+import { admitPublicSurface } from "@/lib/security/public-surface-round53";
+import { readPublicFormBody, publicFormErrorResponse, PublicFormGateError } from "@/lib/security/public-form-abuse";
 import { reservePublicBooking, publicBookingFailure } from "@/lib/calendar/public-booking";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
 import { reindex } from "@/lib/search";
@@ -39,17 +39,6 @@ function sanitizeSlug(slug: string | null | undefined): string | null {
   return /^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/.test(slug) ? slug : null;
 }
 
-const RATE_WINDOW_MS = 60_000;
-const RATE_MAX = 10;
-const hits = new Map<string, number[]>();
-function rateLimited(ip: string): boolean {
-  const now = Date.now();
-  const recent = (hits.get(ip) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
-  recent.push(now);
-  hits.set(ip, recent);
-  return recent.length > RATE_MAX;
-}
-
 export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS });
 }
@@ -60,11 +49,6 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
     return NextResponse.json({ ok: false, error: "Missing or invalid tenant." }, { status: 400, headers: CORS });
   }
 
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  if (rateLimited(ip)) {
-    return NextResponse.json({ ok: false, error: "Too many requests. Try again shortly." }, { status: 429, headers: CORS });
-  }
-
   let body: {
     startAt?: string;
     name?: string;
@@ -72,11 +56,15 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
     phone?: string;
     timezone?: string;
     answers?: Record<string, string>;
+    turnstileToken?: unknown;
   };
   try {
-    body = (await req.json()) as typeof body;
-  } catch {
-    return NextResponse.json({ ok: false, error: "Invalid body." }, { status: 400, headers: CORS });
+    body = JSON.parse(new TextDecoder().decode(await readPublicFormBody(req))) as typeof body;
+  } catch (error) {
+    const failure = error instanceof PublicFormGateError
+      ? publicFormErrorResponse(error) : { status: 400, message: "Invalid body." };
+    return NextResponse.json({ ok: false, error: failure.message },
+      { status: failure.status, headers: CORS });
   }
 
   const name = typeof body?.name === "string" ? body.name.trim() : "";
@@ -104,12 +92,21 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
     return NextResponse.json({ ok: false, error: "Booking details are too long or invalid." }, { status: 400, headers: CORS });
   }
 
-  let schema: string | null;
-  try { schema = await activePublicTenantSchema(tenantSlug); }
-  catch { return NextResponse.json({ ok: false, error: "Booking unavailable." }, { status: 503, headers: CORS }); }
-  if (!schema) return NextResponse.json({ ok: false, error: "Booking not found." }, { status: 404, headers: CORS });
-
-  const db = getTenantPrisma(schema);
+  // The challenge is never stored or sent to booking automations.
+  let db: Awaited<ReturnType<typeof admitPublicSurface>>["db"];
+  try {
+    ({ db } = await admitPublicSurface(req, {
+      tenant: tenantSlug, kind: "booking_submit", resource: params.slug,
+      token: body.turnstileToken,
+    }));
+  } catch (error) {
+    const failure = publicFormErrorResponse(error);
+    return NextResponse.json({ ok: false, error: failure.message },
+      { status: failure.status, headers: {
+        ...CORS, "Cache-Control": "no-store",
+        ...(failure.retryAfter ? { "Retry-After": failure.retryAfter } : {}),
+      } });
+  }
   let reserved: Awaited<ReturnType<typeof reservePublicBooking>>;
   try {
     reserved = await reservePublicBooking(db, {
