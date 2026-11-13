@@ -9,41 +9,55 @@
  */
 import { revalidatePath } from "next/cache";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
-import { auditWrite } from "@/lib/crm/audit";
 import { ENTITY_TYPES, type EntityType } from "@/lib/crm/record";
-import { getCurrentMembership, PermissionError, requirePermission } from "@/lib/rbac/require-permission";
+import { getCurrentMembership, PermissionError } from "@/lib/rbac/require-permission";
 import { withLegacyCrmTransaction, assertLegacyCrmRecord } from "@/lib/chess/legacy-crm-security-round56";
-
-function asEntityType(v: unknown): EntityType {
-  return ENTITY_TYPES.includes(v as EntityType) ? (v as EntityType) : "LEAD";
-}
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 function asColor(v: unknown): string {
   return typeof v === "string" && HEX.test(v) ? v : "#1d77bd";
 }
 
+async function actorId() {
+  const m = await getCurrentMembership();
+  if (!m || m.status !== "ACTIVE") throw new PermissionError("tag:manage");
+  return m.clerkUserId;
+}
 export async function createTag(input: { name: string; color?: string }) {
   const name = input.name?.trim();
-  if (!name) throw new Error("Tag name is required.");
+  if (!name || name.length > 100) throw new Error("Invalid tag name.");
   const { db } = getTenantDb();
-  const tag = await db.tag.create({ data: { name, color: asColor(input.color) } });
+  const actor = await actorId();
+  const id = await withLegacyCrmTransaction(db, actor, "tag:manage",
+    "LEAD", "TAG", "LEGACY_TAG_CREATED", async tx => {
+      const tag = await tx.tag.create({ data: { name, color: asColor(input.color) } });
+      return tag.id;
+    });
   revalidatePath("/app/settings/tags");
-  return tag.id;
+  return id;
 }
-
 export async function updateTag(id: string, input: { name?: string; color?: string }) {
   const { db } = getTenantDb();
+  const actor = await actorId();
   const data: { name?: string; color?: string } = {};
-  if (input.name?.trim()) data.name = input.name.trim();
+  if (input.name !== undefined) {
+    if (!input.name.trim() || input.name.length > 100) throw Error("Invalid tag name.");
+    data.name = input.name.trim();
+  }
   if (input.color !== undefined) data.color = asColor(input.color);
-  await db.tag.update({ where: { id }, data });
+  await withLegacyCrmTransaction(db, actor, "tag:manage",
+    "LEAD", id, "LEGACY_TAG_UPDATED", async tx => {
+      await tx.tag.update({ where: { id }, data });
+    });
   revalidatePath("/app/settings/tags");
 }
-
 export async function deleteTag(id: string) {
   const { db } = getTenantDb();
-  await db.tag.delete({ where: { id } });
+  const actor = await actorId();
+  await withLegacyCrmTransaction(db, actor, "tag:manage",
+    "LEAD", id, "LEGACY_TAG_DELETED", async tx => {
+      await tx.tag.delete({ where: { id } });
+    });
   revalidatePath("/app/settings/tags");
 }
 
