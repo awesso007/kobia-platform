@@ -799,6 +799,8 @@ model EmailMessage {
 
   @@index([threadId])
   @@index([externalId])
+  // External inbound relay retries must not clone messages/threads/automations.
+  @@unique([accountId, direction, externalId])
   @@index([status])
   @@index([accountId, folder, receivedAt])
   @@index([accountId, threadId, receivedAt])

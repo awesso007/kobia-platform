@@ -1,215 +1,173 @@
-/*
- * Inbound email webhook (Sprint 6). An external mail relay (e.g. a forwarding
- * rule or a provider inbound-parse hook) POSTs parsed messages here as JSON.
+/**
+ * Inbound mail is a privileged relay callback. Exact server-side relay secret,
+ * ACTIVE tenant and addressed ACTIVE mailbox must all match before mutation.
  *
- * Auth: the request must carry header X-KOBIA-INBOUND-SECRET matching env
- * EMAIL_INBOUND_SECRET. If EMAIL_INBOUND_SECRET is unset we reject every
- * request (fail closed) so an unconfigured deployment never ingests mail.
- *
- * Tenant routing: the recipient address encodes the tenant slug as
- *   kobia+<slug>@inbound.kobia.ai
- * Invalid or unknown recipient/tenant fails closed; no default tenant.
- *
- * On receipt we resolve / create the EmailThread (by inReplyTo / references,
- * else a new thread auto-linked to a CRM record via resolveLinkForAddress),
- * insert an INBOUND EmailMessage, persist attachments to /tmp, bump the thread
- * counters, and fire an EMAIL_RECEIVED automation event.
- *
- * No em-dashes in copy by project convention (use hyphens).
+ * Message-ID is required for replay-safe receipt; a unique account/direction
+ * index atomically deduplicates concurrent retries. Attachments are DISABLED
+ * until a private, malware-scanned, quarantined intake path is accepted.
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
 import { resolveLinkForAddress } from "@/lib/email/link";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
-import { ingestObject } from "@/lib/storage";
-import { attachFile } from "@/lib/files/files";
 import { reindex } from "@/lib/search";
 import { getPlatformDb } from "@/lib/db/platform";
-import { inboundMailCredentialDecision, inboundMailTenantSlug } from "@/lib/security/legacy-inbound-mail";
+import {
+  inboundMailCredentialDecision, inboundMailTenantSlug,
+} from "@/lib/security/legacy-inbound-mail";
+import { readPublicFormBody, PublicFormGateError } from "@/lib/security/public-form-abuse";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-type InboundAttachment = { filename: string; mimeType: string; size?: number; contentBase64?: string };
+const headers = { "Cache-Control": "no-store" };
 type InboundBody = {
-  to?: string;
-  from?: string;
-  subject?: string;
-  html?: string;
-  text?: string;
-  messageId?: string;
-  inReplyTo?: string;
-  references?: string;
-  attachments?: InboundAttachment[];
+  to?: unknown; from?: unknown; subject?: unknown; html?: unknown;
+  text?: unknown; messageId?: unknown; inReplyTo?: unknown;
+  references?: unknown; attachments?: unknown;
 };
-
-function snippetOf(html: string, text?: string): string {
-  const raw = (text ?? html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
-  return raw.slice(0, 160);
+function bounded(value: unknown, max: number): string | null {
+  return typeof value === "string" && value.length <= max &&
+    !/[\u0000]/.test(value) ? value : null;
+}
+function snippet(html: string, plain: string): string {
+  return (plain || html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim().slice(0, 160);
 }
 
 export async function POST(req: NextRequest) {
   const auth = inboundMailCredentialDecision(
-    req.headers.get("x-kobia-inbound-secret"),
-    process.env.EMAIL_INBOUND_SECRET,
+    req.headers.get("x-kobia-inbound-secret"), process.env.EMAIL_INBOUND_SECRET,
   );
   if (auth === "UNCONFIGURED")
-    return NextResponse.json({ ok: false, error: "Inbound email is not configured." }, {
-      status: 503, headers: { "Cache-Control": "no-store" },
-    });
+    return NextResponse.json({ ok: false, error: "Inbound email is not configured." },
+      { status: 503, headers });
   if (auth !== "AUTHORIZED")
-    return NextResponse.json({ ok: false, error: "Unauthorized." }, {
-      status: 401, headers: { "Cache-Control": "no-store" },
-    });
+    return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401, headers });
 
   let body: InboundBody;
   try {
-    body = (await req.json()) as InboundBody;
-  } catch {
-    return NextResponse.json({ ok: false, error: "Invalid JSON." }, { status: 400 });
+    if (!(req.headers.get("content-type") ?? "").startsWith("application/json"))
+      throw Error("content-type");
+    const raw: unknown = JSON.parse(new TextDecoder().decode(await readPublicFormBody(req, 65536)));
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw Error("body");
+    body = raw as InboundBody;
+  } catch (error) {
+    return NextResponse.json({ ok: false,
+      error: error instanceof PublicFormGateError ? error.safeMessage : "Invalid inbound payload." },
+      { status: 400, headers });
   }
+  // Do not silently ingest unscreened bytes into a READY client file.
+  // The provider may retry after the sender uses an attachment-free request.
+  if (body.attachments !== undefined &&
+      (!Array.isArray(body.attachments) || body.attachments.length > 0))
+    return NextResponse.json({ ok: false, error: "Inbound attachments require reviewed scanning." },
+      { status: 422, headers });
 
-  const to = typeof body.to === "string" ? body.to.trim().toLowerCase() : "";
-  const from = typeof body.from === "string" ? body.from.trim() : "";
-  if (!from || from.length > 320) return NextResponse.json({ ok: false, error: "Invalid sender." }, { status: 400 });
+  const to = bounded(body.to, 320)?.trim().toLowerCase() ?? "";
+  const from = bounded(body.from, 320)?.trim() ?? "";
+  const subject = body.subject === undefined ? null : bounded(body.subject, 300);
+  const html = body.html === undefined ? null : bounded(body.html, 24000);
+  const plain = body.text === undefined ? null : bounded(body.text, 24000);
+  const messageId = bounded(body.messageId, 320)?.trim() ?? "";
+  const replyTo = body.inReplyTo === undefined ? null : bounded(body.inReplyTo, 320);
+  const references = body.references === undefined ? "" : bounded(body.references, 4000);
+  if (!from || !/^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/.test(from) ||
+      !/^[^\r\n]{8,320}$/.test(messageId) || !messageId.includes("@") ||
+      subject === null && body.subject !== undefined ||
+      html === null && body.html !== undefined ||
+      plain === null && body.text !== undefined ||
+      references === null || replyTo === null && body.inReplyTo !== undefined)
+    return NextResponse.json({ ok: false, error: "Invalid inbound message." }, { status: 400, headers });
 
-  // A forwarded address is not authorization to write to an arbitrary
-  // tenant. Route only a single exact approved alias to an ACTIVE registry
-  // entry and an ACTIVE mailbox for that same recipient, before any writes.
   const slug = inboundMailTenantSlug(to, process.env.EMAIL_INBOUND_DOMAIN);
-  if (!slug) return NextResponse.json({ ok: false, error: "Invalid inbound recipient." }, { status: 400 });
-  const tenant = await getPlatformDb().tenantRegistry.findUnique({
-    where: { slug }, select: { status: true, schemaName: true },
-  });
-  if (!tenant || tenant.status !== "ACTIVE" || tenant.schemaName !== schemaNameForSlug(slug)) {
-    return NextResponse.json({ ok: false, error: "Recipient unavailable." }, { status: 404 });
-  }
-  const db = getTenantPrisma(tenant.schemaName);
-  const account = await db.emailAccount.findFirst({
-    where: { address: { equals: to, mode: "insensitive" }, status: "ACTIVE" },
-    select: { id: true },
-  });
-  if (!account) return NextResponse.json({ ok: false, error: "Recipient unavailable." }, { status: 404 });
-
-  // Thread resolution: try to match an existing message by the referenced ids.
-  let threadId: string | null = null;
-  const refIds = [body.inReplyTo, ...(body.references ?? "").split(/\s+/)].map((s) => (s ?? "").trim()).filter(Boolean);
-  if (refIds.length > 0) {
-    const prior = await db.emailMessage.findFirst({
-      where: { externalId: { in: refIds } },
-      orderBy: { createdAt: "desc" },
+  if (!slug) return NextResponse.json({ ok: false, error: "Invalid inbound recipient." }, { status: 400, headers });
+  try {
+    const tenant = await getPlatformDb().tenantRegistry.findUnique({
+      where: { slug }, select: { status: true, schemaName: true },
     });
-    if (prior) threadId = prior.threadId;
-  }
-
-  let link = null as Awaited<ReturnType<typeof resolveLinkForAddress>>;
-  if (!threadId) {
-    link = await resolveLinkForAddress(db, from);
-    const thread = await db.emailThread.create({
-      data: {
-        subject: body.subject ?? null,
-        lastMessageAt: new Date(),
-        participantsJson: { from, to: to ? [to] : [] } as never,
-        recordType: (link?.recordType ?? null) as never,
-        recordId: link?.recordId ?? null,
-        accountId: account.id,
-        messageCount: 0,
-        unreadCount: 0,
-      },
+    if (tenant?.status !== "ACTIVE" || tenant.schemaName !== schemaNameForSlug(slug))
+      return NextResponse.json({ ok: false, error: "Recipient unavailable." }, { status: 404, headers });
+    const db = getTenantPrisma(tenant.schemaName);
+    const account = await db.emailAccount.findFirst({
+      where: { address: { equals: to, mode: "insensitive" }, status: "ACTIVE" },
+      select: { id: true },
     });
-    threadId = thread.id;
-  }
-
-  const message = await db.emailMessage.create({
-    data: {
-      threadId,
-      accountId: account.id,
-      externalId: body.messageId ?? null,
-      direction: "INBOUND",
-      fromAddress: from,
-      toAddresses: (to ? [to] : []) as never,
-      subject: body.subject ?? null,
-      bodyHtml: body.html ?? null,
-      bodyText: body.text ?? null,
-      snippet: snippetOf(body.html ?? "", body.text),
-      receivedAt: new Date(),
-      status: "DELIVERED" as never,
-      repliedTo: body.inReplyTo ?? null,
-    },
-  });
-
-  // Resolve the CRM record this thread links to (for File attachment).
-  const threadForLink = await db.emailThread.findUnique({ where: { id: threadId } });
-  const linkedType = threadForLink?.recordType ?? null;
-  const linkedId = threadForLink?.recordId ?? null;
-
-  // Ingest each attachment into the File system (source=EMAIL, READY) and attach
-  // it to the linked record. The EmailAttachment keeps its own storageKey plus
-  // the new fileId pointer so existing email UIs keep working.
-  if (body.attachments && body.attachments.length > 0) {
-    for (const att of body.attachments) {
-      try {
-        const buf = att.contentBase64 ? Buffer.from(att.contentBase64, "base64") : Buffer.alloc(0);
-        const stored = await ingestObject({
-          tenantSlug: slug,
-          fileName: att.filename,
-          mimeType: att.mimeType,
-          data: buf,
-        });
-        const file = await db.file.create({
-          data: {
-            name: att.filename,
-            mimeType: att.mimeType,
-            size: BigInt(att.size ?? buf.length),
-            storageProvider: stored.provider as never,
-            storageKey: stored.storageKey,
-            storageBucket: stored.storageBucket,
-            status: "READY",
-            source: "EMAIL",
-          },
-        });
-        await db.emailAttachment.create({
-          data: {
-            messageId: message.id,
-            filename: att.filename,
-            mimeType: att.mimeType,
-            size: att.size ?? buf.length,
-            storageKey: stored.storageKey,
-            fileId: file.id,
-          },
-        });
-        if (linkedType && linkedId) {
-          await attachFile(db, { fileId: file.id, entityType: linkedType as never, entityId: linkedId });
-        }
-        await reindex(db, "FILE", file.id);
-      } catch (err) {
-        console.error("[email/inbound] attachment ingest failed", err);
-      }
-    }
-  }
-
-  await db.emailThread.update({
-    where: { id: threadId },
-    data: {
-      lastMessageAt: new Date(),
-      messageCount: { increment: 1 },
-      unreadCount: { increment: 1 },
-    },
-  });
-
-  await reindex(db, "EMAIL_MESSAGE", message.id);
-
-  // Fire EMAIL_RECEIVED automation if the thread is linked to a record.
-  if (linkedType && linkedId) {
-    await dispatchAutomation(
-      {
+    if (!account) return NextResponse.json({ ok: false, error: "Recipient unavailable." }, { status: 404, headers });
+    const replayWhere = { accountId: account.id, direction: "INBOUND" as const, externalId: messageId };
+    const duplicate = await db.emailMessage.findFirst({
+      where: replayWhere, select: { id: true },
+    });
+    if (duplicate) return NextResponse.json({ ok: true, duplicate: true }, { headers });
+    const refIds = [replyTo, ...(references ?? "").split(/\s+/)]
+      .filter((x): x is string => !!x && x.length <= 320).slice(0, 16);
+    const link = await resolveLinkForAddress(db, from);
+    const accepted = await db.$transaction(async tx => {
+      const old = refIds.length ? await tx.emailMessage.findFirst({
+        where: { accountId: account.id, externalId: { in: refIds } },
+        orderBy: { createdAt: "desc" }, select: { threadId: true },
+      }) : null;
+      const thread = old ? await tx.emailThread.findFirst({
+        where: { id: old.threadId, accountId: account.id }, select: { id: true },
+      }) : null;
+      const threadId = thread?.id ?? (await tx.emailThread.create({
+        data: {
+          subject, accountId: account.id, lastMessageAt: new Date(),
+          participantsJson: { from, to: [to] } as never,
+          recordType: (link?.recordType ?? null) as never,
+          recordId: link?.recordId ?? null,
+          messageCount: 0, unreadCount: 0,
+        }, select: { id: true },
+      })).id;
+      const message = await tx.emailMessage.create({
+        data: {
+          threadId, accountId: account.id, externalId: messageId,
+          direction: "INBOUND", fromAddress: from,
+          toAddresses: [to] as never, subject, bodyHtml: html, bodyText: plain,
+          snippet: snippet(html ?? "", plain ?? ""),
+          receivedAt: new Date(), status: "DELIVERED", repliedTo: replyTo,
+        }, select: { id: true },
+      });
+      await tx.emailThread.update({
+        where: { id: threadId },
+        data: {
+          lastMessageAt: new Date(),
+          messageCount: { increment: 1 }, unreadCount: { increment: 1 },
+        },
+      });
+      return { threadId, messageId: message.id };
+    }, { isolationLevel: "Serializable", maxWait: 5000, timeout: 15000 });
+    // Never re-trigger message side effects before the committed receipt.
+    await reindex(db, "EMAIL_MESSAGE", accepted.messageId).catch(() => undefined);
+    if (link?.recordType && link.recordId) {
+      await dispatchAutomation({
         type: "EMAIL_RECEIVED",
-        entityType: linkedType as never,
-        entityId: linkedId,
-        payload: { messageId: message.id, threadId, from, subject: body.subject ?? "" },
-      },
-      db,
-    );
+        entityType: link.recordType as never,
+        entityId: link.recordId,
+        payload: { messageId: accepted.messageId, threadId: accepted.threadId,
+          from, subject: subject ?? "" },
+      }, db).catch(() => undefined);
+    }
+    return NextResponse.json({ ok: true }, { headers });
+  } catch (error) {
+    if ((error as { code?: string }).code === "P2002") {
+      // A transaction abort may be acknowledged only after its exact receipt
+      // is observed. Otherwise fail closed and let the relay retry.
+      try {
+        const row = await getPlatformDb().tenantRegistry.findUnique({
+          where: { slug }, select: { status: true, schemaName: true },
+        });
+        if (row?.status === "ACTIVE" && row.schemaName === schemaNameForSlug(slug)) {
+          const db = getTenantPrisma(row.schemaName);
+          const account = await db.emailAccount.findFirst({
+            where: { address: { equals: to, mode: "insensitive" }, status: "ACTIVE" },
+            select: { id: true },
+          });
+          if (account && await db.emailMessage.findFirst({
+            where: { accountId: account.id, direction: "INBOUND", externalId: messageId },
+            select: { id: true },
+          })) return NextResponse.json({ ok: true, duplicate: true }, { headers });
+        }
+      } catch { /* Acknowledge only observable committed receipts. */ }
+    }
+    return NextResponse.json({ ok: false, error: "Inbound email unavailable." }, { status: 503, headers });
   }
-
-  return NextResponse.json({ ok: true, tenant: slug, threadId, messageId: message.id });
 }
