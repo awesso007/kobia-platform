@@ -1048,6 +1048,8 @@ model SmsMessage {
 
   @@index([threadId])
   @@index([providerMessageSid])
+  // Provider retries must never produce duplicate inbound records/counters.
+  @@unique([direction, providerMessageSid])
 }
 
 model TelephonyRule {
