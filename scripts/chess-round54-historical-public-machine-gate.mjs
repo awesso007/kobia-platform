@@ -45,7 +45,7 @@ const checks = {
   "src/app/api/portal/logout/route.ts": ["activePublicTenantSchema(", "closePortalSession("],
   "src/app/api/email/inbound/route.ts": [
     "inboundMailCredentialDecision(", "inboundMailTenantSlug(", "tenantRegistry.findUnique",
-    'tenant.status !== "ACTIVE"', "readPublicFormBody(req, 65536)",
+    'tenant?.status !== "ACTIVE"', "readPublicFormBody(req, 65536)",
     "Inbound attachments require reviewed scanning", "db.$transaction(async tx",
     'isolationLevel: "Serializable"', "replayWhere",
   ],

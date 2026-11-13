@@ -72,6 +72,11 @@ jobs:
           node --check scripts/chess-round53-public-surface-gate.mjs
           node scripts/chess-round53-public-surface-gate.mjs
 
+      - name: Gate Round 54 historical public/machine authorization and mutation replay
+        run: |
+          node --check scripts/chess-round54-historical-public-machine-gate.mjs
+          node scripts/chess-round54-historical-public-machine-gate.mjs
+
       - name: Gate all scheduled legacy machine cron endpoints
         run: |
           node --check scripts/chess-round47-cron-auth-gate.mjs
@@ -258,6 +263,12 @@ jobs:
           DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
           DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
         run: npx vitest run src/lib/security/public-surface-round53.integration.test.ts
+
+      - name: Round 54 independent-client SMS and email provider replay constraints
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+        run: npx vitest run src/lib/security/round54-replay.integration.test.ts
 
       - name: Verify repeatable fictional demo seed against isolated tenant schema
         env:
