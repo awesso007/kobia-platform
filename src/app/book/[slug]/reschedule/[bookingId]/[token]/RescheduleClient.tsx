@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { KbButton } from "@/components/crm/ui";
 import type { PublicBookingPage } from "../../../BookingClient";
+import { PublicFormChallenge } from "@/components/public-forms/PublicFormChallenge";
 
 type Slot = { startAt: string; endAt: string };
 
@@ -45,6 +46,11 @@ export function RescheduleClient({
   const [slot, setSlot] = useState<Slot | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [challengeToken, setChallengeToken] = useState<string | null>(null);
+  const [resetNonce, setResetNonce] = useState(0);
+  // A replacement was already reserved. Never book twice after failed cancellation.
+  const [replacementBookingId, setReplacementBookingId] = useState<string | null>(null);
+  const [unknownOutcome, setUnknownOutcome] = useState(false);
   const [result, setResult] = useState<"canceled" | "rescheduled" | null>(null);
 
   const tz = useMemo(() => (typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC"), []);
@@ -98,28 +104,60 @@ export function RescheduleClient({
     }
   }
 
-  async function confirmReschedule() {
-    if (!slot) return;
+  async function completeOldCancellation() {
     setBusy(true);
     setError(null);
     try {
-      // Book the new slot first so we never cancel without a replacement.
-      const res = await fetch(`/api/book/${encodeURIComponent(page.slug)}/submit?t=${encodeURIComponent(page.tenantSlug)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ startAt: slot.startAt, name: inviteeName, email: inviteeEmail, phone: inviteePhone ?? "", timezone: tz }),
-      });
-      const j = await res.json();
-      if (!res.ok || !j.ok) { setError(j.error || "Could not reschedule."); return; }
-      // Cancel the original (best-effort; the new booking already exists).
-      await fetch(`/api/book/${encodeURIComponent(page.slug)}/cancel?t=${encodeURIComponent(page.tenantSlug)}`, {
+      const res = await fetch(`/api/book/${encodeURIComponent(page.slug)}/cancel?t=${encodeURIComponent(page.tenantSlug)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bookingId, token }),
-      }).catch(() => {});
+      });
+      const j = await res.json();
+      if (!res.ok || !j.ok) throw Error("Old booking cancellation unconfirmed");
       setResult("rescheduled");
     } catch {
-      setError("Network error. Please try again.");
+      // Do not say rescheduled when old booking remains active or is unknown.
+      setError("The new appointment was created, but we could not confirm cancellation of the old one. Do not book another time. Retry cancellation below or contact the office.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmReschedule() {
+    if (replacementBookingId) { await completeOldCancellation(); return; }
+    if (!slot || unknownOutcome) return;
+    if (!challengeToken) { setError("Please complete the security check."); return; }
+    setBusy(true);
+    setError(null);
+    try {
+      // Book first, but NEVER claim the old booking was canceled without proof.
+      const res = await fetch(`/api/book/${encodeURIComponent(page.slug)}/submit?t=${encodeURIComponent(page.tenantSlug)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startAt: slot.startAt, name: inviteeName, email: inviteeEmail,
+          phone: inviteePhone ?? "", timezone: tz, turnstileToken: challengeToken,
+        }),
+      });
+      const j = await res.json();
+      if (!res.ok || !j.ok) {
+        setError(j.error || "Could not reserve the new appointment.");
+        setChallengeToken(null);
+        setResetNonce(n => n + 1);
+        return;
+      }
+      if (typeof j.bookingId !== "string" || !j.bookingId) {
+        setUnknownOutcome(true);
+        setError("Booking status is uncertain. Please contact the office before trying again.");
+        return;
+      }
+      setReplacementBookingId(j.bookingId);
+      await completeOldCancellation();
+    } catch {
+      // An unknown network outcome is NOT a safe retryable failure.
+      setUnknownOutcome(true);
+      setError("We could not confirm whether the new appointment was created. Contact the office before trying again.");
     } finally {
       setBusy(false);
     }
@@ -184,9 +222,19 @@ export function RescheduleClient({
               </div>
             </div>
           </div>
-          {error && <p className="px-5 text-sm" style={{ color: "var(--kb-error)" }}>{error}</p>}
+          <div className="px-5">
+            {!replacementBookingId && !unknownOutcome && (
+              <PublicFormChallenge siteKey={page.siteKey} action={page.challengeAction}
+                onToken={setChallengeToken} resetNonce={resetNonce} />
+            )}
+          </div>
+          {error && <p className="px-5 text-sm" role="alert" style={{ color: "var(--kb-error)" }}>{error}</p>}
           <div className="flex gap-2 p-5 pt-2">
-            <KbButton variant="primary" onClick={confirmReschedule} disabled={busy || !slot}>{busy ? "Saving..." : "Confirm new time"}</KbButton>
+            <KbButton variant="primary" onClick={confirmReschedule}
+              disabled={busy || unknownOutcome ||
+                (!replacementBookingId && (!slot || !challengeToken || !page.siteKey))}>
+              {busy ? "Saving..." : replacementBookingId ? "Retry canceling old booking" : "Confirm new time"}
+            </KbButton>
             <KbButton variant="ghost" onClick={() => setMode("view")} disabled={busy}>Back</KbButton>
           </div>
         </div>
