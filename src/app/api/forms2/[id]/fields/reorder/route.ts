@@ -1,3 +1,4 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
 /*
  * Forms 2.0 field reorder API (Sprint 19, authenticated). PATCH accepts an
  * ordered array of field ids and rewrites their order. RBAC form:manage.
@@ -9,6 +10,8 @@ import { getTenantDb, NoTenantError } from "@/lib/db/get-tenant-db";
 import { requirePermission, PermissionError } from "@/lib/rbac/require-permission";
 import { reorderFields } from "@/lib/forms2/mutations";
 
+import { formExists, scopedFormFieldsMatch } from "@/lib/security/historical-resource-scope";
+
 export const dynamic = "force-dynamic";
 
 function fail(err: unknown) {
@@ -17,7 +20,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+async function PATCHOriginal(req: NextRequest, { params }: { params: { id: string } }) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -28,9 +31,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     await requirePermission("form:manage");
     const orderedIds = Array.isArray(body.orderedIds) ? body.orderedIds.map(String) : [];
     const { db } = getTenantDb();
+    if (!await formExists(db, params.id))
+      return NextResponse.json({ ok: false, error: "Form not found." }, { status: 404 });
+    if (!await scopedFormFieldsMatch(db, params.id, orderedIds))
+      return NextResponse.json({ ok: false, error: "Foreign or duplicate field." }, { status: 404 });
     await reorderFields(db, params.id, orderedIds);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return fail(err);
   }
 }
+
+export const PATCH = withAuditedHistoricalMutation("forms2/[id]/fields/reorder", "PATCH", PATCHOriginal);

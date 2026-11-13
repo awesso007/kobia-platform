@@ -14,6 +14,7 @@
 import { headers } from "next/headers";
 import type { PrismaClient } from "@/lib/db/generated/tenant";
 import { getTenantPrisma } from "./tenant-prisma";
+import { scopedHistoricalTenantClient } from "./historical-read-scope";
 
 export class NoTenantError extends Error {
   constructor() {
@@ -41,5 +42,8 @@ export function getTenantDb(): TenantContext {
     throw new NoTenantError();
   }
 
-  return { tenantId, schemaName, db: getTenantPrisma(schemaName) };
+  // Inside an audited read the same transaction MUST own the SELECT, live
+  // membership check and audit event. A mismatched request context fails closed.
+  const scoped = scopedHistoricalTenantClient(tenantId, schemaName);
+  return { tenantId, schemaName, db: scoped ?? getTenantPrisma(schemaName) };
 }

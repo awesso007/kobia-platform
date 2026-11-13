@@ -19,6 +19,12 @@ type Db = PrismaClient;
 
 const DEFAULT_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
+/** An email address alone is not proof that the requester owns it.
+ * This historical helpdesk session issuer is deliberately shut until
+ * challenge delivery, one-time consumption and signed identity evidence are
+ * implemented and reviewed. No environment flag can re-enable email-only login. */
+export const LEGACY_HELPDESK_EMAIL_ONLY_DISABLED = true;
+
 export const PORTAL_COOKIE = "kobia_portal";
 
 /**
@@ -31,6 +37,7 @@ export async function openPortalSession(
   email: string,
   ttlMs: number = DEFAULT_TTL_MS,
 ): Promise<{ token: string; contactId: string } | null> {
+  if(LEGACY_HELPDESK_EMAIL_ONLY_DISABLED)return null;
   const normalized = email.trim().toLowerCase();
   if (!normalized) return null;
   const contact = await db.contact.findFirst({ where: { email: { equals: normalized, mode: "insensitive" } } });
@@ -52,6 +59,7 @@ export type PortalSession = { contactId: string; email: string };
 
 /** Validate a portal token, bumping lastUsedAt. Returns the session or null. */
 export async function validatePortalSession(db: Db, token: string | null | undefined): Promise<PortalSession | null> {
+  if(LEGACY_HELPDESK_EMAIL_ONLY_DISABLED)return null;
   if (!token) return null;
   const session = await db.customerPortalSession.findUnique({ where: { token } });
   if (!session) return null;

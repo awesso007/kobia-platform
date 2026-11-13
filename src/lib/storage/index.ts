@@ -7,6 +7,7 @@
  */
 import * as s3 from "./s3";
 import * as local from "./local";
+import {signedLocalDownloadUrl} from "./local-capability";
 
 export { S3NotConfiguredError, S3_ENV_VARS } from "./s3";
 
@@ -101,5 +102,5 @@ export async function downloadUrl(
   opts?: { contentDisposition?: string; expiresIn?: number },
 ): Promise<string> {
   if (provider === "S3") return s3.createPresignedDownloadUrl(storageKey, opts);
-  return `/api/files/local/${encodeURIComponent(storageKey)}`;
+  return signedLocalDownloadUrl(storageKey,opts?.expiresIn);
 }

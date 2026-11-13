@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Single transfer API (Sprint 20, authenticated). GET returns the transfer with
  * items; PATCH updates notes/status. Send and receive are separate action
@@ -19,7 +20,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+async function historicalAuditedGet(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await requirePermission("inventory:manage");
     const { db } = getTenantDb();
@@ -47,3 +48,5 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("inventory/transfers/[id]",historicalAuditedGet);

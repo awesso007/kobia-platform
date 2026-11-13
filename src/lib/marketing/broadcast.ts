@@ -13,6 +13,8 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import type { PrismaClient } from "@/lib/db/generated/tenant";
+import { issueLegacyTrackingCapability } from "@/lib/security/legacy-tracking-capability";
+import { makeUnsubscribeUrl } from "@/lib/security/public-unsubscribe-round54";
 import { sendEmail } from "@/lib/email/send";
 import { sendAndRecordSms } from "@/lib/telephony/sms";
 import { evaluateSegment, type SegmentEntity } from "./segments";
@@ -120,9 +122,34 @@ export async function processBroadcast(db: Db, broadcastId: string, tenantSlug?:
           failed++;
           continue;
         }
-        const html = withTracking(broadcast.bodyHtml ?? "", rcpt.id, tenantSlug);
+        // Never send marketing email without a permanent cryptographic
+        // recipient-owned unsubscribe link (and a configured HTTPS origin).
+        const unsubscribeUrl = tenantSlug
+          ? makeUnsubscribeUrl(tenantSlug, rcpt.email) : null;
+        if (!unsubscribeUrl) {
+          await markRecipient(db, rcpt.id, "FAILED", "Unsubscribe link not configured");
+          failed++;
+          continue;
+        }
+        // Recheck just before attempting external delivery. Mutation of an
+        // already-unsubscribed recipient must not be overwritten by markRecipient.
+        const [suppressed, current] = await Promise.all([
+          db.unsubscribe.findUnique({ where: { email: rcpt.email } }),
+          db.broadcastRecipient.findUnique({ where: { id: rcpt.id }, select: { status: true } }),
+        ]);
+        if (suppressed || current?.status !== "PENDING") {
+          await db.broadcastRecipient.updateMany({
+            where: { id: rcpt.id, status: "PENDING" },
+            data: { status: "UNSUBSCRIBED" },
+          });
+          continue;
+        }
+        const safeUrl = unsubscribeUrl.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+        const footer = `<p><a href="${safeUrl}">Unsubscribe from marketing emails</a></p>`;
+        const html = withTracking(broadcast.bodyHtml ?? "", rcpt.id, tenantSlug) + footer;
+        const textBody = (broadcast.bodyText ?? "") + "\n\nUnsubscribe: " + unsubscribeUrl;
         const res = await sendEmail(
-          { accountId: account.id, to: [rcpt.email], subject: broadcast.subject ?? broadcast.name, html, text: broadcast.bodyText ?? undefined },
+          { accountId: account.id, to: [rcpt.email], subject: broadcast.subject ?? broadcast.name, html, text: textBody },
           db,
         );
         if (res.ok) {
@@ -171,8 +198,9 @@ async function markRecipient(
   status: "SENT" | "FAILED",
   errorMessage?: string,
 ): Promise<void> {
-  await db.broadcastRecipient.update({
-    where: { id },
+  // Never reset a concurrently UNSUBSCRIBED recipient to SENT/FAILED.
+  await db.broadcastRecipient.updateMany({
+    where: { id, status: "PENDING" },
     data: { status, sentAt: status === "SENT" ? new Date() : null, errorMessage: errorMessage ?? null },
   });
 }
@@ -236,7 +264,12 @@ export async function computeStats(db: Db, broadcastId: string): Promise<Broadca
  * schema (a recipientId is only unique within a tenant). */
 function withTracking(html: string, recipientId: string, tenantSlug?: string): string {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
-  const t = tenantSlug ? `?t=${encodeURIComponent(tenantSlug)}` : "";
-  const pixel = `<img src="${base}/api/track/open/${recipientId}${t}" width="1" height="1" alt="" style="display:none" />`;
+  // Without an isolated signing key, omit pixel tracking entirely rather than
+  // exposing a mutable recipient ID via an unsigned public URL.
+  const cap = tenantSlug
+    ? issueLegacyTrackingCapability({ p: "OPEN", t: tenantSlug, r: recipientId })
+    : null;
+  if (!cap) return html;
+  const pixel = `<img src="${base}/api/track/open/${encodeURIComponent(recipientId)}?cap=${encodeURIComponent(cap)}" width="1" height="1" alt="" style="display:none" />`;
   return `${html}${pixel}`;
 }

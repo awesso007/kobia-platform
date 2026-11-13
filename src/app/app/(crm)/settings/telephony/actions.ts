@@ -10,6 +10,7 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { getTenantDb } from "@/lib/db/get-tenant-db";
+import { withAuditedHistoricalServerRead } from "@/lib/chess/historical-server-read-round58";
 import { requirePermission } from "@/lib/rbac/require-permission";
 import { auditWrite } from "@/lib/crm/audit";
 import {
@@ -34,6 +35,8 @@ export type PhoneNumberRow = {
 export type MemberOption = { clerkUserId: string; displayName: string | null; email: string | null };
 
 export async function listPhoneNumbers(): Promise<PhoneNumberRow[]> {
+  await requirePermission("telephony:manage");
+  return withAuditedHistoricalServerRead("telephony.listPhoneNumbers", async () => {
   const { db } = getTenantDb();
   const rows = await db.phoneNumber.findMany({ orderBy: { createdAt: "desc" } });
   return rows.map((r) => ({
@@ -46,12 +49,16 @@ export async function listPhoneNumbers(): Promise<PhoneNumberRow[]> {
     assignedClerkUserId: r.assignedClerkUserId,
     monthlyPriceCents: r.monthlyPriceCents,
   }));
+  })();
 }
 
 export async function listMembers(): Promise<MemberOption[]> {
+  await requirePermission("telephony:manage");
+  return withAuditedHistoricalServerRead("telephony.listMembers", async () => {
   const { db } = getTenantDb();
   const members = await db.membership.findMany({ orderBy: { displayName: "asc" } });
   return members.map((m) => ({ clerkUserId: m.clerkUserId, displayName: m.displayName, email: m.email }));
+  })();
 }
 
 export async function searchAvailableNumbers(input: { areaCode?: string; contains?: string }): Promise<{ ok: boolean; numbers?: AvailableNumber[]; error?: string }> {
@@ -67,10 +74,10 @@ export async function searchAvailableNumbers(input: { areaCode?: string; contain
 
 export async function buyPhoneNumber(e164: string): Promise<{ ok: boolean; id?: string; error?: string }> {
   await requirePermission("telephony:manage");
-  const { db } = getTenantDb();
+  const { db, tenantId } = getTenantDb();
   if (!isConfigured()) return { ok: false, error: "Twilio not configured." };
   try {
-    const bought = await twilioBuy(e164);
+    const bought = await twilioBuy(e164, tenantId);
     const row = await db.phoneNumber.create({
       data: {
         e164: bought.e164,
@@ -121,9 +128,12 @@ export type RoutingRule = {
 };
 
 export async function listRules(): Promise<RoutingRule[]> {
+  await requirePermission("telephony:manage");
+  return withAuditedHistoricalServerRead("telephony.listRules", async () => {
   const { db } = getTenantDb();
   const rows = await db.telephonyRule.findMany({ orderBy: { createdAt: "asc" } });
   return rows.map((r) => ({ id: r.id, phoneNumberId: r.phoneNumberId, kind: r.kind as "VOICE" | "SMS", config: (r.config ?? {}) as Record<string, unknown> }));
+  })();
 }
 
 export async function upsertRule(input: { id?: string; phoneNumberId: string; kind: "VOICE" | "SMS"; config: Record<string, unknown> }): Promise<{ ok: boolean; id?: string }> {

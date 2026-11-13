@@ -1,247 +1,197 @@
 "use server";
 
-/*
- * Bulk actions for CRM list views. Operates on a set of selected record ids for
- * one entity type (LEAD | DEAL | CONTACT | COMPANY). Every mutation routes
- * through getTenantDb(), checks requirePermission, and writes one audit row per
- * entity. Work is processed in chunks of 500 inside a transaction per chunk so a
- * large selection never opens one giant transaction.
- *
- * CSV export is read-only: it pulls the selected rows and returns a CSV string
- * the client turns into a download. No em-dashes in copy (use hyphens).
+/**
+ * Round 56: historical bulk CRM operations previously authorized a whole
+ * tenant before mutating unscoped IDs or exporting sensitive client PII.
+ * Require every selected record to pass live ownership and client-service
+ * grant checks in the SAME transaction as the mutation/export and audit.
+ * Reject the entire batch on any denied record; never silently skip one.
  */
 import { revalidatePath } from "next/cache";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
-import { auditWrite } from "@/lib/crm/audit";
-import { requirePermission } from "@/lib/rbac/require-permission";
+import { getCurrentMembership, PermissionError } from "@/lib/rbac/require-permission";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
 import { reindex, removeFromIndex } from "@/lib/search";
 import { ENTITY_TYPES, type EntityType } from "@/lib/crm/record";
+import {
+  withLegacyCrmTransaction, assertLegacyCrmRecord,
+  verifyLegacyCrmCreateOwner, type LegacyCrmEntity,
+} from "@/lib/chess/legacy-crm-security-round56";
+import type { Prisma } from "@/lib/db/generated/tenant";
 
-const CHUNK = 500;
-
-function asEntityType(v: unknown): EntityType {
-  return ENTITY_TYPES.includes(v as EntityType) ? (v as EntityType) : "LEAD";
+function asEntityType(value: string): LegacyCrmEntity {
+  if (!ENTITY_TYPES.includes(value as EntityType))
+    throw new PermissionError("record:read");
+  return value as LegacyCrmEntity;
 }
-
-function chunk<T>(items: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
-  return out;
+function idsFrom(value: string[]): string[] {
+  if (!Array.isArray(value) || value.length > 100 ||
+      value.some(v=>typeof v!=="string"||v.length>128))
+    throw new PermissionError("record:read");
+  return [...new Set(value.map(v=>v.trim()).filter(Boolean))];
 }
-
-function cleanIds(ids: string[]): string[] {
-  return Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean)));
+function pathFor(entity: LegacyCrmEntity) {
+  return "/app/" + { LEAD:"leads", DEAL:"deals", CONTACT:"contacts", COMPANY:"companies" }[entity];
 }
-
-function pathFor(entityType: EntityType): string {
-  switch (entityType) {
-    case "LEAD":
-      return "/app/leads";
-    case "DEAL":
-      return "/app/deals";
-    case "CONTACT":
-      return "/app/contacts";
-    case "COMPANY":
-      return "/app/companies";
-  }
+async function actorId() {
+  const m=await getCurrentMembership();
+  if(!m||m.status!=="ACTIVE")throw new PermissionError("record:read");
+  return m.clerkUserId;
 }
-
-/* Map an entity type to its Prisma delegate's deleteMany so chunks can run in a
- * single transaction. Returning a thunk keeps the delegate typing local. */
-function deleteManyFor(db: ReturnType<typeof getTenantDb>["db"], entityType: EntityType, ids: string[]) {
-  const where = { id: { in: ids } };
-  switch (entityType) {
-    case "LEAD":
-      return db.lead.deleteMany({ where });
-    case "DEAL":
-      return db.deal.deleteMany({ where });
-    case "CONTACT":
-      return db.contact.deleteMany({ where });
-    case "COMPANY":
-      return db.company.deleteMany({ where });
-  }
+async function assertEvery(tx:Prisma.TransactionClient,
+  actor:Parameters<typeof assertLegacyCrmRecord>[1],
+  entity:LegacyCrmEntity,ids:string[],
+  operation:"record:read"|"record:update"|"record:delete"){
+  for(const id of ids)
+    await assertLegacyCrmRecord(tx,actor,entity,id,operation);
 }
-
-function updateOwnerManyFor(
-  db: ReturnType<typeof getTenantDb>["db"],
-  entityType: EntityType,
-  ids: string[],
-  ownerUserId: string | null,
-) {
-  const where = { id: { in: ids } };
-  const data = { ownerUserId };
-  switch (entityType) {
-    case "LEAD":
-      return db.lead.updateMany({ where, data });
-    case "DEAL":
-      return db.deal.updateMany({ where, data });
-    case "CONTACT":
-      return db.contact.updateMany({ where, data });
-    case "COMPANY":
-      return db.company.updateMany({ where, data });
-  }
+async function auditEach(tx:Prisma.TransactionClient,
+  actor:Parameters<typeof assertLegacyCrmRecord>[1],
+  entity:LegacyCrmEntity,ids:string[],action:string){
+  for(const id of ids) await tx.chessSecurityEvent.create({data:{
+    businessId:actor.businessId,actorClerkUserId:actor.id,
+    action,resourceType:"Legacy"+entity,resourceId:id,decision:"ALLOW",
+  }});
 }
-
-export async function bulkDelete(input: { entityType: string; ids: string[] }): Promise<number> {
-  await requirePermission("record:delete");
-  const entityType = asEntityType(input.entityType);
-  const ids = cleanIds(input.ids);
-  if (ids.length === 0) return 0;
-  const { db } = getTenantDb();
-
-  let done = 0;
-  for (const part of chunk(ids, CHUNK)) {
-    await db.$transaction([deleteManyFor(db, entityType, part)]);
-    for (const id of part) {
-      await auditWrite({ action: "DELETE", entityType, entityId: id });
-      await removeFromIndex(db, entityType, id);
+async function afterwards(entity:LegacyCrmEntity,ids:string[],deleted=false,notify=false){
+  const {db}=getTenantDb();
+  await Promise.allSettled(ids.map(async id=>{
+    if(deleted)await removeFromIndex(db,entity,id);
+    else{
+      await reindex(db,entity,id);
+      if(notify)await dispatchAutomation({
+        type:"RECORD_UPDATED",entityType:entity,entityId:id,
+      });
     }
-    done += part.length;
-  }
-  revalidatePath(pathFor(entityType));
-  return done;
+  }));
+  revalidatePath(pathFor(entity));
 }
-
-export async function bulkAddTag(input: { entityType: string; ids: string[]; tagId: string }): Promise<number> {
-  await requirePermission("record:update");
-  const entityType = asEntityType(input.entityType);
-  const ids = cleanIds(input.ids);
-  const tagId = input.tagId?.trim();
-  if (ids.length === 0 || !tagId) return 0;
-  const { db } = getTenantDb();
-
-  let done = 0;
-  for (const part of chunk(ids, CHUNK)) {
-    await db.$transaction(
-      part.map((entityId) =>
-        db.tagAssignment.upsert({
-          where: { tagId_entityType_entityId: { tagId, entityType, entityId } },
-          create: { tagId, entityType, entityId },
-          update: {},
-        }),
-      ),
-    );
-    for (const id of part) {
-      await auditWrite({ action: "UPDATE", entityType, entityId: id, diff: { addTag: tagId } });
-      await reindex(db, entityType, id);
-      await dispatchAutomation({ type: "RECORD_UPDATED", entityType, entityId: id });
-    }
-    done += part.length;
-  }
-  revalidatePath(pathFor(entityType));
-  return done;
-}
-
-export async function bulkRemoveTag(input: { entityType: string; ids: string[]; tagId: string }): Promise<number> {
-  await requirePermission("record:update");
-  const entityType = asEntityType(input.entityType);
-  const ids = cleanIds(input.ids);
-  const tagId = input.tagId?.trim();
-  if (ids.length === 0 || !tagId) return 0;
-  const { db } = getTenantDb();
-
-  let done = 0;
-  for (const part of chunk(ids, CHUNK)) {
-    await db.$transaction([
-      db.tagAssignment.deleteMany({ where: { tagId, entityType, entityId: { in: part } } }),
-    ]);
-    for (const id of part) {
-      await auditWrite({ action: "UPDATE", entityType, entityId: id, diff: { removeTag: tagId } });
-      await reindex(db, entityType, id);
-    }
-    done += part.length;
-  }
-  revalidatePath(pathFor(entityType));
-  return done;
-}
-
-export async function bulkChangeOwner(input: {
-  entityType: string;
-  ids: string[];
-  ownerUserId: string | null;
-}): Promise<number> {
-  await requirePermission("record:update");
-  const entityType = asEntityType(input.entityType);
-  const ids = cleanIds(input.ids);
-  if (ids.length === 0) return 0;
-  const ownerUserId = input.ownerUserId?.trim() || null;
-  const { db } = getTenantDb();
-
-  let done = 0;
-  for (const part of chunk(ids, CHUNK)) {
-    await db.$transaction([updateOwnerManyFor(db, entityType, part, ownerUserId)]);
-    for (const id of part) {
-      await auditWrite({ action: "UPDATE", entityType, entityId: id, diff: { ownerUserId } });
-      await reindex(db, entityType, id);
-      await dispatchAutomation({ type: "RECORD_UPDATED", entityType, entityId: id });
-    }
-    done += part.length;
-  }
-  revalidatePath(pathFor(entityType));
-  return done;
-}
-
-function csvCell(v: unknown): string {
-  const s = v === null || v === undefined ? "" : String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-function toCsv(headers: string[], rows: (string | number | null)[][]): string {
-  const lines = [headers.map(csvCell).join(",")];
-  for (const r of rows) lines.push(r.map(csvCell).join(","));
-  return lines.join("\n");
-}
-
-/** Read-only CSV export of the selected records. requirePermission record:read. */
-export async function bulkExportCsv(input: { entityType: string; ids: string[] }): Promise<string> {
-  await requirePermission("record:read");
-  const entityType = asEntityType(input.entityType);
-  const ids = cleanIds(input.ids);
-  if (ids.length === 0) return "";
-  const { db } = getTenantDb();
-  const where = { id: { in: ids } };
-
-  if (entityType === "LEAD") {
-    const rows = await db.lead.findMany({
-      where,
-      select: { name: true, email: true, phone: true, companyName: true, source: true, status: true, ownerUserId: true, createdAt: true },
-      orderBy: { createdAt: "desc" },
-    });
-    return toCsv(
-      ["Name", "Email", "Phone", "Company", "Source", "Status", "Owner", "Created"],
-      rows.map((r) => [r.name, r.email, r.phone, r.companyName, r.source, r.status, r.ownerUserId, r.createdAt.toISOString()]),
-    );
-  }
-  if (entityType === "DEAL") {
-    const rows = await db.deal.findMany({
-      where,
-      select: { name: true, amountCents: true, status: true, ownerUserId: true, createdAt: true },
-      orderBy: { createdAt: "desc" },
-    });
-    return toCsv(
-      ["Name", "Amount", "Status", "Owner", "Created"],
-      rows.map((r) => [r.name, (Number(r.amountCents) / 100).toFixed(2), r.status, r.ownerUserId, r.createdAt.toISOString()]),
-    );
-  }
-  if (entityType === "CONTACT") {
-    const rows = await db.contact.findMany({
-      where,
-      select: { firstName: true, lastName: true, email: true, phone: true, title: true, ownerUserId: true, createdAt: true },
-      orderBy: { createdAt: "desc" },
-    });
-    return toCsv(
-      ["First name", "Last name", "Email", "Phone", "Title", "Owner", "Created"],
-      rows.map((r) => [r.firstName, r.lastName, r.email, r.phone, r.title, r.ownerUserId, r.createdAt.toISOString()]),
-    );
-  }
-  const rows = await db.company.findMany({
-    where,
-    select: { name: true, domain: true, industry: true, size: true, phone: true, ownerUserId: true, createdAt: true },
-    orderBy: { createdAt: "desc" },
+export async function bulkDelete(input:{entityType:string;ids:string[]}):Promise<number>{
+  const entity=asEntityType(input.entityType),ids=idsFrom(input.ids);
+  if(!ids.length)return 0;
+  const user=await actorId(),{db}=getTenantDb();
+  await withLegacyCrmTransaction(db,user,"record:delete",entity,"BULK",
+    "LEGACY_CRM_BULK_DELETE",async(tx,actor)=>{
+      await assertEvery(tx,actor,entity,ids,"record:delete");
+      await auditEach(tx,actor,entity,ids,"LEGACY_CRM_BULK_DELETE_ITEM");
+      switch(entity){
+        case "LEAD": await tx.lead.deleteMany({where:{id:{in:ids}}});break;
+        case "DEAL": await tx.deal.deleteMany({where:{id:{in:ids}}});break;
+        case "CONTACT": {
+          const linked=await tx.clientProfile.count({where:{contactId:{in:ids}}});
+          if(linked)throw new PermissionError("record:delete");
+          await tx.contact.deleteMany({where:{id:{in:ids}}});
+          break;
+        }
+        case "COMPANY": await tx.company.deleteMany({where:{id:{in:ids}}});break;
+      }
   });
-  return toCsv(
-    ["Name", "Domain", "Industry", "Size", "Phone", "Owner", "Created"],
-    rows.map((r) => [r.name, r.domain, r.industry, r.size, r.phone, r.ownerUserId, r.createdAt.toISOString()]),
-  );
+  await afterwards(entity,ids,true);
+  return ids.length;
+}
+export async function bulkAddTag(input:{entityType:string;ids:string[];tagId:string}):Promise<number>{
+  const entity=asEntityType(input.entityType),ids=idsFrom(input.ids);
+  if(!ids.length)return 0;
+  const user=await actorId(),{db}=getTenantDb();
+  await withLegacyCrmTransaction(db,user,"record:update",entity,"BULK",
+    "LEGACY_CRM_BULK_ADD_TAG",async(tx,actor)=>{
+      await assertEvery(tx,actor,entity,ids,"record:update");
+      const tag=await tx.tag.findUnique({where:{id:input.tagId},select:{id:true}});
+      if(!tag)throw new PermissionError("record:update");
+      for(const entityId of ids)await tx.tagAssignment.upsert({
+        where:{tagId_entityType_entityId:{tagId:tag.id,entityType:entity,entityId}},
+        update:{},create:{tagId:tag.id,entityType:entity,entityId},
+      });
+      await auditEach(tx,actor,entity,ids,"LEGACY_CRM_BULK_ADD_TAG_ITEM");
+  });
+  await afterwards(entity,ids,false,true);
+  return ids.length;
+}
+export async function bulkRemoveTag(input:{entityType:string;ids:string[];tagId:string}):Promise<number>{
+  const entity=asEntityType(input.entityType),ids=idsFrom(input.ids);
+  if(!ids.length)return 0;
+  const user=await actorId(),{db}=getTenantDb();
+  await withLegacyCrmTransaction(db,user,"record:update",entity,"BULK",
+    "LEGACY_CRM_BULK_REMOVE_TAG",async(tx,actor)=>{
+      await assertEvery(tx,actor,entity,ids,"record:update");
+      if(typeof input.tagId!=="string"||!input.tagId||input.tagId.length>128)
+        throw new PermissionError("record:update");
+      await tx.tagAssignment.deleteMany({where:{
+        tagId:input.tagId,entityType:entity,entityId:{in:ids},
+      }});
+      await auditEach(tx,actor,entity,ids,"LEGACY_CRM_BULK_REMOVE_TAG_ITEM");
+  });
+  await afterwards(entity,ids);
+  return ids.length;
+}
+export async function bulkChangeOwner(input:{
+  entityType:string;ids:string[];ownerUserId:string|null;
+}):Promise<number>{
+  const entity=asEntityType(input.entityType),ids=idsFrom(input.ids);
+  if(!ids.length)return 0;
+  const user=await actorId(),{db}=getTenantDb();
+  await withLegacyCrmTransaction(db,user,"record:update",entity,"BULK",
+    "LEGACY_CRM_BULK_REASSIGN",async(tx,actor)=>{
+      await assertEvery(tx,actor,entity,ids,"record:update");
+      const owner=await verifyLegacyCrmCreateOwner(
+        tx,actor,input.ownerUserId?.trim()||null);
+      const where={id:{in:ids}};
+      switch(entity){
+        case "LEAD":await tx.lead.updateMany({where,data:{ownerUserId:owner}});break;
+        case "DEAL":await tx.deal.updateMany({where,data:{ownerUserId:owner}});break;
+        case "CONTACT":await tx.contact.updateMany({where,data:{ownerUserId:owner}});break;
+        case "COMPANY":await tx.company.updateMany({where,data:{ownerUserId:owner}});break;
+      }
+      await auditEach(tx,actor,entity,ids,"LEGACY_CRM_BULK_REASSIGN_ITEM");
+  });
+  await afterwards(entity,ids,false,true);
+  return ids.length;
+}
+function csvCell(value:unknown):string{
+  const raw=value==null?"":String(value);
+  // Spreadsheet formula injection: tabs/whitespace before operators matter.
+  const safe=/^[\s]*[=+\-@]/.test(raw)?"'"+raw:raw;
+  return /[",\r\n]/.test(safe)?'"'+safe.replace(/"/g,'""')+'"':safe;
+}
+function csv(headers:string[],rows:(string|number|null)[][]):string{
+  return [headers.map(csvCell).join(","),
+    ...rows.map(row=>row.map(csvCell).join(","))].join("\n");
+}
+export async function bulkExportCsv(input:{entityType:string;ids:string[]}):Promise<string>{
+  const entity=asEntityType(input.entityType),ids=idsFrom(input.ids);
+  if(!ids.length)return "";
+  const user=await actorId(),{db}=getTenantDb();
+  return withLegacyCrmTransaction(db,user,"record:read",entity,"BULK_EXPORT",
+    "LEGACY_CRM_BULK_EXPORT",async(tx,actor)=>{
+      await assertEvery(tx,actor,entity,ids,"record:read");
+      const where={id:{in:ids}};
+      let output:string;
+      switch(entity){
+        case "LEAD":{
+          const rows=await tx.lead.findMany({where,orderBy:{createdAt:"desc"}});
+          output=csv(["Name","Email","Phone","Company","Source","Status","Owner","Created"],
+            rows.map(r=>[r.name,r.email,r.phone,r.companyName,r.source,r.status,r.ownerUserId,r.createdAt.toISOString()]));
+          break;
+        }
+        case "CONTACT":{
+          const rows=await tx.contact.findMany({where,orderBy:{createdAt:"desc"}});
+          output=csv(["First name","Last name","Email","Phone","Title","Owner","Created"],
+            rows.map(r=>[r.firstName,r.lastName,r.email,r.phone,r.title,r.ownerUserId,r.createdAt.toISOString()]));
+          break;
+        }
+        case "DEAL":{
+          const rows=await tx.deal.findMany({where,orderBy:{createdAt:"desc"}});
+          output=csv(["Name","Amount","Status","Owner","Created"],
+            rows.map(r=>[r.name,(Number(r.amountCents)/100).toFixed(2),r.status,r.ownerUserId,r.createdAt.toISOString()]));
+          break;
+        }
+        case "COMPANY":{
+          const rows=await tx.company.findMany({where,orderBy:{createdAt:"desc"}});
+          output=csv(["Name","Domain","Industry","Size","Phone","Owner","Created"],
+            rows.map(r=>[r.name,r.domain,r.industry,r.size,r.phone,r.ownerUserId,r.createdAt.toISOString()]));
+        }
+      }
+      await auditEach(tx,actor,entity,ids,"LEGACY_CRM_BULK_EXPORT_ITEM");
+      return output;
+    });
 }

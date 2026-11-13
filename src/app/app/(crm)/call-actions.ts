@@ -50,7 +50,7 @@ async function pickFromNumber(
 
 export async function startCall(input: StartCallInput): Promise<StartCallResult> {
   await requirePermission("telephony:manage");
-  const { db } = getTenantDb();
+  const { db, tenantId } = getTenantDb();
 
   const to = (input.toE164 ?? "").trim();
   if (!to) return { ok: false, error: "No number to call." };
@@ -88,7 +88,7 @@ export async function startCall(input: StartCallInput): Promise<StartCallResult>
   }
 
   try {
-    const placed = await createOutboundCall({ from: from.e164, to, recordingEnabled: true });
+    const placed = await createOutboundCall({ from: from.e164, to, recordingEnabled: true, tenantSlug: tenantId });
     await db.call.update({
       where: { id: call.id },
       data: { providerCallSid: placed.sid, status: "RINGING", startedAt: new Date() },

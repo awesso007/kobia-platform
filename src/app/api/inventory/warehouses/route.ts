@@ -1,3 +1,5 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Warehouses collection API (Sprint 20, authenticated). GET lists warehouses
  * with SKU counts; POST creates one. RBAC inventory:manage.
@@ -18,7 +20,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET() {
+async function historicalAuditedGet() {
   try {
     await requirePermission("inventory:manage");
     const { db } = getTenantDb();
@@ -28,7 +30,7 @@ export async function GET() {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function POSTOriginal(req: NextRequest) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -53,3 +55,7 @@ export async function POST(req: NextRequest) {
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("inventory/warehouses",historicalAuditedGet);
+
+export const POST = withAuditedHistoricalMutation("inventory/warehouses", "POST", POSTOriginal);

@@ -5,6 +5,7 @@
 import { SignIn } from "@clerk/nextjs";
 import { getTenantBySlug } from "@/lib/tenant";
 import { notFound } from "next/navigation";
+import { CHESS_DEMO_SLUG, chessDemoModeActive } from "@/lib/chess/demo-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,10 @@ export default async function TenantLoginCatchAll({
 }: {
   params: { tenant: string };
 }) {
-  const tenant = await getTenantBySlug(params.tenant);
+  const isDemo = params.tenant === CHESS_DEMO_SLUG && chessDemoModeActive();
+  const tenant = isDemo
+    ? { slug: CHESS_DEMO_SLUG, name: "CHESS Corporation (fictional demo)", logoUrl: null }
+    : await getTenantBySlug(params.tenant);
   if (!tenant) notFound();
 
   return (
@@ -45,7 +49,7 @@ export default async function TenantLoginCatchAll({
               card: "shadow-sm",
             },
           }}
-          forceRedirectUrl={`/${tenant.slug}/dashboard`}
+          forceRedirectUrl={isDemo ? "/app/overview" : `/${tenant.slug}/dashboard`}
         />
       </div>
     </div>

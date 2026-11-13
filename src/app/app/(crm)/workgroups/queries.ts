@@ -1,3 +1,4 @@
+import { withAuditedHistoricalServerRead } from "@/lib/chess/historical-server-read-round58";
 /*
  * Server-only page data loaders for the Workgroups module (Sprint 22). They wrap
  * the request-scoped tenant db + current membership and shape results into plain
@@ -22,7 +23,7 @@ import {
 } from "@/lib/workgroups/queries";
 
 /** List page: my groups + discoverable groups for the current user. */
-export async function loadWorkgroupsPage() {
+async function loadWorkgroupsPageOriginal() {
   const { db } = getTenantDb();
   const member = await getCurrentMembership();
   const userId = member?.clerkUserId ?? null;
@@ -34,7 +35,7 @@ export async function loadWorkgroupsPage() {
 }
 
 /** Directory of active members for the create form / invite pickers. */
-export async function loadDirectory() {
+async function loadDirectoryOriginal() {
   const { db } = getTenantDb();
   return db.membership.findMany({
     where: { status: "ACTIVE" },
@@ -44,7 +45,7 @@ export async function loadDirectory() {
 }
 
 /** Shared group context for the [slug] layout: group + caller role. */
-export async function loadGroupShell(slug: string) {
+async function loadGroupShellOriginal(slug: string) {
   const { db } = getTenantDb();
   const member = await getCurrentMembership();
   const userId = member?.clerkUserId ?? null;
@@ -52,7 +53,7 @@ export async function loadGroupShell(slug: string) {
   return { group, currentUserId: userId };
 }
 
-export async function loadGroupFeed(slug: string) {
+async function loadGroupFeedOriginal(slug: string) {
   const { db } = getTenantDb();
   const member = await getCurrentMembership();
   const userId = member?.clerkUserId ?? null;
@@ -69,7 +70,7 @@ export async function loadGroupFeed(slug: string) {
   return { group, posts, nextCursor, currentUserId: userId, members };
 }
 
-export async function loadGroupTasks(slug: string) {
+async function loadGroupTasksOriginal(slug: string) {
   const { db } = getTenantDb();
   const member = await getCurrentMembership();
   const group = await getGroupBySlug(db, slug, member?.clerkUserId ?? null);
@@ -78,7 +79,7 @@ export async function loadGroupTasks(slug: string) {
   return { group, tasks };
 }
 
-export async function loadGroupFiles(slug: string) {
+async function loadGroupFilesOriginal(slug: string) {
   const { db } = getTenantDb();
   const member = await getCurrentMembership();
   const group = await getGroupBySlug(db, slug, member?.clerkUserId ?? null);
@@ -87,7 +88,7 @@ export async function loadGroupFiles(slug: string) {
   return { group, files };
 }
 
-export async function loadGroupEvents(slug: string) {
+async function loadGroupEventsOriginal(slug: string) {
   const { db } = getTenantDb();
   const member = await getCurrentMembership();
   const group = await getGroupBySlug(db, slug, member?.clerkUserId ?? null);
@@ -96,7 +97,7 @@ export async function loadGroupEvents(slug: string) {
   return { group, events };
 }
 
-export async function loadGroupMembers(slug: string) {
+async function loadGroupMembersOriginal(slug: string) {
   const { db } = getTenantDb();
   const member = await getCurrentMembership();
   const userId = member?.clerkUserId ?? null;
@@ -117,3 +118,19 @@ export async function loadGroupMembers(slug: string) {
   const requests = joinRequests.map((r) => ({ ...r, requesterName: nameById.get(r.userId) ?? r.userId }));
   return { group, members, invites, joinRequests: requests, directory, currentUserId: userId };
 }
+
+export const loadWorkgroupsPage = withAuditedHistoricalServerRead("workgroups.loadWorkgroupsPage", loadWorkgroupsPageOriginal);
+
+export const loadDirectory = withAuditedHistoricalServerRead("workgroups.loadDirectory", loadDirectoryOriginal);
+
+export const loadGroupShell = withAuditedHistoricalServerRead("workgroups.loadGroupShell", loadGroupShellOriginal);
+
+export const loadGroupFeed = withAuditedHistoricalServerRead("workgroups.loadGroupFeed", loadGroupFeedOriginal);
+
+export const loadGroupTasks = withAuditedHistoricalServerRead("workgroups.loadGroupTasks", loadGroupTasksOriginal);
+
+export const loadGroupFiles = withAuditedHistoricalServerRead("workgroups.loadGroupFiles", loadGroupFilesOriginal);
+
+export const loadGroupEvents = withAuditedHistoricalServerRead("workgroups.loadGroupEvents", loadGroupEventsOriginal);
+
+export const loadGroupMembers = withAuditedHistoricalServerRead("workgroups.loadGroupMembers", loadGroupMembersOriginal);

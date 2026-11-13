@@ -1,0 +1,161 @@
+name: CHESS staging release validation
+on:
+  workflow_dispatch:
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    environment: chess-staging
+    env:
+      NODE_ENV: production
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+      CHESS_PUBLIC_ORIGIN: ${{ vars.CHESS_PUBLIC_ORIGIN }}
+      CHESS_CONSENT_EVIDENCE_KEY: ${{ secrets.CHESS_CONSENT_EVIDENCE_KEY }}
+      CHESS_CLIENT_CONSENT_PORTAL_ENABLED: ${{ vars.CHESS_CLIENT_CONSENT_PORTAL_ENABLED }}
+      CHESS_CLIENT_PORTAL_POLICY_APPROVED: ${{ vars.CHESS_CLIENT_PORTAL_POLICY_APPROVED }}
+      CHESS_CLIENT_PORTAL_IDENTITY_APPROVED: ${{ vars.CHESS_CLIENT_PORTAL_IDENTITY_APPROVED }}
+      CHESS_DOCUMENT_SCAN_KEY: ${{ secrets.CHESS_DOCUMENT_SCAN_KEY }}
+      CHESS_DOCUMENT_LIFECYCLE_ENABLED: "false"
+      CHESS_DOCUMENT_RETENTION_POLICY_APPROVED: "false"
+      CHESS_SCAN_WORKER_TOKEN: ${{ secrets.CHESS_SCAN_WORKER_TOKEN }}
+      CHESS_CLAMAV_HOST: ${{ vars.CHESS_CLAMAV_HOST }}
+      CHESS_CLAMAV_PORT: ${{ vars.CHESS_CLAMAV_PORT }}
+      KOBIA_S3_BUCKET: ${{ vars.KOBIA_S3_BUCKET }}
+      KOBIA_S3_REGION: ${{ vars.KOBIA_S3_REGION }}
+      KOBIA_S3_ENDPOINT: ${{ vars.KOBIA_S3_ENDPOINT }}
+      KOBIA_S3_ACCESS_KEY_ID: ${{ secrets.KOBIA_S3_ACCESS_KEY_ID }}
+      KOBIA_S3_SECRET_ACCESS_KEY: ${{ secrets.KOBIA_S3_SECRET_ACCESS_KEY }}
+      CHESS_PAYROLL_API_URL: ${{ vars.CHESS_PAYROLL_API_URL }}
+      CHESS_PAYROLL_ALLOWED_HOST: ${{ vars.CHESS_PAYROLL_ALLOWED_HOST }}
+      CHESS_PAYROLL_STATUS_API_URL: ${{ vars.CHESS_PAYROLL_STATUS_API_URL }}
+      CHESS_PAYROLL_STATUS_ENABLED: "false"
+      CHESS_BANK_FEED_ENABLED: "false"
+      CHESS_BANK_FEED_IMPORT_ENABLED: "false"
+      CHESS_BANK_FEED_PAGINATION_ENABLED: "false"
+      CHESS_BANK_FEED_SOURCE: ${{ vars.CHESS_BANK_FEED_SOURCE }}
+      CHESS_BANK_FEED_API_URL: ${{ vars.CHESS_BANK_FEED_API_URL }}
+      CHESS_BANK_FEED_ALLOWED_HOST: ${{ vars.CHESS_BANK_FEED_ALLOWED_HOST }}
+      CHESS_BANK_FEED_API_KEY: ${{ secrets.CHESS_BANK_FEED_API_KEY }}
+      CHESS_PAYROLL_API_KEY: ${{ secrets.CHESS_PAYROLL_API_KEY }}
+      CHESS_LICENSE_API_URL: ${{ vars.CHESS_LICENSE_API_URL }}
+      CHESS_LICENSE_ALLOWED_HOST: ${{ vars.CHESS_LICENSE_ALLOWED_HOST }}
+      CHESS_LICENSE_API_KEY: ${{ secrets.CHESS_LICENSE_API_KEY }}
+      CHESS_LICENSE_SOURCE_HOSTS: ${{ vars.CHESS_LICENSE_SOURCE_HOSTS }}
+      CHESS_AFFILIATION_VERIFICATION_ENABLED: "false"
+      CHESS_AFFILIATION_API_URL: ${{ vars.CHESS_AFFILIATION_API_URL }}
+      CHESS_AFFILIATION_ALLOWED_HOST: ${{ vars.CHESS_AFFILIATION_ALLOWED_HOST }}
+      CHESS_AFFILIATION_API_KEY: ${{ secrets.CHESS_AFFILIATION_API_KEY }}
+      CHESS_AFFILIATION_SOURCE_HOSTS: ${{ vars.CHESS_AFFILIATION_SOURCE_HOSTS }}
+      CHESS_REGULATED_HANDOFF_ENABLED: "false"
+      CHESS_REGULATED_HANDOFF_API_URL: ${{ vars.CHESS_REGULATED_HANDOFF_API_URL }}
+      CHESS_REGULATED_STATUS_API_URL: ${{ vars.CHESS_REGULATED_STATUS_API_URL }}
+      CHESS_REGULATED_ALLOWED_HOST: ${{ vars.CHESS_REGULATED_ALLOWED_HOST }}
+      CHESS_REGULATED_API_KEY: ${{ secrets.CHESS_REGULATED_API_KEY }}
+      CHESS_REGULATED_RESPONSE_BINDING_REQUIRED: "false"
+      CHESS_REGULATED_PARTNER_MORTGAGE_API_KEY: ${{ secrets.CHESS_REGULATED_PARTNER_MORTGAGE_API_KEY }}
+      CHESS_REGULATED_PARTNER_INSURANCE_API_KEY: ${{ secrets.CHESS_REGULATED_PARTNER_INSURANCE_API_KEY }}
+      CHESS_REGULATED_PARTNER_REAL_ESTATE_API_KEY: ${{ secrets.CHESS_REGULATED_PARTNER_REAL_ESTATE_API_KEY }}
+      CHESS_REGULATED_PARTNER_INVESTMENTS_API_KEY: ${{ secrets.CHESS_REGULATED_PARTNER_INVESTMENTS_API_KEY }}
+      CHESS_REGULATED_PARTNER_MORTGAGE: ${{ vars.CHESS_REGULATED_PARTNER_MORTGAGE }}
+      CHESS_REGULATED_PARTNER_INSURANCE: ${{ vars.CHESS_REGULATED_PARTNER_INSURANCE }}
+      CHESS_REGULATED_PARTNER_REAL_ESTATE: ${{ vars.CHESS_REGULATED_PARTNER_REAL_ESTATE }}
+      CHESS_REGULATED_PARTNER_INVESTMENTS: ${{ vars.CHESS_REGULATED_PARTNER_INVESTMENTS }}
+      CHESS_INCIDENT_MONITOR_ENABLED: "false"
+      CHESS_INCIDENT_MONITOR_OPS_APPROVED: "false"
+      CHESS_INCIDENT_MONITOR_TOKEN: ${{ secrets.CHESS_INCIDENT_MONITOR_TOKEN }}
+      CHESS_AUDIT_EXPORT_ENABLED: "false"
+      CHESS_AUDIT_RETENTION_APPROVED: "false"
+      CHESS_AUDIT_ARCHIVE_URL: ${{ vars.CHESS_AUDIT_ARCHIVE_URL }}
+      CHESS_AUDIT_STATUS_URL: ${{ vars.CHESS_AUDIT_STATUS_URL }}
+      CHESS_AUDIT_ALLOWED_HOST: ${{ vars.CHESS_AUDIT_ALLOWED_HOST }}
+      CHESS_AUDIT_ARCHIVE_API_KEY: ${{ secrets.CHESS_AUDIT_ARCHIVE_API_KEY }}
+      CHESS_AUDIT_HASH_KEY: ${{ secrets.CHESS_AUDIT_HASH_KEY }}
+      CHESS_AI_TRIAGE_ENABLED: "false"
+      CHESS_AI_DATA_SHARING_APPROVED: "false"
+      CHESS_AI_VENDOR_DPA_APPROVED: "false"
+      CHESS_AI_COST_LIMIT_APPROVED: "false"
+      CHESS_AI_TRIAGE_API_URL: ${{ vars.CHESS_AI_TRIAGE_API_URL }}
+      CHESS_AI_ALLOWED_HOST: ${{ vars.CHESS_AI_ALLOWED_HOST }}
+      CHESS_AI_API_KEY: ${{ secrets.CHESS_AI_API_KEY }}
+      CHESS_AI_DAILY_CALL_LIMIT: ${{ vars.CHESS_AI_DAILY_CALL_LIMIT }}
+      CHESS_BILLING_DELIVERY_ENABLED: "false"
+      CHESS_BILLING_VENDOR_CERTIFIED: "false"
+      CHESS_BILLING_DELIVERY_API_URL: ${{ vars.CHESS_BILLING_DELIVERY_API_URL }}
+      CHESS_BILLING_STATUS_API_URL: ${{ vars.CHESS_BILLING_STATUS_API_URL }}
+      CHESS_BILLING_ALLOWED_HOST: ${{ vars.CHESS_BILLING_ALLOWED_HOST }}
+      CHESS_BILLING_API_KEY: ${{ secrets.CHESS_BILLING_API_KEY }}
+      CHESS_BILLING_RECURRING_DRAFTS_ENABLED: "false"
+      CHESS_BILLING_RECURRING_POLICY_APPROVED: "false"
+      CHESS_MERCHANT_WEBHOOK_ENABLED: "false"
+      CHESS_MERCHANT_VENDOR_CERTIFIED: "false"
+      CHESS_MERCHANT_SETTLEMENT_POLICY_APPROVED: "false"
+      CHESS_MERCHANT_PROVIDER_ID: ${{ vars.CHESS_MERCHANT_PROVIDER_ID }}
+      CHESS_MERCHANT_WEBHOOK_HMAC_KEY: ${{ secrets.CHESS_MERCHANT_WEBHOOK_HMAC_KEY }}
+      CHESS_PAYROLL_EXECUTION_ENABLED: "false"
+      CHESS_SCHEDULER_ENABLED: "false"
+      CHESS_CALENDAR_SYNC_ENABLED: "false"
+      CHESS_WORKFLOW_WORKER_TOKEN: ${{ secrets.CHESS_WORKFLOW_WORKER_TOKEN }}
+      CHESS_ACTIVE_TENANT_SLUGS: ${{ vars.CHESS_ACTIVE_TENANT_SLUGS }}
+      CHESS_CALENDAR_API_URL: ${{ vars.CHESS_CALENDAR_API_URL }}
+      CHESS_CALENDAR_CANCEL_API_URL: ${{ vars.CHESS_CALENDAR_CANCEL_API_URL }}
+      CHESS_CALENDAR_STATUS_API_URL: ${{ vars.CHESS_CALENDAR_STATUS_API_URL }}
+      CHESS_CALENDAR_ALLOWED_HOST: ${{ vars.CHESS_CALENDAR_ALLOWED_HOST }}
+      CHESS_CALENDAR_API_KEY: ${{ secrets.CHESS_CALENDAR_API_KEY }}
+      CHESS_CALENDAR_OAUTH_ENABLED: "false"
+      CHESS_CALENDAR_OAUTH_PROVIDER_CERTIFIED: "false"
+      CHESS_CALENDAR_OAUTH_START_URL: ${{ vars.CHESS_CALENDAR_OAUTH_START_URL }}
+      CHESS_CALENDAR_OAUTH_STATUS_URL: ${{ vars.CHESS_CALENDAR_OAUTH_STATUS_URL }}
+      CHESS_CALENDAR_OAUTH_REVOKE_URL: ${{ vars.CHESS_CALENDAR_OAUTH_REVOKE_URL }}
+      CHESS_CALENDAR_OAUTH_ALLOWED_HOST: ${{ vars.CHESS_CALENDAR_OAUTH_ALLOWED_HOST }}
+      CHESS_CALENDAR_OAUTH_API_KEY: ${{ secrets.CHESS_CALENDAR_OAUTH_API_KEY }}
+      # External deployed staging must independently configure CHESS_RELEASE_SHA,
+      # CHESS_STAGING_ATTESTATION_ENABLED and this separate protected token.
+      CHESS_STAGING_VALIDATE: ${{ vars.CHESS_STAGING_VALIDATE }}
+      CHESS_STAGING_BASE_URL: ${{ vars.CHESS_STAGING_BASE_URL }}
+      CHESS_STAGING_ALLOWED_HOST: ${{ vars.CHESS_STAGING_ALLOWED_HOST }}
+      CHESS_STAGING_EXPECTED_SHA: ${{ github.sha }}
+      CHESS_STAGING_ATTESTATION_TOKEN: ${{ secrets.CHESS_STAGING_ATTESTATION_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install locked dependencies and platform binaries
+        run: npm ci --include=optional --no-audit --no-fund
+
+      - name: Verify Linux Next.js SWC build tool
+        run: |
+          if ! node -e "require('@next/swc-linux-x64-gnu')" >/dev/null 2>&1; then
+            npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund @next/swc-linux-x64-gnu@14.2.15
+          fi
+          node -e "require('@next/swc-linux-x64-gnu')"
+      - name: Block releases with high or critical production dependency advisories
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Validate injected configuration
+        run: node scripts/chess-deploy-validate.mjs
+      - name: Validate external infrastructure (read-only)
+        run: node scripts/chess-infra-validate.mjs
+      - name: Verify tenant migration status (no write)
+        run: npx prisma migrate status --schema=prisma/tenant/schema.prisma
+      - name: Typecheck and test
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run test
+      - name: Production artifact build
+        run: npm run build
+      - name: Verify independent deployed staging commit identity
+        run: node scripts/chess-staging-verify.mjs
+      - name: Security HTTP smoke
+        run: |
+          npm run start -- -p 3100 > /tmp/chess-staging.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid 2>/dev/null || true' EXIT
+          node scripts/chess-security-smoke.mjs
+
+# This validation workflow DOES NOT deploy code or run migrations.
+# Production execution requires a separate approved deployment procedure.

@@ -10,7 +10,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { EmailFolder } from "@/lib/db/generated/tenant";
 import { listMessages } from "@/lib/mail/queries";
 import { updateMessageFlags } from "@/lib/mail/mutations";
-import { resolveMail, failMail } from "@/lib/mail/api";
+import { resolveMail, failMail, auditedOwnedMailRead } from "@/lib/mail/api";
 
 export const dynamic = "force-dynamic";
 
@@ -18,17 +18,18 @@ const FOLDERS: EmailFolder[] = ["INBOX", "SENT", "DRAFTS", "ARCHIVE", "SPAM", "T
 
 export async function GET(req: NextRequest, { params }: { params: { accountId: string } }) {
   try {
-    const { db, account } = await resolveMail(params.accountId, "record:read");
+    const result = await auditedOwnedMailRead(params.accountId, "HISTORICAL_EMAIL_MESSAGE_DIRECTORY_READ", async (db, accountId) => {
     const sp = req.nextUrl.searchParams;
     const rawFolder = sp.get("folder");
     const folder = rawFolder && FOLDERS.includes(rawFolder as EmailFolder) ? (rawFolder as EmailFolder) : null;
-    const result = await listMessages(db, {
-      accountId: account.id,
+    return listMessages(db, {
+      accountId,
       folder,
       labelId: sp.get("labelId"),
       threadId: sp.get("threadId"),
       q: sp.get("q"),
       cursor: sp.get("cursor"),
+    });
     });
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {

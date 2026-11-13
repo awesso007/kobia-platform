@@ -1,3 +1,4 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
 /*
  * Forms 2.0 single field API (Sprint 19, authenticated). PATCH updates any field
  * setting (type, label, options, validation, visibility rule, calculation,
@@ -12,6 +13,8 @@ import type { FormFieldType } from "@/lib/db/generated/tenant";
 import { FIELD_TYPES } from "@/lib/forms2/form-utils";
 import { updateField, deleteField } from "@/lib/forms2/mutations";
 
+import { formFieldBelongsToForm, formStepBelongsToForm } from "@/lib/security/historical-resource-scope";
+
 export const dynamic = "force-dynamic";
 
 function fail(err: unknown) {
@@ -20,7 +23,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string; fieldId: string } }) {
+async function PATCHOriginal(req: NextRequest, { params }: { params: { id: string; fieldId: string } }) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -33,6 +36,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ ok: false, error: "Invalid field type." }, { status: 400 });
     }
     const { db } = getTenantDb();
+    if (!await formFieldBelongsToForm(db, params.id, params.fieldId))
+      return NextResponse.json({ ok: false, error: "Field not found." }, { status: 404 });
+    if (body.stepId && !await formStepBelongsToForm(db, params.id, String(body.stepId)))
+      return NextResponse.json({ ok: false, error: "Step not found on form." }, { status: 404 });
     await updateField(db, params.fieldId, {
       stepId: body.stepId === undefined ? undefined : ((body.stepId as string) || null),
       type: body.type as FormFieldType | undefined,
@@ -57,13 +64,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string; fieldId: string } }) {
+async function DELETEOriginal(_req: NextRequest, { params }: { params: { id: string; fieldId: string } }) {
   try {
     await requirePermission("form:manage");
     const { db } = getTenantDb();
+    if (!await formFieldBelongsToForm(db, params.id, params.fieldId))
+      return NextResponse.json({ ok: false, error: "Field not found." }, { status: 404 });
     await deleteField(db, params.fieldId);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return fail(err);
   }
 }
+
+export const PATCH = withAuditedHistoricalMutation("forms2/[id]/fields/[fieldId]", "PATCH", PATCHOriginal);
+
+export const DELETE = withAuditedHistoricalMutation("forms2/[id]/fields/[fieldId]", "DELETE", DELETEOriginal);

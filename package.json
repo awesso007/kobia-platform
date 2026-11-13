@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,md}\"",
-    "test": "vitest run",
+    "test": "node scripts/check-round37-route-inventory.mjs && vitest run",
     "test:watch": "vitest",
     "db:generate": "prisma generate",
     "db:generate:all": "prisma generate && prisma generate --schema=prisma/platform/schema.prisma && prisma generate --schema=prisma/tenant/schema.prisma",
@@ -26,7 +26,10 @@
     "destroy:tenant": "tsx scripts/destroy-tenant.ts",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "postinstall": "prisma generate && prisma generate --schema=prisma/platform/schema.prisma && prisma generate --schema=prisma/tenant/schema.prisma"
+    "postinstall": "prisma generate && prisma generate --schema=prisma/platform/schema.prisma && prisma generate --schema=prisma/tenant/schema.prisma",
+    "demo:setup": "node --env-file=.env.local --import tsx scripts/chess-demo-setup.ts",
+    "demo:verify": "node --env-file=.env.local --import tsx scripts/chess-demo-verify.ts",
+    "test:e2e": "node --env-file=.env.local ./node_modules/@playwright/test/cli.js test --config=playwright.config.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1063.0",

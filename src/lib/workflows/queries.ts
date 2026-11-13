@@ -5,10 +5,10 @@
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
-import type { PrismaClient } from "@/lib/db/generated/tenant";
+import type { Prisma, PrismaClient } from "@/lib/db/generated/tenant";
 import { asGraph, successRate, type WorkflowGraph } from "./workflow-utils";
 
-type Db = PrismaClient;
+type Db = PrismaClient | Prisma.TransactionClient;
 
 export type WorkflowListItem = {
   id: string;

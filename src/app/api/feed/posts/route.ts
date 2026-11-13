@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Feed posts API (Sprint 21, authenticated). GET lists the stream with cursor
  * pagination and a filter (all|announcements|mentions|mine); POST creates a
@@ -21,7 +22,7 @@ function fail(err: unknown) {
 
 const FILTERS: FeedFilter[] = ["all", "announcements", "mentions", "mine"];
 
-export async function GET(req: NextRequest) {
+async function historicalAuditedGet(req: NextRequest) {
   try {
     await requirePermission("record:read");
     const { db } = getTenantDb();
@@ -92,3 +93,5 @@ export async function POST(req: NextRequest) {
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("feed/posts",historicalAuditedGet);

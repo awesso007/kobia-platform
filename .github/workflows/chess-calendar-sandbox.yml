@@ -1,0 +1,32 @@
+name: CHESS calendar appointment sandbox contract
+on:
+  workflow_dispatch:
+
+jobs:
+  isolated-appointment-contract:
+    runs-on: ubuntu-latest
+    environment: chess-calendar-sandbox
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      CHESS_CALENDAR_SANDBOX_VALIDATE: ${{ vars.CHESS_CALENDAR_SANDBOX_VALIDATE }}
+      CHESS_CALENDAR_SANDBOX_ISOLATED: ${{ vars.CHESS_CALENDAR_SANDBOX_ISOLATED }}
+      CHESS_CALENDAR_ALLOWED_HOST: ${{ vars.CHESS_CALENDAR_ALLOWED_HOST }}
+      CHESS_CALENDAR_API_URL: ${{ vars.CHESS_CALENDAR_API_URL }}
+      CHESS_CALENDAR_CANCEL_API_URL: ${{ vars.CHESS_CALENDAR_CANCEL_API_URL }}
+      CHESS_CALENDAR_STATUS_API_URL: ${{ vars.CHESS_CALENDAR_STATUS_API_URL }}
+      CHESS_CALENDAR_API_KEY: ${{ secrets.CHESS_CALENDAR_API_KEY }}
+      CHESS_CALENDAR_SANDBOX_TENANT: ${{ vars.CHESS_CALENDAR_SANDBOX_TENANT }}
+      CHESS_CALENDAR_SANDBOX_BUSINESS_ID: ${{ vars.CHESS_CALENDAR_SANDBOX_BUSINESS_ID }}
+      CHESS_CALENDAR_SANDBOX_STAFF_ID: ${{ vars.CHESS_CALENDAR_SANDBOX_STAFF_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Validate isolated appointment create, status and cancellation
+        run: node scripts/chess-calendar-sandbox-validate.mjs
+
+# This workflow is opt-in, requires sandbox environment secrets, and must
+# not point to live employee calendars. It is not part of ordinary PR CI.

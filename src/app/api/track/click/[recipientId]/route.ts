@@ -9,46 +9,38 @@
  */
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
+import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { activeWebhookTenantSchema } from "@/lib/security/legacy-webhook-tenant";
+import { verifyLegacyTrackingCapability } from "@/lib/security/legacy-tracking-capability";
+import { claimPublicSurfaceQuota } from "@/lib/security/public-surface-round53";
+import { trustedPublicFormIp } from "@/lib/security/public-form-abuse";
+import { recordSignedLegacyTracking } from "@/lib/security/legacy-marketing-tracking-round55";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function sanitizeSlug(slug: string | null | undefined): string | null {
-  if (!slug) return null;
-  return /^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/.test(slug) ? slug : null;
-}
-
-function safeUrl(raw: string | null): string | null {
-  if (!raw) return null;
-  try {
-    const u = new URL(raw);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
-    return u.toString();
-  } catch {
-    return null;
-  }
-}
-
 export async function GET(req: NextRequest, { params }: { params: { recipientId: string } }) {
-  const target = safeUrl(req.nextUrl.searchParams.get("url"));
-  const tenantSlug = sanitizeSlug(req.nextUrl.searchParams.get("t"));
+  const capability = verifyLegacyTrackingCapability(
+    req.nextUrl.searchParams.get("cap"), "CLICK", params.recipientId,
+  );
+  if (!capability || !capability.url)
+    return NextResponse.json({ error: "Tracking link unavailable" }, { status: 404, headers: { "Cache-Control": "no-store" } });
+  const schema = await activeWebhookTenantSchema(capability.t);
+  if (!schema)
+    return NextResponse.json({ error: "Tracking link unavailable" }, { status: 404, headers: { "Cache-Control": "no-store" } });
 
-  if (tenantSlug) {
-    try {
-      const db = getTenantPrisma(schemaNameForSlug(tenantSlug));
-      const rcpt = await db.broadcastRecipient.findUnique({ where: { id: params.recipientId }, select: { id: true, status: true, clickedAt: true } });
-      if (rcpt && rcpt.status !== "BOUNCED" && rcpt.status !== "UNSUBSCRIBED" && rcpt.status !== "FAILED") {
-        await db.broadcastRecipient.update({
-          where: { id: rcpt.id },
-          data: { status: "CLICKED", clickedAt: rcpt.clickedAt ?? new Date() },
-        });
-      }
-    } catch {
-      // Tracking must never block the redirect.
-    }
+  try {
+    const db = getTenantPrisma(schema);
+    const trusted = (process.env.CHESS_PUBLIC_FORM_TRUSTED_IP_HEADER ?? "").toLowerCase().trim();
+    await claimPublicSurfaceQuota(db, {
+      tenant: capability.t, kind: "email_click", resource: params.recipientId,
+      clientIp: trustedPublicFormIp(req.headers, trusted),
+      rateKey: process.env.CHESS_PUBLIC_FORM_RATE_HASH_KEY ?? "",
+    });
+    await recordSignedLegacyTracking(db, params.recipientId, "CLICK");
+  } catch {
+    // A valid signed redirect works even when telemetry is rate-limited.
   }
 
-  const dest = target ?? process.env.NEXT_PUBLIC_APP_URL ?? "/";
-  return NextResponse.redirect(dest, { status: 302 });
+  return NextResponse.redirect(capability.url, { status: 302, headers: { "Cache-Control": "no-store" } });
 }

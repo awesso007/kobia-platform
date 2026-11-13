@@ -7,7 +7,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "@/server/trpc";
-import { db } from "@/lib/db";
+import { db } from "@/server/trpc-db";
 import { postBill, recordBillPayment, apAgeBucket } from "@/lib/accounting/ap";
 import {
   checkBillApprovalRequired,

@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Single page API (Sprint 17, authenticated). GET returns the page with its
  * blocks; PATCH updates page fields/SEO/order/slug and can toggle published
@@ -11,6 +12,8 @@ import { requirePermission, PermissionError } from "@/lib/rbac/require-permissio
 import { getPageWithBlocks } from "@/lib/sites/queries";
 import { updatePage, publishPage, deletePage } from "@/lib/sites/mutations";
 
+import { sitePageBelongsToSite } from "@/lib/security/historical-resource-scope";
+
 export const dynamic = "force-dynamic";
 
 function fail(err: unknown) {
@@ -19,10 +22,12 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { siteId: string; pageId: string } }) {
+async function historicalAuditedGet(_req: NextRequest, { params }: { params: { siteId: string; pageId: string } }) {
   try {
     await requirePermission("record:read");
     const { db } = getTenantDb();
+    if (!await sitePageBelongsToSite(db, params.siteId, params.pageId))
+      return NextResponse.json({ ok: false, error: "Page not found." }, { status: 404 });
     const page = await getPageWithBlocks(db, params.pageId);
     if (!page) return NextResponse.json({ ok: false, error: "Page not found." }, { status: 404 });
     return NextResponse.json({ ok: true, page });
@@ -41,6 +46,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { siteId: st
   try {
     await requirePermission("record:update");
     const { db } = getTenantDb();
+    if (!await sitePageBelongsToSite(db, params.siteId, params.pageId))
+      return NextResponse.json({ ok: false, error: "Page not found." }, { status: 404 });
     await updatePage(db, params.pageId, {
       title: body.title as string | undefined,
       slug: body.slug as string | undefined,
@@ -62,9 +69,13 @@ export async function DELETE(_req: NextRequest, { params }: { params: { siteId: 
   try {
     await requirePermission("record:delete");
     const { db } = getTenantDb();
+    if (!await sitePageBelongsToSite(db, params.siteId, params.pageId))
+      return NextResponse.json({ ok: false, error: "Page not found." }, { status: 404 });
     await deletePage(db, params.pageId);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("sites/[siteId]/pages/[pageId]",historicalAuditedGet);

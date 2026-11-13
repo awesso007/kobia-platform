@@ -1,0 +1,46 @@
+name: CHESS regulated coordination provider sandbox
+on:
+  workflow_dispatch:
+
+jobs:
+  regulated-coordination-contract:
+    runs-on: ubuntu-latest
+    environment: chess-regulated-sandbox
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      CHESS_M6_SANDBOX_VALIDATE: ${{ vars.CHESS_M6_SANDBOX_VALIDATE }}
+      CHESS_M6_SANDBOX_ISOLATED: ${{ vars.CHESS_M6_SANDBOX_ISOLATED }}
+      CHESS_M6_SANDBOX_SERVICE: ${{ vars.CHESS_M6_SANDBOX_SERVICE }}
+      CHESS_M6_SANDBOX_PRACTITIONER_REGISTRY_ID: ${{ vars.CHESS_M6_SANDBOX_PRACTITIONER_REGISTRY_ID }}
+      CHESS_M6_SANDBOX_FIRM_REGISTRY_ID: ${{ vars.CHESS_M6_SANDBOX_FIRM_REGISTRY_ID }}
+      CHESS_M6_SANDBOX_JURISDICTION: ${{ vars.CHESS_M6_SANDBOX_JURISDICTION }}
+      CHESS_M6_SANDBOX_TENANT: ${{ vars.CHESS_M6_SANDBOX_TENANT }}
+      CHESS_M6_SANDBOX_BUSINESS_ID: ${{ vars.CHESS_M6_SANDBOX_BUSINESS_ID }}
+      CHESS_LICENSE_API_URL: ${{ vars.CHESS_LICENSE_API_URL }}
+      CHESS_LICENSE_ALLOWED_HOST: ${{ vars.CHESS_LICENSE_ALLOWED_HOST }}
+      CHESS_LICENSE_SOURCE_HOSTS: ${{ vars.CHESS_LICENSE_SOURCE_HOSTS }}
+      CHESS_LICENSE_API_KEY: ${{ secrets.CHESS_LICENSE_API_KEY }}
+      CHESS_AFFILIATION_API_URL: ${{ vars.CHESS_AFFILIATION_API_URL }}
+      CHESS_AFFILIATION_ALLOWED_HOST: ${{ vars.CHESS_AFFILIATION_ALLOWED_HOST }}
+      CHESS_AFFILIATION_SOURCE_HOSTS: ${{ vars.CHESS_AFFILIATION_SOURCE_HOSTS }}
+      CHESS_AFFILIATION_API_KEY: ${{ secrets.CHESS_AFFILIATION_API_KEY }}
+      CHESS_REGULATED_HANDOFF_API_URL: ${{ vars.CHESS_REGULATED_HANDOFF_API_URL }}
+      CHESS_REGULATED_STATUS_API_URL: ${{ vars.CHESS_REGULATED_STATUS_API_URL }}
+      CHESS_REGULATED_ALLOWED_HOST: ${{ vars.CHESS_REGULATED_ALLOWED_HOST }}
+      CHESS_REGULATED_API_KEY: ${{ secrets.CHESS_REGULATED_API_KEY }}
+      CHESS_REGULATED_PARTNER_MORTGAGE: ${{ vars.CHESS_REGULATED_PARTNER_MORTGAGE }}
+      CHESS_REGULATED_PARTNER_INSURANCE: ${{ vars.CHESS_REGULATED_PARTNER_INSURANCE }}
+      CHESS_REGULATED_PARTNER_REAL_ESTATE: ${{ vars.CHESS_REGULATED_PARTNER_REAL_ESTATE }}
+      CHESS_REGULATED_PARTNER_INVESTMENTS: ${{ vars.CHESS_REGULATED_PARTNER_INVESTMENTS }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Verify official firm affiliation and synthetic partner handoff
+        run: node scripts/chess-regulated-sandbox-validate.mjs
+
+# Manual opt-in, protected fictional accounts only. This workflow is never
+# invoked by ordinary PR CI and cannot perform regulated transactions.

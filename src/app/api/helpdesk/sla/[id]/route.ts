@@ -1,3 +1,4 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
 /*
  * Single SLA policy API (Sprint 15, authenticated). DELETE removes it; tickets
  * and categories keep slaPolicyId null via onDelete: SetNull / nullable column.
@@ -16,7 +17,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+async function DELETEOriginal(_req: Request, { params }: { params: { id: string } }) {
   try {
     await requirePermission("record:delete");
     const { db } = getTenantDb();
@@ -26,3 +27,5 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     return fail(err);
   }
 }
+
+export const DELETE = withAuditedHistoricalMutation("helpdesk/sla/[id]", "DELETE", DELETEOriginal);

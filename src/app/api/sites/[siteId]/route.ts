@@ -1,3 +1,5 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Single site API (Sprint 17, authenticated). GET returns the site; PATCH
  * updates fields (name, description, favicon, theme, homePageId); DELETE removes
@@ -19,7 +21,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { siteId: string } }) {
+async function historicalAuditedGet(_req: NextRequest, { params }: { params: { siteId: string } }) {
   try {
     await requirePermission("record:read");
     const { db } = getTenantDb();
@@ -31,7 +33,7 @@ export async function GET(_req: NextRequest, { params }: { params: { siteId: str
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { siteId: string } }) {
+async function PATCHOriginal(req: NextRequest, { params }: { params: { siteId: string } }) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -55,7 +57,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { siteId: st
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { siteId: string } }) {
+async function DELETEOriginal(_req: NextRequest, { params }: { params: { siteId: string } }) {
   try {
     await requirePermission("record:delete");
     const { db } = getTenantDb();
@@ -65,3 +67,9 @@ export async function DELETE(_req: NextRequest, { params }: { params: { siteId: 
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("sites/[siteId]",historicalAuditedGet);
+
+export const PATCH = withAuditedHistoricalMutation("sites/[siteId]", "PATCH", PATCHOriginal);
+
+export const DELETE = withAuditedHistoricalMutation("sites/[siteId]", "DELETE", DELETEOriginal);

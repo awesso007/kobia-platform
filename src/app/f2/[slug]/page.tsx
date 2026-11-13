@@ -6,7 +6,9 @@
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
-import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
+import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { activePublicTenantSchema } from "@/lib/security/public-tenant";
+import { publicFormAction } from "@/lib/security/public-form-abuse";
 import { getFormBySlug } from "@/lib/forms2/queries";
 import type { PublicField, PublicForm, PublicStep } from "@/lib/forms2/form-utils";
 import { PublicFormUI } from "./PublicFormUI";
@@ -39,18 +41,17 @@ export default async function PublicFormV2Page({
   let db: ReturnType<typeof getTenantPrisma> | null = null;
   let form: Awaited<ReturnType<typeof getFormBySlug>> = null;
   try {
-    db = getTenantPrisma(schemaNameForSlug(tenantSlug));
+    const schema = await activePublicTenantSchema(tenantSlug);
+    if (!schema) return notFound;
+    db = getTenantPrisma(schema);
     form = await getFormBySlug(db, params.slug);
   } catch {
     form = null;
   }
   if (!form || form.status !== "PUBLISHED") return notFound;
 
-  if (db) {
-    await db.formV2Analytics
-      .create({ data: { formId: form.id, event: "VIEW" } })
-      .catch(() => undefined);
-  }
+  // Round 53: do not write an unmetered VIEW during SSR.
+  // The client sends VIEW through the same distributed analytics gate.
 
   const publicForm: PublicForm = {
     name: form.name,
@@ -95,7 +96,10 @@ export default async function PublicFormV2Page({
           {publicForm.description}
         </p>
       )}
-      <PublicFormUI tenantSlug={tenantSlug} formSlug={params.slug} form={publicForm} steps={steps} fields={fields} />
+      <PublicFormUI tenantSlug={tenantSlug} formSlug={params.slug} form={publicForm} steps={steps} fields={fields}
+        siteKey={process.env.CHESS_PUBLIC_FORM_ABUSE_ENABLED === "true" ?
+          (process.env.NEXT_PUBLIC_CHESS_TURNSTILE_SITE_KEY ?? "") : ""}
+        challengeAction={publicFormAction("v2", tenantSlug, params.slug)} />
     </Shell>
   );
 }

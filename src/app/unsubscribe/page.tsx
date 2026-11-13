@@ -1,28 +1,26 @@
-/*
- * Public unsubscribe page (Sprint 13). Unauthenticated. Prefills email + tenant
- * from `?email=` and `?t=<slug>` (the values broadcast links carry), lets the
- * recipient confirm, and POSTs to /api/unsubscribe. Tenant is resolved from the
- * validated slug, not the session.
- *
- * No em-dashes in copy by project convention (use hyphens).
+/**
+ * Public unsubscribe: only a server-authenticated opaque email capability
+ * may select the recipient. Query-string email/tenant fields are untrusted.
  */
+import { openUnsubscribeIdentity } from "@/lib/security/public-unsubscribe-round54";
+import { activePublicTenantSchema } from "@/lib/security/public-tenant";
 import { UnsubscribeClient } from "./UnsubscribeClient";
 
 export const dynamic = "force-dynamic";
+export const metadata = { robots: { index: false, follow: false } };
 
-function sanitizeSlug(slug: string | null | undefined): string | null {
-  if (!slug) return null;
-  return /^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/.test(slug) ? slug : null;
-}
-
-export default function UnsubscribePage({
+export default async function UnsubscribePage({
   searchParams,
 }: {
   searchParams: Record<string, string | string[] | undefined>;
 }) {
-  const q = (k: string) => (Array.isArray(searchParams[k]) ? searchParams[k]?.[0] : searchParams[k]) as string | undefined;
-  const email = (q("email") ?? "").trim();
-  const tenantSlug = sanitizeSlug(q("t")) ?? sanitizeSlug(q("tenant"));
-
-  return <UnsubscribeClient initialEmail={email} tenantSlug={tenantSlug} />;
+  const raw = Array.isArray(searchParams.cap) ? searchParams.cap[0] : searchParams.cap;
+  const identity = openUnsubscribeIdentity(raw);
+  let valid = false;
+  if (identity) {
+    try { valid = !!(await activePublicTenantSchema(identity.tenant)); }
+    catch { valid = false; }
+  }
+  return <UnsubscribeClient initialEmail={valid ? identity!.email : ""}
+    capability={valid && typeof raw === "string" ? raw : null} />;
 }

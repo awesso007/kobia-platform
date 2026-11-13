@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Single ticket API (Sprint 15, authenticated). GET returns the ticket with its
  * thread; DELETE removes it. Status/priority/assignment/reply/watcher changes
@@ -19,7 +20,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+async function historicalAuditedGet(_req: Request, { params }: { params: { id: string } }) {
   try {
     await requirePermission("record:read");
     const ticket = await getTicket(params.id);
@@ -41,3 +42,5 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("helpdesk/tickets/[id]",historicalAuditedGet);

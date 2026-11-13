@@ -799,6 +799,8 @@ model EmailMessage {
 
   @@index([threadId])
   @@index([externalId])
+  // External inbound relay retries must not clone messages/threads/automations.
+  @@unique([accountId, direction, externalId])
   @@index([status])
   @@index([accountId, folder, receivedAt])
   @@index([accountId, threadId, receivedAt])
@@ -1048,6 +1050,8 @@ model SmsMessage {
 
   @@index([threadId])
   @@index([providerMessageSid])
+  // Provider retries must never produce duplicate inbound records/counters.
+  @@unique([direction, providerMessageSid])
 }
 
 model TelephonyRule {
@@ -3526,4 +3530,947 @@ model WorkgroupJoinRequest {
   @@index([workgroupId])
   @@index([userId])
   @@index([status])
+}
+
+
+// CHESS CORP 2: tenant-local unified client profile.
+// The shared profile contains only minimal CRM identifiers. Sensitive documents
+// and regulated practice records stay in separate service-specific modules.
+// Cross-tenant identity resolution must be separately consented and implemented.
+enum ClientServiceArea {
+  ACCOUNTING
+  BOOKKEEPING
+  PAYROLL
+  TAX
+  MORTGAGE
+  INSURANCE
+  REAL_ESTATE
+  INVESTMENTS
+}
+
+model ClientProfile {
+  id                String   @id @default(cuid())
+  displayName       String
+  contactId         String?  @unique
+  ownerClerkUserId  String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  serviceLinks      ClientServiceLink[]
+
+  @@index([displayName])
+  @@index([ownerClerkUserId])
+}
+
+model ClientServiceLink {
+  id           String            @id @default(cuid())
+  profileId    String
+  businessId   String
+  service      ClientServiceArea
+  externalId   String?           // locator only; never contains secrets or sensitive content
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  profile      ClientProfile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  grants       ClientServiceGrant[]
+
+  @@unique([profileId, businessId, service])
+  @@index([businessId, service])
+  @@index([service, externalId])
+}
+
+model ClientServiceGrant {
+  id           String            @id @default(cuid())
+  linkId       String
+  clerkUserId  String
+  canRead      Boolean           @default(false)
+  canWrite     Boolean           @default(false)
+  revokedAt    DateTime?
+  grantedAt    DateTime          @default(now())
+  link         ClientServiceLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@unique([linkId, clerkUserId])
+  @@index([clerkUserId, revokedAt])
+}
+
+
+// CHESS CORP 2 Milestone 2 - business units and employee assignments.
+// Each unit is local to the active tenant, not a separate legal entity registry.
+enum BusinessUnitStatus {
+  ACTIVE
+  INACTIVE
+}
+enum BusinessAssignmentRole {
+  MANAGER
+  PRACTITIONER
+  SUPPORT
+}
+model ChessBusinessUnit {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  legalName   String?
+  status      BusinessUnitStatus @default(ACTIVE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  assignments ChessEmployeeAssignment[]
+}
+model ChessEmployeeAssignment {
+  id           String @id @default(cuid())
+  businessId   String
+  clerkUserId  String
+  role         BusinessAssignmentRole @default(SUPPORT)
+  assignedAt   DateTime @default(now())
+  revokedAt    DateTime?
+  business     ChessBusinessUnit @relation(fields: [businessId], references: [id], onDelete: Restrict)
+
+  @@unique([businessId, clerkUserId])
+  @@index([clerkUserId, revokedAt])
+}
+
+// CHESS CORP 2 M3 - explicit purpose-bound consent and onboarding checklist.
+// No raw document bytes or signatures are stored in these models.
+enum ChessConsentStatus {
+  PENDING
+  GRANTED
+  WITHDRAWN
+  EXPIRED
+}
+model ChessClientConsent {
+  id String @id @default(cuid())
+  clientProfileId String
+  businessId String
+  purpose String
+  policyVersion String
+  policyText String @default("")
+  status ChessConsentStatus @default(PENDING)
+  consentedAt DateTime?
+  acceptedByClerkUserId String?
+  verifiedEmailDigest String?
+  acceptanceEvidenceDigest String?
+  withdrawnAt DateTime?
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  financialAttempts ChessFinancialAttempt[]
+  @@index([clientProfileId, businessId, purpose, status])
+}
+model ChessIntakeItem {
+  id String @id @default(cuid())
+  clientProfileId String
+  businessId String
+  title String
+  required Boolean @default(true)
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([clientProfileId,businessId])
+}
+
+// CHESS CORP 2 M4 - case work queue, no cross-business task visibility.
+enum ChessWorkStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  COMPLETED
+  CANCELLED
+}
+enum ChessRecurrenceFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+model ChessWorkRecurrence {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String?
+  title String
+  assignedClerkUserId String?
+  frequency ChessRecurrenceFrequency
+  interval Int @default(1)
+  anchorDay Int
+  nextRunAt DateTime
+  lastRunAt DateTime?
+  // Time of last bounded scheduler inspection, even when assignment is blocked.
+  // This is not a completed run or a generated task.
+  lastInspectedAt DateTime?
+  active Boolean @default(true)
+  createdByClerkUserId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  generatedTasks ChessWorkItem[]
+
+  @@index([active,nextRunAt])
+  @@index([active,lastInspectedAt,nextRunAt])
+  @@index([businessId,active])
+}
+
+enum ChessCalendarSyncStatus {
+  CANCEL_PENDING
+  CANCEL_SUBMITTING
+  CANCEL_UNKNOWN
+  WAITING_CONSENT
+  PENDING
+  SUBMITTING
+  SYNCED
+  REJECTED
+  UNKNOWN
+  CANCELLED
+}
+
+model ChessCalendarPreference {
+  clerkUserId String @id
+  enabled Boolean @default(false)
+  acknowledgedAt DateTime?
+  revokedAt DateTime?
+  appointmentEnabled Boolean @default(false)
+  appointmentAcknowledgedAt DateTime?
+  appointmentRevokedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ChessCalendarOutbox {
+  id String @id @default(cuid())
+  businessId String
+  workItemId String @unique
+  recipientClerkUserId String
+  scheduledFor DateTime
+  idempotencyKey String @unique
+  providerEventId String?
+  status ChessCalendarSyncStatus @default(PENDING)
+  lastErrorCode String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId,status])
+}
+
+enum ChessWorkerKind {
+  RECURRING_WORK
+  CALENDAR_SYNC
+  AI_TRIAGE
+}
+
+enum ChessWorkerRunStatus {
+  SUCCESS
+  DEGRADED
+  FAILED
+}
+
+model ChessWorkerRun {
+  id String @id @default(cuid())
+  kind ChessWorkerKind
+  status ChessWorkerRunStatus
+  examined Int @default(0)
+  processed Int @default(0)
+  blocked Int @default(0)
+  occurredAt DateTime @default(now())
+
+  @@index([kind,occurredAt])
+}
+
+model ChessEmployeeAlert {
+  id String @id @default(cuid())
+  businessId String
+  recipientClerkUserId String
+  workItemId String?
+  type String
+  message String
+  dedupeKey String @unique
+  readAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([recipientClerkUserId,readAt,createdAt])
+  @@index([businessId,createdAt])
+}
+
+model ChessWorkItem {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String?
+  recurrenceId String?
+  scheduledFor DateTime?
+  recurrence ChessWorkRecurrence? @relation(fields: [recurrenceId], references: [id], onDelete: Restrict)
+  title String
+  status ChessWorkStatus @default(TODO)
+  assignedClerkUserId String?
+  dueAt DateTime?
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([businessId,status,dueAt])
+  @@index([assignedClerkUserId,status])
+  @@unique([recurrenceId,scheduledFor])
+}
+
+// CHESS CORP 2 M5 - service orchestration metadata, NOT a general ledger,
+// tax return, payroll calculation, or source-document repository.
+enum ChessCaseStatus {
+  INTAKE
+  REVIEW
+  ACTIVE
+  HOLD
+  CLOSED
+}
+model ChessServiceCase {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  service ClientServiceArea
+  status ChessCaseStatus @default(INTAKE)
+  referenceId String?
+  ownerClerkUserId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([businessId,service,status])
+  @@index([clientProfileId,businessId])
+}
+
+// CHESS CORP 2 M6 - licensing and referral gate. License verification must be
+// separately established against authoritative registries before activation.
+enum ChessCredentialStatus {
+  UNVERIFIED
+  VERIFIED
+  EXPIRED
+  SUSPENDED
+}
+model ChessPractitionerCredential {
+  id String @id @default(cuid())
+  businessId String
+  clerkUserId String
+  service ClientServiceArea
+  credentialType String
+  credentialLastFour String?
+  credentialRegistryId String?
+  jurisdiction String
+  status ChessCredentialStatus @default(UNVERIFIED)
+  expiresAt DateTime?
+  verifiedAt DateTime?
+  verifiedByClerkUserId String?
+  verificationSource String?
+  registryCheckedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([businessId,service,clerkUserId,status])
+}
+
+// M6. Regulated provider/firm affiliation must be checked independently;
+// a public individual license alone does not authorize firm representation.
+enum ChessAffiliationStatus {
+  UNVERIFIED
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+model ChessRegulatedAffiliation {
+  id String @id @default(cuid())
+  businessId String
+  clerkUserId String
+  service ClientServiceArea
+  jurisdiction String
+  practitionerRegistryId String
+  firmRegistryId String
+  status ChessAffiliationStatus @default(UNVERIFIED)
+  checkedAt DateTime?
+  verifiedByClerkUserId String?
+  sourceUrl String?
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([businessId,clerkUserId,service])
+  @@index([businessId,service,status])
+}
+
+enum ChessRegulatedWorkflowKind {
+  MORTGAGE_APPLICATION_COORDINATION
+  MORTGAGE_DOCUMENT_INTAKE
+  INSURANCE_COVERAGE_INTAKE
+  INSURANCE_APPLICATION_COORDINATION
+  REAL_ESTATE_BUYER_INTAKE
+  REAL_ESTATE_SELLER_INTAKE
+  INVESTMENTS_GOAL_DISCOVERY
+  INVESTMENTS_RISK_DISCOVERY
+}
+enum ChessRegulatedWorkflowStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  SUBMITTING
+  SUBMITTED
+  UNKNOWN
+  REJECTED
+  CLOSED
+}
+model ChessRegulatedWorkflow {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  serviceCaseId String
+  service ClientServiceArea
+  kind ChessRegulatedWorkflowKind
+  requestKey String
+  status ChessRegulatedWorkflowStatus @default(DRAFT)
+  createdByClerkUserId String
+  reviewedByClerkUserId String?
+  reviewedAt DateTime?
+  approvedByClerkUserId String?
+  approvedAt DateTime?
+  idempotencyKey String @unique
+  providerRequestId String?
+  lastErrorCode String?
+  submittedAt DateTime?
+  providerCheckedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  checklist ChessRegulatedChecklistItem[]
+
+  @@unique([serviceCaseId,requestKey])
+  @@index([businessId,service,status,createdAt])
+}
+model ChessRegulatedChecklistItem {
+  id String @id @default(cuid())
+  workflowId String
+  itemKey String
+  completedAt DateTime?
+  completedByClerkUserId String?
+  evidenceDocumentId String?
+  workflow ChessRegulatedWorkflow @relation(fields:[workflowId],references:[id],onDelete:Restrict)
+
+  @@unique([workflowId,itemKey])
+  @@index([workflowId,completedAt])
+}
+
+// CHESS CORP 2 M7 - AI and financial action approvals; no direct execution.
+enum ChessApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+model ChessActionApproval {
+  id String @id @default(cuid())
+  businessId String
+  actionType String
+  payloadDigest String // sha256 or equivalent; not the underlying sensitive payload
+  requestedBy String
+  reviewedBy String?
+  status ChessApprovalStatus @default(PENDING)
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([businessId,status,createdAt])
+}
+
+// M7: AI advice is restricted to generic work-item metadata. Suggestions
+// never execute tasks, financial entries, outbound communication or billing.
+enum ChessAiSuggestionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  STALE
+}
+enum ChessAiPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+enum ChessAiRecommendation {
+  KEEP_QUEUE
+  REVIEW_DEADLINE
+  ESCALATE_TO_MANAGER
+}
+model ChessAiSuggestion {
+  id String @id @default(cuid())
+  businessId String
+  workItemId String
+  sourceDigest String
+  priority ChessAiPriority
+  recommendation ChessAiRecommendation
+  rationaleCode String
+  modelVersion String
+  status ChessAiSuggestionStatus @default(PENDING)
+  requestedByClerkUserId String
+  reviewedByClerkUserId String?
+  reviewedAt DateTime?
+  appliedAt DateTime?
+  followupWorkItemId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workItemId,sourceDigest])
+  @@index([businessId,status,createdAt])
+}
+
+enum ChessBillingInvoiceStatus {
+  DRAFT
+  APPROVED
+  SUBMITTING
+  SENT
+  UNKNOWN
+  REJECTED
+  VOID
+}
+model ChessBillingInvoice {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  serviceCaseId String
+  service ClientServiceArea
+  requestKey String
+  currency String @default("USD")
+  amountCents BigInt
+  descriptionCode String
+  status ChessBillingInvoiceStatus @default(DRAFT)
+  sourceDigest String
+  idempotencyKey String @unique
+  createdByClerkUserId String
+  approvedByClerkUserId String?
+  approvedAt DateTime?
+  sentByClerkUserId String?
+  sentAt DateTime?
+  providerInvoiceId String?
+  lastErrorCode String?
+  providerCheckedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([serviceCaseId,requestKey])
+  @@index([businessId,status,createdAt])
+  @@index([clientProfileId,businessId])
+}
+
+// M7 consent-bound monthly invoice DRAFT plan. No automatic collection.
+model ChessBillingSubscriptionPlan {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  serviceCaseId String
+  service ClientServiceArea
+  descriptionCode String
+  amountCents BigInt
+  currency String @default("USD")
+  status String @default("PENDING")
+  nextDraftAt DateTime
+  lastDraftAt DateTime?
+  lastInspectedAt DateTime?
+  createdByClerkUserId String
+  approvedByClerkUserId String?
+  approvedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([serviceCaseId,descriptionCode])
+  @@index([businessId,status,nextDraftAt])
+}
+
+// Tenant-schema and business scoped AI gateway request reservation.
+// Charges reported by the vendor remain external; callCount reserves the
+// FULL per-call cap even for timeout/malformed responses.
+model ChessAiUsageDaily {
+  businessId String
+  day DateTime
+  callCount Int @default(0)
+  createdAt DateTime @default(now())
+  @@id([businessId,day])
+}
+
+// M7 signed merchant observation receipts. These are claims from the
+// contracted gateway, NOT bank settlement, GL posting or earned revenue.
+model ChessMerchantPaymentEvent {
+  id String @id @default(cuid())
+  businessId String
+  invoiceId String
+  providerInvoiceId String
+  providerEventId String @unique
+  eventKind String
+  amountCents BigInt
+  currency String @default("USD")
+  eventDigest String
+  status String @default("OBSERVED")
+  occurredAt DateTime
+  receivedAt DateTime @default(now())
+  @@index([businessId,invoiceId,receivedAt])
+}
+
+// M7 frozen, independently reviewed operational month-end snapshots.
+// Explicitly NOT a GAAP close, settlement report or cross-entity consolidation.
+model ChessOperationalPeriodSnapshot {
+  id String @id @default(cuid())
+  businessId String
+  month String
+  reportJson String
+  sourceDigest String
+  status String @default("PENDING")
+  createdByClerkUserId String
+  reviewedByClerkUserId String?
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  @@unique([businessId,month])
+  @@index([businessId,status,createdAt])
+}
+
+// CHESS CORP 2 M8 - append-only application audit event metadata.
+// Must be complemented by DB append-only policy and secured log export.
+model ChessSecurityEvent {
+  id String @id @default(cuid())
+  businessId String?
+  actorClerkUserId String?
+  action String
+  resourceType String
+  resourceId String?
+  decision String
+  occurredAt DateTime @default(now())
+  archive ChessAuditArchiveOutbox?
+  @@index([businessId,occurredAt])
+  @@index([actorClerkUserId,occurredAt])
+}
+
+// M8 audit archive outbox. Original security events are write-once;
+// the delivery metadata is mutable only until an external receipt is pinned.
+enum ChessAuditArchiveStatus {
+  PENDING
+  SUBMITTING
+  UNKNOWN
+  ARCHIVED
+  REJECTED
+}
+model ChessAuditArchiveOutbox {
+  id String @id @default(cuid())
+  eventId String @unique
+  digest String
+  status ChessAuditArchiveStatus @default(PENDING)
+  receiptId String?
+  lastErrorCode String?
+  attemptedAt DateTime?
+  archivedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  event ChessSecurityEvent @relation(fields:[eventId],references:[id],onDelete:Restrict)
+
+  @@index([status,createdAt])
+}
+
+// M3 document storage metadata. Bytes are stored in private object storage.
+// Uploads are QUARANTINED until size, MIME and anti-malware scanning complete.
+enum ChessDocumentStatus {
+  PENDING
+  QUARANTINED
+  READY
+  REJECTED
+}
+enum ChessDocumentRevisionKind {
+  ORIGINAL
+  REPLACEMENT
+  REDACTED
+}
+enum ChessDocumentDisposalStatus {
+  REQUESTED
+  APPROVED
+  EXECUTING
+  UNKNOWN
+  PURGED
+  REJECTED
+}
+model ChessClientDocument {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  service ClientServiceArea
+  storageKey String @unique
+  storageVersionId String?
+  storageETag String?
+  fileName String
+  mimeType String
+  maxBytes Int
+  actualBytes Int?
+  checksumSha256 String?
+  status ChessDocumentStatus @default(PENDING)
+  uploadedByClerkUserId String
+  // A replacement points to one immutable predecessor. REDACTED means a
+  // separately supplied, reviewed and scanned derivative, not a visual mask.
+  replacesDocumentId String? @unique
+  revisionNumber Int @default(1)
+  revisionKind ChessDocumentRevisionKind @default(ORIGINAL)
+  redactionApprovedByClerkUserId String?
+  redactionApprovedAt DateTime?
+  supersededAt DateTime?
+  purgedAt DateTime?
+  createdAt DateTime @default(now())
+  verifiedAt DateTime?
+  // Policy metadata is write-once; no object deletion workflow is
+  // enabled until independently approved legal retention/hold release.
+  retentionUntil DateTime?
+  legalHoldAt DateTime?
+  legalHoldByClerkUserId String?
+  suppressedAt DateTime?
+  suppressedByClerkUserId String?
+  disposal ChessDocumentDisposal?
+  @@index([businessId,clientProfileId,service,status])
+  @@index([businessId,retentionUntil,suppressedAt])
+  @@index([replacesDocumentId,revisionNumber])
+  @@index([businessId,purgedAt,supersededAt])
+}
+model ChessDocumentDisposal {
+  id String @id @default(cuid())
+  documentId String @unique
+  businessId String
+  status ChessDocumentDisposalStatus @default(REQUESTED)
+  requestedByClerkUserId String
+  approvedByClerkUserId String?
+  requestedAt DateTime @default(now())
+  approvedAt DateTime?
+  executionStartedAt DateTime?
+  completedAt DateTime?
+  receiptDigest String?
+  lastErrorCode String?
+  document ChessClientDocument @relation(fields:[documentId],references:[id],onDelete:Restrict)
+  @@index([businessId,status,requestedAt])
+}
+
+// M5 bridging metadata. Finance rows remain in the legacy tenant-scoped ledger.
+// This table holds identifiers only; no paystubs, tax forms, account balances,
+// or protected personal data are replicated to the CHESS CRM.
+model ChessFinancialLink {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  serviceCaseId String @unique
+  legacyTenantId String
+  legacyEntityId String
+  service ClientServiceArea
+  createdAt DateTime @default(now())
+  @@unique([businessId,clientProfileId,service,legacyEntityId])
+  @@index([legacyTenantId,legacyEntityId])
+}
+
+// M5 optional bank-feed ingestion. This is metadata only; connection
+// secrets live exclusively with the approved financial-data provider.
+model ChessBankFeedConnection {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  serviceCaseId String
+  legacyTenantId String
+  legacyEntityId String
+  legacyBankAccountId String
+  providerAccountRef String
+  active Boolean @default(false)
+  createdByClerkUserId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([serviceCaseId,legacyBankAccountId])
+  @@index([businessId,active])
+}
+enum ChessBankFeedSyncStatus {
+  STARTED
+  COMPLETED
+  FAILED
+}
+model ChessBankFeedSyncRun {
+  id String @id @default(cuid())
+  businessId String
+  connectionId String
+  requestedStartAt DateTime
+  status ChessBankFeedSyncStatus @default(STARTED)
+  fetchedCount Int @default(0)
+  insertedCount Int @default(0)
+  errorCode String?
+  initiatedByClerkUserId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([connectionId,createdAt])
+  @@index([businessId,status])
+}
+
+// Milestone 5: bank review only - all raw banking data stays in the
+// existing entity's tenant-scoped ledger. This stores opaque references and
+// evidence of a human decision; approval never posts journal entries.
+enum ChessBankReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  STALE
+}
+model ChessBankReview {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  serviceCaseId String
+  legacyTenantId String
+  legacyEntityId String
+  legacyBankTransactionId String
+  transactionDigest String
+  suggestedAccountId String?
+  confidenceBasisPoints Int?
+  approvedAccountId String?
+  status ChessBankReviewStatus @default(PENDING)
+  createdByClerkUserId String
+  reviewedByClerkUserId String?
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([serviceCaseId,legacyBankTransactionId])
+  @@index([businessId,status,createdAt])
+}
+
+/// Durable tenant-side reservation and attempt journal for a legacy GL post.
+/// It coordinates consent withdrawal with the separate legacy database but
+/// never pretends the two databases share one atomic transaction.
+enum ChessFinancialAttemptStatus {
+  RESERVED
+  EXECUTING
+  UNKNOWN
+  COMMITTED
+  FAILED
+  CANCELLED
+}
+
+model ChessFinancialAttempt {
+  id String @id @default(cuid())
+  businessId String
+  consentId String
+  reviewId String
+  legacyTenantId String
+  legacyEntityId String
+  legacyBankTransactionId String
+  sourceDigest String
+  sourceRefId String @unique
+  status ChessFinancialAttemptStatus @default(RESERVED)
+  createdByClerkUserId String
+  journalEntryId String?
+  lastErrorCode String?
+  reservedAt DateTime @default(now())
+  executionStartedAt DateTime?
+  resolvedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  consent ChessClientConsent @relation(fields: [consentId], references: [id], onDelete: Restrict)
+
+  @@unique([reviewId,sourceDigest])
+  @@index([businessId,status,reservedAt])
+  @@index([consentId,status])
+}
+
+enum ChessTaxWorkpaperStatus {
+  DRAFT
+  REVIEWED
+  APPROVED
+  SUPERSEDED
+}
+model ChessTaxWorkpaper {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  serviceCaseId String
+  legacyTenantId String
+  legacyEntityId String
+  taxYear Int
+  startAt DateTime
+  endAt DateTime
+  snapshotDigest String
+  sourceEntryCount Int
+  status ChessTaxWorkpaperStatus @default(DRAFT)
+  createdByClerkUserId String
+  reviewedByClerkUserId String?
+  reviewedAt DateTime?
+  approvedByClerkUserId String?
+  approvedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([serviceCaseId,taxYear,snapshotDigest])
+  @@index([businessId,taxYear,status])
+}
+
+// External payroll execution queue. Provider may reject incomplete tax/onboarding
+// information. No ACH details or worker PII are stored in the CHESS registry.
+enum ChessPayrollDispatchStatus {
+  READY
+  SUBMITTING
+  SUBMITTED
+  REJECTED
+  UNKNOWN
+  PROVIDER_PAID
+  PROVIDER_FAILED
+}
+model ChessPayrollDispatch {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String
+  legacyTenantId String
+  legacyEntityId String
+  legacyPayRunId String
+  approvalId String @unique
+  idempotencyKey String @unique
+  providerRequestId String?
+  status ChessPayrollDispatchStatus @default(READY)
+  lastErrorCode String?
+  submittedAt DateTime?
+  providerCheckedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([businessId,legacyPayRunId])
+  @@index([businessId,status])
+}
+
+
+// M4 - business-local appointment reservations with a database-level
+// exclusion constraint that rejects overlapping active staff bookings.
+enum ChessAppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model ChessAppointment {
+  id String @id @default(cuid())
+  businessId String
+  clientProfileId String?
+  assignedClerkUserId String
+  subject String
+  startAt DateTime
+  endAt DateTime
+  status ChessAppointmentStatus @default(SCHEDULED)
+  createdByClerkUserId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId, startAt])
+  @@index([assignedClerkUserId, startAt])
+}
+
+
+// Private appointment calendar delivery is isolated from the work-item outbox.
+// Never synthesize fake work items for appointments or expose client subjects.
+model ChessAppointmentCalendarOutbox {
+  id String @id @default(cuid())
+  businessId String
+  appointmentId String @unique
+  recipientClerkUserId String
+  startsAt DateTime
+  endsAt DateTime
+  idempotencyKey String @unique
+  providerEventId String?
+  status ChessCalendarSyncStatus @default(WAITING_CONSENT)
+  lastErrorCode String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId,status])
+  @@index([recipientClerkUserId,status])
+}
+
+
+// M8 atomic, tenant-schema-local quotas. Store only hashed actor references.
+// The private scheduler removes expired windows after seven days.
+model ChessRequestRateWindow {
+  scope String @db.VarChar(64)
+  subjectDigest String @db.Char(64)
+  windowStart DateTime @db.Timestamptz(3)
+  hits Int @default(0)
+
+  @@id([scope, subjectDigest, windowStart])
+  @@index([windowStart])
 }

@@ -27,6 +27,7 @@ import {
   Rss,
   Users2,
   Settings,
+  LayoutDashboard,
 } from "lucide-react";
 
 export type CrmNavItem = {
@@ -37,6 +38,7 @@ export type CrmNavItem = {
 };
 
 export const crmNav: CrmNavItem[] = [
+  { key: "overview", label: "Overview", href: "/app/overview", icon: LayoutDashboard },
   { key: "leads", label: "Leads", href: "/app/leads", icon: Users },
   { key: "deals", label: "Deals", href: "/app/deals", icon: Handshake },
   { key: "contacts", label: "Contacts", href: "/app/contacts", icon: Contact },
@@ -59,5 +61,14 @@ export const crmNav: CrmNavItem[] = [
   { key: "workgroups", label: "Workgroups", href: "/app/workgroups", icon: Users2 },
   { key: "automations", label: "Automations", href: "/app/automations", icon: Workflow },
   { key: "reports", label: "Reports", href: "/app/reports", icon: BarChart3 },
+  { key: "chessUnits", label: "CHESS Business Units", href: "/app/business-units", icon: Building2 },
+  { key: "chessClients", label: "Client Service Access", href: "/app/client-profiles", icon: Users },
+  { key: "chessApprovals", label: "Action Approvals", href: "/app/action-approvals", icon: CheckSquare },
+  { key: "chessFinance", label: "Finance Operations", href: "/app/finance-operations", icon: BarChart3 },
+  { key: "chessRegulated", label: "Regulated Services", href: "/app/regulated-services", icon: Building2 },
+  { key: "chessAi", label: "AI Task Review", href: "/app/ai-operations", icon: Workflow },
+  { key: "chessBilling", label: "Invoice Approvals", href: "/app/service-billing", icon: FileText },
+  { key: "chessReports", label: "CHESS Reports", href: "/app/operations-reports", icon: BarChart3 },
+  { key: "chessIntelligence", label: "AI, Billing & Reports", href: "/app/operations-intelligence", icon: BarChart3 },
   { key: "settings", label: "Settings", href: "/app/settings", icon: Settings },
 ];

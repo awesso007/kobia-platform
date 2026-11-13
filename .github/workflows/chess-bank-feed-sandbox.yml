@@ -1,0 +1,28 @@
+name: CHESS bank feed provider sandbox contract
+on:
+  workflow_dispatch:
+jobs:
+  isolated-bank-feed-contract:
+    runs-on: ubuntu-latest
+    environment: chess-bank-feed-sandbox
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      CHESS_BANK_FEED_SANDBOX_VALIDATE: ${{ vars.CHESS_BANK_FEED_SANDBOX_VALIDATE }}
+      CHESS_BANK_FEED_SANDBOX_ISOLATED: ${{ vars.CHESS_BANK_FEED_SANDBOX_ISOLATED }}
+      CHESS_BANK_FEED_SOURCE: ${{ vars.CHESS_BANK_FEED_SOURCE }}
+      CHESS_BANK_FEED_API_URL: ${{ vars.CHESS_BANK_FEED_API_URL }}
+      CHESS_BANK_FEED_ALLOWED_HOST: ${{ vars.CHESS_BANK_FEED_ALLOWED_HOST }}
+      CHESS_BANK_FEED_API_KEY: ${{ secrets.CHESS_BANK_FEED_API_KEY }}
+      CHESS_BANK_FEED_SANDBOX_ACCOUNT_REF: ${{ vars.CHESS_BANK_FEED_SANDBOX_ACCOUNT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Verify approved test bank connection (no import)
+        run: node scripts/chess-bank-feed-sandbox-validate.mjs
+
+# Manual-only read-only contract check. Never use customer tokens or
+# a production bank connection. Does not insert or post financial rows.

@@ -1,3 +1,4 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
 /*
  * Workflow publish API (Sprint 18, authenticated). POST toggles status; defaults
  * to ACTIVE when no status is sent (DRAFT -> ACTIVE bumps version). RBAC
@@ -21,7 +22,7 @@ function fail(err: unknown) {
 const VALID = ["DRAFT", "ACTIVE", "PAUSED", "ARCHIVED"] as const;
 type Status = (typeof VALID)[number];
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+async function POSTOriginal(req: NextRequest, { params }: { params: { id: string } }) {
   let body: Record<string, unknown> = {};
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -39,3 +40,5 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return fail(err);
   }
 }
+
+export const POST = withAuditedHistoricalMutation("workflows/[id]/publish", "POST", POSTOriginal);

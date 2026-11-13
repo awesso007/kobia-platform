@@ -9,6 +9,7 @@ import { getTenantDb, NoTenantError } from "@/lib/db/get-tenant-db";
 import { requirePermission, PermissionError, getCurrentMembership } from "@/lib/rbac/require-permission";
 import { findOrCreateDm } from "@/lib/chat/mutations";
 
+
 export const dynamic = "force-dynamic";
 
 function fail(err: unknown) {
@@ -34,6 +35,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Cannot DM yourself." }, { status: 400 });
     }
     const { db } = getTenantDb();
+    const target = await db.membership.findFirst({
+      where: { clerkUserId: targetUserId, status: "ACTIVE" }, select: { id: true },
+    });
+    if (!target) return NextResponse.json({ ok: false, error: "User not found." }, { status: 404 });
     const id = await findOrCreateDm(db, member.clerkUserId, targetUserId);
     return NextResponse.json({ ok: true, id }, { status: 201 });
   } catch (err) {

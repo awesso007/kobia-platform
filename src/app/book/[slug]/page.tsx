@@ -10,7 +10,9 @@
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
-import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
+import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { activePublicTenantSchema } from "@/lib/security/public-tenant";
+import { publicSurfaceAction } from "@/lib/security/public-surface-round53";
 import { BookingClient, type PublicBookingPage } from "./BookingClient";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +45,9 @@ export default async function PublicBookingPage({
 
   let data: PublicBookingPage | null = null;
   try {
-    const db = getTenantPrisma(schemaNameForSlug(tenantSlug));
+    const schema = await activePublicTenantSchema(tenantSlug);
+    if (!schema) return notAvailable;
+    const db = getTenantPrisma(schema);
     const page = await db.bookingPage.findUnique({
       where: { slug: params.slug },
       include: { availability: { select: { dayOfWeek: true } } },
@@ -52,6 +56,9 @@ export default async function PublicBookingPage({
       const weekdays = Array.from(new Set(page.availability.map((a) => a.dayOfWeek))).sort();
       data = {
         tenantSlug,
+        siteKey: process.env.CHESS_PUBLIC_FORM_ABUSE_ENABLED === "true" ?
+          (process.env.NEXT_PUBLIC_CHESS_TURNSTILE_SITE_KEY ?? "") : "",
+        challengeAction: publicSurfaceAction(tenantSlug, params.slug),
         slug: page.slug,
         name: page.name,
         description: page.description,

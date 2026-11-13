@@ -5,7 +5,8 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { NextResponse, type NextRequest } from "next/server";
-import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
+import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { activePublicTenantSchema } from "@/lib/security/public-tenant";
 import { closePortalSession, PORTAL_COOKIE } from "@/lib/helpdesk/portal";
 
 export const dynamic = "force-dynamic";
@@ -21,8 +22,8 @@ export async function POST(req: NextRequest) {
   const token = req.cookies.get(PORTAL_COOKIE)?.value;
   if (tenant && token) {
     try {
-      const db = getTenantPrisma(schemaNameForSlug(tenant));
-      await closePortalSession(db, token);
+      const schema = await activePublicTenantSchema(tenant);
+      if (schema) await closePortalSession(getTenantPrisma(schema), token);
     } catch {
       // best-effort; clear the cookie regardless
     }

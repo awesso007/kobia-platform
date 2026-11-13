@@ -32,35 +32,66 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
     return NextResponse.json({ ok: false, error: "Not found." }, { status: 404 });
   }
 
-  const link = await db.fileShareLink.findUnique({
-    where: { slug: params.slug },
-    include: { file: true },
-  });
-  if (!link || !link.file || link.file.status === "DELETED") {
-    return NextResponse.json({ ok: false, error: "This link is no longer available." }, { status: 404 });
+  // A public capability is not a generic read permission. Validate the
+  // link, consume its quota and commit a privacy-minimal audit together.
+  // The authorization never depends solely on knowing a storage key.
+  let granted;
+  try {
+    granted=await db.$transaction(async tx=>{
+      const link=await tx.fileShareLink.findUnique({
+        where:{slug:params.slug},include:{file:true},
+      });
+      const now=Date.now();
+      let status=404;
+      let allowed=!!link?.file && link.file.status==="READY";
+      if(allowed&&link?.expiresAt&&link.expiresAt.getTime()<now){
+        allowed=false;status=410;
+      }
+      if(allowed&&link?.maxDownloads!==null&&link?.maxDownloads!==undefined&&
+         link.downloadCount>=link.maxDownloads){
+        allowed=false;status=410;
+      }
+      if(allowed&&link?.password){
+        const provided=req.nextUrl.searchParams.get("password")??"";
+        if(!provided||!verifySharePassword(provided,link.password)){
+          allowed=false;status=401;
+        }
+      }
+      if(allowed&&link){
+        // Conditional write plus SERIALIZABLE ensures concurrent requests
+        // never consume more than the configured download cap.
+        const updated=await tx.fileShareLink.updateMany({
+          where:{
+            id:link.id,
+            ...(link.maxDownloads!==null?{
+              downloadCount:{lt:link.maxDownloads},
+            }:{}),
+          },
+          data:{downloadCount:{increment:1}},
+        });
+        if(updated.count!==1){allowed=false;status=410;}
+      }
+      await tx.chessSecurityEvent.create({data:{
+        actorClerkUserId:null,action:"HISTORICAL_PUBLIC_FILE_SHARE_READ",
+        resourceType:"File",resourceId:link?.file?.id??"UNKNOWN",
+        decision:allowed?"ALLOW":"DENY",
+      }});
+      return allowed&&link?.file?{file:link.file,status:200}:{file:null,status};
+    },{isolationLevel:"Serializable"});
+  }catch{
+    return NextResponse.json({ok:false,error:"Share unavailable."},{status:503});
   }
-
-  if (link.expiresAt && link.expiresAt.getTime() < Date.now()) {
-    return NextResponse.json({ ok: false, error: "This link has expired." }, { status: 410 });
+  if(!granted.file){
+    return NextResponse.json({ok:false,error:"Share unavailable."},{
+      status:granted.status,
+    });
   }
-  if (link.maxDownloads !== null && link.downloadCount >= link.maxDownloads) {
-    return NextResponse.json({ ok: false, error: "This link has reached its download limit." }, { status: 410 });
-  }
-
-  if (link.password) {
-    const provided = req.nextUrl.searchParams.get("password") ?? "";
-    if (!provided || !verifySharePassword(provided, link.password)) {
-      return NextResponse.json({ ok: false, error: "A valid password is required." }, { status: 401 });
-    }
-  }
-
-  await db.fileShareLink.update({
-    where: { id: link.id },
-    data: { downloadCount: { increment: 1 } },
-  });
 
   const inline = req.nextUrl.searchParams.get("inline") === "1";
-  const url = await fileDownloadUrl(link.file, { inline, expiresIn: 60 * 60 });
+  const url = await fileDownloadUrl(granted.file, { inline, expiresIn: 60 });
   const absolute = url.startsWith("http") ? url : new URL(url, req.nextUrl.origin).toString();
-  return NextResponse.redirect(absolute, 302);
+  const response=NextResponse.redirect(absolute,302);
+  response.headers.set("Cache-Control","private, no-store");
+  response.headers.set("X-Content-Type-Options","nosniff");
+  return response;
 }

@@ -8,12 +8,17 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { NextResponse } from "next/server";
+import { requireKobiaCronAuth } from "@/lib/security/cron-authorization";
 import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { activeWebhookTenantSchema } from "@/lib/security/legacy-webhook-tenant";
 import { resumeWaitingRuns } from "@/lib/workflows/runner";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
+  // Authentication must precede tenant enumeration and all side effects.
+  const denied = requireKobiaCronAuth(req);
+  if (denied) return denied;
   try {
     const { PrismaClient } = await import("@/lib/db/generated/platform");
     const platform = new PrismaClient();
@@ -30,7 +35,10 @@ export async function GET() {
     const results: { tenant: string; resumed: number; error?: string }[] = [];
     for (const t of tenants) {
       try {
-        const db = getTenantPrisma(t.schemaName);
+        // Never let a stale platform row route a worker into a foreign schema.
+        const schema = await activeWebhookTenantSchema(t.slug);
+        if (!schema || schema !== t.schemaName) continue;
+        const db = getTenantPrisma(schema);
         const { resumed } = await resumeWaitingRuns(db);
         results.push({ tenant: t.slug, resumed });
       } catch (err) {

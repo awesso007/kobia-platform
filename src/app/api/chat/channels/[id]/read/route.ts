@@ -9,6 +9,8 @@ import { getTenantDb, NoTenantError } from "@/lib/db/get-tenant-db";
 import { requirePermission, PermissionError, getCurrentMembership } from "@/lib/rbac/require-permission";
 import { markRead, ensureMember } from "@/lib/chat/mutations";
 
+import { authorizedChatChannel } from "@/lib/security/historical-chat-scope";
+
 export const dynamic = "force-dynamic";
 
 function fail(err: unknown) {
@@ -29,7 +31,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const member = await getCurrentMembership();
     if (!member) return NextResponse.json({ ok: true });
     const { db } = getTenantDb();
-    await ensureMember(db, params.id, member.clerkUserId);
+    const access = await authorizedChatChannel(db, params.id, member.clerkUserId);
+    if (!access) return NextResponse.json({ ok: false, error: "Channel not found." }, { status: 404 });
+    if (access === "PUBLIC") await ensureMember(db, params.id, member.clerkUserId);
     await markRead(db, {
       channelId: params.id,
       userId: member.clerkUserId,

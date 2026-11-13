@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth";
 import { db } from "@/lib/db";
+import {auditedLegacyEntityExport,parseLegacyLedgerRange} from "@/lib/accounting/legacy-tax-export";
 import { formatCents } from "@/lib/accounting/ledger";
 import { buildGeneralLedger } from "@/lib/accounting/general-ledger";
 
@@ -44,30 +45,33 @@ export async function GET(req: Request) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
-  const today = new Date();
-  const startDate = startStr
-    ? new Date(startStr + "T00:00:00")
-    : new Date(today.getFullYear(), 0, 1);
-  const endDate = endStr ? new Date(endStr + "T23:59:59") : today;
+  const range = parseLegacyLedgerRange(startStr,endStr);
+  if(!range) return new NextResponse("Invalid date range", {status:400});
+  const {startDate,endDate}=range;
 
-  const gl = await buildGeneralLedger({
-    tenantId: auth.tenant.id,
-    entityId: entity.id,
-    accountId,
-    startDate,
-    endDate,
-  });
-  if (!gl) return new NextResponse("Account not found", { status: 404 });
+  let report;
+  try{
+    report=await auditedLegacyEntityExport(auth,entityId,"GENERAL_LEDGER",
+      async(tx,authorizedEntity)=>buildGeneralLedger({
+        tenantId:auth.tenant.id,entityId:authorizedEntity.id,
+        accountId,startDate,endDate,client:tx,
+      }));
+  }catch{
+    return new NextResponse("Export unavailable", {status:503});
+  }
+  if(!report)return new NextResponse("Forbidden", {status:403});
+  const {entity:authorizedEntity,data:gl}=report;
+  if(!gl)return new NextResponse("Account not found", {status:404});
 
   const startDateStr = startDate.toISOString().slice(0, 10);
   const endDateStr = endDate.toISOString().slice(0, 10);
 
   const lines: string[] = [];
   lines.push(
-    `General Ledger — ${csvEscape(entity.name)} — ${csvEscape(gl.code)} ${csvEscape(gl.name)}`
+    `General Ledger — ${csvEscape(authorizedEntity.name)} — ${csvEscape(gl.code)} ${csvEscape(gl.name)}`
   );
   lines.push(`Period,${startDateStr} to ${endDateStr}`);
-  lines.push(`Currency,${entity.baseCurrency ?? "USD"}`);
+  lines.push(`Currency,${authorizedEntity.baseCurrency}`);
   lines.push("");
   lines.push("Date,JE #,Source,Description,Debit,Credit,Running Balance");
   lines.push(
@@ -100,7 +104,8 @@ export async function GET(req: Request) {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="${filename}"`,
-      "Cache-Control": "no-store",
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

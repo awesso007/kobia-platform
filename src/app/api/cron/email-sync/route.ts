@@ -11,13 +11,18 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { NextResponse } from "next/server";
+import { requireKobiaCronAuth } from "@/lib/security/cron-authorization";
 import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { activeWebhookTenantSchema } from "@/lib/security/legacy-webhook-tenant";
 import { syncAccount, type SyncResult } from "@/lib/email/imap-sync";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export async function GET() {
+export async function GET(req: Request) {
+  // Authentication must precede tenant enumeration and all side effects.
+  const denied = requireKobiaCronAuth(req);
+  if (denied) return denied;
   try {
     const { PrismaClient } = await import("@/lib/db/generated/platform");
     const platform = new PrismaClient();
@@ -34,7 +39,10 @@ export async function GET() {
     const results: { tenant: string; accounts: SyncResult[]; error?: string }[] = [];
     for (const t of tenants) {
       try {
-        const db = getTenantPrisma(t.schemaName);
+        // Never let a stale platform row route a worker into a foreign schema.
+        const schema = await activeWebhookTenantSchema(t.slug);
+        if (!schema || schema !== t.schemaName) continue;
+        const db = getTenantPrisma(schema);
         const accounts = await db.emailAccount.findMany({
           where: { status: "ACTIVE", provider: "SMTP_IMAP" },
         });

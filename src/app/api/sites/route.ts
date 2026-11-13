@@ -1,3 +1,5 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Sites collection API (Sprint 17, authenticated). GET lists the tenant's sites
  * with page counts; POST creates a new site (with an auto home page). Both
@@ -19,7 +21,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET() {
+async function historicalAuditedGet() {
   try {
     await requirePermission("record:read");
     const { db } = getTenantDb();
@@ -30,7 +32,7 @@ export async function GET() {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function POSTOriginal(req: NextRequest) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -53,3 +55,7 @@ export async function POST(req: NextRequest) {
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("sites",historicalAuditedGet);
+
+export const POST = withAuditedHistoricalMutation("sites", "POST", POSTOriginal);

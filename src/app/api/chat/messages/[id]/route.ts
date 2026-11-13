@@ -9,6 +9,8 @@ import { getTenantDb, NoTenantError } from "@/lib/db/get-tenant-db";
 import { requirePermission, PermissionError, getCurrentMembership } from "@/lib/rbac/require-permission";
 import { editMessage, deleteMessage } from "@/lib/chat/mutations";
 
+import { authorizedChatChannel } from "@/lib/security/historical-chat-scope";
+
 export const dynamic = "force-dynamic";
 
 function fail(err: unknown) {
@@ -29,9 +31,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const bodyText = String(body.bodyText ?? "").trim();
     if (!bodyText) return NextResponse.json({ ok: false, error: "Message body is required." }, { status: 400 });
     const { db } = getTenantDb();
-    const msg = await db.chatMessage.findUnique({ where: { id: params.id }, select: { authorId: true } });
+    const msg = await db.chatMessage.findUnique({ where: { id: params.id }, select: { authorId: true, channelId: true } });
     if (!msg) return NextResponse.json({ ok: false, error: "Message not found." }, { status: 404 });
     const member = await getCurrentMembership();
+    if (!member || !await authorizedChatChannel(db, msg.channelId, member.clerkUserId))
+      return NextResponse.json({ ok: false, error: "Message not found." }, { status: 404 });
     if (member && member.clerkUserId !== msg.authorId) {
       return NextResponse.json({ ok: false, error: "Only the author can edit." }, { status: 403 });
     }
@@ -46,9 +50,11 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   try {
     await requirePermission("record:update");
     const { db } = getTenantDb();
-    const msg = await db.chatMessage.findUnique({ where: { id: params.id }, select: { authorId: true } });
+    const msg = await db.chatMessage.findUnique({ where: { id: params.id }, select: { authorId: true, channelId: true } });
     if (!msg) return NextResponse.json({ ok: false, error: "Message not found." }, { status: 404 });
     const member = await getCurrentMembership();
+    if (!member || !await authorizedChatChannel(db, msg.channelId, member.clerkUserId))
+      return NextResponse.json({ ok: false, error: "Message not found." }, { status: 404 });
     const isAuthor = member?.clerkUserId === msg.authorId;
     const isAdmin = member?.role === "OWNER" || member?.role === "ADMIN";
     if (member && !isAuthor && !isAdmin) {

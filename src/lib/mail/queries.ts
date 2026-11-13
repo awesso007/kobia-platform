@@ -5,9 +5,9 @@
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
-import type { PrismaClient, EmailFolder } from "@/lib/db/generated/tenant";
+import type { Prisma, PrismaClient, EmailFolder } from "@/lib/db/generated/tenant";
 
-type Db = PrismaClient;
+type Db = PrismaClient | Prisma.TransactionClient;
 
 const PAGE_SIZE = 30;
 const MESSAGE_ORDER = [{ receivedAt: "desc" as const }, { sentAt: "desc" as const }, { createdAt: "desc" as const }];
@@ -35,16 +35,17 @@ const MESSAGE_SELECT = {
 
 /** Resolve an account the given user owns, or null. */
 export async function getOwnedAccount(db: Db, accountId: string, userId: string | null) {
-  const account = await db.emailAccount.findUnique({ where: { id: accountId } });
+  if (!userId) return null;
+  const account = await db.emailAccount.findFirst({ where: { id: accountId, ownerClerkUserId: userId } });
   if (!account) return null;
-  if (userId && account.ownerClerkUserId !== userId) return null;
   return account;
 }
 
 /** All connected accounts for a user (newest first). */
 export async function listAccounts(db: Db, userId: string | null) {
+  if (!userId) return [];
   return db.emailAccount.findMany({
-    where: userId ? { ownerClerkUserId: userId } : {},
+    where: { ownerClerkUserId: userId },
     orderBy: { createdAt: "asc" },
     select: {
       id: true,

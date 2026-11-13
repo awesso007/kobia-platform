@@ -19,7 +19,7 @@ export type BusySlot = { startAt: Date; endAt: Date; title: string };
  * a response other than DECLINED, and the event is not CANCELED.
  */
 export async function getBusySlots(
-  db: PrismaClient,
+  db: Pick<PrismaClient, "calendarEvent">,
   clerkUserId: string,
   from: Date,
   to: Date,
@@ -98,7 +98,7 @@ export async function getFreeSlots(
  * max-advance, and existing (non-canceled) bookings.
  */
 export async function getBookingSlots(
-  db: PrismaClient,
+  db: Pick<PrismaClient, "bookingAvailability" | "booking" | "calendarEvent">,
   page: {
     id: string;
     durationMinutes: number;

@@ -1,0 +1,21 @@
+{
+  "name": "KOBIA — CHESS fictional demo (branch only)",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bookworm",
+  "postCreateCommand": "npm ci --include=optional --no-audit --no-fund",
+  "forwardPorts": [
+    3000
+  ],
+  "portsAttributes": {
+    "3000": {
+      "label": "CHESS fictional demo",
+      "onAutoForward": "notify"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "Prisma.prisma"
+      ]
+    }
+  }
+}

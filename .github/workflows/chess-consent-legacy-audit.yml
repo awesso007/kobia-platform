@@ -1,0 +1,29 @@
+name: CHESS read-only legacy consent inventory
+on:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    environment: chess-staging
+    env:
+      CHESS_CONSENT_AUDIT_ENABLED: ${{ vars.CHESS_CONSENT_AUDIT_ENABLED }}
+      CHESS_CONSENT_AUDIT_ISOLATED: ${{ vars.CHESS_CONSENT_AUDIT_ISOLATED }}
+      CHESS_CONSENT_AUDIT_TENANT: ${{ vars.CHESS_CONSENT_AUDIT_TENANT }}
+      CHESS_CONSENT_AUDIT_DATABASE_URL: ${{ secrets.CHESS_CONSENT_AUDIT_DATABASE_URL }}
+      CHESS_CONSENT_AUDIT_ALLOWED_HOST: ${{ vars.CHESS_CONSENT_AUDIT_ALLOWED_HOST }}
+      CHESS_CONSENT_AUDIT_REVIEW_TICKET: ${{ vars.CHESS_CONSENT_AUDIT_REVIEW_TICKET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Check anonymous aggregate audit policy
+        run: node --test scripts/chess-consent-audit-policy-check.mjs
+      - name: Run protected SELECT-only consent history inventory
+        run: node scripts/chess-consent-legacy-audit.mjs
+
+# This workflow never modifies data, reissues consent, executes migrations,
+# proves legal signatures, or releases clients to production.

@@ -9,8 +9,8 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { NextResponse, type NextRequest } from "next/server";
-import { createHash } from "crypto";
-import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
+import { admitPublicFormSubmission, readPublicFormBody,
+  publicFormErrorResponse, PublicFormGateError } from "@/lib/security/public-form-abuse";
 import { submitForm } from "@/lib/forms2/mutations";
 
 export const runtime = "nodejs";
@@ -27,18 +27,6 @@ function sanitizeSlug(slug: string | null | undefined): string | null {
   return /^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/.test(slug) ? slug : null;
 }
 
-// Best-effort in-memory rate limit: max 20 submits / 60s per IP.
-const RATE_WINDOW_MS = 60_000;
-const RATE_MAX = 20;
-const hits = new Map<string, number[]>();
-function rateLimited(ip: string): boolean {
-  const now = Date.now();
-  const recent = (hits.get(ip) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
-  recent.push(now);
-  hits.set(ip, recent);
-  return recent.length > RATE_MAX;
-}
-
 export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS });
 }
@@ -48,31 +36,49 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
   if (!tenantSlug) {
     return NextResponse.json({ ok: false, error: "Missing or invalid tenant." }, { status: 400, headers: CORS });
   }
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
-  if (rateLimited(ip)) {
-    return NextResponse.json({ ok: false, error: "Too many submissions. Try again shortly." }, { status: 429, headers: CORS });
+  let body: Record<string, unknown>;
+  try {
+    const raw = await readPublicFormBody(req);
+    const value: unknown = JSON.parse(new TextDecoder().decode(raw));
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      throw Error("Invalid JSON root");
+    body = value as Record<string, unknown>;
+  } catch (error) {
+    const failure = error instanceof PublicFormGateError
+      ? publicFormErrorResponse(error) : { status: 400, message: "Invalid body." };
+    return NextResponse.json({ ok: false, error: failure.message },
+      { status: failure.status, headers: CORS });
+  }
+  const values = (body.values && typeof body.values === "object" &&
+    !Array.isArray(body.values) ? body.values : {}) as Record<string, unknown>;
+  // Prevent caller-injected challenge fields from being persisted in
+  // the FormV2Submission JSON document by the legacy submit helper.
+  delete values.turnstileToken;
+  delete values["cf-turnstile-response"];
+  let admitted: Awaited<ReturnType<typeof admitPublicFormSubmission>>;
+  try {
+    admitted = await admitPublicFormSubmission(req, {
+      tenant: tenantSlug, kind: "v2", form: params.slug, token: body.turnstileToken,
+    });
+  } catch (error) {
+    const failure = publicFormErrorResponse(error);
+    return NextResponse.json({ ok: false, error: failure.message },
+      { status: failure.status, headers: {
+        ...CORS, "Cache-Control": "no-store",
+        ...(failure.retryAfter ? { "Retry-After": failure.retryAfter } : {}),
+      } });
   }
 
-  let body: Record<string, unknown> = {};
   try {
-    body = (await req.json()) as Record<string, unknown>;
-  } catch {
-    return NextResponse.json({ ok: false, error: "Invalid body." }, { status: 400, headers: CORS });
-  }
-  const values = (body.values && typeof body.values === "object" ? body.values : {}) as Record<string, unknown>;
-  const ipHash = ip !== "unknown" ? createHash("sha256").update(ip).digest("hex").slice(0, 32) : null;
-
-  try {
-    const db = getTenantPrisma(schemaNameForSlug(tenantSlug));
-    const result = await submitForm(db, params.slug, values, {
+    const result = await submitForm(admitted.db, params.slug, values, {
       userAgent: req.headers.get("user-agent"),
       referrer: req.headers.get("referer"),
-      ipHash,
+      ipHash: admitted.ipHash,
     });
     if (!result) return NextResponse.json({ ok: false, error: "Form not available." }, { status: 404, headers: CORS });
     if (!result.ok) return NextResponse.json({ ok: false, errors: result.errors }, { status: 422, headers: CORS });
     return NextResponse.json(result, { status: 201, headers: CORS });
-  } catch (err) {
-    return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500, headers: CORS });
+  } catch {
+    return NextResponse.json({ ok: false, error: "Form temporarily unavailable." }, { status: 503, headers: CORS });
   }
 }

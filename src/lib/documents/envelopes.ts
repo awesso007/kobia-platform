@@ -161,56 +161,78 @@ export async function signByToken(
     tenantSlug?: string | null;
   },
 ): Promise<{ ok: boolean; detail: string; completed?: boolean }> {
-  const signer = await db.envelopeSigner.findUnique({ where: { token } });
-  if (!signer) return { ok: false, detail: "invalid token" };
-  if (signer.status === "SIGNED") return { ok: false, detail: "already signed" };
-  if (signer.status === "DECLINED") return { ok: false, detail: "declined" };
+  if (!/^[A-Za-z0-9_-]{16,128}$/.test(token) ||
+      typeof input.signatureData !== "string" || input.signatureData.length < 1 ||
+      input.signatureData.length > 120)
+    return { ok: false, detail: "invalid signer proof" };
 
-  const env = await db.envelope.findUnique({
-    where: { id: signer.envelopeId },
-    include: { signers: { orderBy: { order: "asc" } } },
-  });
-  if (!env) return { ok: false, detail: "envelope not found" };
-  if (env.status === "VOIDED" || env.status === "COMPLETED") {
-    return { ok: false, detail: `envelope ${env.status}` };
-  }
-
-  await db.envelopeSigner.update({
-    where: { id: signer.id },
-    data: {
-      status: "SIGNED" as never,
-      signedAt: new Date(),
-      signatureData: input.signatureData ?? null,
-      ...(input.fields !== undefined ? { fields: input.fields as never } : {}),
-    },
-  });
-  await logAudit(db, env.id, "SIGNED", {
-    signerId: signer.id,
-    ipAddress: input.ipAddress,
-    userAgent: input.userAgent,
-  });
-
-  const remaining = env.signers.filter((s) => s.id !== signer.id && s.status !== "SIGNED");
-  if (remaining.length === 0) {
-    await db.envelope.update({
-      where: { id: env.id },
-      data: { status: "COMPLETED" as never, completedAt: new Date() },
+  const outcome = await db.$transaction(async tx => {
+    const signer = await tx.envelopeSigner.findUnique({ where: { token } });
+    if (!signer || !["SENT", "VIEWED"].includes(signer.status))
+      return { ok: false as const, detail: "signer unavailable" };
+    const env = await tx.envelope.findUnique({
+      where: { id: signer.envelopeId },
+      include: { signers: { orderBy: { order: "asc" } } },
     });
-    await logAudit(db, env.id, "COMPLETED");
-    return { ok: true, detail: "all signers complete", completed: true };
-  }
+    if (!env || env.status !== "SENT") return { ok: false as const, detail: "envelope unavailable" };
+    // Later signers must not sign before the preceding signer completes.
+    const firstOpen = env.signers.find(s => s.status !== "SIGNED");
+    if (!firstOpen || firstOpen.id !== signer.id)
+      return { ok: false as const, detail: "signer unavailable" };
 
-  const next = remaining.sort((a, b) => a.order - b.order)[0]!;
-  if (next.status === "PENDING") {
-    const sent = await emailSigner(db, env, next, input.tenantSlug);
-    await db.envelopeSigner.update({
-      where: { id: next.id },
-      data: { status: "SENT" as never, reminderSentAt: new Date() },
+    const signed = await tx.envelopeSigner.updateMany({
+      where: { id: signer.id, status: { in: ["SENT", "VIEWED"] } },
+      data: {
+        status: "SIGNED", signedAt: new Date(), signatureData: input.signatureData,
+        ...(input.fields !== undefined ? { fields: input.fields as never } : {}),
+      },
     });
-    await logAudit(db, env.id, "SENT", { signerId: next.id });
-    return { ok: true, detail: sent ? `next: ${next.email}` : "next signer queued (no email account)" };
+    if (signed.count !== 1) throw new Error("Signature state changed");
+    await tx.envelopeAuditEvent.create({
+      data: {
+        envelopeId: env.id, signerId: signer.id, event: "SIGNED",
+        ipAddress: input.ipAddress ?? null,
+        userAgent: input.userAgent ?? null,
+      },
+    });
+
+    const next = env.signers.find(s => s.id !== signer.id && s.status !== "SIGNED");
+    if (!next) {
+      const result = await tx.envelope.updateMany({
+        where: { id: env.id, status: "SENT" },
+        data: { status: "COMPLETED", completedAt: new Date() },
+      });
+      if (result.count !== 1) throw new Error("Envelope status changed");
+      await tx.envelopeAuditEvent.create({
+        data: { envelopeId: env.id, event: "COMPLETED" },
+      });
+      return { ok: true as const, completed: true as const, next: null,
+        envelope: { id: env.id, name: env.name, message: env.message } };
+    }
+    // Claim the next signer during the same transaction; never email a
+    // different signer based on a pre-commit snapshot.
+    if (next.status !== "PENDING") throw new Error("Invalid signer order");
+    const advanced = await tx.envelopeSigner.updateMany({
+      where: { id: next.id, status: "PENDING" },
+      data: { status: "SENT", reminderSentAt: new Date() },
+    });
+    if (advanced.count !== 1) throw new Error("Next signer state changed");
+    await tx.envelopeAuditEvent.create({
+      data: { envelopeId: env.id, signerId: next.id, event: "SENT" },
+    });
+    return { ok: true as const, completed: false as const,
+      next: { id: next.id, name: next.name, email: next.email, token: next.token },
+      envelope: { id: env.id, name: env.name, message: env.message } };
+  }, { isolationLevel: "Serializable", maxWait: 5000, timeout: 15000 });
+
+  if (!outcome.ok) return { ok: false, detail: outcome.detail };
+  // External email is NOT part of a DB commit. A failed email may require
+  // reminder retry / operator reconciliation, never a duplicate signature.
+  if (outcome.next) {
+    await emailSigner(db, outcome.envelope, outcome.next, input.tenantSlug)
+      .catch(() => false);
   }
-  return { ok: true, detail: "signed" };
+  return { ok: true, detail: "signature accepted", completed: outcome.completed };
 }
 
 /** Mark a signer as having viewed the signing page (audit only). */
@@ -219,16 +241,27 @@ export async function markViewed(
   token: string,
   opts: { ipAddress?: string | null; userAgent?: string | null } = {},
 ): Promise<void> {
-  const signer = await db.envelopeSigner.findUnique({ where: { token } });
-  if (!signer) return;
-  if (signer.status === "SENT") {
-    await db.envelopeSigner.update({ where: { id: signer.id }, data: { status: "VIEWED" as never } });
-  }
-  await logAudit(db, signer.envelopeId, "VIEWED", {
-    signerId: signer.id,
-    ipAddress: opts.ipAddress,
-    userAgent: opts.userAgent,
-  });
+  if (!/^[A-Za-z0-9_-]{16,128}$/.test(token)) return;
+  await db.$transaction(async tx => {
+    const signer = await tx.envelopeSigner.findUnique({
+      where: { token }, select: { id: true, envelopeId: true, status: true },
+    });
+    if (!signer || signer.status !== "SENT") return;
+    const env = await tx.envelope.findUnique({
+      where: { id: signer.envelopeId }, select: { status: true },
+    });
+    if (env?.status !== "SENT") return;
+    const changed = await tx.envelopeSigner.updateMany({
+      where: { id: signer.id, status: "SENT" }, data: { status: "VIEWED" },
+    });
+    if (changed.count !== 1) return;
+    await tx.envelopeAuditEvent.create({
+      data: {
+        envelopeId: signer.envelopeId, signerId: signer.id, event: "VIEWED",
+        ipAddress: opts.ipAddress ?? null, userAgent: opts.userAgent ?? null,
+      },
+    });
+  }, { isolationLevel: "Serializable", maxWait: 5000, timeout: 10000 });
 }
 
 /**

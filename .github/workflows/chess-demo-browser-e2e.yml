@@ -1,0 +1,83 @@
+name: CHESS fictional demo browser and accessibility acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_isolated_demo:
+        description: "Confirm the protected DATABASE_URL is only the isolated Neon chess_demo database."
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chess-demo-browser-e2e
+  cancel-in-progress: false
+
+jobs:
+  browser-acceptance:
+    if: github.ref == 'refs/heads/feature/operations-overview' && inputs.confirm_isolated_demo == true
+    runs-on: ubuntu-latest
+    environment: chess-demo-e2e
+    timeout-minutes: 30
+    env:
+      NODE_ENV: development
+      CHESS_DEMO_MODE: "true"
+      NEXT_PUBLIC_DEFAULT_TENANT: chess-demo
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DATABASE_URL }}
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+      CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+      CHESS_DEMO_OWNER_EMAIL: ${{ vars.CHESS_DEMO_OWNER_EMAIL }}
+      CHESS_DEMO_EMPLOYEE_EMAIL: ${{ vars.CHESS_DEMO_EMPLOYEE_EMAIL }}
+      CHESS_DEMO_CLIENT_EMAIL: ${{ vars.CHESS_DEMO_CLIENT_EMAIL }}
+      CHESS_DEMO_E2E_BASE_URL: http://127.0.0.1:3000
+    steps:
+      - name: Checkout feature branch only
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install application dependencies
+        run: npm ci --include=optional --no-audit --no-fund
+
+      - name: Install pinned browser-only test tools
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund \
+            @playwright/test@1.65.0 \
+            @clerk/testing@1.14.11 \
+            @axe-core/playwright@4.14.0
+          npx playwright install --with-deps chromium
+
+      - name: Validate protected test configuration and write untracked environment
+        run: node scripts/chess-demo-e2e-prepare.mjs
+
+      - name: Provision only the isolated fictional demo tenant
+        run: npm run demo:setup
+
+      - name: Verify demo fixtures before browser sign-in
+        run: npm run demo:verify
+
+      - name: Run signed-in employee/client browser tests and axe checks
+        run: npm run test:e2e
+
+      - name: Upload browser report and failure traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chess-demo-browser-acceptance
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+# Manual only, protected by the chess-demo-e2e GitHub Environment.
+# It uses verified Clerk development/test users and a dedicated fictional
+# Neon database. It never deploys, merges, accepts consent or enables providers.

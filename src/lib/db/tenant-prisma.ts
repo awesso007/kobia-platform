@@ -13,6 +13,7 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { PrismaClient } from "@/lib/db/generated/tenant";
+import { scopedHistoricalTenantClient } from "./historical-read-scope";
 
 const clientCache = new Map<string, PrismaClient>();
 
@@ -34,6 +35,10 @@ export function getTenantPrisma(schemaName: string): PrismaClient {
   if (!/^tenant_[a-z0-9_]+$/.test(schemaName)) {
     throw new Error(`Refusing to bind to unsafe schema name: ${schemaName}`);
   }
+  // Explicit getTenantPrisma calls inside an audited request cannot escape
+  // the tenant-local SELECT transaction or switch to a different schema.
+  const scoped = scopedHistoricalTenantClient(null, schemaName);
+  if (scoped) return scoped;
   const cached = clientCache.get(schemaName);
   if (cached) return cached;
 

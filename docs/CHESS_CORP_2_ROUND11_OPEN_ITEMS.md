@@ -1,0 +1,605 @@
+# CHESS CORP 2 - Round 11 verified outstanding roadmap register
+
+> **CURRENT ROADMAP STATUS: Round 24.** For the up-to-date eight-milestone
+> matrix and exact coding versus external release state, see
+> [CHESS_CORP_2_ROADMAP.md](CHESS_CORP_2_ROADMAP.md).
+> This file is the source **open-item ID register** with historical
+> chronological updates; some early "CODE" descriptions have later code
+> partial fixes. For the *single active owner-supplied* credential and
+> approval list, use
+> [CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md](CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md).
+> No green CI or later note automatically closes a release blocker.
+>
+**Scope:** Milestones 1-8, reconciled against
+`docs/CHESS_CORP_2_ROADMAP.md` through Round 10 and the recorded
+development implementations. The original milestone summaries at the
+top of the roadmap are historical and often superseded by later
+implementations; this register must not count those twice.
+
+**Status legend:** `CODE` = meaningful engineering work still missing;
+`EXTERNAL` = provider credential, account, human verification or
+deployment evidence cannot be satisfied by a Git commit alone;
+`BOTH` = additional code plus external evidence. `DEFERRED` =
+a future feature that must not be assumed safe or required without
+a separately approved cross-business legal/data policy. No task is
+marked production complete by green CI.
+
+## Milestone 1 - Unified client profile
+
+- **M1-01 [DEFERRED]** Optional privacy-preserving cross-KOBIA-tenant
+  person identity reconciliation is not implemented. Cross-tenant
+  matching must NOT occur automatically. Requires explicit, documented,
+  legal client identity/permission model if it is ever added.
+- **M1-02 [BOTH]** Complete cross-business client-record and
+  service-grant access validation with real signed-in tenant and
+  business fixtures. Round 14 implements atomic ALLOW/DENY service-link
+  read auditing and adds unit/PostgreSQL regressions; earlier
+  GRANT/REVOKE events remain. Still require every other sensitive
+  access-path audit, remote WORM evidence, two-tenant signed-in E2E,
+  privacy and accessibility approvals.
+- **M1-03 [EXTERNAL]** Obtain independent legal/privacy approval for
+  shared profile visibility and permitted information sharing across
+  distinct CHESS operating entities.
+
+## Milestone 2 - Business units and employees
+
+- **M2-01 [EXTERNAL]** Establish independent legal-entity identity,
+  beneficial ownership, company formation and the true business-unit
+  to legal-company ownership mapping; a label is not a legal entity.
+- **M2-02 [BOTH]** Complete formal verification of relevant role,
+  professional credential, license and active employee assignments
+  against authorized systems, with revocation/renewal evidence and
+  signed-in permission regression.
+- **M2-03 [EXTERNAL]** Independently review employer, broker and
+  registered-firm affiliations before an employee can perform a
+  service requiring those relationships.
+
+## Milestone 3 - Client onboarding, consent and documents
+
+- **M3-01 [BOTH]** Deploy and independently validate the new
+  dedicated, default-off, identity-scoped consent dashboard and
+  disclosure/withdrawal UX with real fictional signed-in clients.
+  Development UI and verified-email record filters exist as of Round 12,
+  but external identity/policy approval, browser accessibility testing,
+  legal e-signatures where required and actual multi-tenant E2E
+  are not complete. A full consent/document portal needs further work.
+- **M3-02 [BOTH]** Integrate an approved signature/e-sign/evidence
+  provider where legally required, independently verify provider
+  provenance and obtain legal approval for the signed text.
+  HMAC acceptance metadata is NOT a legal e-signature.
+- **M3-03 [EXTERNAL]** Provide approved private S3 bucket/KMS,
+  encryption, versioning, retention, object-lock policy as applicable,
+  isolated scanner/ClamAV credentials and real CLEAN/INFECTED
+  sandbox outcomes; code alone cannot activate storage.
+- **M3-04 [BOTH]** Finish independent document legal-hold,
+  retention/deletion and external revocation policies. Round 15 adds
+  versioned write-once retention/hold/suppression metadata, owner-only
+  audit-controlled actions, server-denied future download links, and
+  PostgreSQL tamper/deletion regressions. No hard purge/hold-release
+  operation exists; S3 object lock, already issued short-lived
+  links, provider revocation, signed legal policy and authenticated
+  staging E2E are NOT verified.
+- **M3-05 [EXTERNAL]** Supply a strong consent-evidence signing key
+  from a managed vault, historical key-rotation verification plan,
+  independent policy approval and any external identity/evidence
+  provider credentials.
+- **M3-06 [BOTH]** Apply/rehearse both the Round 11 immutable-consent
+  migration and the Round 15 write-once document lifecycle migration
+  on each approved tenant with independently verified backup and
+  rollback compatibility. Round 15 adds a protected, read-only,
+  SQL-role-restricted legacy consent aggregate inventory script and
+  manual staging workflow. No live tenant inventory, migration,
+  historical evidence reissuance or external review has occurred.
+- **M3-07 [BOTH]** End-to-end verify client grant, version display,
+  withdrawal, expiry and downstream finance/regulated authorization
+  fail-closed behavior using real fictional signed-in sessions.
+
+## Milestone 4 - Internal operations, calendar and scheduling
+
+- **M4-01 [EXTERNAL]** Contract/configure the real calendar gateway
+  with allowlisted create/status/cancel HTTPS URLs, scoped token,
+  employee Google/Microsoft delegated OAuth and appointment-specific
+  sharing authorization. All gateway activation flags remain off.
+- **M4-02 [BOTH]** Deploy and validate per-employee delegated OAuth
+  connection, renewal, revocation, task and appointment permission
+  flows. Round 15 adds default-off connection/status/renew/revoke
+  screens and a host-pinned, nonce/identity-bound gateway adapter,
+  which blocks token revocation while remote event cancellation
+  remains unresolved. A contracted gateway must itself handle
+  provider PKCE/state, callback, secure token storage and expiry;
+  real employee provider sign-in tests and privacy approvals are
+  still pending.
+- **M4-03 [BOTH]** Run actual fictional vendor create/status/cancel
+  sandbox and asynchronous reconciliation tests, including
+  UNKNOWN/CANCEL_UNKNOWN, consent race, webhook/status semantics
+  and no-blind-resend behavior.
+- **M4-04 [BOTH]** Deploy the isolated tenant-allowlisted scheduler
+  and test operations monitoring, stale heartbeats, failure alerts,
+  queue paging/batching and high-volume recurrence behavior.
+- **M4-05 [BOTH]** Finalize non-in-app staff communication choices
+  (optional email/SMS), delivery/overdue escalation policies and
+  any external communication provider consent/retention policy.
+- **M4-06 [BOTH]** Verify employee-facing privacy copy, calendar
+  data retention, cancellation/deletion behavior, service-access
+  controls and production-like staging sign-off.
+- **M4-07 [DEFERRED]** If the same professional is scheduled across
+  independent KOBIA tenants, define a lawfully shared, minimally
+  identifying conflict service. Current exclusion locks are intentionally
+  limited to one tenant; do not silently aggregate tenant calendars.
+- **M4-08 [BOTH]** Observe real appointment-to-calendar delivery;
+  local appointment collision protection and internal outbox code
+  are implemented, but not externally provider-confirmed.
+
+## Milestone 5 - Accounting, bookkeeping, tax and payroll
+
+- **M5-01 [BOTH]** Validate a production-grade, balanced KOBIA
+  general ledger with real approved entity/COA mapping, matched bank
+  sources, journal posting/reversals and independent reconciliation
+  and final review. Current CHESS bridge is largely read-only.
+- **M5-02 [BOTH]** Contract and configure the actual approved Plaid
+  gateway, verified bank consent and delegated access, signed
+  webhook/disconnect/replay processing, incremental bank sync,
+  retention and sandbox evidence. Round 15 adds independently
+  gated, bounded eight-page cursor pagination (up to 4,000 rows)
+  with complete snapshot, duplicate-ID, repeated-cursor and
+  truncation rejection before UNMATCHED-only import; it does NOT
+  establish actual bank authorization, webhook security, provider
+  completeness/atomicity or reconciliation/settlement.
+- **M5-03 [BOTH]** Integrate a certified payroll processor with
+  tested wage/tax calculation, employee enrollment, funding
+  segregation, ACH release, disbursement, payroll tax filings,
+  state/federal remittances and independently reconciled settlement.
+  Provider acknowledgment is not bank settlement.
+- **M5-04 [BOTH]** Integrate professional tax-preparation and filing
+  systems with PTIN/EFIN/client authorizations as applicable, reviewed
+  calculations, actual federal/state e-file receipt, reject/retry
+  handling, retention and segregation of duties.
+- **M5-05 [BOTH]** Run finance/bank/payroll/tax provider sandboxes,
+  real employee grants/consent-revocation role E2E, reconciled
+  ledger tests, backed-up staged migrations and service-specific
+  security/privacy/compliance approval.
+- **M5-06 [CODE]** Implement any missing production reconciliation/
+  posting execution bridges behind provider and independent approval
+  gates rather than relying solely on internal review metadata.
+
+## Milestone 6 - Regulated service coordination and execution
+
+- **M6-01 [EXTERNAL]** Contract and independently validate appropriate
+  official registry coverage for NMLS/mortgage, DOI/insurance,
+  DRE/real estate and securities/investments (CRD/IARD/FINRA/SEC
+  as applicable), including jurisdiction-specific expiry and
+  historical verification evidence.
+- **M6-02 [EXTERNAL]** Independently confirm firm sponsorship,
+  licensed individual eligibility, legal entity/broker/employer
+  affiliation and retained practitioner/firm audit evidence.
+- **M6-03 [BOTH]** Obtain service and external-handoff specific signed
+  disclosures, customer consent provenance, cancellation and
+  retention/incident policies acceptable to regulators and partners.
+- **M6-04 [BOTH]** Supply and independently certify four regulated
+  partner IDs, separately scoped API keys and HTTPS gateway contracts,
+  with real sandbox create/status/uncertain/revocation/retention
+  tests and signed DPAs. Round 15 requires the response to echo the
+  exact service, partner and workflow, with independently scoped
+  per-service API keys; a new default-off binding approval gate
+  prevents legacy unbound responses from being considered verified.
+  The gateway still creates only opaque coordination tickets,
+  not mortgages, policies, agreements or trades.
+- **M6-05 [BOTH]** Connect separate licensed systems for actual
+  mortgage origination/disclosures, insurance quoting and binding,
+  real-estate agency/offers and investment suitability/supervision/
+  trading. The existing opaque partner handoff does none of these.
+- **M6-06 [EXTERNAL]** Complete firm-specific legal review,
+  responsible licensed supervision, staging role/penetration checks,
+  vendor agreements and approval before regulated live records.
+
+## Milestone 7 - AI automation, invoices and financial reports
+
+- **M7-01 [EXTERNAL]** Approve and independently test a contracted AI
+  HTTPS gateway, provider data privacy/DPA, metadata sharing,
+  retention and pricing. Round 16 adds separate DPA and cost approval
+  flags, 128-token/2,048-byte response bounds, a maximum signed
+  per-request cost claim of 5,000 microdollars, and an atomic
+  tenant-local, per-business UTC daily request budget. Actual
+  vendor metering/billing cannot be verified by code alone.
+- **M7-02 [BOTH]** AI task triage and approved non-financial
+  follow-up are implemented with independent human review,
+  daily call reservations, budget visibility and no source
+  client/task text. Round 16 hardens provider cost/output controls.
+  Financial/regulated recommendations, AI ledger posting,
+  tax filing, investment decisions, underwriting or transactions
+  remain unimplemented and require separate validated models and
+  legal/security approvals. Generic approvals are not execution rights.
+- **M7-03 [EXTERNAL]** Supply a contracted, verified invoice-only
+  vendor, approved billing-contact mapping, current billing/service
+  consent, fees/tax/retention/DPA approval, and three distinct
+  active staff identities for draft/review/send. Round 16
+  adds separately approved recurring invoice DRAFT schedules
+  and UI; no provider delivery/charge sandbox or legal approval
+  has been independently verified.
+- **M7-04 [BOTH]** Complete actual merchant billing, collections,
+  subscriptions, refunds/chargebacks, cash settlement, tax and
+  approved GL posting with certified provider evidence.
+  Round 16 adds HMAC-signed, tenant-bound, replay-proof
+  merchant payment/refund/chargeback OBSERVATIONS with immutable
+  receipts and employee review UI, plus independently approved,
+  consent-rechecked MONTHLY DRAFT-only subscription plans.
+  Merchant events never mark invoices paid or post revenue;
+  no money movement, payout reconciliation, disputes,
+  payout tax rules or certified execution gateway exists yet.
+- **M7-05 [BOTH]** Complete genuine GAAP/IFRS accounting close,
+  legal multi-entity mapping, audited statutory consolidation,
+  intercompany eliminations, cash reconciliation and
+  independently signed financial statements.
+  Round 16 adds frozen tamper-resistant monthly OPERATIONAL
+  snapshots, separate owner/admin sign-off, typed export
+  and browser review controls. These capture current workflow
+  states at the time of freezing, not transaction-time history,
+  recognized revenue, settled cash or consolidated ledgers.
+  Statutory consolidation remains pending.
+- **M7-06 [EXTERNAL]** Run real fictional AI/merchant/invoice
+  vendor sandboxes with the current M7 v2 cost contract,
+  signed merchant replay/uncertain-event tests,
+  tenant-allowlisted draft worker, consent/revocation races,
+  three-identity approvals, external ledger and payout
+  reconciliation, monitoring and signed release acceptance.
+  All remain blocked pending credentials, approval and staging.
+
+## Milestone 8 - Security, quality, operations and release
+
+- **M8-01 [BOTH]** Back up, deploy and reconcile all additive
+  tenant-schema migrations across every intended existing tenant;
+  rehearse old-application/new-schema rollback compatibility on a
+  production-like restored clone and record an independent sign-off.
+- **M8-02 [EXTERNAL]** Contract and evidence independent WORM audit
+  archive service, signed DPA/retention/legal-hold guarantees,
+  vault-held pseudonymization keys and historical rotation rules;
+  run a protected fake-event create/status/receipt sandbox.
+- **M8-03 [BOTH]** Provision real encrypted PostgreSQL PITR and
+  compliance-locked versioned object backups, and complete a REAL
+  isolated restoration, independently measured RTO/RPO and signed
+  operator evidence. Round 17 hardens the pre-restored-clone checker:
+  verify-full PostgreSQL TLS, nonadministrator/SELECT-only account,
+  presence of eight critical CHESS tables and six immutable triggers,
+  and separate audit-event, consent and invoice identity witnesses.
+  An approval-gated GitHub workflow runs read-only checks, but the
+  workflow does NOT restore data or establish independently measured
+  timing by itself. App startup, ledger reconciliations and signing
+  remain outstanding.
+- **M8-04 [BOTH]** Execute authenticated two-tenant/two-business,
+  three-identity E2E on two independently deployed fictional HTTPS
+  applications, with real Clerk sessions, correct grant/revocation
+  fixtures, separate pinned build attestations, CSRF checks and signed
+  acceptance. Round 17 adds required distinct per-tenant attestation
+  tokens, expected identical 40-character release SHA, M7 unauthorized
+  historical/merchant report checks and M3 CSRF. The protected manual
+  workflow is NOT a result until actually dispatched and passed.
+- **M8-05 [EXTERNAL]** Finish independent penetration test,
+  authenticated browser/role audit, real accessibility audit
+  (keyboard/screen readers), realistic load/stress testing,
+  security remediation and retest.
+- **M8-06 [BOTH]** Complete managed vault and separate least-privilege
+  database/runtime roles, rotation/revocation of consent, audit,
+  Clerk, provider and storage credentials, old-key preservation,
+  hard deletion/legal-hold workflows and a signed retention matrix.
+- **M8-07 [EXTERNAL]** Enable managed repository secret scanning and
+  push protection and independently audit software dependencies;
+  remediate high/critical production package findings and document
+  review of alerts. CI's basic pattern scanner is not sufficient.
+- **M8-08 [BOTH]** Complete production on-call paging,
+  incident ownership, archive delivery failures, retries, retention,
+  monitoring and rehearsal. Round 17 adds a tenant-allowlisted,
+  distinct-secret machine-only read-only health endpoint with
+  fail-closed health signals for stale scheduler, failed work,
+  unknown/rejected/overdue audit archive receipts and uncertain
+  calendar cancellations. Endpoint remains disabled until separate
+  `CHESS_INCIDENT_MONITOR_OPS_APPROVED` review. Real external
+  monitoring/paging escalation and incident drill remain required.
+- **M8-09 [BOTH]** Audit all sensitive access and denied requests
+  with privacy-limited provenance, verify WORM export integrity
+  under independent retention and deletion policies. Round 14
+  covers service-link ALLOW/DENY/missing-link decisions atomically
+  and verifies their database immutability, but other sensitive
+  service reads, actual remote archival receipts, infrastructure
+  least-privilege, retention/erasure and signed-in staging E2E
+  remain unresolved.
+- **M8-10 [BOTH]** Deploy REAL private HTTPS staging at the
+  reviewed SHA and supply DB/S3/scanner/Clerk sandbox credentials,
+  separately injected build token and controlled release SHA. Round 17
+  extends the read-only deployed staging verifier with anonymous
+  denied sensitive API and signed machine callback tests, and adds
+  manual E2E and isolated DR verification workflows. GitHub CI only
+  verifies the code paths; it does NOT deploy the staging app or
+  demonstrate real external endpoint success.
+- **M8-11 [EXTERNAL]** Independently approve backup/rollback,
+  contracts/provider sandboxes, staff permissions, accessibility,
+  security, privacy, signed consent, employment/licensing, and
+  retention policies; name the actual authorized release owner.
+- **M8-12 [EXTERNAL]** Supervised production cutover with
+  separately approved scope and credentials, staged migration,
+  disabled-by-default regulated integrations, monitored pilot,
+  release freeze, rollback plan and signed go/no-go. No merge
+  or deployment is authorized by development CI alone.
+
+## Round 11 highest-priority code-first item
+
+**Consent evidence integrity** is the selected highest-priority *code-only*
+risk because later service authorization, bank data, financial review,
+payroll and regulated workflows depend on authentic purpose-bound
+records. Implemented by this round:
+
+- Versioned PostgreSQL trigger rejects direct granted inserts,
+  missing grant evidence, policy/identity edits, evidence tampering,
+  invalid reversions and deletion of consent records; reissuing a
+  disclosure requires a new consent row.
+- Both administrative consent-request and consent-withdrawal operations
+  now commit corresponding immutable security events atomically
+  with their state changes.
+- Service access rejects malformed/legacy-shaped SHA-256 evidence fields.
+- PostgreSQL and unit regressions exercise valid pending/granted/
+  withdrawn lifecycle and direct SQL-layer tampering rejection.
+
+**Still NOT closed:** provider-backed legally sufficient signatures,
+client portal/accessibility/identity E2E, historical key management,
+actual third-party revocation, real signed-in staging verification,
+application DB role restrictions and independent consent legal review.
+The database migration must be applied under an approved rollout after
+reviewing the history of existing consent records; no migration may
+manufacture evidence for legacy clients.
+
+
+## Round 18 - isolated CHESS Codespaces preview
+
+- **DEMO-01 [EXTERNAL]** Owner supplies a separate Neon chess_demo database,
+  Clerk TEST keys, verified test-user email, and allowed Codespaces origin.
+- **DEMO-02 [BOTH]** Fictional seeding, sandbox guards and demo sign-in have
+  source-level implementations. Actual Codespaces/Neon/Clerk browser acceptance
+  remains pending and cannot be claimed from CI.
+- **M5-06 [CODE]** Production ledger posting and reconciliation bridges remain
+  unimplemented. A fictional seed never counts as a general-ledger posting,
+  payroll settlement or tax preparation/filing.
+- **M8-01 through M8-12** retain their prior release-blocked statuses.
+
+
+## Round 18 continued - M5-06 accounting execution readiness
+
+- **M5-06 remains CODE/BOTH, not complete:** a new read-only balanced bank
+  posting proposal can be displayed only after a CHESS reviewer approves an
+  unmodified unmatched bank transaction and a **third distinct** authorized
+  owner/admin requests the preview. The source bank transaction fingerprint,
+  current client grant/consent, case, entity mapping, bank account and offset
+  account are verified again on each read. A 2-line debit/credit preview
+  never mutates the GL, changes bank status or records settlement.
+- Actual posting is NOT enabled: an approval-gated atomic ledger execution
+  and source-transaction reconciliation bridge, replay/UNKNOWN recovery,
+  independently signed approval policy, bank provider and month-end tests
+  remain required before production release. No financial capability or
+  provider approval can be inferred from the new preview.
+
+
+## Round 19 - demo readiness code and sandbox acceptance
+
+- **DEMO-01 [EXTERNAL]** Real Neon chess_demo non-pooled URL, Clerk TEST
+  publishable/secret keys, verified test-owner email and Codespaces allowed
+  origin remain owner-supplied. They must not be committed or uploaded to CI.
+- **DEMO-02 [CODE VERIFIED BY CI, EXTERNAL BROWSER PENDING]** Added actual
+  PostgreSQL seed integration job, pre-DDL database isolation checker,
+  safe rerun protections, gated /app/demo tour and corrected README.
+  The user still must validate a real Codespaces browser and authenticated
+  Clerk test login. No separate financial or regulated execution gate lifted.
+- **M1-M8** retain their release and external evidence statuses above.
+
+
+## Round 20 - code-first roadmap review and residual external gates
+
+- **M1-02 / M8-09 [CODE PARTIAL, EXTERNAL/BOTH OPEN]** Two additional
+  sensitive read paths (bank review detail and regulated workflow detail)
+  now revalidate actor membership, service grants, active case and consent
+  in a serializable tenant-local transaction with append-only ALLOW/DENY
+  decision. PostgreSQL and unit regression cases enforce audit integrity.
+  All other sensitive paths, authenticated two-tenant E2E and remote WORM
+  delivery still need independent evidence and follow-up code.
+- **M4-04 [CODE PARTIAL, EXTERNAL/BOTH OPEN]** Work and appointment
+  notifications use cursor paging, a 5,000-row per-stream safety cap and
+  explicit DEGRADE backlog health. Scheduler deployment, load acceptance,
+  monitoring alerts and overflow resolution remain pending.
+- **M4-05 [CODE PARTIAL, EXTERNAL/BOTH OPEN]** Manager in-app notices
+  cover blocked-without-date and overdue unassigned/revoked-assignee work.
+  External SMS/email, consent/retention and employee communication policy
+  still require external approval and further implementation.
+- **M5-06 [CODE PARTIAL, RELEASE DISABLED]** A conditional manual legacy
+  ledger/bank classification adapter exists, with four separate OFF-by-default
+  policy flags, three current human roles, immutable bank source fingerprint,
+  separate current-client-grant checks, attempt audit, transactional double
+  entry + bank-state update and replay verification. It has no webhook,
+  automatic posting or asserted settlement. A legacy PostgreSQL posting/
+  rollback/concurrency integration suite, independently approved ledger
+  mappings, external bank sandbox, cross-DB revocation reconciliation,
+  and actual account reconciliation are STILL CODE + EXTERNAL blockers.
+  Do not set enable/approval flags to true based on regular CI alone.
+
+See docs/CHESS_CORP_2_ROUND20_CODE_AUDIT.md. All M1-M8 release holds remain.
+
+
+## Round 20 continued - portfolio financial-control hardening
+
+- **M7-05 / M8-09 [CODE PARTIAL]:** An operational-portfolio
+  report rechecks the current owner/admin membership inside the same
+  SERIALIZABLE tenant transaction that produces the report. An immutable
+  ALLOW or DENY security decision commits before any response. The audit
+  records a month and actor but NO client names, bank identifiers,
+  invoice details or fake business-unit scoping.
+- **M5-06 [CODE PARTIAL]:** Added active bank GL validation and compatible
+  account types: cash/checking/savings/money-market map to ASSET,
+  credit cards map to LIABILITY; loan/other bank types fail closed pending
+  an independently approved account-type mapping. The financial posting
+  execution path is still disabled by default and NOT sandbox-certified.
+- **Still blocked:** actual multi-entity financial close/statement
+  certification, all-path sensitive-read audit, real bank legacy DB
+  concurrency/compensation tests, bank provider approval, signed
+  supervisory policy, provider settlement and staging release.
+
+
+## Round 20 continued - isolated legacy PostgreSQL accounting test
+
+- **M5-06 [CODE TESTED AT TRANSACTION LAYER; CODE/EXTERNAL RELEASE OPEN]**
+  A new separate disposable legacy PostgreSQL CI job verifies an atomic
+  double-entry bank classification, cached account balances, duplicate
+  rejection, competing write attempts and closed-period rollback. It
+  does **not** certify the cross-DB CHESS-to-ledger consent/approval
+  handshake, signed live identities, bank provenance, provider statement
+  or real ledger reconciliation. The manual API remains OFF by default
+  until those independently supervised gates are cleared.
+
+
+## Round 21 - employee UI and missing external acceptance
+
+- **M5-06 / M8-09 [CODE UI ADDED, RELEASE OPEN]** Bank-approved posting
+  screen is now available to an independent operator through an explicit
+  two-step confirmation, only when all four financial release flags are true.
+  The actual legacy GL and external bank provider remain subject to separate
+  source identity, cash settlement, consent race and finance approvals.
+- **M5-03 [CODE UI ADDED, EXTERNAL OPEN]** PAYROLL case now shows dispatch
+  history and a certified-vendor-only manual submission form; execution
+  additionally rejects an operator who is either the requester or reviewer.
+  A matching approved PAYROLL_EXECUTE digest is still required. Provider,
+  wage, bank, tax filing and settlement certification remain incomplete.
+- **M8-08 / M8-09 [CODE UI ADDED, EXTERNAL OPEN]** New /app/security-operations
+  provides current owner/admin read-only archive, worker and incident
+  exceptions, with fresh membership checked inside an append-only audited
+  tenant transaction. It does not activate external paging or provide
+  remote WORM retention evidence.
+- **UI acceptance [BOTH]** Signed-in staging, real browser tests,
+  accessibility, mobile layout, cross-business role tests and independent
+  final user/operations acceptance still need external credentials/review.
+  Machine-only worker/monitor/provider callbacks deliberately have no
+  human execution UI.
+
+See docs/CHESS_CORP_2_ROUND21_UI_COVERAGE.md for the backend-to-UI matrix,
+missing approved inputs, and a role/accessibility test checklist.
+
+
+## Round 23 - unfinished M3-M7 release boundaries after code review
+
+- **M3-07 [CODE HARDENED, BOTH OPEN]:** Payroll approval requests now
+  recheck live consent and service-grant/mapping in a SERIALIZABLE tenant
+  transaction. Documented historical GRANTED-with-withdrawnAt anomalies
+  now fail the common consent predicate on all newly updated core finance,
+  billing and regulated read paths. Sign-in, consent version,
+  signature vendor, legal object lifecycle and cross-DB revocation races
+  remain unresolved.
+- **M4-04 [CODE TESTED, EXTERNAL OPEN]:** Added 241-appointment PostgreSQL
+  cursor paging and capped-backlog tests with isolated staff slots.
+  Actual scheduler deploy, queue monitoring, provider delivery and
+  access/privacy acceptance still need credentials and approvals.
+- **M5-03 [CODE HARDENED, BOTH OPEN]:** Duplicate PAYROLL_EXECUTE
+  source approvals are rejected by a partial unique PostgreSQL index;
+  CI verifies the concurrency invariant. Pre-existing duplicated source
+  decisions explicitly block migration until independently reconciled.
+  Execution requires audited original request and independent signed-off
+  review, plus posted run/current case checks. Real processor/ACH/tax
+  provider and finance staging tests remain mandatory.
+- **M6-04 [CODE HARDENED, EXTERNAL OPEN]:** Handoff create and read-only
+  status replies must echo the requested tenant, business and case in
+  addition to workflow, service, partner and correlatable remote ID.
+  Providers must update their certified contract; no regulated execution
+  approval or license is inferred.
+- **M7-04 [CODE HARDENED, EXTERNAL OPEN]:** Recurring draft-only worker
+  scans up to 500 due plans per invocation (25x20); blocked plans are
+  not repeatedly selected in one run, and the endpoint reports
+  backlog:true/503 instead of silently truncating. Real scheduler,
+  merchant provider, cash settlement, tax and financial close remain open.
+
+See docs/CHESS_CORP_2_ROUND23_M3_M7_CODE_AUDIT.md. None of M3-M7 is
+production-certified; all previously listed external and mixed code
+requirements remain release blockers.
+
+
+## Round 25 — isolated fictional Codespaces demo acceptance
+
+- **DEMO-01 [CODE IMPROVED, EXTERNAL OPEN]:** Versioned Node20 devcontainer
+  automatically installs locked dependencies and forwards port 3000.
+  npm run demo:setup is the only database setup command after owner-provided
+  isolated Neon and Clerk TEST credentials. The pre-DDL guard now refuses
+  unrelated public tables, ANY unrelated application schema and ALL foreign
+  tenant registrations. CI invokes the shared registration and seed path,
+  validates idempotency and forbids fake consent/grants/financial execution.
+- **DEMO-02 [CODE ADDED, EXTERNAL OPEN]:** npm run demo:verify runs a
+  read-only registry and fixture check; CI exercises the same helper.
+  The actual Codespaces browser login and verified Clerk-owner membership,
+  denied anonymous/unallowlisted-user behavior, eight-service tour and
+  test-operator acceptance remain **UNVERIFIED without sandbox credentials
+  and an actual running Codespace**.
+- **DEMO-03 [RELEASE SAFETY]:** External finance, licensed provider, AI,
+  calendar, billing, scanner, consent portal and scheduler switches must
+  remain OFF in a demo; validation refuses active switches. Nothing was
+  merged to main or deployed to production. See
+  docs/CHESS_CORP_2_ROUND25_CODESPACES_ACCEPTANCE.md.
+
+The canonical owner-supply register is
+docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md item 01; no duplicate new
+credential list is created by this round. All M1–M8 release gates remain.
+
+
+## Round 26 — code-first engineering changes and remaining blockers
+
+- **M1-02 / M8-09 [CODE EXPANDED, RELEASE OPEN]:** Audited serializable
+  reads now cover profile directory/detail/provisioning, document
+  inventory/download, bank candidates and reconciliation,
+  payroll dispatch status and monthly business operational reports,
+  plus earlier service-link/regulated/portfolio/security decisions.
+  A full sensitive-path inventory and remote WORM evidence remain open.
+- **M2-02 [CODE HARDENED, EXTERNAL E2E OPEN]:** Revoking an employee
+  assignment now atomically revokes their client service grants for
+  that business without changing grants in other businesses; repeat
+  requests and reassignments do not silently restore grants.
+- **M3-06 [CODE HARDENED, EXTERNAL SIGNATURE/STORAGE OPEN]:** Client
+  document uploads, confirmation, lists and READY/download checks
+  now require a currently valid, purpose-bound consent and explicit
+  service grant. Lists/downloads are auditable; previously issued
+  60-second storage links and approved legal retention still require
+  separate operational acceptance.
+- **M5-06 [CODE PARTIAL, CRITICAL RACE OPEN]:** Added a read-only
+  legacy bank-posting reconciler + scoped audited owner/admin endpoint
+  and employee control. It detects tampered/unbalanced/missing source
+  journals and does not post/settle/retry; cross-DB consent-revocation
+  atomicity and durable UNKNOWN recovery are not complete.
+- **M7-04 [CODE IMPROVED, EXTERNAL ACCEPTANCE OPEN]:** Added
+  versioned M7 recurring worker last-inspected timestamp, null-first
+  fairness, 550-plan repeat-run tests, real PostgreSQL ordering and
+  exact 500-item overflow detection. Still draft-only and
+  default-OFF; test migration on restored clone, enable pager
+  after authorization and preserve provider settlement boundaries.
+- **Round 26 deliverable status:** Full source/test evidence and
+  still-open code+external items:
+  docs/CHESS_CORP_2_ROUND26_ENGINEERING_AUDIT.md. No claim that
+  the complete engineering roadmap is finished.
+
+Existing owner-supplied items continue to be managed ONLY in
+docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md.
+
+
+## Round 27 — employee screen reconciliation
+
+- **M1–M8 [UI EXPANDED, RELEASE GATES OPEN]:** A new role-scoped
+  employee service desk at /app/chess-desk makes existing authorized
+  workflows discoverable. No machine-only execution or external
+  callbacks appear as ordinary employee buttons.
+- **M2 [UI UPDATED]:** Active business assignment revocation shows
+  the actual number of client service grants revoked for that
+  employee/business; warning explains grants are not restored on
+  re-assignment. Backend atomic revocation remains authoritative.
+- **M3 [UI UPDATED]:** Service documents describe purpose-bound
+  consent, live staff grants, malware scan, pinned versions, and
+  prior presigned URL limits. Actual S3 and legally sufficient
+  consent acceptance remains external.
+- **M5 [UI TEST]:** Historic bank-to-GL reconciliation remains
+  available as a READ-ONLY employee action on an approved review,
+  even after bank source becomes categorized. No auto retry/settlement.
+- **M7 [UI UPDATED]:** Recurring draft plans display UTC last-inspected
+  status or never checked; this is not a proof of delivery or payment.
+- **M8 [RELEASE BLOCKED]:** Authenticated two-tenant browser, accessibility,
+  independent staging, WORM, DR and security acceptance remain.
+  Detailed mapping: docs/CHESS_CORP_2_ROUND27_EMPLOYEE_UI.md.
+
+No additional provider credential was requested by this UI round.
+Canonical owner inputs remain in CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md.

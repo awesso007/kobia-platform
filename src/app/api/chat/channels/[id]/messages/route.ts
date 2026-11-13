@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Chat channel messages API (Sprint 16, authenticated). GET returns a cursor-
  * paginated page of messages (optionally a thread via ?parentId); POST sends a
@@ -12,6 +13,8 @@ import { requirePermission, PermissionError, getCurrentMembership } from "@/lib/
 import { listMessages } from "@/lib/chat/queries";
 import { sendMessage, ensureMember } from "@/lib/chat/mutations";
 
+import { authorizedChatChannel, messageBelongsToChannel } from "@/lib/security/historical-chat-scope";
+
 export const dynamic = "force-dynamic";
 
 function fail(err: unknown) {
@@ -20,10 +23,13 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+async function historicalAuditedGet(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await requirePermission("record:read");
     const { db } = getTenantDb();
+    const member = await getCurrentMembership();
+    if (!member || !await authorizedChatChannel(db, params.id, member.clerkUserId))
+      return NextResponse.json({ ok: false, error: "Channel not found." }, { status: 404 });
     const sp = req.nextUrl.searchParams;
     const page = await listMessages(db, params.id, {
       cursor: sp.get("cursor") || null,
@@ -50,7 +56,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const authorId = member?.clerkUserId ?? "system";
     const authorName = member?.displayName ?? member?.email ?? "Unknown";
     const { db } = getTenantDb();
-    if (member?.clerkUserId) await ensureMember(db, params.id, member.clerkUserId);
+    if (!member) return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
+    const channelAccess = await authorizedChatChannel(db, params.id, member.clerkUserId);
+    if (!channelAccess)
+      return NextResponse.json({ ok: false, error: "Channel not found." }, { status: 404 });
+    if (body.parentId && !await messageBelongsToChannel(db, params.id, String(body.parentId)))
+      return NextResponse.json({ ok: false, error: "Parent message not found." }, { status: 404 });
+    // Only public channels allow implicit join. Never auto-enroll into DM/private.
+    if (channelAccess === "PUBLIC") await ensureMember(db, params.id, member.clerkUserId);
     const id = await sendMessage(db, {
       channelId: params.id,
       authorId,
@@ -64,3 +77,5 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("chat/channels/[id]/messages",historicalAuditedGet);

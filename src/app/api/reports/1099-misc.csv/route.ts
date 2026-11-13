@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getAuthContext } from "@/lib/auth";
-import { db } from "@/lib/db";
+import {auditedLegacyTaxExport,parseLegacyTaxYear} from "@/lib/accounting/legacy-tax-export";
 import {
   get1099MiscRows,
   MISC_BOXES,
@@ -27,32 +27,35 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const tenantSlug = url.searchParams.get("tenant");
   const entityId = url.searchParams.get("entityId");
-  const year = Number(url.searchParams.get("year") ?? new Date().getUTCFullYear());
-
-  if (!tenantSlug || !entityId) return new NextResponse("Missing params", { status: 400 });
+  const year = parseLegacyTaxYear(url.searchParams.get("year"));
+  if (!tenantSlug || !entityId || year === null)
+    return new NextResponse("Invalid export parameters", { status: 400 });
 
   const auth = await getAuthContext(tenantSlug);
   if (!auth) return new NextResponse("Unauthorized", { status: 401 });
 
-  const entity = await db.entity.findFirst({
-    where: { id: entityId, tenantId: auth.tenant.id },
-    select: { id: true, name: true },
-  });
-  if (!entity) return new NextResponse("Entity not found", { status: 404 });
-
-  const rows = await get1099MiscRows({
-    tenantId: auth.tenant.id,
-    entityId: entity.id,
-    year,
-  });
-
-  // Only export vendors with at least one reportable box.
-  const reportable = rows.filter((r) => r.reportableBoxes.length > 0);
-
-  const vendorWithDetail = await db.vendor.findMany({
-    where: { id: { in: reportable.map((r) => r.vendorId) } },
-    select: { id: true, remitToAddress: true },
-  });
+  let exportResult;
+  try {
+    exportResult = await auditedLegacyTaxExport(auth, entityId, "1099_MISC",
+      async (tx, entity) => {
+        const rows = await get1099MiscRows({
+          tenantId: auth.tenant.id, entityId: entity.id, year, client: tx,
+        });
+        const reportable = rows.filter((r) => r.reportableBoxes.length > 0);
+        const vendorWithDetail = await tx.vendor.findMany({
+          where: {
+            tenantId: auth.tenant.id, entityId: entity.id,
+            id: { in: reportable.map((r) => r.vendorId) },
+          },
+          select: { id: true, remitToAddress: true },
+        });
+        return { reportable, vendorWithDetail };
+      });
+  } catch {
+    return new NextResponse("Export unavailable", { status: 503 });
+  }
+  if (!exportResult) return new NextResponse("Forbidden", { status: 403 });
+  const { entity, data: { reportable, vendorWithDetail } } = exportResult;
   const addrById = new Map(vendorWithDetail.map((v) => [v.id, v.remitToAddress ?? ""]));
 
   const header = [
@@ -89,6 +92,8 @@ export async function GET(req: NextRequest) {
     status: 200,
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
       "Content-Disposition": `attachment; filename="1099-MISC-${year}-${entity.name.replace(/[^a-z0-9]/gi, "_")}.csv"`,
     },
   });

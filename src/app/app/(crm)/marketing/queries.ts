@@ -1,3 +1,4 @@
+import { withAuditedHistoricalServerRead } from "@/lib/chess/historical-server-read-round58";
 /*
  * Marketing read queries (Sprint 13, server-only). All reads go through
  * getTenantDb(). Listing helpers for the overview, segments, broadcasts,
@@ -18,7 +19,7 @@ export type SegmentRow = {
   updatedAt: Date;
 };
 
-export async function listSegments(): Promise<SegmentRow[]> {
+async function listSegmentsOriginal(): Promise<SegmentRow[]> {
   const { db } = getTenantDb();
   return db.segment.findMany({
     orderBy: { updatedAt: "desc" },
@@ -34,7 +35,7 @@ export async function listSegments(): Promise<SegmentRow[]> {
   });
 }
 
-export async function getSegment(id: string) {
+async function getSegmentOriginal(id: string) {
   const { db } = getTenantDb();
   return db.segment.findUnique({ where: { id } });
 }
@@ -50,7 +51,7 @@ export type BroadcastRow = {
   updatedAt: Date;
 };
 
-export async function listBroadcasts(): Promise<BroadcastRow[]> {
+async function listBroadcastsOriginal(): Promise<BroadcastRow[]> {
   const { db } = getTenantDb();
   const rows = await db.broadcast.findMany({
     orderBy: { updatedAt: "desc" },
@@ -68,7 +69,7 @@ export async function listBroadcasts(): Promise<BroadcastRow[]> {
   }));
 }
 
-export async function getBroadcast(id: string) {
+async function getBroadcastOriginal(id: string) {
   const { db } = getTenantDb();
   return db.broadcast.findUnique({ where: { id } });
 }
@@ -83,7 +84,7 @@ export type CampaignRow = {
   updatedAt: Date;
 };
 
-export async function listCampaigns(): Promise<CampaignRow[]> {
+async function listCampaignsOriginal(): Promise<CampaignRow[]> {
   const { db } = getTenantDb();
   const rows = await db.campaign.findMany({
     orderBy: { updatedAt: "desc" },
@@ -103,7 +104,7 @@ export async function listCampaigns(): Promise<CampaignRow[]> {
   }));
 }
 
-export async function getCampaign(id: string) {
+async function getCampaignOriginal(id: string) {
   const { db } = getTenantDb();
   return db.campaign.findUnique({
     where: { id },
@@ -122,7 +123,7 @@ export type LandingPageRow = {
   updatedAt: Date;
 };
 
-export async function listLandingPages(): Promise<LandingPageRow[]> {
+async function listLandingPagesOriginal(): Promise<LandingPageRow[]> {
   const { db } = getTenantDb();
   return db.landingPage.findMany({
     orderBy: { updatedAt: "desc" },
@@ -139,19 +140,19 @@ export async function listLandingPages(): Promise<LandingPageRow[]> {
   });
 }
 
-export async function getLandingPage(id: string) {
+async function getLandingPageOriginal(id: string) {
   const { db } = getTenantDb();
   return db.landingPage.findUnique({ where: { id } });
 }
 
 /** Lite list of segments for select dropdowns (broadcast / campaign builders). */
-export async function listSegmentsLite(): Promise<{ id: string; name: string; entityType: string }[]> {
+async function listSegmentsLiteOriginal(): Promise<{ id: string; name: string; entityType: string }[]> {
   const { db } = getTenantDb();
   return db.segment.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, entityType: true } });
 }
 
 /** Counts for the marketing overview dashboard. */
-export async function getMarketingOverview(): Promise<{
+async function getMarketingOverviewOriginal(): Promise<{
   segments: number;
   broadcasts: number;
   campaigns: number;
@@ -168,3 +169,23 @@ export async function getMarketingOverview(): Promise<{
   ]);
   return { segments, broadcasts, campaigns, landingPages, unsubscribes };
 }
+
+export const listSegments = withAuditedHistoricalServerRead("marketing.listSegments", listSegmentsOriginal);
+
+export const getSegment = withAuditedHistoricalServerRead("marketing.getSegment", getSegmentOriginal);
+
+export const listBroadcasts = withAuditedHistoricalServerRead("marketing.listBroadcasts", listBroadcastsOriginal);
+
+export const getBroadcast = withAuditedHistoricalServerRead("marketing.getBroadcast", getBroadcastOriginal);
+
+export const listCampaigns = withAuditedHistoricalServerRead("marketing.listCampaigns", listCampaignsOriginal);
+
+export const getCampaign = withAuditedHistoricalServerRead("marketing.getCampaign", getCampaignOriginal);
+
+export const listLandingPages = withAuditedHistoricalServerRead("marketing.listLandingPages", listLandingPagesOriginal);
+
+export const getLandingPage = withAuditedHistoricalServerRead("marketing.getLandingPage", getLandingPageOriginal);
+
+export const listSegmentsLite = withAuditedHistoricalServerRead("marketing.listSegmentsLite", listSegmentsLiteOriginal);
+
+export const getMarketingOverview = withAuditedHistoricalServerRead("marketing.getMarketingOverview", getMarketingOverviewOriginal);

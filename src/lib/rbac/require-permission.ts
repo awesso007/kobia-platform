@@ -5,12 +5,9 @@
  * tenant Membership (via getTenantDb), and throws PermissionError if the role
  * lacks the capability. Wrap every CRUD server action with it.
  *
- * Alpha fallback: the v0.1 alpha runs a single tenant where Clerk may not yet
- * resolve a user in every context (seed scripts, server actions before sign-in
- * wiring is complete). When there is no Clerk session OR no Membership row for
- * the user, we DEFAULT-ALLOW so existing flows keep working - but we still
- * enforce the matrix whenever a real Membership is found. This keeps RBAC
- * non-breaking while making it real the moment members exist.
+ * Security policy: production request authorization fails closed. Missing Clerk
+ * session, missing tenant, unresolved membership, or non-ACTIVE membership
+ * must never grant access. Seed scripts use explicit trusted data access instead.
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
@@ -69,7 +66,7 @@ export async function getCurrentMembership(): Promise<CurrentMember | null> {
 
 /**
  * Throw PermissionError if the current member's role cannot perform `action`.
- * Default-allows when there is no resolvable Membership (see file header).
+ * Denies when membership cannot be resolved or is not ACTIVE.
  *
  * opts.ownsRecord lets a MEMBER update records they own.
  */
@@ -78,8 +75,8 @@ export async function requirePermission(
   opts?: { ownsRecord?: boolean },
 ): Promise<void> {
   const member = await getCurrentMembership();
-  if (!member) return; // alpha fallback: no membership context -> allow
-  if (member.status === "SUSPENDED") throw new PermissionError(action, member.role);
+  if (!member) throw new PermissionError(action);
+  if (member.status !== "ACTIVE") throw new PermissionError(action, member.role);
   if (!can(member.role, action, opts)) {
     throw new PermissionError(action, member.role);
   }

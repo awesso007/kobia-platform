@@ -17,12 +17,107 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - name: Check tracked source for known live credentials
+        run: |
+          node --test scripts/chess-secret-scan-check.mjs
+          node scripts/chess-secret-scan.mjs
 
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
+
+      - name: Install locked dependencies with platform-native optional packages
+        run: npm ci --include=optional --no-audit --no-fund
+
+      - name: Verify required Linux Next.js SWC compiler
+        run: |
+          if ! node -e "require('@next/swc-linux-x64-gnu')" >/dev/null 2>&1; then
+            npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund @next/swc-linux-x64-gnu@14.2.15
+          fi
+          node -e "require('@next/swc-linux-x64-gnu')"
 
       - name: Generate Prisma client
         run: npm run db:generate
+
+      - name: Verify demo setup CLI refuses production and live Clerk keys
+        run: node --test scripts/chess-demo-cli-check.mjs
+
+      - name: Inventory all CHESS service API security boundaries
+        run: node --test scripts/chess-sensitive-route-inventory-check.mjs
+
+      - name: Gate historical authenticated read response audit coverage
+        run: |
+          node --check scripts/chess-round43-historical-get-audit-gate.mjs
+          node scripts/chess-round43-historical-get-audit-gate.mjs
+
+      - name: Gate transaction-coupled historical tenant GET and search source
+        run: |
+          node --check scripts/chess-round50-transaction-read-gate.mjs
+          node scripts/chess-round50-transaction-read-gate.mjs
+
+      - name: Validate atomic legacy tRPC transaction boundary source
+        run: |
+          node --check scripts/chess-round50-transaction-read-gate.mjs
+          node scripts/chess-round50-transaction-read-gate.mjs
+
+      - name: Gate Round 51 public booking tenant and atomic reservation boundaries
+        run: |
+          node --check scripts/chess-round51-booking-gate.mjs
+          node scripts/chess-round51-booking-gate.mjs
+
+      - name: Gate Round 52 public forms distributed rate and bot-check source
+        run: |
+          node --check scripts/chess-round52-public-form-gate.mjs
+          node scripts/chess-round52-public-form-gate.mjs
+
+      - name: Gate Round 53 booking, analytics, and anonymous automation boundaries
+        run: |
+          node --check scripts/chess-round53-public-surface-gate.mjs
+          node scripts/chess-round53-public-surface-gate.mjs
+
+      - name: Gate Round 54 historical public/machine authorization and mutation replay
+        run: |
+          node --check scripts/chess-round54-historical-public-machine-gate.mjs
+          node scripts/chess-round54-historical-public-machine-gate.mjs
+
+      - name: Gate Round 58 transaction-coupled server-rendered sensitive reads
+        run: |
+          node --check scripts/chess-round58-sensitive-server-read-gate.mjs
+          node scripts/chess-round58-sensitive-server-read-gate.mjs
+
+      - name: Gate Round 57 authenticated mutation release and honest write-surface inventory
+        run: |
+          node --check scripts/chess-round57-mutation-audit-inventory-gate.mjs
+          node scripts/chess-round57-mutation-audit-inventory-gate.mjs
+
+      - name: Gate Round 55 live machine tenant and legacy lead authorization
+        run: |
+          node --check scripts/chess-round55-live-machine-legacy-lead-gate.mjs
+          node scripts/chess-round55-live-machine-legacy-lead-gate.mjs
+
+      - name: Gate all scheduled legacy machine cron endpoints
+        run: |
+          node --check scripts/chess-round47-cron-auth-gate.mjs
+          node scripts/chess-round47-cron-auth-gate.mjs
+
+      - name: Gate classified historical API mutation and public callback boundaries
+        run: |
+          node --check scripts/chess-round48-historical-method-gate.mjs
+          node scripts/chess-round48-historical-method-gate.mjs
+
+      - name: Gate authenticated historical mutation routes and parent-child scopes
+        run: |
+          node --check scripts/chess-round49-authenticated-mutation-gate.mjs
+          node scripts/chess-round49-authenticated-mutation-gate.mjs
+
+      - name: Validate signed-in browser and accessibility test harness
+        run: |
+          node --check playwright.config.mjs
+          node --check e2e/clerk.setup.mjs
+          node --check e2e/chess-demo.spec.mjs
+          node --check e2e/chess-demo-employee-client.spec.mjs
+          node --check e2e/chess-demo-round46.spec.mjs
+          node --check e2e/demo-harness.mjs
+          node --check scripts/chess-demo-e2e-prepare.mjs
+          node --test scripts/chess-demo-e2e-policy-check.mjs scripts/chess-demo-browser-acceptance-policy-check.mjs
+          node --test scripts/chess-demo-round46-policy-check.mjs
 
       - name: Lint
         run: npm run lint
@@ -30,12 +125,217 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
-      - name: Build
-        run: npm run build
-        env:
-          DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_placeholder"
-          CLERK_SECRET_KEY: "sk_test_placeholder"
-
       - name: Test
         run: npm run test
+
+      - name: Release preflight must fail without production credentials
+        run: |
+          if NODE_ENV=production node scripts/chess-deploy-validate.mjs; then
+            echo "Unsafe: preflight accepted missing secrets" >&2
+            exit 1
+          fi
+
+      - name: Syntax-check protected synthetic merchant sandbox
+        run: node --check scripts/chess-merchant-sandbox-validate.mjs
+
+      - name: Check read-only legacy consent inventory script and policy
+        run: |
+          node --check scripts/chess-consent-legacy-audit.mjs
+          node --test scripts/chess-consent-audit-policy-check.mjs
+
+      - name: Validate DR and authenticated security probe scripts
+        run: |
+          node --check scripts/chess-dr-restore-validate.mjs
+          node --test scripts/chess-dr-policy-check.mjs
+          node --test scripts/chess-dr-evidence-check.mjs
+          node --test scripts/chess-dr-acceptance-check.mjs
+          node --check scripts/chess-dr-restore-validate.mjs
+          node --check scripts/chess-authz-e2e.mjs
+          node --test scripts/chess-authz-e2e-check.mjs
+          node --check scripts/chess-staging-verify.mjs
+          node --test scripts/chess-staging-verify-check.mjs
+          node --check scripts/chess-audit-archive-sandbox.mjs
+
+      - name: Build
+        run: |
+          npm run build
+          # A terminated Next worker must not turn into a false green build.
+          test -s .next/BUILD_ID || { echo "Next.js BUILD_ID missing after build" >&2; exit 1; }
+        env:
+          # The full KOBIA+CHESS route graph exceeded Node's ~2 GiB heap
+          # during Round 37 source compilation in isolated GitHub CI.
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          NEXT_TELEMETRY_DISABLED: "1"
+          DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_ZXhhbXBsZS5jb20k"
+          CLERK_SECRET_KEY: "sk_test_placeholder"
+
+      - name: Security end-to-end HTTP smoke
+        run: |
+          npm run start -- -p 3100 > /tmp/chess-smoke.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid 2>/dev/null || true' EXIT
+          node scripts/chess-security-smoke.mjs
+        env:
+          DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_ZXhhbXBsZS5jb20k"
+          CLERK_SECRET_KEY: "sk_test_placeholder"
+          CHESS_PUBLIC_ORIGIN: "http://127.0.0.1:3100"
+
+  chess-db-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: chess
+          POSTGRES_PASSWORD: chess_test_only
+          POSTGRES_DB: chess_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U chess -d chess_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_ci?schema=public"
+      DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_ci?schema=public"
+      RUN_CHESS_DB_INTEGRATION: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install dependencies and generate Prisma clients
+        run: npm ci --no-audit --no-fund
+      - name: Apply versioned tenant migrations
+        run: npx prisma migrate deploy --schema=prisma/tenant/schema.prisma
+      - name: Run tenant isolation and CHESS authorization tests (public CI schema)
+        run: npx vitest run src/lib/chess/schema.integration.test.ts src/lib/chess/recurring-fairness.integration.test.ts
+
+      - name: Verify document lifecycle inheritance in disposable tenant PostgreSQL
+        run: npx vitest run src/lib/chess/document-lineage-round45.integration.test.ts
+
+      # Round 38 uses two distinct disposable PostgreSQL DATABASES in one
+      # job. Production credentials and CHESS live-posting flags are absent.
+      - name: Create independent legacy database for cross-DB financial fault tests
+        run: |
+          node -e 'const {Client}=require("pg"); (async()=>{const c=new Client({connectionString:process.env.DIRECT_URL}); await c.connect(); try{await c.query("CREATE DATABASE chess_finance_fault_ci")}finally{await c.end()}})().catch(e=>{console.error(e);process.exit(1)})'
+      - name: Apply legacy ledger schema to the separate fault-only database
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_finance_fault_ci?schema=public"
+        run: npx prisma db push --schema=prisma/schema.prisma --skip-generate --accept-data-loss
+      - name: Round 38 and 44 distributed dual-database timeout, partial failure, retry and idempotency tests
+        env:
+          RUN_CHESS_DISTRIBUTED_DB_INTEGRATION: "1"
+          CHESS_FAULT_LEGACY_DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_finance_fault_ci?schema=public"
+        run: npx vitest run src/lib/chess/distributed-financial-outcome-round38.integration.test.ts
+
+      # Explicitly exercise the multi-schema migration order used by demo:setup.
+      # This is an isolated CI-only PostgreSQL database, NOT a Neon account.
+      - name: Create a separate temporary demo database
+        run: |
+          node -e 'const {Client}=require("pg"); (async()=>{const c=new Client({connectionString:process.env.DIRECT_URL}); await c.connect(); try{await c.query("CREATE DATABASE chess_demo_ci")}finally{await c.end()}})().catch(e=>{console.error(e);process.exit(1)})'
+      - name: Check fresh demo database before any platform DDL
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=public"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=public"
+        run: npx tsx scripts/chess-demo-preflight-ci.ts
+      - name: Migrate demo platform registry in public
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=public"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=public"
+        run: npx prisma migrate deploy --schema=prisma/platform/schema.prisma
+      - name: Create isolated fictional tenant schema
+        run: |
+          node -e 'const {Client}=require("pg"); (async()=>{const c=new Client({connectionString:"postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci"}); await c.connect(); try{await c.query("CREATE SCHEMA tenant_chess_demo")}finally{await c.end()}})().catch(e=>{console.error(e);process.exit(1)})'
+      - name: Migrate isolated demo tenant without touching public tables
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+        run: npx prisma migrate deploy --schema=prisma/tenant/schema.prisma
+      - name: Round 50 actual tenant PostgreSQL SELECT and audit rollback
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+        run: npx vitest run src/lib/chess/historical-read-round50.integration.test.ts
+
+      - name: Round 51 concurrent public booking and owner isolation in PostgreSQL
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+        run: npx vitest run src/lib/calendar/public-booking-round51.integration.test.ts
+
+      - name: Round 52 concurrent distributed public form quota in tenant PostgreSQL
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+        run: npx vitest run src/lib/security/public-form-abuse-round52.integration.test.ts
+
+      - name: Round 53 cross-instance booking and analytics abuse quotas
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+        run: npx vitest run src/lib/security/public-surface-round53.integration.test.ts
+
+      - name: Round 54 independent-client SMS and email provider replay constraints
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+        run: npx vitest run src/lib/security/round54-replay.integration.test.ts
+
+      - name: Round 55 signed tracking and unsubscribe cross-instance PostgreSQL regressions
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+        run: npx vitest run src/lib/security/legacy-marketing-tracking-round55.integration.test.ts
+
+      - name: Round 57 tenant PostgreSQL mutation-and-audit rollback
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+        run: npx vitest run src/lib/chess/historical-mutation-round57.integration.test.ts
+
+      - name: Round 58 tenant PostgreSQL cross-client grant and audited SELECT regressions
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+        run: npx vitest run src/lib/chess/historical-server-read-round58.integration.test.ts
+
+      - name: Verify repeatable fictional demo seed against isolated tenant schema
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+        run: npx vitest run src/lib/chess/demo-fixtures.integration.test.ts
+
+  chess-legacy-ledger-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: chess
+          POSTGRES_PASSWORD: chess_test_only
+          POSTGRES_DB: chess_legacy_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U chess -d chess_legacy_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_legacy_ci?schema=public"
+      RUN_CHESS_LEGACY_DB_INTEGRATION: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install dependencies and generate Prisma
+        run: npm ci --no-audit --no-fund
+      - name: Materialize disposable legacy accounting schema (CI ONLY)
+        run: npx prisma db push --schema=prisma/schema.prisma --skip-generate --accept-data-loss
+      - name: Verify atomic ledger post, replay refusal and period rollback
+        run: npx vitest run src/lib/chess/bank-ledger-commit.integration.test.ts

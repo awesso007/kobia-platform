@@ -1,3 +1,4 @@
+import {withAuditedHistoricalReadResponse} from "@/lib/chess/historical-get-response-audit";
 /*
  * POST /api/search (Sprint 9). Server-rendered search for the Cmd+K palette.
  * The palette is a client component but it never touches Postgres - it posts the
@@ -29,7 +30,7 @@ const JUMP_TO: Array<{ label: string; href: string }> = [
   { label: "Settings", href: "/app/settings" },
 ];
 
-export async function POST(req: NextRequest) {
+async function historicalReadOnlySearch(req: NextRequest) {
   let body: Body = {};
   try {
     body = (await req.json()) as Body;
@@ -61,3 +62,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Search failed." }, { status: 500 });
   }
 }
+
+export const POST=withAuditedHistoricalReadResponse("search",historicalReadOnlySearch);

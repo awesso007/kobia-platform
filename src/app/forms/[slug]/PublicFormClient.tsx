@@ -9,6 +9,7 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { useState } from "react";
+import { PublicFormChallenge } from "@/components/public-forms/PublicFormChallenge";
 
 export type PublicFieldConfig = {
   fieldName: string;
@@ -24,19 +25,26 @@ export function PublicFormClient({
   fields,
   thankYouUrl,
   redirectUrl,
+  siteKey,
+  challengeAction,
 }: {
   tenantSlug: string;
   formSlug: string;
   fields: PublicFieldConfig[];
   thankYouUrl: string | null;
   redirectUrl: string | null;
+  siteKey: string;
+  challengeAction: string;
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [challengeToken, setChallengeToken] = useState<string | null>(null);
+  const [resetNonce, setResetNonce] = useState(0);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!challengeToken) { setError("Please complete the security check."); return; }
     setError(null);
     setSubmitting(true);
     const data = new FormData(e.currentTarget);
@@ -48,11 +56,13 @@ export function PublicFormClient({
       const res = await fetch(`/api/forms/${encodeURIComponent(formSlug)}/submit?t=${encodeURIComponent(tenantSlug)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, "cf-turnstile-response": challengeToken }),
       });
       const json = (await res.json()) as { ok: boolean; error?: string; redirectUrl?: string | null };
       if (!res.ok || !json.ok) {
         setError(json.error ?? "Submission failed.");
+        setChallengeToken(null);
+        setResetNonce(n => n + 1);
         setSubmitting(false);
         return;
       }
@@ -63,6 +73,8 @@ export function PublicFormClient({
       setDone(true);
     } catch {
       setError("Network error. Please try again.");
+      setChallengeToken(null);
+      setResetNonce(n => n + 1);
       setSubmitting(false);
     }
   }
@@ -106,11 +118,13 @@ export function PublicFormClient({
 
       <input type="text" name="_hp" tabIndex={-1} autoComplete="off" style={{ position: "absolute", left: "-9999px", width: "1px", height: "1px" }} aria-hidden="true" />
 
+      <PublicFormChallenge siteKey={siteKey} action={challengeAction}
+        onToken={setChallengeToken} resetNonce={resetNonce} />
       {error && <div className="text-sm" style={{ color: "var(--kb-error)" }}>{error}</div>}
 
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || !challengeToken || !siteKey}
         className="rounded px-4 py-2 text-sm text-white"
         style={{ backgroundColor: "var(--kb-primary)", borderRadius: "var(--kb-radius-sm)", opacity: submitting ? 0.7 : 1 }}
       >

@@ -204,11 +204,10 @@ export async function deleteBlock(db: Db, blockId: string): Promise<void> {
 export async function reorderBlocks(db: Db, pageId: string, orderedIds: string[]): Promise<void> {
   const existing = await db.siteBlock.findMany({ where: { pageId }, select: { id: true } });
   const valid = new Set(existing.map((b) => b.id));
-  await db.$transaction(
-    orderedIds
-      .filter((id) => valid.has(id))
-      .map((id, idx) => db.siteBlock.update({ where: { id }, data: { order: idx } })),
-  );
+  if (valid.size !== orderedIds.length || orderedIds.some(id => !valid.has(id)) ||
+      new Set(orderedIds).size !== orderedIds.length) throw new Error("Invalid ordered page blocks");
+  for (let idx = 0; idx < orderedIds.length; idx++)
+    await db.siteBlock.update({ where: { id: orderedIds[idx]! }, data: { order: idx } });
 }
 
 export async function addDomain(db: Db, siteId: string, domain: string): Promise<string> {

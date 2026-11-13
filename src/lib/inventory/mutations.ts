@@ -6,10 +6,24 @@
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
-import type { PrismaClient } from "@/lib/db/generated/tenant";
+import type { Prisma, PrismaClient } from "@/lib/db/generated/tenant";
 import { nextTransferNumber, nextPoNumber } from "./numbering";
 
 type Db = PrismaClient;
+
+/** Reuse a caller's authenticated serializable transaction, never start a
+ * nested transaction that could commit inventory outside its audit. Legacy
+ * standalone callers still get a dedicated transaction. */
+async function warehouseTransaction<T>(
+ db:Db,run:(tx:Prisma.TransactionClient)=>Promise<T>,
+):Promise<T>{
+ const possiblyScoped=db as unknown as {$transaction?:(
+  fn:(tx:Prisma.TransactionClient)=>Promise<T>)=>Promise<T>};
+ if(typeof possiblyScoped.$transaction==="function")
+  return possiblyScoped.$transaction(run);
+ return run(db as unknown as Prisma.TransactionClient);
+}
+
 
 export type WarehouseInput = {
   name: string;
@@ -27,7 +41,7 @@ export async function createWarehouse(db: Db, input: WarehouseInput): Promise<st
   const code = input.code.trim().toUpperCase();
   if (!name) throw new Error("Warehouse name is required.");
   if (!code) throw new Error("Warehouse code is required.");
-  return db.$transaction(async (tx) => {
+  return warehouseTransaction(db,async (tx) => {
     if (input.isDefault) await tx.warehouse.updateMany({ data: { isDefault: false } });
     const w = await tx.warehouse.create({
       data: {
@@ -46,7 +60,7 @@ export async function createWarehouse(db: Db, input: WarehouseInput): Promise<st
 }
 
 export async function updateWarehouse(db: Db, id: string, patch: Partial<WarehouseInput>): Promise<void> {
-  await db.$transaction(async (tx) => {
+  await warehouseTransaction(db,async (tx) => {
     if (patch.isDefault) await tx.warehouse.updateMany({ where: { id: { not: id } }, data: { isDefault: false } });
     const data: Record<string, unknown> = {};
     if (patch.name !== undefined) data.name = patch.name.trim() || "Warehouse";

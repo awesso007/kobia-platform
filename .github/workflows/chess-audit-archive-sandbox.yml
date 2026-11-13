@@ -1,0 +1,29 @@
+name: CHESS independent audit archive sandbox evidence
+on:
+  workflow_dispatch:
+jobs:
+  audit-worm-receipt-contract:
+    runs-on: ubuntu-latest
+    environment: chess-audit-sandbox
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      CHESS_AUDIT_SANDBOX_VALIDATE: ${{ vars.CHESS_AUDIT_SANDBOX_VALIDATE }}
+      CHESS_AUDIT_SANDBOX_ISOLATED: ${{ vars.CHESS_AUDIT_SANDBOX_ISOLATED }}
+      CHESS_AUDIT_SANDBOX_TENANT: ${{ vars.CHESS_AUDIT_SANDBOX_TENANT }}
+      CHESS_AUDIT_ARCHIVE_URL: ${{ vars.CHESS_AUDIT_ARCHIVE_URL }}
+      CHESS_AUDIT_STATUS_URL: ${{ vars.CHESS_AUDIT_STATUS_URL }}
+      CHESS_AUDIT_ALLOWED_HOST: ${{ vars.CHESS_AUDIT_ALLOWED_HOST }}
+      CHESS_AUDIT_HASH_KEY: ${{ secrets.CHESS_AUDIT_HASH_KEY }}
+      CHESS_AUDIT_ARCHIVE_API_KEY: ${{ secrets.CHESS_AUDIT_ARCHIVE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Prove synthetic external audit receipt creation and lookup
+        run: node scripts/chess-audit-archive-sandbox.mjs
+
+# Explicit sandbox-only provider checks; no real tenant DB is accessed.
+# Independent WORM retention, legal hold and restore checks remain external.

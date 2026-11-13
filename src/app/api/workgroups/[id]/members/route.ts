@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Workgroup members API (Sprint 22, authenticated). POST invites a user by
  * clerk user id or by email (OWNER/MODERATOR only). GET lists members.
@@ -24,7 +25,7 @@ async function callerRole(db: ReturnType<typeof getTenantDb>["db"], workgroupId:
   return { role: (wm?.role as WorkgroupMemberRole | undefined) ?? null, userId: member.clerkUserId };
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+async function historicalAuditedGet(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await requirePermission("record:read");
     const { db } = getTenantDb();
@@ -63,3 +64,5 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return failWorkgroup(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("workgroups/[id]/members",historicalAuditedGet);

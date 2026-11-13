@@ -122,9 +122,10 @@ export async function deleteStep(db: Db, stepId: string): Promise<void> {
 export async function reorderSteps(db: Db, formId: string, orderedIds: string[]): Promise<void> {
   const existing = await db.formStep.findMany({ where: { formId }, select: { id: true } });
   const valid = new Set(existing.map((s) => s.id));
-  await db.$transaction(
-    orderedIds.filter((id) => valid.has(id)).map((id, idx) => db.formStep.update({ where: { id }, data: { order: idx } })),
-  );
+  if (valid.size !== orderedIds.length || orderedIds.some(id => !valid.has(id)) ||
+      new Set(orderedIds).size !== orderedIds.length) throw new Error("Invalid ordered form steps");
+  for (let idx = 0; idx < orderedIds.length; idx++)
+    await db.formStep.update({ where: { id: orderedIds[idx]! }, data: { order: idx } });
 }
 
 // ---- Fields ------------------------------------------------------------------
@@ -229,11 +230,10 @@ export async function deleteField(db: Db, fieldId: string): Promise<void> {
 export async function reorderFields(db: Db, formId: string, orderedIds: string[]): Promise<void> {
   const existing = await db.formField.findMany({ where: { formId }, select: { id: true } });
   const valid = new Set(existing.map((f) => f.id));
-  await db.$transaction(
-    orderedIds
-      .filter((id) => valid.has(id))
-      .map((id, idx) => db.formField.update({ where: { id }, data: { order: idx } })),
-  );
+  if (valid.size !== orderedIds.length || orderedIds.some(id => !valid.has(id)) ||
+      new Set(orderedIds).size !== orderedIds.length) throw new Error("Invalid ordered form fields");
+  for (let idx = 0; idx < orderedIds.length; idx++)
+    await db.formField.update({ where: { id: orderedIds[idx]! }, data: { order: idx } });
 }
 
 // ---- Public submission -------------------------------------------------------

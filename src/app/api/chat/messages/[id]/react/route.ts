@@ -9,6 +9,8 @@ import { getTenantDb, NoTenantError } from "@/lib/db/get-tenant-db";
 import { requirePermission, PermissionError, getCurrentMembership } from "@/lib/rbac/require-permission";
 import { toggleReaction } from "@/lib/chat/mutations";
 
+import { authorizedChatChannel } from "@/lib/security/historical-chat-scope";
+
 export const dynamic = "force-dynamic";
 
 function fail(err: unknown) {
@@ -31,6 +33,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const member = await getCurrentMembership();
     if (!member) return NextResponse.json({ ok: false, error: "No current user." }, { status: 400 });
     const { db } = getTenantDb();
+    const msg = await db.chatMessage.findFirst({
+      where: { id: params.id, deletedAt: null }, select: { channelId: true },
+    });
+    if (!msg || !await authorizedChatChannel(db, msg.channelId, member.clerkUserId))
+      return NextResponse.json({ ok: false, error: "Message not found." }, { status: 404 });
     const res = await toggleReaction(db, { messageId: params.id, userId: member.clerkUserId, emoji });
     return NextResponse.json({ ok: true, ...res });
   } catch (err) {

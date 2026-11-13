@@ -7,6 +7,7 @@
 /// "Unassigned" — flagged for the user to fix.
 
 import { db } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 
 // IRS 2026 thresholds per box (in cents).
 // Box 2 Royalties triggers at $10; all other boxes at $600.
@@ -46,11 +47,13 @@ export async function get1099MiscRows(args: {
   tenantId: string;
   entityId: string;
   year: number;
+  /** Optional caller transaction for an atomically authorized tax export. */
+  client?: Prisma.TransactionClient;
 }): Promise<Vendor1099MiscRow[]> {
   const yearStart = new Date(Date.UTC(args.year, 0, 1));
   const yearEnd = new Date(Date.UTC(args.year + 1, 0, 1));
 
-  const vendors = await db.vendor.findMany({
+  const vendors = await (args.client ?? db).vendor.findMany({
     where: {
       tenantId: args.tenantId,
       entityId: args.entityId,

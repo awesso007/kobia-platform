@@ -1,3 +1,4 @@
+import { withAuditedHistoricalServerRead } from "@/lib/chess/historical-server-read-round58";
 /*
  * Report query helpers (server-only). Three built-in reports (Pipeline Funnel,
  * Deal Velocity, Activity Leaderboard) plus a generic runner that interprets a
@@ -30,7 +31,7 @@ type Db = ReturnType<typeof getTenantDb>["db"];
 export type FunnelRow = { stage: string; count: number; valueCents: number };
 
 /** Pipeline Funnel: deal count + total value per stage of the default pipeline. */
-export async function pipelineFunnel(): Promise<FunnelRow[]> {
+async function pipelineFunnelOriginal(): Promise<FunnelRow[]> {
   const { db } = getTenantDb();
   const pipeline = await db.pipeline.findFirst({ orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] });
   if (!pipeline) return [];
@@ -50,7 +51,7 @@ export async function pipelineFunnel(): Promise<FunnelRow[]> {
 export type VelocityRow = { stage: string; avgDays: number; deals: number };
 
 /** Deal Velocity: average days a deal has spent since last update, per stage. */
-export async function dealVelocity(): Promise<VelocityRow[]> {
+async function dealVelocityOriginal(): Promise<VelocityRow[]> {
   const { db } = getTenantDb();
   const pipeline = await db.pipeline.findFirst({ orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] });
   if (!pipeline) return [];
@@ -71,7 +72,7 @@ export async function dealVelocity(): Promise<VelocityRow[]> {
 export type LeaderboardRow = { owner: string; total: number; completed: number };
 
 /** Activity Leaderboard: activities logged + completed, grouped by owner. */
-export async function activityLeaderboard(): Promise<LeaderboardRow[]> {
+async function activityLeaderboardOriginal(): Promise<LeaderboardRow[]> {
   const { db } = getTenantDb();
   const activities = await db.crmActivity.findMany({ select: { ownerClerkUserId: true, completedAt: true } });
   const byOwner = new Map<string, { total: number; completed: number }>();
@@ -90,7 +91,7 @@ export async function activityLeaderboard(): Promise<LeaderboardRow[]> {
 export type QuotePerfRow = { status: string; count: number; valueCents: number };
 
 /** Quote Performance: quote count + total value per status (Sprint 10). */
-export async function quotePerformance(): Promise<QuotePerfRow[]> {
+async function quotePerformanceOriginal(): Promise<QuotePerfRow[]> {
   const { db } = getTenantDb();
   const STATUSES = ["DRAFT", "SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"];
   const quotes = await db.quote.findMany({ select: { status: true, totalCents: true } });
@@ -110,7 +111,7 @@ export type ProductPerfRow = { product: string; quantity: number; revenueCents: 
  * Product Performance: units and revenue per product across all deal line items
  * (Sprint 10). Revenue uses the stored lineTotalCents (generated column).
  */
-export async function productPerformance(): Promise<ProductPerfRow[]> {
+async function productPerformanceOriginal(): Promise<ProductPerfRow[]> {
   const { db } = getTenantDb();
   const lines = await db.dealLineItem.findMany({
     select: { name: true, productId: true, quantity: true, lineTotalCents: true },
@@ -135,7 +136,7 @@ export type ProjectPerfRow = { project: string; total: number; done: number; pro
  * Project Performance: per project, task count, tasks done, average progress,
  * and total minutes logged (Sprint 11).
  */
-export async function projectPerformance(): Promise<ProjectPerfRow[]> {
+async function projectPerformanceOriginal(): Promise<ProjectPerfRow[]> {
   const { db } = getTenantDb();
   const projects = await db.project.findMany({
     include: {
@@ -168,7 +169,7 @@ export type WorkloadRow = { member: string; open: number; done: number; loggedMi
  * Team Workload: per assignee, open task count, done count, and minutes logged
  * (Sprint 11). Members are resolved to display names where available.
  */
-export async function teamWorkload(): Promise<WorkloadRow[]> {
+async function teamWorkloadOriginal(): Promise<WorkloadRow[]> {
   const { db } = getTenantDb();
   const [tasks, members, minutesByUser] = await Promise.all([
     db.task.findMany({ where: { deletedAt: null }, select: { assigneeClerkUserId: true, status: true } }),
@@ -264,8 +265,8 @@ function aggregate(values: number[], agg: string): number {
 }
 
 /** Run a custom report definition and return tabular + chart-ready data. */
-export async function runReport(def: ReportDefinition): Promise<ReportResult> {
-  const { db } = getTenantDb();
+async function runReportOriginal(def: ReportDefinition, scopedDb?: Db): Promise<ReportResult> {
+  const db = scopedDb ?? getTenantDb().db;
   const all = await loadEntityRows(db, def.entity);
   const rows = all.filter((r) => def.filters.every((f) => matchesFilter(r, f)));
 
@@ -322,7 +323,7 @@ export type SavedReportRow = {
   createdAt: string;
 };
 
-export async function listSavedReports(): Promise<SavedReportRow[]> {
+async function listSavedReportsOriginal(): Promise<SavedReportRow[]> {
   const { db } = getTenantDb();
   const rows = await db.savedReport.findMany({ orderBy: { createdAt: "desc" }, take: 200 });
   return rows.map((r) => ({
@@ -333,9 +334,34 @@ export async function listSavedReports(): Promise<SavedReportRow[]> {
   }));
 }
 
-export async function getSavedReport(id: string): Promise<SavedReportRow | null> {
+async function getSavedReportOriginal(id: string): Promise<SavedReportRow | null> {
   const { db } = getTenantDb();
   const r = await db.savedReport.findUnique({ where: { id } });
   if (!r) return null;
   return { id: r.id, name: r.name, definition: r.definition as ReportDefinition, createdAt: r.createdAt.toISOString() };
+}
+
+export const pipelineFunnel = withAuditedHistoricalServerRead("reports.pipelineFunnel", pipelineFunnelOriginal);
+
+export const dealVelocity = withAuditedHistoricalServerRead("reports.dealVelocity", dealVelocityOriginal);
+
+export const activityLeaderboard = withAuditedHistoricalServerRead("reports.activityLeaderboard", activityLeaderboardOriginal);
+
+export const quotePerformance = withAuditedHistoricalServerRead("reports.quotePerformance", quotePerformanceOriginal);
+
+export const productPerformance = withAuditedHistoricalServerRead("reports.productPerformance", productPerformanceOriginal);
+
+export const projectPerformance = withAuditedHistoricalServerRead("reports.projectPerformance", projectPerformanceOriginal);
+
+export const teamWorkload = withAuditedHistoricalServerRead("reports.teamWorkload", teamWorkloadOriginal);
+
+export const listSavedReports = withAuditedHistoricalServerRead("reports.listSavedReports", listSavedReportsOriginal);
+
+export const getSavedReport = withAuditedHistoricalServerRead("reports.getSavedReport", getSavedReportOriginal);
+
+/** A report preview within an already audited transaction supplies scopedDb.
+ * A direct server render must enter its OWN audited read before returning PII. */
+export async function runReport(def: ReportDefinition, scopedDb?: Db): Promise<ReportResult> {
+ if (scopedDb) return runReportOriginal(def, scopedDb);
+ return withAuditedHistoricalServerRead("reports.runReport", runReportOriginal)(def);
 }

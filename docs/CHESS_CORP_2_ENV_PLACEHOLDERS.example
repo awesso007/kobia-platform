@@ -1,0 +1,221 @@
+# CHESS CORP 2: non-executable NAMES-ONLY configuration placeholder
+# Round 24. NOT an alternate owner checklist. The sole action register:
+# docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md
+#
+# This file is NOT automatically loaded as .env.local.
+# Keep ALL secrets in a vault/protected GitHub environment; never commit values.
+# Every release/automation feature is intentionally FALSE or commented.
+# Never load these example flags into a live production deployment as approval.
+#
+# P0 fictional demo is a SEPARATE database and Clerk test instance, documented
+# in README. Do NOT use a demo database to test real payments/tax/regulated work.
+
+# Round 46 manual PROTECTED FICTIONAL browser E2E ONLY.
+# Supply values as protected GitHub Environment 'chess-demo-e2e' secrets/vars,
+# not an .env file committed to the repository and never in production.
+# Workflow secret DATABASE_URL must target non-pooled Neon chess_demo ONLY,
+# TLS sslmode=require; the existing CLERK_SECRET_KEY, and the separate
+# GitHub secret CLERK_PUBLISHABLE_KEY, must both be development/test keys.
+# GitHub vars (three DISTINCT verified test identities from that same Clerk app):
+# CHESS_DEMO_OWNER_EMAIL=
+# CHESS_DEMO_EMPLOYEE_EMAIL=
+# CHESS_DEMO_CLIENT_EMAIL=
+# CHESS_DEMO_E2E_BASE_URL=http://127.0.0.1:3000  # pinned local only
+# CHESS_DEMO_MODE=true    # ONLY in isolated development browser workflow
+# NEXT_PUBLIC_DEFAULT_TENANT=chess-demo  # ONLY protected test workflow
+# The workflow requires manual confirm_isolated_demo=true; never auto-run.
+# Normal CI tests syntax and disposable seeded PostgreSQL, not Clerk browsers.
+
+# P1 tenant HTTPS app, separate runtime/migration PostgreSQL, Clerk TEST app
+# DATABASE_URL=
+# DIRECT_URL=
+# NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+# CLERK_SECRET_KEY=
+# NEXT_PUBLIC_APP_URL=
+# NEXT_PUBLIC_ROOT_DOMAIN=
+# NEXT_PUBLIC_DEFAULT_TENANT=
+# CHESS_PUBLIC_ORIGIN=             # Exact HTTPS protected-staging origin, no wildcard
+# Round 50: serializable historical SELECT + live membership + audit
+# inside an isolated source transaction. No extra secret; verify DB
+# capacity/timeout, TEST Clerk tenant roles and audit WORM custody in
+# protected staging before release. Unverified access always fails closed.
+# Round 49: local upload fallback always refuses NODE_ENV=production.
+# Protected browser test identities and isolated tenant scopes remain required.
+
+# M3: verified client identity, signed consent, scoped storage and scanner
+# CHESS_CONSENT_EVIDENCE_KEY=       # 32+ char unique high-entropy vault secret
+CHESS_CLIENT_CONSENT_PORTAL_ENABLED=false
+CHESS_CLIENT_PORTAL_POLICY_APPROVED=false
+CHESS_CLIENT_PORTAL_IDENTITY_APPROVED=false
+# KOBIA_S3_BUCKET=
+# KOBIA_S3_REGION=
+# KOBIA_S3_ACCESS_KEY_ID=
+# KOBIA_S3_SECRET_ACCESS_KEY=
+# KOBIA_S3_ENDPOINT=               # optional approved S3-compatible service
+# KOBIA_LOCAL_DOWNLOAD_SIGNING_KEY= # 32+ random bytes; isolated dev/stage only
+# LOCAL requires this server-only signing secret or download fails closed.
+# Legacy helpdesk email-only portal is hard-disabled until one-time verified
+# identity challenge code/provider review. No flag can reenable that old flow.
+# CHESS_CLAMAV_HOST=              # private scanner endpoint
+# CHESS_CLAMAV_PORT=3310
+# CHESS_SCAN_WORKER_TOKEN=
+# CHESS_DOCUMENT_SCAN_KEY=         # optional independently approved scanner HMAC
+CHESS_SCAN_CALLBACK_ENABLED=false
+CHESS_DOCUMENT_LIFECYCLE_ENABLED=false
+CHESS_DOCUMENT_RETENTION_POLICY_APPROVED=false
+# Round 39: independent document retention/hold review, exact S3 version deletion.
+# No purge can run without all four flags, a distinct 32+ byte worker secret,
+# approved immutable receipts, and a separate object-storage deletion policy.
+CHESS_DOCUMENT_PURGE_EXECUTION_ENABLED=false
+CHESS_DOCUMENT_PURGE_STORAGE_APPROVED=false
+# CHESS_DOCUMENT_PURGE_WORKER_TOKEN=  # vault-only; 32+ characters, distinct from scanner token
+
+# Round 47: legacy Vercel scheduler-only Bearer admission control.
+# CRON_SECRET=                   # 32+ bytes fresh high-entropy secret, server-only.
+# Must be supplied in protected Vercel staging/runtime environment; absence
+# deliberately disables all 17 historical /api/cron routes with HTTP 503.
+# Not a consent/financial approval and not used by CHESS private worker APIs.
+
+# Round 48: machine mail relay and signed public email tracking.
+# EMAIL_INBOUND_SECRET=              # independent 32+ byte relay secret (vault-only)
+# EMAIL_INBOUND_DOMAIN=inbound.kobia.ai  # approved exact domain / active aliases
+# KOBIA_TRACKING_SIGNING_KEY=        # independent 32+ byte HMAC key, vault-only
+# Missing tracking key intentionally disables signed-click redirects and
+# omission of open-pixel injection; old unsigned campaign links do not work.
+# TWILIO_AUTH_TOKEN=                 # from protected certified Twilio sandbox
+# Reconfigure provider webhooks with signed ?tenant=<slug> query selector.
+# Historical Stripe billing and signup webhooks remain permanently quarantined
+# at HTTP 503 pending a separately implemented, independently verified inbox.
+# No feature switch in this file can reenable unsafe legacy Stripe callbacks.
+# Public Forms 2.0 payment initiation is also 503 until a real receipt exists.
+
+# M4: private schedulers and per-staff delegated calendar provider
+CHESS_SCHEDULER_ENABLED=false
+# CHESS_ACTIVE_TENANT_SLUGS=
+# CHESS_WORKFLOW_WORKER_TOKEN=
+CHESS_CALENDAR_SYNC_ENABLED=false
+# CHESS_CALENDAR_API_URL=
+# CHESS_CALENDAR_CANCEL_API_URL=
+# CHESS_CALENDAR_STATUS_API_URL=
+# CHESS_CALENDAR_ALLOWED_HOST=
+# CHESS_CALENDAR_API_KEY=
+CHESS_CALENDAR_OAUTH_ENABLED=false
+CHESS_CALENDAR_OAUTH_PROVIDER_CERTIFIED=false
+# CHESS_CALENDAR_OAUTH_START_URL=
+# CHESS_CALENDAR_OAUTH_STATUS_URL=
+# CHESS_CALENDAR_OAUTH_REVOKE_URL=
+# CHESS_CALENDAR_OAUTH_ALLOWED_HOST=
+# CHESS_CALENDAR_OAUTH_API_KEY=
+
+# M5: banking and THREE separate human ledger approvals
+CHESS_BANK_FEED_ENABLED=false
+CHESS_BANK_FEED_IMPORT_ENABLED=false
+CHESS_BANK_FEED_PAGINATION_ENABLED=false
+# CHESS_BANK_FEED_SOURCE=PLAID
+# CHESS_BANK_FEED_API_URL=
+# CHESS_BANK_FEED_ALLOWED_HOST=
+# CHESS_BANK_FEED_API_KEY=
+CHESS_BANK_POSTING_ENABLED=false
+CHESS_BANK_POSTING_POLICY_APPROVED=false
+CHESS_BANK_POSTING_BANK_SANDBOX_APPROVED=false
+CHESS_BANK_POSTING_OPERATOR_APPROVED=false
+# Round 41: no-new-journal, independently authorized ambiguous receipt
+# confirmation. Both default-OFF; never enable from a green CI alone.
+CHESS_BANK_OUTCOME_RESOLUTION_ENABLED=false
+CHESS_BANK_OUTCOME_POLICY_APPROVED=false
+
+# M5: payroll source-bound review requires separate approved reviewer/operator
+CHESS_PAYROLL_APPROVAL_REQUESTS_ENABLED=false
+CHESS_PAYROLL_PROVIDER_CERTIFIED=false
+CHESS_PAYROLL_EXECUTION_ENABLED=false
+CHESS_PAYROLL_STATUS_ENABLED=false
+# CHESS_PAYROLL_API_URL=
+# CHESS_PAYROLL_STATUS_API_URL=
+# CHESS_PAYROLL_ALLOWED_HOST=
+# CHESS_PAYROLL_API_KEY=
+
+# M6: current official license and firm verification sources
+# CHESS_LICENSE_API_URL=
+# CHESS_LICENSE_ALLOWED_HOST=
+# CHESS_LICENSE_API_KEY=
+# CHESS_LICENSE_SOURCE_HOSTS=
+CHESS_AFFILIATION_VERIFICATION_ENABLED=false
+# CHESS_AFFILIATION_API_URL=
+# CHESS_AFFILIATION_ALLOWED_HOST=
+# CHESS_AFFILIATION_API_KEY=
+# CHESS_AFFILIATION_SOURCE_HOSTS=
+
+# M6: four separately credentialed non-transactional partner handoffs
+CHESS_REGULATED_HANDOFF_ENABLED=false
+CHESS_REGULATED_RESPONSE_BINDING_REQUIRED=false
+# CHESS_REGULATED_HANDOFF_API_URL=
+# CHESS_REGULATED_STATUS_API_URL=
+# CHESS_REGULATED_ALLOWED_HOST=
+# CHESS_REGULATED_PARTNER_MORTGAGE=
+# CHESS_REGULATED_PARTNER_MORTGAGE_API_KEY=
+# CHESS_REGULATED_PARTNER_INSURANCE=
+# CHESS_REGULATED_PARTNER_INSURANCE_API_KEY=
+# CHESS_REGULATED_PARTNER_REAL_ESTATE=
+# CHESS_REGULATED_PARTNER_REAL_ESTATE_API_KEY=
+# CHESS_REGULATED_PARTNER_INVESTMENTS=
+# CHESS_REGULATED_PARTNER_INVESTMENTS_API_KEY=
+
+# M7: metadata-only AI, do not send client financial or regulated records
+CHESS_AI_TRIAGE_ENABLED=false
+CHESS_AI_DATA_SHARING_APPROVED=false
+CHESS_AI_VENDOR_DPA_APPROVED=false
+CHESS_AI_COST_LIMIT_APPROVED=false
+# CHESS_AI_TRIAGE_API_URL=
+# CHESS_AI_ALLOWED_HOST=
+# CHESS_AI_API_KEY=
+# CHESS_AI_DAILY_CALL_LIMIT=25
+
+# M7: invoice DELIVERY and DRAFT-ONLY subscription scheduling
+CHESS_BILLING_DELIVERY_ENABLED=false
+CHESS_BILLING_VENDOR_CERTIFIED=false
+# CHESS_BILLING_DELIVERY_API_URL=
+# CHESS_BILLING_STATUS_API_URL=
+# CHESS_BILLING_ALLOWED_HOST=
+# CHESS_BILLING_API_KEY=
+CHESS_BILLING_RECURRING_DRAFTS_ENABLED=false
+CHESS_BILLING_RECURRING_POLICY_APPROVED=false
+CHESS_MERCHANT_WEBHOOK_ENABLED=false
+CHESS_MERCHANT_VENDOR_CERTIFIED=false
+CHESS_MERCHANT_SETTLEMENT_POLICY_APPROVED=false
+# CHESS_MERCHANT_PROVIDER_ID=
+# CHESS_MERCHANT_WEBHOOK_HMAC_KEY=
+
+# M8: independent external audit retention and incident pager
+CHESS_AUDIT_EXPORT_ENABLED=false
+CHESS_AUDIT_RETENTION_APPROVED=false
+# CHESS_AUDIT_ARCHIVE_URL=
+# CHESS_AUDIT_STATUS_URL=
+# CHESS_AUDIT_ALLOWED_HOST=
+# CHESS_AUDIT_ARCHIVE_API_KEY=
+# CHESS_AUDIT_HASH_KEY=
+CHESS_INCIDENT_MONITOR_ENABLED=false
+CHESS_INCIDENT_MONITOR_OPS_APPROVED=false
+# CHESS_INCIDENT_MONITOR_TOKEN=
+
+# Protected M3 pre-migration CONSENT history inventory; SELECT-only clone
+CHESS_CONSENT_AUDIT_ENABLED=false
+CHESS_CONSENT_AUDIT_ISOLATED=false
+# CHESS_CONSENT_AUDIT_DATABASE_URL=
+# CHESS_CONSENT_AUDIT_ALLOWED_HOST=
+# CHESS_CONSENT_AUDIT_TENANT=
+# CHESS_CONSENT_AUDIT_REVIEW_TICKET=
+
+# M8: protected staging only after independent deploy/test approval
+CHESS_STAGING_ATTESTATION_ENABLED=false
+# CHESS_STAGING_ATTESTATION_TOKEN=
+# CHESS_RELEASE_SHA=
+# CHESS_STAGING_EXPECTED_SHA=
+# CHESS_STAGING_BASE_URL=
+# CHESS_STAGING_ALLOWED_HOST=
+CHESS_STAGING_VALIDATE=false
+
+# Manual 2-tenant, DR, audit, provider-sandbox test-only environment names
+# and exact fixture identifiers are enumerated as SUB-FIELDS OF item 17 in:
+# docs/CHESS_CORP_2_OWNER_SUPPLY_CHECKLIST.md
+# Those *_VALIDATE / *_ISOLATED flags remain FALSE without approved sandbox.
+# These code placeholders never constitute legal, vendor or release approval.

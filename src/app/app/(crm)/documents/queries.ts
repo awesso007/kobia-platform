@@ -1,3 +1,4 @@
+import { withAuditedHistoricalServerRead } from "@/lib/chess/historical-server-read-round58";
 /*
  * Documents read queries (Sprint 14, server-only). All reads go through
  * getTenantDb(). Listing helpers for the folder browser, document detail,
@@ -19,7 +20,7 @@ export type DocRow = {
 };
 
 /** Browse one folder level: subfolders + documents directly inside `folderId`. */
-export async function browseFolder(folderId: string | null): Promise<{
+async function browseFolderOriginal(folderId: string | null): Promise<{
   folder: { id: string; name: string; path: string; parentId: string | null } | null;
   folders: FolderRow[];
   documents: DocRow[];
@@ -55,12 +56,12 @@ export async function browseFolder(folderId: string | null): Promise<{
 }
 
 /** All folders (for move/destination pickers). */
-export async function listAllFolders(): Promise<Array<{ id: string; name: string; path: string }>> {
+async function listAllFoldersOriginal(): Promise<Array<{ id: string; name: string; path: string }>> {
   const { db } = getTenantDb();
   return db.docFolder.findMany({ orderBy: { path: "asc" }, select: { id: true, name: true, path: true } });
 }
 
-export async function getDocument(id: string) {
+async function getDocumentOriginal(id: string) {
   const { db } = getTenantDb();
   return db.document.findUnique({
     where: { id },
@@ -75,7 +76,7 @@ export async function getDocument(id: string) {
 }
 
 /** Documents that can be wrapped in an envelope (for the envelope wizard). */
-export async function listDocumentsForPicker(): Promise<Array<{ id: string; name: string; kind: string }>> {
+async function listDocumentsForPickerOriginal(): Promise<Array<{ id: string; name: string; kind: string }>> {
   const { db } = getTenantDb();
   return db.document.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, kind: true } });
 }
@@ -91,7 +92,7 @@ export type EnvelopeRow = {
   updatedAt: Date;
 };
 
-export async function listEnvelopes(): Promise<EnvelopeRow[]> {
+async function listEnvelopesOriginal(): Promise<EnvelopeRow[]> {
   const { db } = getTenantDb();
   const rows = await db.envelope.findMany({
     orderBy: { updatedAt: "desc" },
@@ -109,7 +110,7 @@ export async function listEnvelopes(): Promise<EnvelopeRow[]> {
   }));
 }
 
-export async function getEnvelope(id: string) {
+async function getEnvelopeOriginal(id: string) {
   const { db } = getTenantDb();
   return db.envelope.findUnique({
     where: { id },
@@ -120,3 +121,15 @@ export async function getEnvelope(id: string) {
     },
   });
 }
+
+export const browseFolder = withAuditedHistoricalServerRead("documents.browseFolder", browseFolderOriginal);
+
+export const listAllFolders = withAuditedHistoricalServerRead("documents.listAllFolders", listAllFoldersOriginal);
+
+export const getDocument = withAuditedHistoricalServerRead("documents.getDocument", getDocumentOriginal);
+
+export const listDocumentsForPicker = withAuditedHistoricalServerRead("documents.listDocumentsForPicker", listDocumentsForPickerOriginal);
+
+export const listEnvelopes = withAuditedHistoricalServerRead("documents.listEnvelopes", listEnvelopesOriginal);
+
+export const getEnvelope = withAuditedHistoricalServerRead("documents.getEnvelope", getEnvelopeOriginal);

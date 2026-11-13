@@ -1,3 +1,5 @@
+import { withAuditedHistoricalMutation } from "@/lib/chess/historical-mutation-response-audit-round57";
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Single vendor API (Sprint 20, authenticated). GET returns the vendor with its
  * purchase orders; PATCH updates fields; DELETE removes it. RBAC inventory:manage.
@@ -18,7 +20,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+async function historicalAuditedGet(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await requirePermission("inventory:manage");
     const { db } = getTenantDb();
@@ -30,7 +32,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+async function PATCHOriginal(req: NextRequest, { params }: { params: { id: string } }) {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -60,7 +62,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+async function DELETEOriginal(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await requirePermission("inventory:manage");
     const { db } = getTenantDb();
@@ -70,3 +72,9 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("inventory/vendors/[id]",historicalAuditedGet);
+
+export const PATCH = withAuditedHistoricalMutation("inventory/vendors/[id]", "PATCH", PATCHOriginal);
+
+export const DELETE = withAuditedHistoricalMutation("inventory/vendors/[id]", "DELETE", DELETEOriginal);

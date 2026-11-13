@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Single workgroup API (Sprint 22, authenticated). GET returns the group with
  * the caller's role and member count; PATCH edits settings (OWNER/MODERATOR);
@@ -26,7 +27,7 @@ async function callerRole(db: ReturnType<typeof getTenantDb>["db"], workgroupId:
   return (wm?.role as WorkgroupMemberRole | undefined) ?? null;
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+async function historicalAuditedGet(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await requirePermission("record:read");
     const { db } = getTenantDb();
@@ -80,3 +81,5 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return failWorkgroup(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("workgroups/[id]",historicalAuditedGet);

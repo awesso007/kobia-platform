@@ -1,35 +1,37 @@
 "use server";
 
-/*
- * Contacts server actions. All DB access goes through getTenantDb(). Create and
- * update accept optional tag ids + a custom-field value map, persisted via the
- * shared engines. Every mutation writes an audit entry.
- *
- * No em-dashes in copy by project convention (use hyphens).
+/**
+ * Round 56 Contact server actions: a Contact may be a CHESS ClientProfile,
+ * so ownership alone never permits reading its service details. Current
+ * ClientServiceGrant and exactly one historical business are checked inside
+ * the same SERIALIZABLE transaction that reads/writes and audits records.
  */
 import { revalidatePath } from "next/cache";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
-import { auditWrite } from "@/lib/crm/audit";
-import { requirePermission, isOwn } from "@/lib/rbac/require-permission";
-import { notify } from "@/lib/notifications/notify";
+import { getCurrentMembership, PermissionError } from "@/lib/rbac/require-permission";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
+import { notify } from "@/lib/notifications/notify";
 import { reindex, removeFromIndex } from "@/lib/search";
-import { setEntityTags } from "../settings/tags/actions";
-import { saveCustomFieldValues } from "../settings/custom-fields/actions";
+import {
+  withLegacyCrmTransaction, assertLegacyCrmRecord,
+  verifyLegacyCrmCreateOwner,
+} from "@/lib/chess/legacy-crm-security-round56";
+import { writeLegacyCrmMetadata } from "@/lib/chess/legacy-crm-metadata-round56";
 
 export type ContactInput = {
-  firstName: string;
-  lastName?: string;
-  email?: string;
-  phone?: string;
-  title?: string;
-  companyId?: string;
-  ownerUserId?: string;
-  tagIds?: string[];
-  customFields?: Record<string, unknown>;
+  firstName: string; lastName?: string; email?: string; phone?: string;
+  title?: string; companyId?: string; ownerUserId?: string;
+  tagIds?: string[]; customFields?: Record<string, unknown>;
 };
-
 function dataFrom(input: ContactInput) {
+  if (!input || typeof input.firstName !== "string" ||
+      !input.firstName.trim() || input.firstName.length > 200)
+    throw new Error("Invalid contact first name.");
+  for (const value of [input.lastName, input.email, input.phone, input.title,
+    input.companyId, input.ownerUserId]) {
+    if (value !== undefined && (typeof value !== "string" || value.length > 320))
+      throw new Error("Invalid contact details.");
+  }
   return {
     firstName: input.firstName.trim(),
     lastName: input.lastName?.trim() || null,
@@ -40,67 +42,117 @@ function dataFrom(input: ContactInput) {
     ownerUserId: input.ownerUserId?.trim() || null,
   };
 }
-
-export async function createContact(input: ContactInput) {
-  await requirePermission("record:create");
-  const firstName = input.firstName?.trim();
-  if (!firstName) throw new Error("Contact first name is required.");
-  const { db } = getTenantDb();
-  const contact = await db.contact.create({ data: dataFrom(input) });
-
-  if (input.tagIds) await setEntityTags({ entityType: "CONTACT", entityId: contact.id, tagIds: input.tagIds });
-  if (input.customFields)
-    await saveCustomFieldValues({ entityType: "CONTACT", entityId: contact.id, values: input.customFields });
-
-  await auditWrite({ action: "CREATE", entityType: "CONTACT", entityId: contact.id, diff: { firstName } });
-  const ownerId = input.ownerUserId?.trim();
-  if (ownerId)
-    await notify(ownerId, { type: "ASSIGNMENT", title: `You were assigned a contact: ${firstName}`, linkUrl: "/app/contacts" });
-  await dispatchAutomation({ type: "RECORD_CREATED", entityType: "CONTACT", entityId: contact.id });
-  await reindex(db, "CONTACT", contact.id);
-  revalidatePath("/app/contacts");
-  return contact.id;
+async function actorId(): Promise<string> {
+  const m = await getCurrentMembership();
+  if (!m || m.status !== "ACTIVE") throw new PermissionError("record:read");
+  return m.clerkUserId;
 }
-
-export async function updateContact(id: string, input: ContactInput) {
-  const { db } = getTenantDb();
-  const before = await db.contact.findUnique({ where: { id }, select: { ownerUserId: true } });
-  await requirePermission("record:update", { ownsRecord: await isOwn(before?.ownerUserId) });
-  const firstName = input.firstName?.trim();
-  if (!firstName) throw new Error("Contact first name is required.");
-  await db.contact.update({ where: { id }, data: dataFrom(input) });
-
-  if (input.tagIds) await setEntityTags({ entityType: "CONTACT", entityId: id, tagIds: input.tagIds });
-  if (input.customFields)
-    await saveCustomFieldValues({ entityType: "CONTACT", entityId: id, values: input.customFields });
-
-  await auditWrite({ action: "UPDATE", entityType: "CONTACT", entityId: id, diff: dataFrom(input) });
-  const ownerId = input.ownerUserId?.trim();
-  if (ownerId && ownerId !== before?.ownerUserId)
-    await notify(ownerId, { type: "ASSIGNMENT", title: `You were assigned a contact: ${firstName}`, linkUrl: "/app/contacts" });
-  await dispatchAutomation({ type: "RECORD_UPDATED", entityType: "CONTACT", entityId: id });
-  await reindex(db, "CONTACT", id);
-  revalidatePath("/app/contacts");
-}
-
-export async function deleteContact(id: string) {
-  await requirePermission("record:delete");
-  const { db } = getTenantDb();
-  await db.contact.delete({ where: { id } });
-  await auditWrite({ action: "DELETE", entityType: "CONTACT", entityId: id });
-  await removeFromIndex(db, "CONTACT", id);
-  revalidatePath("/app/contacts");
-}
-
-/** Load linked company + deals + tag ids + custom-field values for the pane. */
-export async function loadContactDetail(id: string) {
-  const { getContactRelations } = await import("./queries");
-  const { getTagsForEntity } = await import("@/lib/crm/tags");
-  const { getCustomFieldValuesFor } = await import("@/lib/crm/custom-fields");
-  const [relations, tags, customValues] = await Promise.all([
-    getContactRelations(id),
-    getTagsForEntity("CONTACT", id),
-    getCustomFieldValuesFor("CONTACT", id),
+async function afterCommit(db: ReturnType<typeof getTenantDb>["db"], id: string,
+  kind: "RECORD_CREATED" | "RECORD_UPDATED") {
+  await Promise.allSettled([
+    dispatchAutomation({ type: kind, entityType: "CONTACT", entityId: id }),
+    reindex(db, "CONTACT", id),
   ]);
-  return { relations, tagIds: tags.map((t) => t.id), customValues };
+  revalidatePath("/app/contacts");
+}
+export async function createContact(input: ContactInput) {
+  const data = dataFrom(input);
+  const user = await actorId();
+  const { db } = getTenantDb();
+  const result = await withLegacyCrmTransaction(db, user, "record:create",
+    "CONTACT", "NEW", "LEGACY_CONTACT_CREATED", async (tx, actor) => {
+      const owner = await verifyLegacyCrmCreateOwner(tx, actor, data.ownerUserId);
+      if (data.companyId)
+        await assertLegacyCrmRecord(tx, actor, "COMPANY", data.companyId, "record:read");
+      const contact = await tx.contact.create({
+        data: { ...data, ownerUserId: owner }, select: { id: true },
+      });
+      await writeLegacyCrmMetadata(tx, "CONTACT", contact.id, input);
+      return { id: contact.id, owner };
+    });
+  await afterCommit(db, result.id, "RECORD_CREATED");
+  if (result.owner && result.owner !== user)
+    await notify(result.owner, {
+      type: "ASSIGNMENT", title: "You were assigned a contact: " + data.firstName,
+      linkUrl: "/app/contacts",
+    }).catch(() => undefined);
+  return result.id;
+}
+export async function updateContact(id: string, input: ContactInput) {
+  const data = dataFrom(input);
+  const user = await actorId();
+  const { db } = getTenantDb();
+  const result = await withLegacyCrmTransaction(db, user, "record:update",
+    "CONTACT", id, "LEGACY_CONTACT_UPDATED", async (tx, actor) => {
+      await assertLegacyCrmRecord(tx, actor, "CONTACT", id, "record:update");
+      const original = await tx.contact.findUniqueOrThrow({
+        where: { id }, select: { ownerUserId: true },
+      });
+      const owner = await verifyLegacyCrmCreateOwner(
+        tx, actor, data.ownerUserId ?? original.ownerUserId,
+      );
+      if (data.companyId)
+        await assertLegacyCrmRecord(tx, actor, "COMPANY", data.companyId, "record:read");
+      await tx.contact.update({ where: { id }, data: { ...data, ownerUserId: owner } });
+      await writeLegacyCrmMetadata(tx, "CONTACT", id, input);
+      return { owner, before: original.ownerUserId };
+    });
+  await afterCommit(db, id, "RECORD_UPDATED");
+  if (result.owner && result.owner !== result.before)
+    await notify(result.owner, {
+      type: "ASSIGNMENT", title: "You were assigned a contact: " + data.firstName,
+      linkUrl: "/app/contacts",
+    }).catch(() => undefined);
+}
+export async function deleteContact(id: string) {
+  const user = await actorId();
+  const { db } = getTenantDb();
+  await withLegacyCrmTransaction(db, user, "record:delete",
+    "CONTACT", id, "LEGACY_CONTACT_DELETED", async (tx, actor) => {
+      await assertLegacyCrmRecord(tx, actor, "CONTACT", id, "record:delete");
+      const linked = await tx.clientProfile.findUnique({
+        where: { contactId: id }, select: { id: true },
+      });
+      // Do not cascade/delete a client's regulated service identity.
+      if (linked) throw new PermissionError("record:delete");
+      await tx.contact.delete({ where: { id } });
+    });
+  await removeFromIndex(db, "CONTACT", id).catch(() => undefined);
+  revalidatePath("/app/contacts");
+}
+export async function loadContactDetail(id: string) {
+  const user = await actorId();
+  const { db } = getTenantDb();
+  return withLegacyCrmTransaction(db, user, "record:read",
+    "CONTACT", id, "LEGACY_CONTACT_DETAIL_READ", async (tx, actor) => {
+      await assertLegacyCrmRecord(tx, actor, "CONTACT", id, "record:read");
+      const [row, deals, tags, values] = await Promise.all([
+        tx.contact.findUniqueOrThrow({
+          where: { id }, include: { company: true },
+        }),
+        tx.deal.findMany({ where: { contactId: id },
+          orderBy: { updatedAt: "desc" }, take: 50 }),
+        tx.tagAssignment.findMany({ where: { entityType: "CONTACT", entityId: id } }),
+        tx.customFieldValue.findMany({ where: { entityType: "CONTACT", entityId: id } }),
+      ]);
+      const visibleDeals = [];
+      for (const deal of deals) {
+        try {
+          await assertLegacyCrmRecord(tx, actor, "DEAL", deal.id, "record:read");
+          visibleDeals.push({ id: deal.id, name: deal.name,
+            amountCents: Number(deal.amountCents), status: deal.status });
+        } catch (error) {
+          if (!(error instanceof PermissionError)) throw error;
+        }
+      }
+      return {
+        relations: {
+          company: row.company ? { id: row.company.id, name: row.company.name,
+            domain: row.company.domain, industry: row.company.industry } : null,
+          deals: visibleDeals,
+        },
+        tagIds: tags.map(t => t.tagId),
+        customValues: Object.fromEntries(values.map(v => [v.customFieldId, v.value])),
+      };
+    });
 }

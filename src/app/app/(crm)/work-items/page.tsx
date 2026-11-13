@@ -1,0 +1,152 @@
+import Link from "next/link";
+import {listBusinessUnits} from "@/lib/chess/business-units";
+import {selectChessWorkspace} from "@/lib/chess/workspace-selection";
+import {listChessWorkItems} from "@/lib/chess/workflow";
+import {getChessManagerQueue,listChessEmployeeAlerts} from "@/lib/chess/employee-operations";
+import WorkItemsClient from "./WorkItemsClient";
+import RecurrencesClient from "./RecurrencesClient";
+import EmployeeAlerts from "./EmployeeAlerts";
+import CalendarConsent from "./CalendarConsent";
+import DelegatedCalendarConnection from "./DelegatedCalendarConnection";
+import AppointmentsClient from "./AppointmentsClient";
+import ManagerQueueClient from "./ManagerQueueClient";
+import {listChessAppointments,listChessAssignableStaff} from "@/lib/chess/appointments";
+import {getMyCalendarPreference} from "@/lib/chess/calendar-preferences";
+import {getChessWorkerHealth} from "@/lib/chess/worker-health";
+import {listChessRecurrences} from "@/lib/chess/recurring-work";
+export const dynamic="force-dynamic";
+export default async function ChessWorkItemsPage({searchParams}:{searchParams:{businessId?:string}}){
+ let businesses:Awaited<ReturnType<typeof listBusinessUnits>>=[];
+ try{businesses=await listBusinessUnits();}catch{
+  return <main className="mx-auto max-w-4xl p-8" role="alert">This workspace is unavailable or access was denied.</main>;
+ }
+ const workspace=selectChessWorkspace(businesses,searchParams.businessId);
+ if(workspace.status!=="READY")return <main role="status"
+  className="mx-auto max-w-4xl space-y-3 p-8">
+  <h1 className="text-2xl font-semibold">Work items unavailable</h1>
+  <p className="text-sm text-slate-700">
+   {workspace.status==="UNAVAILABLE"?
+    "The requested business is no longer assigned to you. Select one of your active workspaces.":
+    "No active business assignment is available. Ask an administrator to assign your workspace."}
+  </p>
+  <Link href="/app/chess-desk" className="text-sm font-semibold text-emerald-800 underline">
+   Return to service desk
+  </Link>
+ </main>;
+ const selected=workspace.selected;
+ const [tasks,alerts,manager,recurrences,calendarPreference,appointments,staff,workerHealth]=await Promise.all([
+  listChessWorkItems(selected.id).catch(()=>null),
+  listChessEmployeeAlerts(selected.id).catch(()=>null),
+  getChessManagerQueue(selected.id).catch(()=>null),
+  listChessRecurrences(selected.id).catch(()=>null),
+  getMyCalendarPreference().catch(()=>null),
+  listChessAppointments(selected.id).catch(()=>null),
+  listChessAssignableStaff(selected.id).catch(()=>null),
+  getChessWorkerHealth().catch(()=>null),
+ ]);
+ const serialize=tasks?.map(t=>({...t,
+  dueAt:t.dueAt?.toISOString()??null,updatedAt:t.updatedAt.toISOString(),
+ }));
+ return <main className="mx-auto max-w-6xl space-y-8 px-6 py-10">
+  <header>
+   <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">CHESS CORP 2 · Operations</p>
+   <h1 className="mt-1 text-3xl font-semibold">Employee work items</h1>
+   <p className="mt-2 text-sm text-slate-600">Tasks, recurring schedules and in-app notifications.</p>
+  </header>
+  <nav aria-label="Business workspaces" className="flex flex-wrap gap-2">
+   {businesses.map(b=><Link key={b.id} href={`/app/work-items?businessId=${encodeURIComponent(b.id)}`}
+    aria-current={selected.id===b.id?"page":undefined}
+    className={`rounded-lg px-3 py-2 text-sm ${selected.id===b.id?"bg-emerald-800 text-white":"border border-slate-200"}`}>
+    {b.name}
+   </Link>)}
+  </nav>
+  <section className="space-y-3">
+   <div className="flex flex-wrap items-center justify-between gap-3">
+    <h2 className="text-xl font-semibold">{selected.name} · Work items</h2>
+    <a href={`/api/chess/calendar.ics?businessId=${encodeURIComponent(selected.id)}`}
+     className="text-sm font-semibold text-emerald-700 hover:underline">Export my calendar (.ics)</a>
+   </div>
+   {serialize?<WorkItemsClient key={selected.id} businessId={selected.id} initialTasks={serialize}/>:
+    <div role="alert" className="space-y-2 rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-900">
+     <p className="font-semibold">Work items could not be loaded</p>
+     <p>Your permissions may have changed or the work queue is unavailable. No task data was shown.</p>
+     <Link href={`/app/work-items?businessId=${encodeURIComponent(selected.id)}`}
+      className="font-semibold underline">Try loading this workspace again</Link>
+    </div>}
+  </section>
+  <section className="space-y-3">
+   <h2 className="text-xl font-semibold">Calendar sharing</h2>
+   {calendarPreference?<><CalendarConsent initialEnabled={calendarPreference.enabled}
+    initialAppointmentsEnabled={calendarPreference.appointmentsEnabled}/>
+    <DelegatedCalendarConnection/></>:
+    <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+     Calendar sharing settings could not be verified. No Off or On state can be assumed.
+     Try reloading this workspace before changing sharing preferences.
+    </p>}
+  </section>
+  <section className="space-y-3">
+   <h2 className="text-xl font-semibold">My notifications</h2>
+   {alerts?<EmployeeAlerts key={selected.id} businessId={selected.id} initialAlerts={alerts.map(a=>({
+    id:a.id,message:a.message,
+    readAt:a.readAt?.toISOString()??null,
+    createdAt:a.createdAt.toISOString(),
+   }))}/>:<p role="alert" className="rounded-lg border border-red-200 p-4 text-sm text-red-800">
+    Notifications could not be loaded. Your access may have changed. Try reloading this workspace.
+   </p>}
+  </section>
+  {manager&&staff&&<section className="space-y-3">
+   <h2 className="text-xl font-semibold">Manager oversight</h2>
+   <ManagerQueueClient key={selected.id} businessId={selected.id} staff={staff} initialQueue={{
+    blocked:manager.blocked.map(item=>({...item,
+     dueAt:item.dueAt?.toISOString()??null,updatedAt:item.updatedAt.toISOString(),
+    })),
+    unassigned:manager.unassigned.map(item=>({...item,
+     dueAt:item.dueAt?.toISOString()??null,updatedAt:item.updatedAt.toISOString(),
+    })),
+    overdue:manager.overdue.map(item=>({...item,
+     dueAt:item.dueAt?.toISOString()??null,updatedAt:item.updatedAt.toISOString(),
+    })),
+   }}/>
+  </section>}
+  {appointments&&staff&&<section className="space-y-3">
+   <div className="flex flex-wrap items-center justify-between gap-3">
+    <h2 className="text-xl font-semibold">Appointments</h2>
+    <a href={`/api/chess/appointments-calendar.ics?businessId=${encodeURIComponent(selected.id)}`}
+     className="text-sm font-semibold text-emerald-700 hover:underline">
+     Export my appointment calendar (.ics)
+    </a>
+   </div>
+   <p className="text-sm text-slate-600">Time slots are protected against overlapping staff bookings.</p>
+   <AppointmentsClient key={selected.id} businessId={selected.id} staff={staff}
+    initialAppointments={appointments.map(item=>({
+     ...item,startAt:item.startAt.toISOString(),endAt:item.endAt.toISOString(),
+     updatedAt:item.updatedAt.toISOString(),
+    }))}/>
+  </section>}
+  {recurrences&&<section className="space-y-3">
+   <h2 className="text-xl font-semibold">Recurring schedules</h2>
+   <p className="text-sm text-slate-600">Scheduled times are stored in UTC. New tasks are created by the configured operations worker.</p>
+   <RecurrencesClient key={selected.id} businessId={selected.id} staff={staff??[]} initialRecurrences={recurrences.map(item=>({
+    ...item,nextRunAt:item.nextRunAt.toISOString(),
+    lastRunAt:item.lastRunAt?.toISOString()??null,
+    lastInspectedAt:item.lastInspectedAt?.toISOString()??null,
+    updatedAt:item.updatedAt.toISOString(),
+   }))}/>
+  </section>}
+  {workerHealth&&<section className="space-y-3 rounded-xl border border-slate-200 p-4">
+   <h2 className="text-xl font-semibold">Operations health</h2>
+   <p className="text-sm text-slate-700">
+    Scheduler: {workerHealth.schedulerStale?"Not recently observed":"Reporting"}
+    {" · "}Late recurring schedules: {workerHealth.activeRecurrences}
+    {" · "}Pending or uncertain task calendar events: {workerHealth.calendarPending}
+    {" · "}Appointment calendar backlog: {workerHealth.appointmentCalendarPending}
+    {" · "}Appointments awaiting staff consent: {workerHealth.appointmentAwaitingConsent}
+   </p>
+   <p className="text-xs text-slate-500">Scheduler health requires an approved, running tenant worker and live monitoring.
+    A green status here does not mean external calendar connections are configured.</p>
+  </section>}
+  <Link href="/app/overview" className="text-sm font-medium text-emerald-700 hover:underline">
+   Back to operations overview
+  </Link>
+ </main>;
+}

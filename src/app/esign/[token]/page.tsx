@@ -9,7 +9,8 @@
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
-import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
+import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { activePublicTenantSchema } from "@/lib/security/public-tenant";
 import { htmlToText } from "@/lib/documents/documents";
 import { markViewed } from "@/lib/documents/envelopes";
 import { SignForm } from "./SignForm";
@@ -41,7 +42,10 @@ export default async function EsignPage({
   if (!tenant) return unavailable;
 
   try {
-    const db = getTenantPrisma(schemaNameForSlug(tenant));
+    if (!/^[A-Za-z0-9_-]{16,128}$/.test(params.token)) return unavailable;
+    const schema = await activePublicTenantSchema(tenant);
+    if (!schema) return unavailable;
+    const db = getTenantPrisma(schema);
     const signer = await db.envelopeSigner.findUnique({ where: { token: params.token } });
     if (!signer) return unavailable;
 
@@ -50,6 +54,12 @@ export default async function EsignPage({
       include: { document: { select: { name: true, bodyHtml: true, kind: true } } },
     });
     if (!envelope) return unavailable;
+    // Do not disclose envelope contents to later, uninvited or declined
+    // signers before they become the current signing party.
+    const active = envelope.status === "SENT" &&
+      (signer.status === "SENT" || signer.status === "VIEWED");
+    const alreadySigned = signer.status === "SIGNED";
+    if (!active && !alreadySigned) return unavailable;
 
     await markViewed(db, params.token).catch(() => undefined);
 

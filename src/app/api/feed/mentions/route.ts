@@ -1,3 +1,4 @@
+import {withAuditedHistoricalGet} from "@/lib/chess/historical-get-response-audit";
 /*
  * Feed mentions API (Sprint 21, authenticated). GET returns posts and comments
  * where the current user is mentioned, most recent first.
@@ -17,7 +18,7 @@ function fail(err: unknown) {
   return NextResponse.json({ ok: false, error: String(err instanceof Error ? err.message : err) }, { status: 500 });
 }
 
-export async function GET(_req: NextRequest) {
+async function historicalAuditedGet(_req: NextRequest) {
   try {
     await requirePermission("record:read");
     const member = await getCurrentMembership();
@@ -29,3 +30,5 @@ export async function GET(_req: NextRequest) {
     return fail(err);
   }
 }
+
+export const GET=withAuditedHistoricalGet("feed/mentions",historicalAuditedGet);
