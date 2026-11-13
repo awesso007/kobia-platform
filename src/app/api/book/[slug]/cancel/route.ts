@@ -12,7 +12,7 @@ import type { NextRequest } from "next/server";
 import { admitPublicSurface } from "@/lib/security/public-surface-round53";
 import { readPublicFormBody, publicFormErrorResponse, PublicFormGateError } from "@/lib/security/public-form-abuse";
 import { notifyOn } from "@/lib/notifications/notify";
-import { secureBookingManageTokenMatches } from "@/lib/security/booking-manage-token";
+import { cancelPublicBookingAtomic } from "@/lib/calendar/public-booking-cancel-round53";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,25 +64,22 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
         ...(failure.retryAfter ? { "Retry-After": failure.retryAfter } : {}),
       } });
   }
-  const booking = await db.booking.findFirst({
-    where: { id: bookingId, bookingPage: { slug: params.slug } },
-    include: { bookingPage: { select: { name: true, ownerClerkUserId: true } } },
-  });
-  if (!booking || !secureBookingManageTokenMatches(token, booking.rescheduleToken)) {
-    return NextResponse.json({ ok: false, error: "Booking not found." }, { status: 404, headers: CORS });
+  let canceled: Awaited<ReturnType<typeof cancelPublicBookingAtomic>>;
+  try {
+    canceled = await cancelPublicBookingAtomic(db, {
+      slug: params.slug, bookingId, token,
+    });
+  } catch {
+    return NextResponse.json({ ok: false, error: "Could not cancel booking." },
+      { status: 503, headers: CORS });
   }
-  // Conditional update prevents two concurrent requests from both executing
-  // cancellation side effects; a repeated valid token remains idempotent.
-  const canceled = await db.booking.updateMany({
-    where: { id: booking.id, rescheduleToken: booking.rescheduleToken, status: { not: "CANCELED" } },
-    data: { status: "CANCELED" },
-  });
-  if (canceled.count === 0) {
-    return NextResponse.json({ ok: true, alreadyCanceled: true }, { status: 200, headers: CORS });
-  }
-  if (booking.eventId) {
-    await db.calendarEvent.update({ where: { id: booking.eventId }, data: { status: "CANCELED" as never } }).catch(() => {});
-  }
+  if (canceled.kind === "NOT_FOUND")
+    return NextResponse.json({ ok: false, error: "Booking not found." },
+      { status: 404, headers: CORS });
+  if (canceled.kind === "ALREADY")
+    return NextResponse.json({ ok: true, alreadyCanceled: true },
+      { status: 200, headers: CORS });
+  const booking = canceled.booking;
 
   if (booking.bookingPage.ownerClerkUserId) {
     await notifyOn(db, booking.bookingPage.ownerClerkUserId, {
