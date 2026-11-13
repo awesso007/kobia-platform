@@ -40,6 +40,9 @@ for(const moduleName of modules){
  const prior=[...src.matchAll(/async function (\w+)Original\s*\(/g)].map(m=>m[1]);
  let verified=0;
  for(const name of prior){
+  // The report runner accepts an already-audited transaction client and
+  // therefore uses the explicit conditional wrapper checked below.
+  if(moduleName==="reports"&&name==="runReport")continue;
   const token='export const '+name+' = withAuditedHistoricalServerRead("'+moduleName+'.'+name+'", '+name+'Original);';
   if(!src.includes(token))issues.push(path+" missing wrapper "+name);
   else verified++;
@@ -63,6 +66,19 @@ for(const moduleName of modules){
  total+=verified;
 }
 if(total!==71||modules.length!==13)issues.push("Expected exactly 71 protected CRM query entrypoints across 13 modules");
+const projectSource=read("src/lib/projects/queries.ts");
+for(const fn of ["getMembersLite","listProjects","getProjectDetail","getMyTasks","getTaskDetail"]){
+ const evidence='export const '+fn+' = withAuditedHistoricalServerRead("projects.'+fn+'", '+fn+'Original);';
+ if(!projectSource.includes(evidence))issues.push("Project sensitive read bypass: "+fn);
+}
+if(!projectSource.includes("getMembersLiteOriginal()"))
+ issues.push("Project internal membership SELECT no longer bound to audited parent");
+const telephonySource=read("src/app/app/(crm)/settings/telephony/actions.ts");
+for(const fn of ["listPhoneNumbers","listMembers","listRules"]){
+ if(!telephonySource.includes('withAuditedHistoricalServerRead("telephony.'+fn+'", async () => {'))
+  issues.push("Telephony sensitive action read bypass: "+fn);
+}
+
 const action=read("src/app/app/(crm)/reports/actions.ts");
 if(!action.includes('withLegacyCrmTransaction(db,actor,"report:run"')||
    !action.includes("if(await tx.clientProfile.count())"))
@@ -81,9 +97,10 @@ for(const path of excluded){
   issues.push(path+" lost prior per-record audited query authorization");
 }
 console.log(JSON.stringify({
- queryModules:modules.length, auditedServerReadEntrypoints:total,
+ queryModules:modules.length, auditedServerReadEntrypoints:total+8,
  atomicTransaction:"live active principal, ONE historical business, all client service grants, SELECT, audit event",
  acceptedNarrowExceptions:["chat.currentUserId (identity only)","reports.runReport(scopedDb) (audited parent required)"],
+ additionalProtectedReadSurfaces:["5 project/task loaders","3 telephony server action reads"],
  otherPriorPerRecordCRMModules:excluded.length,
  remaining:"Other unreviewed loaders, server actions, dynamic helpers and third-party sources need individual review; protected cross-business staged acceptance still open",
  issues,
