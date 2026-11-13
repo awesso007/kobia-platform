@@ -13,6 +13,7 @@ import {
 } from "./public-form-abuse";
 
 export const publicSurfacePolicies = {
+  esign_sign: { tenant: 240, resource: 12, visitor: 20, unknown: 5 },
   unsubscribe: { tenant: 10000, resource: 30, visitor: 30, unknown: 5 },
   booking_submit: { tenant: 60, resource: 20, visitor: 5, unknown: 2 },
   booking_manage: { tenant: 90, resource: 30, visitor: 10, unknown: 3 },
