@@ -53,7 +53,11 @@ SITE_FORM_SUBMIT workflow dispatch from site analytics; demand a
 PUBLISHED site and site-owned PUBLISHED page for recorded events.
 Only publish-ready F2 forms and owned steps can receive client-side
 navigation telemetry. Browser events cannot claim payment/submission
-success, and hosted F2 VIEW uses the metered endpoint. Cancellation
+success, and hosted F2 VIEW uses the metered endpoint. Public reschedule management now checks active
+tenant registry and constant-time bearer tokens, demands a new booking
+challenge, and never claims success when old-cancel fails or a network
+outcome is unknown. Atomic multi-reservation rescheduling is still OPEN.
+Cancellation
 now checks bearer management token and updates booking/event status
 in a serializable transaction; notification is post-commit. New CI
 source, route, unit and independent PostgreSQL-client contention tests.

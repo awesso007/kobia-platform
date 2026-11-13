@@ -7,7 +7,7 @@
 
 Five anonymous entrypoints now share an atomic, tenant-PostgreSQL
 per-minute quota system instead of process-local counters. The shared
-Round 52 approved Cloudflare/Tunrstile, HMAC-key and trusted-ingress
+Round 52 approved Cloudflare/Turnstile, HMAC-key and trusted-ingress
 settings are reused; missing config or database fails closed. Requests
 use an ACTIVE platform tenant and canonical tenant schema. Trust only
 a reverse-proxy-overwritten IP header; arbitrary X-Forwarded-For chains
@@ -60,3 +60,16 @@ This round does NOT certify all other public/machine capabilities,
 cross-business grants, webhook idempotency, external WORM audit custody,
 legal approval or production readiness. 8/8 milestones remain BLOCKED;
 0/8 signed off. Draft PR #24 is NOT merged or deployed.
+
+## Follow-on reschedule self-service review (Round 53)
+
+The public management page now checks ACTIVE tenant registry and exact
+schema, a still-active booking page, and constant-time random manage-token
+verification before revealing invitee details. The reschedule client
+supplies a fresh Turnstile token to the new booking reservation. It tracks
+the replacement booking ID and never submits another replacement after
+a partial success, preserving a retry-only path for canceling the old
+booking. Cancellation failure or an unknown network outcome cannot
+report successful rescheduling or silently double-create a new booking.
+Atomic multi-reservation reschedule is NOT yet implemented; true
+cross-transaction guarantees and support workflows need separate design.

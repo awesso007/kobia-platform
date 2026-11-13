@@ -69,7 +69,10 @@ All three anonymous booking APIs and both public analytics POST APIs now
 check active tenant registry, a shared PostgreSQL tenant/resource/visitor
 rate limit, and a private trusted-IP HMAC. Booking submit additionally
 requires Cloudflare Siteverify with a tenant/page-bound challenge action
-and a visible one-time widget. Booking cancellation retains the bearer
+and a visible one-time widget. Self-service management pages also use ACTIVE tenant and constant-time
+manage-token checks. Reschedule booking now submits a fresh challenge
+and will not claim success or create another replacement if cancellation
+fails or the network outcome is uncertain. Booking cancellation retains the bearer
 token and now commits booking/calendar state atomically. Public analytics
 is telemetry only: no anonymous SITE_FORM_SUBMIT automation, no forged
 F2 payment/submit success, only PUBLISHED site/form and matching

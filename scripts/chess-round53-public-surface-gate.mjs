@@ -52,6 +52,16 @@ if (/"(?:SUBMIT_SUCCESS|PAYMENT_SUCCESS|PAYMENT_INIT)"/.test(f2))
 const f2page = read("src/app/f2/[slug]/page.tsx");
 if (f2page.includes("db.formV2Analytics") || !read("src/app/f2/[slug]/PublicFormUI.tsx").includes('track(formSlug, tenantSlug, "VIEW")'))
   problems.push("F2 hosted page still writes unmetered VIEW on SSR");
+const managePage = read("src/app/book/[slug]/reschedule/[bookingId]/[token]/page.tsx");
+for (const marker of ["activePublicTenantSchema(", "secureBookingManageTokenMatches(", "publicSurfaceAction("])
+  if (!managePage.includes(marker)) problems.push("Public manage page missing " + marker);
+const rescheduler = read("src/app/book/[slug]/reschedule/[bookingId]/[token]/RescheduleClient.tsx");
+for (const marker of ["<PublicFormChallenge", "turnstileToken: challengeToken",
+  "replacementBookingId", "unknownOutcome", "completeOldCancellation"])
+  if (!rescheduler.includes(marker)) problems.push("Reschedule client missing " + marker);
+if (rescheduler.includes("await fetch(") && rescheduler.includes('setResult("rescheduled")') &&
+    !rescheduler.includes("if (!res.ok || !j.ok) throw"))
+  problems.push("Reschedule must not claim completion after failed cancellation");
 const shared = read("src/lib/security/public-surface-round53.ts");
 for (const x of ["claimPublicSurfaceQuota", "activePublicTenantSchema(input.tenant)", "verifyPublicFormChallenge({", "tx.$queryRaw<", "publicFormConfig()", "CHESS_PUBLIC_SURFACE_R53"])
   if (!shared.includes(x)) problems.push("Shared guard missing " + x);
