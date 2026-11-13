@@ -41,6 +41,19 @@ markers("src/app/api/webhooks/twilio/sms/route.ts", [
   "requireSingleLegacyMachineBusiness(tx)", "db.$transaction(async tx",
   "providerMessageSid: sid", "ourNumber.status",
 ]);
+for (const [kind,path] of [
+  ["email_open", "src/app/api/track/open/[recipientId]/route.ts"],
+  ["email_click", "src/app/api/track/click/[recipientId]/route.ts"],
+]) {
+  const source=markers(path, [
+    "verifyLegacyTrackingCapability(", "activeWebhookTenantSchema(",
+    "claimPublicSurfaceQuota(", "trustedPublicFormIp(",
+    "broadcastRecipient.updateMany(", 'status: { in: [',
+  ]);
+  if (!source.includes('kind: "' + kind + '"') ||
+      source.includes("broadcastRecipient.update({"))
+    problems.push(path + " can bypass distributed telemetry quota or atomic recipient update");
+}
 const inbound=markers("src/app/api/email/inbound/route.ts", [
   "inboundMailCredentialDecision(", "tenantRegistry.findUnique",
   "requireSingleLegacyMachineBusiness(db)", "requireSingleLegacyMachineBusiness(tx)",

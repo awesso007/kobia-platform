@@ -12,6 +12,8 @@ import type { NextRequest } from "next/server";
 import { getTenantPrisma } from "@/lib/db/tenant-prisma";
 import { activeWebhookTenantSchema } from "@/lib/security/legacy-webhook-tenant";
 import { verifyLegacyTrackingCapability } from "@/lib/security/legacy-tracking-capability";
+import { claimPublicSurfaceQuota } from "@/lib/security/public-surface-round53";
+import { trustedPublicFormIp } from "@/lib/security/public-form-abuse";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -37,19 +39,25 @@ export async function GET(req: NextRequest, { params }: { params: { recipientId:
   // Pixels remain visually harmless, but do not mutate any recipient without
   // a signed capability bound to its exact tenant and identity.
   const schema = capability ? await activeWebhookTenantSchema(capability.t) : null;
-  if (schema) {
+  if (schema && capability) {
     try {
       const db = getTenantPrisma(schema);
-      const rcpt = await db.broadcastRecipient.findUnique({ where: { id: params.recipientId }, select: { id: true, status: true, openedAt: true } });
-      if (rcpt && (rcpt.status === "SENT" || rcpt.status === "DELIVERED")) {
-        await db.broadcastRecipient.update({
-          where: { id: rcpt.id },
-          data: { status: "OPENED", openedAt: rcpt.openedAt ?? new Date() },
-        });
-      }
+      const trusted = (process.env.CHESS_PUBLIC_FORM_TRUSTED_IP_HEADER ?? "").toLowerCase().trim();
+      await claimPublicSurfaceQuota(db, {
+        tenant: capability.t, kind: "email_open", resource: params.recipientId,
+        clientIp: trustedPublicFormIp(req.headers, trusted),
+        rateKey: process.env.CHESS_PUBLIC_FORM_RATE_HASH_KEY ?? "",
+      });
+      // Atomic conditional: no stale status read can override opt-out.
+      await db.broadcastRecipient.updateMany({
+        where: { id: params.recipientId, status: { in: ["SENT", "DELIVERED"] },
+          openedAt: null },
+        data: { status: "OPENED", openedAt: new Date() },
+      });
     } catch {
-      // Tracking must never fail the pixel response.
+      // Telemetry failures never reveal a recipient or break the pixel.
     }
   }
+
   return pixelResponse();
 }

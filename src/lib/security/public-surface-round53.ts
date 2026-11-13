@@ -13,6 +13,8 @@ import {
 } from "./public-form-abuse";
 
 export const publicSurfacePolicies = {
+  email_open: { tenant: 10000, resource: 50, visitor: 30, unknown: 5 },
+  email_click: { tenant: 10000, resource: 50, visitor: 30, unknown: 5 },
   kb_feedback: { tenant: 600, resource: 60, visitor: 12, unknown: 4 },
   esign_sign: { tenant: 240, resource: 12, visitor: 20, unknown: 5 },
   unsubscribe: { tenant: 10000, resource: 30, visitor: 30, unknown: 5 },
