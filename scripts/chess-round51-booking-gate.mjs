@@ -5,8 +5,12 @@ const routes = ["slots", "submit", "cancel"].map(name =>
   "src/app/api/book/[slug]/" + name + "/route.ts");
 const problems = [];
 for (const path of routes)
-  if (!read(path).includes("activePublicTenantSchema"))
+  if (!read(path).includes("activePublicTenantSchema") &&
+      !read(path).includes("admitPublicSurface("))
     problems.push(path + " missing ACTIVE tenant/schema registry boundary");
+if (routes.some(path => read(path).includes("admitPublicSurface(")) &&
+    !read("src/lib/security/public-surface-round53.ts").includes("activePublicTenantSchema(input.tenant)"))
+  problems.push("Round 53 admission lost ACTIVE tenant registry verification");
 const reserve = read("src/lib/calendar/public-booking.ts");
 for (const marker of [
   "db.$transaction(async tx", 'isolationLevel: "Serializable"',

@@ -59,7 +59,12 @@ for(const [path,expected] of Object.entries(publicMethods))checkMethods(path,exp
 requireTokens("src/app/api/f2/[slug]/payment-intent/route.ts",["status: 503","paid: false"]);
 const payment=read("src/app/api/f2/[slug]/payment-intent/route.ts");
 if(/markSubmissionPaid|stub_|paymentIntent\.create|db\./.test(payment))problems.push("Public payment initiation must be non-mutating until verified receipt design");
-requireTokens("src/app/api/book/[slug]/cancel/route.ts",["secureBookingManageTokenMatches","booking.updateMany"]);
+requireTokens("src/app/api/book/[slug]/cancel/route.ts",["cancelPublicBookingAtomic", "admitPublicSurface"]);
+requireTokens("src/lib/calendar/public-booking-cancel-round53.ts",[
+  "secureBookingManageTokenMatches", "tx.booking.updateMany",
+  "tx.calendarEvent.updateMany", "db.$transaction(async tx",
+  'isolationLevel: "Serializable"',
+]);
 requireTokens("src/app/api/email/inbound/route.ts",["inboundMailCredentialDecision","inboundMailTenantSlug","tenantRegistry.findUnique","emailAccount.findFirst"]);
 if(/DEFAULT_TENANT|fallback to the default tenant/i.test(read("src/app/api/email/inbound/route.ts")))problems.push("Legacy inbound mail tenant fallback detected");
 for(const kind of ["sms/route.ts","sms/status/route.ts","voice/incoming/route.ts","voice/recording/route.ts","voice/status/route.ts"]){

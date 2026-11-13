@@ -67,6 +67,11 @@ jobs:
           node --check scripts/chess-round52-public-form-gate.mjs
           node scripts/chess-round52-public-form-gate.mjs
 
+      - name: Gate Round 53 booking, analytics, and anonymous automation boundaries
+        run: |
+          node --check scripts/chess-round53-public-surface-gate.mjs
+          node scripts/chess-round53-public-surface-gate.mjs
+
       - name: Gate all scheduled legacy machine cron endpoints
         run: |
           node --check scripts/chess-round47-cron-auth-gate.mjs
@@ -247,6 +252,12 @@ jobs:
           DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
           DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
         run: npx vitest run src/lib/security/public-form-abuse-round52.integration.test.ts
+
+      - name: Round 53 cross-instance booking and analytics abuse quotas
+        env:
+          DATABASE_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+          DIRECT_URL: "postgresql://chess:chess_test_only@localhost:5432/chess_demo_ci?schema=tenant_chess_demo"
+        run: npx vitest run src/lib/security/public-surface-round53.integration.test.ts
 
       - name: Verify repeatable fictional demo seed against isolated tenant schema
         env:
