@@ -1,15 +1,15 @@
 # CHESS CORP 2 — single owner-supplied credentials and approvals checklist
 
-**Canonical external-input register | Reconciled Round 52 | Final exact-SHA CI evidence required (November 12, 2026)**
+**Canonical external-input register | Reconciled Round 53 | Final exact-SHA CI evidence required (November 12, 2026)**
 
 **Scope:** CHESS Corporation's service-operations tenant on the **independent KOBIA platform**, on branch `feature/operations-overview` / draft PR #24. This is the **one consolidated list of things the owner, vendor, licensed supervisors or release team must supply**. It replaces scattered round-by-round "you must supply" lists as the planning checklist; those older technical documents remain supporting references, not separate shopping lists.
 
 **Latest independently observed normal CI baseline (not external acceptance):**
-Round 51 final commit `2ed8cc37e2ca39cc422def6813548a4f2ac4b332`
+Round 52 final commit `0748951597380487171d4c4c70ed43b83c06e53c`
 passed all three normal CI jobs in
-[run 43333595164](https://github.com/awesso007/kobia-platform/actions/runs/43333595164).
-Round 52 must obtain a NEW successful three-job run on its exact final SHA;
-source changes cannot be treated as verified before that run.
+[run 43336863201](https://github.com/awesso007/kobia-platform/actions/runs/43336863201).
+Round 53 requires a NEW exact-final-SHA green 3-job normal CI run;
+source changes are not considered verified until that run succeeds.
 No normal CI run supplies actual Clerk browser sign-in, security/axe
 acceptance, legal, storage, provider, staging or production approval.
 No normal CI run can establish a real signed-in Clerk/Neon browser/axe
@@ -19,6 +19,35 @@ external credentials remain under this one checklist; source-only
 placeholder values are NOT owner approval.
 
 **Legend:** `P0` = isolated fictional demo; `P1` = protected staging and compliance pilot; `P2` = production release. **Status of every item below: NOT INDEPENDENTLY VERIFIED / OWNER OR PROVIDER ACTION REQUIRED** unless an approved human reviewer records the external evidence and successful protected staging workflow. This is not a claim that you do not own an account or license. Owners may provide documentation or authorize a specialist to configure it.
+
+## Round 53 — public booking/analytics edge protection and authority
+
+No new external credential names. Reuse Round 52 supply groups
+**02, 03, 04, 06, 15, 17, 18** and its exact settings:
+CHESS_PUBLIC_FORM_ABUSE_ENABLED, NEXT_PUBLIC_CHESS_TURNSTILE_SITE_KEY,
+CHESS_TURNSTILE_SECRET_KEY, CHESS_TURNSTILE_ALLOWED_HOSTNAMES,
+CHESS_PUBLIC_FORM_RATE_HASH_KEY, CHESS_PUBLIC_FORM_TRUSTED_IP_HEADER.
+
+Require external owner/provider evidence for:
+- Authorized Cloudflare widgets and exact hostnames for booking pages,
+  embedded forms and preview domains; TEST live Siteverify rejects
+  expired, reused, malformed, wrong-action and foreign-hostname tokens
+  BEFORE booking/calendar/email and automation writes.
+- Verified edge ingress that overwrites trusted IP header; impossible
+  direct-origin bypass; two independent hosted instances; cross-tenant
+  quota, suspicious unknown IP, same-NAT accessibility, 429 headers,
+  DB outage, proxy compromise and public slot flood tests.
+- Preview of published sites/forms and descendant pages/steps only.
+  Prove anonymous site FORM_SUBMIT never starts a privileged workflow.
+  Prove public F2 events cannot forge paid/complete transaction status.
+  Test concurrent cancel/event status and no notifications on rollback.
+- Independent WAF/bot-score deployment for passive analytics (no
+  interactive CAPTCHA), consent/privacy policy and retention approval,
+  protected multi-tenant/role acceptance and reviewer signature.
+
+Feature flag OFF or missing configured provider/database intentionally
+denies public writes and booking slots. This is a source-only
+milestone, not a production launch. 8/8 release gates remain BLOCKED.
 
 ## Round 52 — public form anti-abuse provider and staging acceptance
 

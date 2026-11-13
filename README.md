@@ -63,6 +63,24 @@ Technical flags-only examples (no secrets) are in
 Never enable real bank posting, payroll execution, payments, regulated
 partner workflows or consent portals from a CI pass alone.
 
+## CHESS CORP 2 Round 53 — distributed booking and analytics protection
+
+All three anonymous booking APIs and both public analytics POST APIs now
+check active tenant registry, a shared PostgreSQL tenant/resource/visitor
+rate limit, and a private trusted-IP HMAC. Booking submit additionally
+requires Cloudflare Siteverify with a tenant/page-bound challenge action
+and a visible one-time widget. Booking cancellation retains the bearer
+token and now commits booking/calendar state atomically. Public analytics
+is telemetry only: no anonymous SITE_FORM_SUBMIT automation, no forged
+F2 payment/submit success, only PUBLISHED site/form and matching
+published page/form-owned step. F2 page VIEW is now metered on the client.
+
+All five public paths fail closed until the existing Round 52 secrets
+and approved trusted ingress are configured. Anonymous tracker calls
+have no interactive CAPTCHA; edge bot controls, independent load and
+hosted provider tests remain open. Report:
+[Round 53 security](docs/CHESS_CORP_2_ROUND53_PUBLIC_SURFACE_SECURITY.md).
+
 ## CHESS CORP 2 Round 52 — distributed protection for public forms
 
 Both public web-to-lead form APIs (legacy and Forms 2.0) now use an
