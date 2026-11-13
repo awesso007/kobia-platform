@@ -241,16 +241,27 @@ export async function markViewed(
   token: string,
   opts: { ipAddress?: string | null; userAgent?: string | null } = {},
 ): Promise<void> {
-  const signer = await db.envelopeSigner.findUnique({ where: { token } });
-  if (!signer) return;
-  if (signer.status === "SENT") {
-    await db.envelopeSigner.update({ where: { id: signer.id }, data: { status: "VIEWED" as never } });
-  }
-  await logAudit(db, signer.envelopeId, "VIEWED", {
-    signerId: signer.id,
-    ipAddress: opts.ipAddress,
-    userAgent: opts.userAgent,
-  });
+  if (!/^[A-Za-z0-9_-]{16,128}$/.test(token)) return;
+  await db.$transaction(async tx => {
+    const signer = await tx.envelopeSigner.findUnique({
+      where: { token }, select: { id: true, envelopeId: true, status: true },
+    });
+    if (!signer || signer.status !== "SENT") return;
+    const env = await tx.envelope.findUnique({
+      where: { id: signer.envelopeId }, select: { status: true },
+    });
+    if (env?.status !== "SENT") return;
+    const changed = await tx.envelopeSigner.updateMany({
+      where: { id: signer.id, status: "SENT" }, data: { status: "VIEWED" },
+    });
+    if (changed.count !== 1) return;
+    await tx.envelopeAuditEvent.create({
+      data: {
+        envelopeId: signer.envelopeId, signerId: signer.id, event: "VIEWED",
+        ipAddress: opts.ipAddress ?? null, userAgent: opts.userAgent ?? null,
+      },
+    });
+  }, { isolationLevel: "Serializable", maxWait: 5000, timeout: 10000 });
 }
 
 /**

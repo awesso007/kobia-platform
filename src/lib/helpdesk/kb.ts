@@ -111,12 +111,19 @@ export async function recordFeedback(
   helpful: boolean,
   comment?: string | null,
 ): Promise<boolean> {
-  const article = await db.kbArticle.findUnique({ where: { id: articleId } });
-  if (!article) return false;
-  await db.kbFeedback.create({ data: { articleId, helpful, comment: comment ?? null } });
-  await db.kbArticle.update({
-    where: { id: articleId },
-    data: helpful ? { helpfulCount: { increment: 1 } } : { notHelpfulCount: { increment: 1 } },
-  });
-  return true;
+  // Publication and counter must be checked/updated in the same tenant
+  // transaction so a withdrawn/unpublished article cannot accept new votes.
+  return db.$transaction(async tx => {
+    const article = await tx.kbArticle.findUnique({
+      where: { id: articleId }, select: { id: true, status: true, visibility: true },
+    });
+    if (!article || article.status !== "PUBLISHED" || article.visibility !== "PUBLIC")
+      return false;
+    await tx.kbFeedback.create({ data: { articleId, helpful, comment: comment ?? null } });
+    await tx.kbArticle.update({
+      where: { id: articleId },
+      data: helpful ? { helpfulCount: { increment: 1 } } : { notHelpfulCount: { increment: 1 } },
+    });
+    return true;
+  }, { isolationLevel: "Serializable", maxWait: 5000, timeout: 10000 });
 }
