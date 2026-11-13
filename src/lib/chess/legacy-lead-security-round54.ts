@@ -22,10 +22,12 @@ export async function liveLegacyLeadActor(
       !can(member.role as Role, action, { ownsRecord: !!ownerId && ownerId === clerkUserId }))
     throw new PermissionError(action);
   const units = await tx.chessBusinessUnit.findMany({
-    where: { status: "ACTIVE" }, select: { id: true }, take: 2,
+    select: { id: true, status: true }, take: 2,
   });
-  // A source row with no businessId cannot be attributed when >1 unit exists.
-  if (units.length > 1) throw new PermissionError(action);
+  // Even an INACTIVE/closed unit still owns historical records. Never expose
+  // legacy unpartitioned data if a tenant has had multiple business units.
+  if (units.length > 1 || (units[0] && units[0].status !== "ACTIVE"))
+    throw new PermissionError(action);
   const businessId = units[0]?.id ?? null;
   if (businessId && member.role === "MEMBER") {
     const assignment = await tx.chessEmployeeAssignment.findUnique({

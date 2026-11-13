@@ -15,6 +15,7 @@ export function registeredWebhookSchema(
   slug: string,
   row: { status: string; schemaName: string } | null,
 ): string | null {
+  if (!validatedWebhookTenantSlug(slug)) return null;
   const expected = schemaNameForSlug(slug);
   return row?.status === "ACTIVE" && row.schemaName === expected ? expected : null;
 }
