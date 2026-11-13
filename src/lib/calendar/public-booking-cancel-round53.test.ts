@@ -14,7 +14,7 @@ function fixture() {
     },
     calendarEvent: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
   };
-  const db = { $transaction: vi.fn(async (cb: (t: typeof tx) => Promise<unknown>) => cb(tx)) };
+  const db = { $transaction: vi.fn(async (cb: (t: typeof tx) => Promise<unknown>, _opts?: unknown) => cb(tx)) };
   return { db, tx };
 }
 describe("Round 53 booking cancellation coupled state boundary", () => {
