@@ -1,150 +1,147 @@
 "use server";
 
-/*
- * Activities server actions. All DB access goes through getTenantDb() so the
- * tenant resolves from request headers (never by importing the tenant Prisma
- * client directly). Each mutation records an audit entry and dispatches the
- * automation engine after the DB write, mirroring the other CRM modules.
- *
- * AuditEntry.entityType is the four-value CrmEntityType (no ACTIVITY), so an
- * activity is audited against its related record (lead/deal/contact/company)
- * when one is set; an orphan activity skips the audit write. The automation
- * dispatch always fires with the ACTIVITY entity type.
- *
- * No em-dashes in copy by project convention (use hyphens).
+/**
+ * Round 56: CRM Activity writes previously had no role check and could
+ * associate an arbitrary client's record. Bind both previous and requested
+ * related records, activity ownership and current ClientServiceGrant to the
+ * same audited serializable transaction. No unaudited orphan writes.
  */
 import { revalidatePath } from "next/cache";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
-import { auditWrite } from "@/lib/crm/audit";
+import { getCurrentMembership, PermissionError } from "@/lib/rbac/require-permission";
 import { dispatchAutomation } from "@/lib/automations/dispatch";
 import { reindex, removeFromIndex } from "@/lib/search";
+import { ACTIVITY_TYPES, type ActivityKind } from "@/lib/crm/record";
 import {
-  ACTIVITY_FK_BY_TYPE,
-  ACTIVITY_TYPES,
-  ENTITY_TYPE_BY_RECORD,
-  type ActivityKind,
-  type RecordType,
-} from "@/lib/crm/record";
-
-const RELATED_TYPES: RecordType[] = ["lead", "deal", "contact", "company"];
-
-function asKind(v: unknown): ActivityKind {
-  return ACTIVITY_TYPES.includes(v as ActivityKind) ? (v as ActivityKind) : "TASK";
-}
-
-export type ActivityInput = {
-  type: string;
-  subject: string;
-  body?: string;
-  dueAt?: string | null;
-  ownerClerkUserId?: string | null;
-  relatedType?: string | null;
-  relatedId?: string | null;
+  withLegacyCrmTransaction, assertLegacyCrmRecord,
+  verifyLegacyCrmCreateOwner, type LegacyCrmEntity, type LegacyTx,
+} from "@/lib/chess/legacy-crm-security-round56";
+import type { LeadActor } from "@/lib/chess/legacy-lead-security-round54";
+const RELATED=["LEAD","DEAL","CONTACT","COMPANY"] as const;
+export type ActivityInput={
+  type:string;subject:string;body?:string;dueAt?:string|null;
+  ownerClerkUserId?:string|null;relatedType?:string|null;relatedId?:string|null;
 };
-
-function relatedRef(input: { relatedType?: string | null; relatedId?: string | null }): {
-  type: RecordType;
-  id: string;
-} | null {
-  if (input.relatedType && input.relatedId && RELATED_TYPES.includes(input.relatedType as RecordType)) {
-    return { type: input.relatedType as RecordType, id: input.relatedId };
+function parse(input:ActivityInput) {
+  if(!input||typeof input.subject!=="string"||
+     !input.subject.trim()||input.subject.length>200||
+     (input.body!==undefined&&
+      (typeof input.body!=="string"||input.body.length>4000)))
+    throw new Error("Invalid activity.");
+  const due=input.dueAt?new Date(input.dueAt):null;
+  if(due&&!Number.isFinite(due.getTime()))throw Error("Invalid due date.");
+  const type=ACTIVITY_TYPES.includes(input.type as ActivityKind)
+    ? input.type as ActivityKind : "TASK" as const;
+  let related: {entity:LegacyCrmEntity;id:string}|null=null;
+  if(input.relatedType||input.relatedId){
+    const e=input.relatedType?.toUpperCase() as LegacyCrmEntity|undefined;
+    if(!e||!RELATED.includes(e)||!input.relatedId||
+       input.relatedId.length>128)throw new PermissionError("activity:create");
+    related={entity:e,id:input.relatedId};
   }
+  return {subject:input.subject.trim(),body:input.body?.trim()||null,
+    dueAt:due,type,related,owner:input.ownerClerkUserId?.trim()||null};
+}
+async function userId(){
+  const m=await getCurrentMembership();
+  if(!m||m.status!=="ACTIVE")throw new PermissionError("activity:create");
+  return m.clerkUserId;
+}
+function currentRef(row:{
+  leadId:string|null;dealId:string|null;
+  contactId:string|null;companyId:string|null;
+}):{entity:LegacyCrmEntity;id:string}|null{
+  if(row.leadId)return{entity:"LEAD",id:row.leadId};
+  if(row.dealId)return{entity:"DEAL",id:row.dealId};
+  if(row.contactId)return{entity:"CONTACT",id:row.contactId};
+  if(row.companyId)return{entity:"COMPANY",id:row.companyId};
   return null;
 }
-
-/** Audit an activity mutation against its related CRM record, if any. */
-async function auditAgainstRelated(
-  action: "CREATE" | "UPDATE" | "DELETE",
-  ref: { type: RecordType; id: string } | null,
-  diff?: unknown,
-) {
-  if (!ref) return;
-  await auditWrite({ action, entityType: ENTITY_TYPE_BY_RECORD[ref.type], entityId: ref.id, diff });
+async function canChange(tx:LegacyTx,actor:LeadActor,row:{
+  ownerClerkUserId:string|null;leadId:string|null;dealId:string|null;
+  contactId:string|null;companyId:string|null;
+}){
+  if(actor.role==="MEMBER"&&row.ownerClerkUserId!==actor.id)
+    throw new PermissionError("record:update");
+  const old=currentRef(row);
+  if(old)await assertLegacyCrmRecord(tx,actor,old.entity,old.id,"record:update");
 }
-
-export async function createActivity(input: ActivityInput) {
-  const subject = input.subject?.trim();
-  if (!subject) throw new Error("Activity subject is required.");
-  const { db } = getTenantDb();
-  const ref = relatedRef(input);
-  const activity = await db.crmActivity.create({
-    data: {
-      type: asKind(input.type),
-      subject,
-      body: input.body?.trim() || null,
-      dueAt: input.dueAt ? new Date(input.dueAt) : null,
-      ownerClerkUserId: input.ownerClerkUserId?.trim() || null,
-      ...(ref ? { [ACTIVITY_FK_BY_TYPE[ref.type]]: ref.id } : {}),
-    },
-  });
-
-  await auditAgainstRelated("CREATE", ref, { activityId: activity.id, subject });
-  await dispatchAutomation({ type: "RECORD_CREATED", entityType: "ACTIVITY", entityId: activity.id });
-  await reindex(db, "ACTIVITY", activity.id);
-  revalidatePath("/app/activities");
-  return activity.id;
-}
-
-export async function updateActivity(id: string, input: ActivityInput) {
-  const subject = input.subject?.trim();
-  if (!subject) throw new Error("Activity subject is required.");
-  const { db } = getTenantDb();
-  const ref = relatedRef(input);
-  await db.crmActivity.update({
-    where: { id },
-    data: {
-      type: asKind(input.type),
-      subject,
-      body: input.body?.trim() || null,
-      dueAt: input.dueAt ? new Date(input.dueAt) : null,
-      ownerClerkUserId: input.ownerClerkUserId?.trim() || null,
-      ...(ref ? { [ACTIVITY_FK_BY_TYPE[ref.type]]: ref.id } : {}),
-    },
-  });
-
-  await auditAgainstRelated("UPDATE", ref, { activityId: id, subject });
-  await dispatchAutomation({ type: "RECORD_UPDATED", entityType: "ACTIVITY", entityId: id });
-  await reindex(db, "ACTIVITY", id);
+async function afterCommit(id:string,action:"RECORD_CREATED"|"RECORD_UPDATED"|"FIELD_CHANGED",
+  changed=false){
+  const {db}=getTenantDb();
+  await Promise.allSettled([
+    dispatchAutomation({type:action,entityType:"ACTIVITY",entityId:id,
+      ...(changed?{changedFields:["completedAt"]}:{})}),
+    reindex(db,"ACTIVITY",id),
+  ]);
   revalidatePath("/app/activities");
 }
-
-/** Toggle the completed state from a list-row checkbox. */
-export async function setActivityComplete(id: string, complete: boolean) {
-  const { db } = getTenantDb();
-  const activity = await db.crmActivity.update({
-    where: { id },
-    data: { completedAt: complete ? new Date() : null },
-  });
-  await auditAgainstRelated(
-    "UPDATE",
-    relatedRefFromRow(activity),
-    { activityId: id, completed: complete },
-  );
-  await dispatchAutomation({
-    type: "FIELD_CHANGED",
-    entityType: "ACTIVITY",
-    entityId: id,
-    changedFields: ["completedAt"],
-  });
-  revalidatePath("/app/activities");
+export async function createActivity(input:ActivityInput){
+  const parsed=parse(input),user=await userId(),{db}=getTenantDb();
+  const id=await withLegacyCrmTransaction(db,user,"activity:create",
+    "LEAD","NEW_ACTIVITY","LEGACY_ACTIVITY_CREATED",async(tx,actor)=>{
+      if(parsed.related)await assertLegacyCrmRecord(tx,actor,parsed.related.entity,
+        parsed.related.id,"record:update");
+      const owner=await verifyLegacyCrmCreateOwner(tx,actor,parsed.owner);
+      const row=await tx.crmActivity.create({data:{
+        type:parsed.type,subject:parsed.subject,body:parsed.body,dueAt:parsed.dueAt,
+        ownerClerkUserId:owner??actor.id,createdByUserId:actor.id,
+        ...(parsed.related?({
+          [{LEAD:"leadId",DEAL:"dealId",CONTACT:"contactId",COMPANY:"companyId"}[parsed.related.entity]]:
+            parsed.related.id,
+        }):{}),
+      },select:{id:true}});
+      return row.id;
+    });
+  await afterCommit(id,"RECORD_CREATED");
+  return id;
 }
-
-export async function deleteActivity(id: string) {
-  const { db } = getTenantDb();
-  const activity = await db.crmActivity.findUnique({ where: { id } });
-  await db.crmActivity.delete({ where: { id } });
-  await auditAgainstRelated("DELETE", relatedRefFromRow(activity), { activityId: id });
-  await removeFromIndex(db, "ACTIVITY", id);
-  revalidatePath("/app/activities");
+export async function updateActivity(id:string,input:ActivityInput){
+  const parsed=parse(input),user=await userId(),{db}=getTenantDb();
+  await withLegacyCrmTransaction(db,user,"record:read",
+    "LEAD",id,"LEGACY_ACTIVITY_UPDATED",async(tx,actor)=>{
+      const before=await tx.crmActivity.findUnique({where:{id}});
+      if(!before)throw new PermissionError("record:update");
+      await canChange(tx,actor,before);
+      if(parsed.related)await assertLegacyCrmRecord(tx,actor,
+        parsed.related.entity,parsed.related.id,"record:update");
+      const owner=await verifyLegacyCrmCreateOwner(tx,actor,
+        parsed.owner??before.ownerClerkUserId);
+      const fk={leadId:null,dealId:null,contactId:null,companyId:null};
+      if(parsed.related){
+        const col={LEAD:"leadId",DEAL:"dealId",CONTACT:"contactId",
+          COMPANY:"companyId"}[parsed.related.entity];
+        fk[col]=parsed.related.id as never;
+      }
+      await tx.crmActivity.update({where:{id},data:{
+        ...fk,type:parsed.type,subject:parsed.subject,
+        body:parsed.body,dueAt:parsed.dueAt,ownerClerkUserId:owner,
+      }});
+    });
+  await afterCommit(id,"RECORD_UPDATED");
 }
-
-function relatedRefFromRow(
-  row: { leadId: string | null; dealId: string | null; contactId: string | null; companyId: string | null } | null,
-): { type: RecordType; id: string } | null {
-  if (!row) return null;
-  if (row.leadId) return { type: "lead", id: row.leadId };
-  if (row.dealId) return { type: "deal", id: row.dealId };
-  if (row.contactId) return { type: "contact", id: row.contactId };
-  if (row.companyId) return { type: "company", id: row.companyId };
-  return null;
+export async function setActivityComplete(id:string,complete:boolean){
+  if(typeof complete!=="boolean")throw Error("Invalid completion.");
+  const user=await userId(),{db}=getTenantDb();
+  await withLegacyCrmTransaction(db,user,"record:read",
+    "LEAD",id,"LEGACY_ACTIVITY_COMPLETION_CHANGED",async(tx,actor)=>{
+      const before=await tx.crmActivity.findUnique({where:{id}});
+      if(!before)throw new PermissionError("record:update");
+      await canChange(tx,actor,before);
+      await tx.crmActivity.update({where:{id},
+        data:{completedAt:complete?new Date():null}});
+    });
+  await afterCommit(id,"FIELD_CHANGED",true);
+}
+export async function deleteActivity(id:string){
+  const user=await userId(),{db}=getTenantDb();
+  await withLegacyCrmTransaction(db,user,"record:delete",
+    "LEAD",id,"LEGACY_ACTIVITY_DELETED",async(tx,actor)=>{
+      const before=await tx.crmActivity.findUnique({where:{id}});
+      if(!before)throw new PermissionError("record:delete");
+      await canChange(tx,actor,before);
+      await tx.crmActivity.delete({where:{id}});
+    });
+  await removeFromIndex(db,"ACTIVITY",id).catch(()=>undefined);
+  revalidatePath("/app/activities");
 }
