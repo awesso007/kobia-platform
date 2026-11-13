@@ -13,6 +13,7 @@
  * No em-dashes in copy by project convention (use hyphens).
  */
 import { useMemo, useState } from "react";
+import { PublicFormChallenge } from "@/components/public-forms/PublicFormChallenge";
 import {
   evaluateVisibility,
   evaluateCalculation,
@@ -42,12 +43,16 @@ export function PublicFormUI({
   form,
   steps,
   fields,
+  siteKey,
+  challengeAction,
 }: {
   tenantSlug: string;
   formSlug: string;
   form: PublicForm;
   steps: PublicStep[];
   fields: PublicField[];
+  siteKey: string;
+  challengeAction: string;
 }) {
   const [values, setValues] = useState<Values>(() => {
     const initial: Values = {};
@@ -60,6 +65,8 @@ export function PublicFormUI({
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [challengeToken, setChallengeToken] = useState<string | null>(null);
+  const [resetNonce, setResetNonce] = useState(0);
   const [done, setDone] = useState(false);
 
   // Group fields per step; fields with no stepId fall into the first step.
@@ -133,6 +140,7 @@ export function PublicFormUI({
 
   async function onSubmit() {
     if (!validateVisibleStep()) return;
+    if (!challengeToken) { setFormError("Please complete the security check."); return; }
     setFormError(null);
     setSubmitting(true);
     track(formSlug, tenantSlug, "SUBMIT_ATTEMPT");
@@ -140,7 +148,7 @@ export function PublicFormUI({
       const res = await fetch(`/api/f2/${encodeURIComponent(formSlug)}/submit?t=${encodeURIComponent(tenantSlug)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ values }),
+        body: JSON.stringify({ values, turnstileToken: challengeToken }),
       });
       const json = (await res.json()) as {
         ok: boolean;
@@ -151,6 +159,8 @@ export function PublicFormUI({
       };
       if (!res.ok || !json.ok) {
         if (json.errors) setErrors(json.errors);
+        setChallengeToken(null);
+        setResetNonce(n => n + 1);
         setFormError(json.error ?? "Please fix the highlighted fields.");
         setSubmitting(false);
         return;
@@ -170,6 +180,8 @@ export function PublicFormUI({
       setDone(true);
     } catch {
       setFormError("Network error. Please try again.");
+      setChallengeToken(null);
+      setResetNonce(n => n + 1);
       setSubmitting(false);
     }
   }
@@ -210,6 +222,10 @@ export function PublicFormUI({
         ))}
       </div>
 
+      {isLastStep && (
+        <PublicFormChallenge siteKey={siteKey} action={challengeAction}
+          onToken={setChallengeToken} resetNonce={resetNonce} />
+      )}
       {formError && (
         <div className="text-sm" style={{ color: "var(--kb-error)" }}>
           {formError}
@@ -225,7 +241,7 @@ export function PublicFormUI({
           <span />
         )}
         {isLastStep ? (
-          <button type="button" onClick={onSubmit} disabled={submitting} className="rounded px-4 py-2 text-sm text-white" style={{ ...primaryBtnStyle, opacity: submitting ? 0.7 : 1 }}>
+          <button type="button" onClick={onSubmit} disabled={submitting || !challengeToken || !siteKey} className="rounded px-4 py-2 text-sm text-white" style={{ ...primaryBtnStyle, opacity: submitting ? 0.7 : 1 }}>
             {submitting
               ? "Submitting..."
               : paymentField

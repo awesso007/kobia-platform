@@ -6,7 +6,9 @@
  *
  * No em-dashes in copy by project convention (use hyphens).
  */
-import { getTenantPrisma, schemaNameForSlug } from "@/lib/db/tenant-prisma";
+import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { activePublicTenantSchema } from "@/lib/security/public-tenant";
+import { publicFormAction } from "@/lib/security/public-form-abuse";
 import { PublicFormClient, type PublicFieldConfig } from "./PublicFormClient";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +38,9 @@ export default async function PublicFormPage({
 
   let form: { name: string; fieldsConfig: unknown; thankYouUrl: string | null; redirectUrl: string | null } | null = null;
   try {
-    const db = getTenantPrisma(schemaNameForSlug(tenantSlug));
+    const schema = await activePublicTenantSchema(tenantSlug);
+    if (!schema) return notFound;
+    const db = getTenantPrisma(schema);
     form = await db.webForm.findUnique({
       where: { slug: params.slug },
       select: { name: true, fieldsConfig: true, thankYouUrl: true, redirectUrl: true },
@@ -59,6 +63,9 @@ export default async function PublicFormPage({
         fields={fields}
         thankYouUrl={form.thankYouUrl}
         redirectUrl={form.redirectUrl}
+        siteKey={process.env.CHESS_PUBLIC_FORM_ABUSE_ENABLED === "true" ?
+          (process.env.NEXT_PUBLIC_CHESS_TURNSTILE_SITE_KEY ?? "") : ""}
+        challengeAction={publicFormAction("legacy", tenantSlug, params.slug)}
       />
     </Shell>
   );
