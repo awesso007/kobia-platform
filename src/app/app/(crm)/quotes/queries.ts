@@ -1,3 +1,4 @@
+import { withAuditedHistoricalServerRead } from "@/lib/chess/historical-server-read-round58";
 import { getTenantDb } from "@/lib/db/get-tenant-db";
 
 export type QuoteListRow = {
@@ -21,7 +22,7 @@ export type QuoteListResult = {
 
 const PAGE_SIZE = 25;
 
-export async function getQuotes(opts: { status?: string; q?: string; page?: number }): Promise<QuoteListResult> {
+async function getQuotesOriginal(opts: { status?: string; q?: string; page?: number }): Promise<QuoteListResult> {
   const { db } = getTenantDb();
   const page = Math.max(1, opts.page ?? 1);
   const where: Record<string, unknown> = {};
@@ -111,7 +112,7 @@ export type QuoteBuilderData = {
   products: { id: string; sku: string; name: string; unitPriceCents: number; taxable: boolean }[];
 };
 
-export async function getQuoteBuilder(id: string): Promise<QuoteBuilderData | null> {
+async function getQuoteBuilderOriginal(id: string): Promise<QuoteBuilderData | null> {
   const { db } = getTenantDb();
   const q = await db.quote.findUnique({ where: { id }, include: { lineItems: { orderBy: { sortOrder: "asc" } } } });
   if (!q) return null;
@@ -164,3 +165,7 @@ export async function getQuoteBuilder(id: string): Promise<QuoteBuilderData | nu
     products,
   };
 }
+
+export const getQuotes = withAuditedHistoricalServerRead("quotes.getQuotes", getQuotesOriginal);
+
+export const getQuoteBuilder = withAuditedHistoricalServerRead("quotes.getQuoteBuilder", getQuoteBuilderOriginal);

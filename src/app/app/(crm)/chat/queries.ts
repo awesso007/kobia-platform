@@ -1,3 +1,4 @@
+import { withAuditedHistoricalServerRead } from "@/lib/chess/historical-server-read-round58";
 /*
  * Chat page server queries (Sprint 16, server-only). Thin wrappers over the
  * shared chat lib that resolve the active tenant via getTenantDb() and the
@@ -17,7 +18,7 @@ export async function currentUserId(): Promise<string> {
 }
 
 /** Active tenant members for @mention autocomplete + DM creation. */
-export async function listMembers() {
+async function listMembersOriginal() {
   const { db } = getTenantDb();
   const rows = await db.membership.findMany({
     where: { status: "ACTIVE" },
@@ -31,13 +32,13 @@ export async function listMembers() {
   }));
 }
 
-export async function channelsForCurrentUser() {
+async function channelsForCurrentUserOriginal() {
   const { db } = getTenantDb();
   const userId = await currentUserId();
   return listChannels(db, userId);
 }
 
-export async function channelDetail(channelId: string) {
+async function channelDetailOriginal(channelId: string) {
   const { db } = getTenantDb();
   const channel = await getChannel(db, channelId);
   if (!channel) return null;
@@ -47,3 +48,9 @@ export async function channelDetail(channelId: string) {
   ]);
   return { channel, messages: page.messages, nextCursor: page.nextCursor, pinned };
 }
+
+export const listMembers = withAuditedHistoricalServerRead("chat.listMembers", listMembersOriginal);
+
+export const channelsForCurrentUser = withAuditedHistoricalServerRead("chat.channelsForCurrentUser", channelsForCurrentUserOriginal);
+
+export const channelDetail = withAuditedHistoricalServerRead("chat.channelDetail", channelDetailOriginal);

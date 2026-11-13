@@ -1,3 +1,4 @@
+import { withAuditedHistoricalServerRead } from "@/lib/chess/historical-server-read-round58";
 /*
  * Sites page server queries (Sprint 17, server-only). Thin wrappers over the
  * shared sites lib that resolve the active tenant via getTenantDb(). Used by the
@@ -16,12 +17,12 @@ import {
   analyticsSummary,
 } from "@/lib/sites/queries";
 
-export async function sitesForTenant() {
+async function sitesForTenantOriginal() {
   const { db } = getTenantDb();
   return listSites(db);
 }
 
-export async function siteDetail(siteId: string) {
+async function siteDetailOriginal(siteId: string) {
   const { db } = getTenantDb();
   const site = await getSite(db, siteId);
   if (!site) return null;
@@ -29,7 +30,7 @@ export async function siteDetail(siteId: string) {
   return { site, pages };
 }
 
-export async function pagesForSite(siteId: string) {
+async function pagesForSiteOriginal(siteId: string) {
   const { db } = getTenantDb();
   const site = await getSite(db, siteId);
   if (!site) return null;
@@ -37,7 +38,7 @@ export async function pagesForSite(siteId: string) {
   return { site, pages };
 }
 
-export async function pageEditorData(siteId: string, pageId: string) {
+async function pageEditorDataOriginal(siteId: string, pageId: string) {
   const { db } = getTenantDb();
   const site = await getSite(db, siteId);
   if (!site) return null;
@@ -46,12 +47,12 @@ export async function pageEditorData(siteId: string, pageId: string) {
   return { site, page };
 }
 
-export async function themesForTenant() {
+async function themesForTenantOriginal() {
   const { db } = getTenantDb();
   return listThemes(db);
 }
 
-export async function domainsForSite(siteId: string) {
+async function domainsForSiteOriginal(siteId: string) {
   const { db } = getTenantDb();
   const site = await getSite(db, siteId);
   if (!site) return null;
@@ -59,10 +60,24 @@ export async function domainsForSite(siteId: string) {
   return { site, domains };
 }
 
-export async function analyticsForSite(siteId: string) {
+async function analyticsForSiteOriginal(siteId: string) {
   const { db } = getTenantDb();
   const site = await getSite(db, siteId);
   if (!site) return null;
   const summary = await analyticsSummary(db, siteId);
   return { site, summary };
 }
+
+export const sitesForTenant = withAuditedHistoricalServerRead("sites.sitesForTenant", sitesForTenantOriginal);
+
+export const siteDetail = withAuditedHistoricalServerRead("sites.siteDetail", siteDetailOriginal);
+
+export const pagesForSite = withAuditedHistoricalServerRead("sites.pagesForSite", pagesForSiteOriginal);
+
+export const pageEditorData = withAuditedHistoricalServerRead("sites.pageEditorData", pageEditorDataOriginal);
+
+export const themesForTenant = withAuditedHistoricalServerRead("sites.themesForTenant", themesForTenantOriginal);
+
+export const domainsForSite = withAuditedHistoricalServerRead("sites.domainsForSite", domainsForSiteOriginal);
+
+export const analyticsForSite = withAuditedHistoricalServerRead("sites.analyticsForSite", analyticsForSiteOriginal);

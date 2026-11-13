@@ -1,3 +1,4 @@
+import { withAuditedHistoricalServerRead } from "@/lib/chess/historical-server-read-round58";
 /*
  * Server-only page data loaders for the Feed module (Sprint 21). These wrap the
  * request-scoped tenant db + current membership and shape the results into
@@ -15,7 +16,7 @@ function canPinFor(role: string | undefined): boolean {
   return role === "ADMIN" || role === "OWNER";
 }
 
-export async function loadFeedPage(filter: FeedFilter) {
+async function loadFeedPageOriginal(filter: FeedFilter) {
   const { db } = getTenantDb();
   const member = await getCurrentMembership();
   const currentUserId = member?.clerkUserId ?? null;
@@ -30,14 +31,14 @@ export async function loadFeedPage(filter: FeedFilter) {
   return { posts, nextCursor, currentUserId, filter, members, canPin: canPinFor(member?.role) };
 }
 
-export async function loadPinnedPage() {
+async function loadPinnedPageOriginal() {
   const { db } = getTenantDb();
   const member = await getCurrentMembership();
   const posts = await listPinned(db);
   return { posts, currentUserId: member?.clerkUserId ?? null, canPin: canPinFor(member?.role) };
 }
 
-export async function loadPostDetail(id: string) {
+async function loadPostDetailOriginal(id: string) {
   const { db } = getTenantDb();
   const member = await getCurrentMembership();
   const [post, members] = await Promise.all([
@@ -54,10 +55,18 @@ export async function loadPostDetail(id: string) {
   return { post, currentUserId: member?.clerkUserId ?? null, members, canPin: canPinFor(member?.role) };
 }
 
-export async function loadMentions() {
+async function loadMentionsOriginal() {
   const { db } = getTenantDb();
   const member = await getCurrentMembership();
   if (!member) return { mentions: [] };
   const mentions = await listMentions(db, member.clerkUserId);
   return { mentions };
 }
+
+export const loadFeedPage = withAuditedHistoricalServerRead("feed.loadFeedPage", loadFeedPageOriginal);
+
+export const loadPinnedPage = withAuditedHistoricalServerRead("feed.loadPinnedPage", loadPinnedPageOriginal);
+
+export const loadPostDetail = withAuditedHistoricalServerRead("feed.loadPostDetail", loadPostDetailOriginal);
+
+export const loadMentions = withAuditedHistoricalServerRead("feed.loadMentions", loadMentionsOriginal);

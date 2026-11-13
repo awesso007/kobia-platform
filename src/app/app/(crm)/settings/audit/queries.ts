@@ -1,3 +1,4 @@
+import { withAuditedHistoricalServerRead } from "@/lib/chess/historical-server-read-round58";
 /*
  * Audit log query helper (server-only). Reads tenant-scoped AuditEntry rows for
  * the /app/settings/audit surface. Supports filtering by entity type, action,
@@ -21,7 +22,7 @@ export type AuditListParams = {
   page?: number;
 };
 
-export async function listAuditEntries(params: AuditListParams): Promise<{
+async function listAuditEntriesOriginal(params: AuditListParams): Promise<{
   rows: AuditRow[];
   total: number;
   page: number;
@@ -88,3 +89,5 @@ export async function listAuditEntries(params: AuditListParams): Promise<{
     actors: actorRows.map((a) => a.actorEmail).filter((a): a is string => Boolean(a)),
   };
 }
+
+export const listAuditEntries = withAuditedHistoricalServerRead("settings/audit.listAuditEntries", listAuditEntriesOriginal);

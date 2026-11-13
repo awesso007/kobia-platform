@@ -1,3 +1,4 @@
+import { withAuditedHistoricalServerRead } from "@/lib/chess/historical-server-read-round58";
 /*
  * Helpdesk read queries (Sprint 15, server-only). All reads go through
  * getTenantDb(). Listing + detail helpers for tickets, the dashboard, teams,
@@ -15,7 +16,7 @@ export type TicketFilters = {
   q?: string;
 };
 
-export async function listTickets(filters: TicketFilters = {}) {
+async function listTicketsOriginal(filters: TicketFilters = {}) {
   const { db } = getTenantDb();
   const where: Record<string, unknown> = {};
   if (filters.status) where.status = filters.status;
@@ -40,7 +41,7 @@ export async function listTickets(filters: TicketFilters = {}) {
   });
 }
 
-export async function getTicket(id: string) {
+async function getTicketOriginal(id: string) {
   const { db } = getTenantDb();
   return db.ticket.findUnique({
     where: { id },
@@ -56,7 +57,7 @@ export async function getTicket(id: string) {
   });
 }
 
-export async function dashboardStats() {
+async function dashboardStatsOriginal() {
   const { db } = getTenantDb();
   const [byStatus, byPriority, total, unassigned] = await Promise.all([
     db.ticket.groupBy({ by: ["status"], _count: { _all: true } }),
@@ -89,12 +90,12 @@ export async function dashboardStats() {
   };
 }
 
-export async function listTeams() {
+async function listTeamsOriginal() {
   const { db } = getTenantDb();
   return db.team.findMany({ orderBy: { name: "asc" } });
 }
 
-export async function listCategories() {
+async function listCategoriesOriginal() {
   const { db } = getTenantDb();
   const [categories, policies] = await Promise.all([
     db.ticketCategory.findMany({ orderBy: { name: "asc" } }),
@@ -107,12 +108,12 @@ export async function listCategories() {
   }));
 }
 
-export async function listSlaPolicies() {
+async function listSlaPoliciesOriginal() {
   const { db } = getTenantDb();
   return db.slaPolicy.findMany({ orderBy: { name: "asc" } });
 }
 
-export async function listKbArticles() {
+async function listKbArticlesOriginal() {
   const { db } = getTenantDb();
   return db.kbArticle.findMany({
     orderBy: { updatedAt: "desc" },
@@ -120,12 +121,30 @@ export async function listKbArticles() {
   });
 }
 
-export async function getKbArticle(id: string) {
+async function getKbArticleOriginal(id: string) {
   const { db } = getTenantDb();
   return db.kbArticle.findUnique({ where: { id }, include: { category: true } });
 }
 
-export async function listKbCategories() {
+async function listKbCategoriesOriginal() {
   const { db } = getTenantDb();
   return db.kbCategory.findMany({ orderBy: [{ order: "asc" }, { name: "asc" }] });
 }
+
+export const listTickets = withAuditedHistoricalServerRead("helpdesk.listTickets", listTicketsOriginal);
+
+export const getTicket = withAuditedHistoricalServerRead("helpdesk.getTicket", getTicketOriginal);
+
+export const dashboardStats = withAuditedHistoricalServerRead("helpdesk.dashboardStats", dashboardStatsOriginal);
+
+export const listTeams = withAuditedHistoricalServerRead("helpdesk.listTeams", listTeamsOriginal);
+
+export const listCategories = withAuditedHistoricalServerRead("helpdesk.listCategories", listCategoriesOriginal);
+
+export const listSlaPolicies = withAuditedHistoricalServerRead("helpdesk.listSlaPolicies", listSlaPoliciesOriginal);
+
+export const listKbArticles = withAuditedHistoricalServerRead("helpdesk.listKbArticles", listKbArticlesOriginal);
+
+export const getKbArticle = withAuditedHistoricalServerRead("helpdesk.getKbArticle", getKbArticleOriginal);
+
+export const listKbCategories = withAuditedHistoricalServerRead("helpdesk.listKbCategories", listKbCategoriesOriginal);

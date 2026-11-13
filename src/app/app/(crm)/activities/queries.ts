@@ -1,3 +1,4 @@
+import { withAuditedHistoricalServerRead } from "@/lib/chess/historical-server-read-round58";
 /*
  * Activity list + calendar query helpers (server-only). Reads through
  * getTenantDb(). CrmActivity stores a nullable FK per related record type
@@ -103,7 +104,7 @@ function buildWhere(params: ActivityListParams): Record<string, unknown> {
   return where;
 }
 
-export async function listActivities(params: ActivityListParams): Promise<{
+async function listActivitiesOriginal(params: ActivityListParams): Promise<{
   rows: ActivityListRow[];
   total: number;
   page: number;
@@ -153,7 +154,7 @@ export async function listActivities(params: ActivityListParams): Promise<{
 }
 
 /** Activities with a dueAt inside the given month (UTC), for the calendar view. */
-export async function listActivitiesForMonth(
+async function listActivitiesForMonthOriginal(
   year: number,
   month: number,
   params: Pick<ActivityListParams, "type" | "owner" | "status" | "relatedType">,
@@ -186,7 +187,7 @@ export async function listActivitiesForMonth(
 }
 
 /** Lightweight option lists for the create-activity related-record picker. */
-export async function listRelatedOptions(): Promise<{
+async function listRelatedOptionsOriginal(): Promise<{
   lead: { id: string; label: string }[];
   deal: { id: string; label: string }[];
   contact: { id: string; label: string }[];
@@ -206,3 +207,9 @@ export async function listRelatedOptions(): Promise<{
     company: companies.map((c) => ({ id: c.id, label: c.name })),
   };
 }
+
+export const listActivities = withAuditedHistoricalServerRead("activities.listActivities", listActivitiesOriginal);
+
+export const listActivitiesForMonth = withAuditedHistoricalServerRead("activities.listActivitiesForMonth", listActivitiesForMonthOriginal);
+
+export const listRelatedOptions = withAuditedHistoricalServerRead("activities.listRelatedOptions", listRelatedOptionsOriginal);

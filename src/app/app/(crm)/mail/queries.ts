@@ -1,3 +1,4 @@
+import { withAuditedHistoricalServerRead } from "@/lib/chess/historical-server-read-round58";
 /*
  * Server-only page data loaders for the Webmail module (Sprint 23). These wrap
  * the request-scoped tenant db + current membership and reuse the shared
@@ -31,7 +32,7 @@ async function ctx() {
 }
 
 /** Accounts + current user for the redirect/picker root. */
-export async function loadAccounts() {
+async function loadAccountsOriginal() {
   const { db, userId } = await ctx();
   const accounts = await listAccounts(db, userId);
   return { accounts, userId };
@@ -46,7 +47,7 @@ type ViewArgs = {
 };
 
 /** The three-pane shell data: account, sidebar rails, and the middle list. */
-export async function loadMailView(args: ViewArgs) {
+async function loadMailViewOriginal(args: ViewArgs) {
   const { db, userId } = await ctx();
   const account = await getOwnedAccount(db, args.accountId, userId);
   if (!account) return null;
@@ -67,7 +68,7 @@ export async function loadMailView(args: ViewArgs) {
 }
 
 /** Shell data plus a fully expanded thread for the reader pane. */
-export async function loadThreadView(accountId: string, threadId: string) {
+async function loadThreadViewOriginal(accountId: string, threadId: string) {
   const { db, userId } = await ctx();
   const account = await getOwnedAccount(db, accountId, userId);
   if (!account) return null;
@@ -93,7 +94,7 @@ export async function loadThreadView(accountId: string, threadId: string) {
 }
 
 /** Compose page: shell rails + drafts + signatures for the composer. */
-export async function loadComposeView(accountId: string) {
+async function loadComposeViewOriginal(accountId: string) {
   const { db, userId } = await ctx();
   const account = await getOwnedAccount(db, accountId, userId);
   if (!account) return null;
@@ -107,7 +108,7 @@ export async function loadComposeView(accountId: string) {
 }
 
 /** Settings page: labels, filters, signatures. */
-export async function loadSettingsView(accountId: string) {
+async function loadSettingsViewOriginal(accountId: string) {
   const { db, userId } = await ctx();
   const account = await getOwnedAccount(db, accountId, userId);
   if (!account) return null;
@@ -120,3 +121,13 @@ export async function loadSettingsView(accountId: string) {
   ]);
   return { account, accounts, labels, filters, signatures, drafts };
 }
+
+export const loadAccounts = withAuditedHistoricalServerRead("mail.loadAccounts", loadAccountsOriginal);
+
+export const loadMailView = withAuditedHistoricalServerRead("mail.loadMailView", loadMailViewOriginal);
+
+export const loadThreadView = withAuditedHistoricalServerRead("mail.loadThreadView", loadThreadViewOriginal);
+
+export const loadComposeView = withAuditedHistoricalServerRead("mail.loadComposeView", loadComposeViewOriginal);
+
+export const loadSettingsView = withAuditedHistoricalServerRead("mail.loadSettingsView", loadSettingsViewOriginal);

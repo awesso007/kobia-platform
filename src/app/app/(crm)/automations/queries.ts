@@ -1,3 +1,4 @@
+import { withAuditedHistoricalServerRead } from "@/lib/chess/historical-server-read-round58";
 /*
  * Automations query helpers (server-only). Reads through getTenantDb(). Lists
  * automations (excluding soft-deleted) and recent runs per automation.
@@ -40,7 +41,7 @@ export type AutomationRunRow = {
   actionsExecuted: unknown;
 };
 
-export async function listAutomations(): Promise<AutomationRow[]> {
+async function listAutomationsOriginal(): Promise<AutomationRow[]> {
   const { db } = getTenantDb();
   const rows = await db.automation.findMany({
     where: { deletedAt: null },
@@ -63,7 +64,7 @@ export async function listAutomations(): Promise<AutomationRow[]> {
   }));
 }
 
-export async function getAutomation(id: string): Promise<AutomationRow | null> {
+async function getAutomationOriginal(id: string): Promise<AutomationRow | null> {
   const { db } = getTenantDb();
   const a = await db.automation.findUnique({ where: { id }, include: { _count: { select: { runs: true } } } });
   if (!a || a.deletedAt) return null;
@@ -83,7 +84,7 @@ export async function getAutomation(id: string): Promise<AutomationRow | null> {
   };
 }
 
-export async function listAutomationRuns(automationId: string, limit = 50): Promise<AutomationRunRow[]> {
+async function listAutomationRunsOriginal(automationId: string, limit = 50): Promise<AutomationRunRow[]> {
   const { db } = getTenantDb();
   const runs = await db.automationRun.findMany({
     where: { automationId },
@@ -102,3 +103,9 @@ export async function listAutomationRuns(automationId: string, limit = 50): Prom
     actionsExecuted: r.actionsExecuted,
   }));
 }
+
+export const listAutomations = withAuditedHistoricalServerRead("automations.listAutomations", listAutomationsOriginal);
+
+export const getAutomation = withAuditedHistoricalServerRead("automations.getAutomation", getAutomationOriginal);
+
+export const listAutomationRuns = withAuditedHistoricalServerRead("automations.listAutomationRuns", listAutomationRunsOriginal);
