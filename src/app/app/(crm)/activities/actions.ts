@@ -12,6 +12,7 @@ import { getCurrentMembership, PermissionError } from "@/lib/rbac/require-permis
 import { dispatchAutomation } from "@/lib/automations/dispatch";
 import { reindex, removeFromIndex } from "@/lib/search";
 import { ACTIVITY_TYPES, type ActivityKind } from "@/lib/crm/record";
+import { can } from "@/lib/rbac/permissions";
 import {
   withLegacyCrmTransaction, assertLegacyCrmRecord,
   verifyLegacyCrmCreateOwner, type LegacyCrmEntity, type LegacyTx,
@@ -138,7 +139,8 @@ export async function deleteActivity(id:string){
   await withLegacyCrmTransaction(db,user,"record:delete",
     "LEAD",id,"LEGACY_ACTIVITY_DELETED",async(tx,actor)=>{
       const before=await tx.crmActivity.findUnique({where:{id}});
-      if(!before)throw new PermissionError("record:delete");
+      if(!before || !can(actor.role,"record:delete"))
+        throw new PermissionError("record:delete");
       await canChange(tx,actor,before);
       await tx.crmActivity.delete({where:{id}});
     });
